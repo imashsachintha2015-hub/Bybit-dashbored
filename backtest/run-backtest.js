@@ -29,7 +29,40 @@ const { MetaLearner } = require('../swarm/meta-learner.js');
 const baselineV2 = require('./baseline-v2.js');
 
 const TAKER_FEE = 0.00055;   // Bybit linear perp taker fee
+const MAKER_FEE = 0.00010;   // Bybit linear perp maker fee (VIP-3 tier)
 const SLIPPAGE = 0.0002;     // 2 bps assumed on market fills
+
+/**
+ * Execution style.
+ *
+ *   'taker'  — market in, market out. What the system does today.
+ *   'maker'  — resting limit entry at the setup price, limit take-profits.
+ *              Stops stay market (a stop that waits for a fill is not a stop).
+ *
+ * This is not a detail. Every losing result in this repository was dominated by
+ * the cost term, and the cost term is the only quantity in the whole system
+ * under the operator's direct control. A taker round trip costs ~15 bps once
+ * slippage is counted; a maker round trip costs ~2. Against a stop roughly 1%
+ * wide, that is the difference between paying 15% of the risked amount in fees
+ * on every trade and paying 2%.
+ *
+ * The cost of maker entries is that some trades never fill. That is modelled:
+ * the limit only fills if price actually trades through it, and if it does not
+ * within `MAKER_ENTRY_TIMEOUT_BARS` the signal is abandoned. Missed trades are
+ * counted and reported, because a fill rate below 100% is the real price of
+ * this and hiding it would make the comparison meaningless.
+ */
+let EXEC_STYLE = 'taker';
+let MAKER_ENTRY_TIMEOUT_BARS = 3;
+/**
+ * How far BETTER than the signal price the resting limit is placed, in bps.
+ * Zero means joining the touch, which fills almost every time and is therefore
+ * the most optimistic assumption available. Larger values mean waiting for a
+ * better price: a lower fee AND a better entry, paid for by missing the trades
+ * that never come back. The sweep below exists because this parameter, not the
+ * signal, is what decides the result.
+ */
+let MAKER_OFFSET_BPS = 0;
 
 const DATA_DIR = path.join(__dirname, 'data');
 
@@ -91,7 +124,10 @@ function fillPrice(price, side, isEntry) {
   return price * (1 + adverse * SLIPPAGE);
 }
 
-function feeOn(notional) { return notional * TAKER_FEE; }
+function feeOn(notional, style) {
+  const isMaker = (style || EXEC_STYLE) === 'maker';
+  return notional * (isMaker ? MAKER_FEE : TAKER_FEE);
+}
 
 /**
  * Maps a timestamp to "how many bars of `series` have closed by then".
@@ -154,7 +190,7 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
   const trades = [];
   const gradeCounts = {};
   const blockerCounts = {};
-  let evaluations = 0, signalsRaised = 0;
+  let evaluations = 0, signalsRaised = 0, missedEntries = 0;
   const entryRejects = {};
 
   const seek15 = buildAligner(m15);
@@ -260,11 +296,31 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       if (gate.allowed) {
         const next = m5[i + 1];
         const side = state.decision === 'BUY' ? 'Buy' : 'Sell';
-        const entry = fillPrice(next.open, side, true);
+
+        // Entry fill. In taker mode we cross the spread at the next open. In
+        // maker mode we rest a limit at the signal price and only trade if the
+        // market comes to us — no slippage, maker fee, and some signals simply
+        // never fill. Missed fills are counted, not quietly dropped.
+        let entry = null;
+        if (EXEC_STYLE === 'maker') {
+          const base = state.entry || bar.close;
+          const limit = side === 'Buy'
+            ? base * (1 - MAKER_OFFSET_BPS / 10000)
+            : base * (1 + MAKER_OFFSET_BPS / 10000);
+          let filled = false;
+          for (let k = 1; k <= MAKER_ENTRY_TIMEOUT_BARS && i + k < m5.length; k++) {
+            const b = m5[i + k];
+            if (side === 'Buy' ? b.low <= limit : b.high >= limit) { filled = true; break; }
+          }
+          if (filled) entry = limit; else missedEntries++;
+        } else {
+          entry = fillPrice(next.open, side, true);
+        }
+
         // Re-anchor the stop to the actual fill so risk stays exactly 0.5%.
         const stop = state.stopLoss;
-        const riskDist = Math.abs(entry - stop);
-        if (riskDist > 0) {
+        const riskDist = entry === null ? 0 : Math.abs(entry - stop);
+        if (entry !== null && riskDist > 0) {
           const sized = gov.sizePosition({ entry, stop, equity, symbol, qtyStep: 0.0001, minQty: 0.0001 });
           if (sized.qty <= 0) entryRejects[`sizing: ${sized.rejected}`.slice(0, 60)] = (entryRejects[`sizing: ${sized.rejected}`.slice(0, 60)] || 0) + 1;
           if (sized.qty > 0) {
@@ -306,9 +362,10 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
     const t = open.trade;
     const fraction = pm.config.scaleOutFractions[index];
     const qty = open.qty * fraction;
-    const exit = fillPrice(level, t.side, false);
+    // A take-profit is a resting limit by nature — price comes to it.
+    const exit = EXEC_STYLE === 'maker' ? level : fillPrice(level, t.side, false);
     const gross = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * qty;
-    const net = gross - feeOn(qty * exit);
+    const net = gross - feeOn(qty * exit, EXEC_STYLE === 'maker' ? 'maker' : 'taker');
     equity += net;
     open.netMoney += net;
     open.remainingQty -= qty;
@@ -321,7 +378,9 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
     const exit = fillPrice(price, t.side, false);
     if (qty > 0) {
       const gross = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * qty;
-      const net = gross - feeOn(qty * exit);
+      // Stops and invalidation exits are market orders: a stop that waits for a
+      // maker fill is not a stop.
+      const net = gross - feeOn(qty * exit, 'taker');
       equity += net;
       open.netMoney += net;
     }
@@ -348,7 +407,8 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
 
   return summarise({ symbol, engine: opts.swarmEnabled === false ? 'V3 (swarm off)' : 'V3 (swarm)', mode, tfLabel: tf.label,
     trades, equity, startEquity, maxDrawdown, evaluations, signalsRaised, gradeCounts, blockerCounts, entryRejects,
-    analystReport: metaLearner.report(), bars: m5.length, source: bundle.source });
+    analystReport: metaLearner.report(), missedEntries, execStyle: EXEC_STYLE,
+    bars: m5.length, source: bundle.source });
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -496,7 +556,7 @@ function report(results) {
       const ns = pair.v3NoSwarm;
       console.log(`  Swarm OFF (same bars): ${ns.tradeCount} trades, win ${ns.winRate}%, expectancy ${ns.expectancyR >= 0 ? '+' : ''}${ns.expectancyR}R, PF ${ns.profitFactor}`);
     }
-    console.log(`  V3 signals raised: ${v3.signalsRaised}, entries taken: ${v3.tradeCount}`);
+    console.log(`  V3 signals raised: ${v3.signalsRaised}, entries taken: ${v3.tradeCount}${v3.missedEntries ? `, limit entries missed: ${v3.missedEntries}` : ''} (exec: ${v3.execStyle})`);
     if (v3.entryRejects && Object.keys(v3.entryRejects).length) console.log(`  V3 entry rejections: ${JSON.stringify(v3.entryRejects)}`);
     console.log(`  V3 exits: ${JSON.stringify(v3.exitBreakdown)}`);
     console.log(`  V2 exits: ${JSON.stringify(v2.exitBreakdown)}`);
@@ -544,6 +604,9 @@ function report(results) {
 function main() {
   const a = args();
   if (a.pm) global.__MASIS_PM_OVERRIDE__ = JSON.parse(a.pm);
+  if (a.exec === 'maker' || a.exec === 'taker') EXEC_STYLE = a.exec;
+  if (a.makerOffset != null) MAKER_OFFSET_BPS = parseFloat(a.makerOffset);
+  if (a.makerTimeout != null) MAKER_ENTRY_TIMEOUT_BARS = parseInt(a.makerTimeout, 10);
   if (a.quiet) { const noop = () => {}; global.__origLog = console.log; console.log = noop; }
   const startEquity = parseFloat(a.equity || '1000');
   // Optional: analyst weights seeded from the offline predictive-value study.

@@ -490,3 +490,38 @@ node backtest/fetch-derivatives.js BTC,ETH,SOL     # OI, funding, positioning, r
 node backtest/evaluate-analysts.js --horizon 8 --step 3
 node backtest/run-backtest.js --mode swing --ab 1 --swarmMode advisory
 ```
+
+---
+
+## 8. Research: where the edge actually is (V3.2)
+
+Four runnable studies in `research/`, measured on the same data as the trading
+system. Full write-up in [`research/README.md`](research/README.md).
+
+The headline, because it changes what to do next more than anything else in this
+repository: **the same signals, on the same bars, with the same risk sizing,
+cross from losing to profitable on execution style alone.**
+
+| execution | trades | win % | expectancy |
+|---|---|---|---|
+| taker (market in and out) | 66 | 42.4 | **−0.089R** |
+| maker, limit at the touch | 66 | 45.5 | **+0.016R** |
+| maker, limit 10 bps better | 59 | 47.5 | **+0.169R** |
+
+That swing is larger than every signal improvement made across this entire
+project, the analyst swarm included. It is available via `--exec maker` in the
+backtest, and it is the change to make before any further work on prediction.
+
+The other three findings, briefly:
+
+- **Direction is near-unpredictable; volatility is not.** Return autocorrelation
+  is ~0.01 at every lag. Absolute-return autocorrelation is 0.30 and decays
+  slowly, and recent volatility explains ~20% of future volatility. Forecast
+  the quantity that is forecastable.
+- **"Do it 100,000 times" multiplies the per-trade number, it cannot change its
+  sign.** At the best measured edge (0.264 bps) against an 11 bps retail taker
+  round trip, 100,000 repetitions costs 107% of the stake.
+- **Funding harvest is real and small.** Delta-neutral, ~4.2%/yr net on BTC and
+  ETH over the window measured. The selective "only when funding is positive"
+  variant loses to simply staying on, because re-entry fees exceed what the
+  timing saves.
