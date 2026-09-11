@@ -60,7 +60,10 @@
     breakEvenAfterTp: 1,              // move stop to entry once TP1 is banked
     trailAfterTp: 2,                  // start trailing once TP2 is banked
     trailAtrMultiple: 2.0,
-    scaleOutFractions: [0.30, 0.35, 0.35]
+    scaleOutFractions: [0.30, 0.35, 0.35],
+    // Whether a confirmed close beyond the invalidation level closes the trade
+    // ahead of the stop. Sounds obviously right; measured below.
+    useStructuralExit: true
   };
 
   const EXIT = {
@@ -196,7 +199,7 @@
 
       // ── 5. Structural invalidation: a CLOSE beyond the level, not a poke ──
       const candle = market.confirmedCandle;
-      if (candle && trade.invalidation) {
+      if (this.config.useStructuralExit && candle && trade.invalidation) {
         const brokeStructure = isLong
           ? candle.close < trade.invalidation
           : candle.close > trade.invalidation;

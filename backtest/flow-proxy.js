@@ -35,6 +35,23 @@ class FlowProxy {
     this.typicalSpreadPct = typicalSpreadPct;
     this.mtf = [];
     this.cumDelta = 0;
+    // Measured taker buy/sell notional, when the derivatives feed supplies it.
+    // This replaces the bar-shape proxy for the single most important flow
+    // input with real data — bar shape and actual aggression genuinely diverge,
+    // which is the entire reason delta divergence is a tradeable signal.
+    this.takerRows = [];
+  }
+
+  /** Feed real hourly taker buy/sell notional (causally, newest last). */
+  setTakerData(rows) { this.takerRows = rows || []; }
+
+  /** Measured taker buy share over the trailing window, or null if unavailable. */
+  measuredTakerRatio(hours = 3) {
+    const rows = this.takerRows.filter(r => r.takerBuy != null && r.takerSell != null).slice(-hours);
+    if (rows.length < 2) return null;
+    const buy = rows.reduce((a, r) => a + r.takerBuy, 0);
+    const sell = rows.reduce((a, r) => a + r.takerSell, 0);
+    return (buy + sell) > 0 ? buy / (buy + sell) : null;
   }
 
   /** Called once per confirmed MTF bar as the backtest walks forward. */
@@ -148,13 +165,20 @@ class FlowProxy {
   }
 
   snapshot(lastCandle, atrValue, candles) {
-    const r1 = this._windowRatio(3);
-    const r5 = this._windowRatio(12);
+    // Prefer measured aggression; fall back to bar shape only where the feed
+    // has no coverage. The snapshot says which was used so nothing downstream
+    // has to guess how much to trust it.
+    const measured1 = this.measuredTakerRatio(1);
+    const measured5 = this.measuredTakerRatio(3);
+    const r1 = measured1 != null ? measured1 : this._windowRatio(3);
+    const r5 = measured5 != null ? measured5 : this._windowRatio(12);
+    const isMeasured = measured5 != null;
     return {
       available: true,
-      proxy: true,
-      flow1m: { available: true, ratio: r1, delta: 0, sampleSize: 3, concentration: 0, buyCount: 0, sellCount: 0 },
-      flow5m: { available: true, ratio: r5, delta: 0, sampleSize: 12, concentration: 0, buyCount: 0, sellCount: 0 },
+      proxy: !isMeasured,
+      measuredFlow: isMeasured,
+      flow1m: { available: true, ratio: r1, delta: 0, sampleSize: 3, concentration: 0, buyCount: 0, sellCount: 0, measured: measured1 != null },
+      flow5m: { available: true, ratio: r5, delta: 0, sampleSize: 12, concentration: 0, buyCount: 0, sellCount: 0, measured: isMeasured },
       book: this.bookState(),
       absorption: this.detectAbsorption(lastCandle, atrValue),
       burst: this.detectFlowBurst(),

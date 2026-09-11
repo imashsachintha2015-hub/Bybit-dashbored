@@ -45,18 +45,24 @@
         I: require('./agents/indicators.js'),
         Regime: require('./agents/regime-agent.js'),
         Playbooks: require('./agents/playbooks.js'),
-        Flow: require('./agents/flow-agent.js')
+        Flow: require('./agents/flow-agent.js'),
+        Panel: require('./swarm/panel.js'),
+        Debate: require('./swarm/debate.js'),
+        MetaLearner: require('./swarm/meta-learner.js')
       }
     : {
         I: root.MasisIndicators,
         Regime: root.MasisRegimeAgent,
         Playbooks: root.MasisPlaybooks,
-        Flow: root.MasisFlowAgent
+        Flow: root.MasisFlowAgent,
+        Panel: root.SwarmPanel,
+        Debate: root.SwarmDebate,
+        MetaLearner: root.SwarmMetaLearner
       };
   const api = factory(deps);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else { root.MasisEngine = api.MasisEngine; root.MasisEngineModule = api; }
-})(typeof globalThis !== 'undefined' ? globalThis : this, function ({ I, Regime, Playbooks, Flow }) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function ({ I, Regime, Playbooks, Flow, Panel, Debate, MetaLearner }) {
 
   /**
    * Timeframes, in Bybit interval notation.
@@ -102,6 +108,39 @@
 
       this.atrPctHistory = [];
       this.lastState = null;
+
+      // Derivatives context (open interest, funding, crowd positioning, real
+      // taker volume), fed hourly. Without it the Positioning analyst reports
+      // UNAVAILABLE rather than pretending the reading is neutral.
+      this.derivs = [];
+
+      // The swarm. The meta-learner persists across trades so analyst weights
+      // reflect measured reliability rather than assumption.
+      this.metaLearner = options.metaLearner ||
+        (MetaLearner ? new MetaLearner.MetaLearner() : null);
+      this.lastPanel = [];
+      this.lastVerdict = null;
+      /**
+       * How much authority the analyst panel has over execution. Three modes,
+       * and the default is set by measurement rather than by preference:
+       *
+       *   'off'      — panel does not run.
+       *   'advisory' — panel runs, is displayed, and its FATAL vetoes block
+       *                trades (entering into a liquidity shelf, joining crowded
+       *                and well-paid positioning, leaning on a spoofed level,
+       *                trading into a fresh trap). Its directional opinion does
+       *                NOT have to agree with the setup.
+       *   'gating'   — as advisory, plus the panel's thesis must match the
+       *                setup's direction.
+       *
+       * Default is 'advisory'. On the backtest window, full gating measured
+       * WORSE than no panel at all (-0.389R vs -0.092R), while the panel's
+       * fatal vetoes are risk-management rules that are sound on their own
+       * terms. Shipping the mode that measured worse because it sounds more
+       * sophisticated would be the same mistake V2 made with its agent names.
+       */
+      this.swarmMode = options.swarmMode || (options.swarmEnabled === false ? 'off' : 'advisory');
+      this.swarmEnabled = this.swarmMode !== 'off';
     }
 
     // ─── Ingestion ───
@@ -154,6 +193,7 @@
       }
     }
     setSetupPerformance(p) { if (p) this.setupPerformance = p; }
+    setDerivatives(rows) { if (Array.isArray(rows)) this.derivs = rows; }
     setLlmVerdict(v) { this.llmVerdict = v; }
 
     reset() {
@@ -328,17 +368,95 @@
       const atrMtf = I.atr(mtf, 14);
       const flowSnapshot = this.flow.snapshot(mtf[mtf.length - 1], atrMtf, mtf);
 
+      // ─── The swarm reads the market, then argues about it ───
+      // The panel runs first and independently of any setup. This ordering is
+      // deliberate: the analysts must not be shown a candidate and asked to
+      // justify it, because that is how a panel becomes a rubber stamp.
+      const swarmCtx = {
+        mtf, htf, ltf, price: this.price, atrMtf,
+        derivs: this.derivs, flowAgent: this.flow,
+        now: this.now(), symbol: this.symbol,
+        // Analysts whose model is only valid in certain conditions need to know
+        // the conditions. Without this a mean-reversion analyst votes against
+        // trends and a trap-fade analyst votes against momentum.
+        regime: regime.regime, bias: regime.bias
+      };
+      const panel = (Panel && this.swarmEnabled) ? Panel.run(swarmCtx) : [];
+      const metaWeights = this.metaLearner ? this.metaLearner.weights(regime.regime) : {};
+      const verdict = (Debate && this.swarmEnabled)
+        ? Debate.deliberate(panel, metaWeights)
+        : { thesis: null, conviction: 0, blocked: false, blockers: [], transcript: [], fatalVetoes: [] };
+      this.lastPanel = panel;
+      this.lastVerdict = verdict;
+
+      // Liquidity pools become real targets. A target placed at the next shelf
+      // of resting stops is a place price is actually drawn to; an arbitrary R
+      // multiple is a place price has no particular reason to reach.
+      const liquidityRead = panel.find(p => p.id === 'liquidity');
+      const swarmLevels = [];
+      for (const p of panel) for (const l of (p.levels || [])) swarmLevels.push(l);
+
       const candidates = Playbooks.evaluate({
         regime, htf, mtf, ltf,
         flow: flowSnapshot,
         atrMtf,
         price: this.price,
-        symbol: this.symbol
+        symbol: this.symbol,
+        liquidityPools: liquidityRead ? liquidityRead.levels : [],
+        swarmLevels
       });
 
       const best = candidates.length ? candidates[0] : null;
       const { gates, blocks } = this.applyGates(best, regime);
+
+      // ─── The swarm gate ───
+      // A playbook pattern is the mechanics of an entry. It is not permission
+      // to take one. The panel must independently want this direction.
+      if (best && this.swarmMode === 'gating') {
+        gates.swarmAgrees = verdict.thesis === best.direction;
+        if (!gates.swarmAgrees) {
+          if (verdict.blocked) {
+            blocks.push(`Analyst panel stood down: ${verdict.blockers[0] || 'no surviving thesis'} — the ${best.name} pattern is present but nobody on the panel wants this trade`);
+          } else if (verdict.thesis) {
+            blocks.push(`Analyst panel reads ${verdict.thesis} while the ${best.name} pattern points ${best.direction} — taking a setup the panel disagrees with is how a pattern-matcher trades into a wall`);
+          } else {
+            blocks.push('Analyst panel reached no directional consensus');
+          }
+        }
+      }
+
+      // Fatal vetoes apply in BOTH advisory and gating mode. These are hazard
+      // rules, not opinions: they describe a specific reason this entry is
+      // structurally bad, and none of them depends on the panel guessing
+      // direction correctly.
+      if (best && this.swarmEnabled) {
+        const fatal = (verdict.fatalVetoes || []).filter(f => {
+          const target = Debate && Debate.vetoTarget ? Debate.vetoTarget(f.veto) : null;
+          return !target || target === best.direction;
+        });
+        gates.noFatalHazard = fatal.length === 0;
+        for (const f of fatal) blocks.push(`${f.source}: ${f.veto}`);
+      }
+
       const allPassed = Object.values(gates).every(v => v === true);
+
+      // The final grade is the playbook's pattern quality tempered by how
+      // strongly the panel actually wants it. A textbook pattern the analysts
+      // are lukewarm about is not an A setup, and V2's failure was precisely
+      // treating pattern presence as sufficient.
+      if (best && this.swarmMode === 'gating' && verdict.thesis === best.direction) {
+        // The panel MODULATES the pattern's quality rather than being averaged
+        // into it. Averaging a 0-1 conviction with a 0-100 score (the first cut
+        // did) drags every setup toward the middle and pushes nearly all of
+        // them below the trading threshold — the panel ends up acting as a
+        // blanket dampener rather than a discriminator. A conviction of 0.5 is
+        // neutral here; below it the pattern is marked down, above it, up.
+        const modifier = I.clamp(0.7 + verdict.conviction * 0.6, 0.7, 1.3);
+        best.patternScore = best.score;
+        best.panelConviction = verdict.conviction;
+        best.score = Math.round(I.clamp(best.score * modifier, 0, 100));
+        best.grade = Playbooks.grade(best.score);
+      }
 
       let decision = 'NO_TRADE';
       if (best && allPassed) {
@@ -363,6 +481,8 @@
 
     buildOutput({ decision, regime, candidate, nowStr, validity, gates = {}, blocks = [], flowSnapshot, alternatives = [] }) {
       const g = candidate ? candidate.geometry : null;
+      const candidateScore = candidate && candidate.patternScore != null ? candidate.patternScore : (candidate ? candidate.score : 0);
+      const candidatePanelConviction = candidate && candidate.panelConviction != null ? candidate.panelConviction : null;
       return {
         symbol: this.symbol,
         timestamp: nowStr,
@@ -405,6 +525,26 @@
           imbalance: flowSnapshot.book.available ? +flowSnapshot.book.imbalance.toFixed(3) : null
         } : null,
 
+        panel: (this.lastPanel || []).map(p => ({
+          id: p.id, name: p.name, read: p.read,
+          conviction: +(p.conviction || 0).toFixed(2),
+          evidence: p.evidence, vetoes: p.vetoes, facts: p.facts
+        })),
+        verdict: this.lastVerdict ? {
+          thesis: this.lastVerdict.thesis,
+          rejectedThesis: this.lastVerdict.rejectedThesis,
+          conviction: this.lastVerdict.conviction,
+          blocked: this.lastVerdict.blocked,
+          transcript: this.lastVerdict.transcript,
+          supporters: this.lastVerdict.supporters,
+          opposition: this.lastVerdict.opposition,
+          fatalVetoes: this.lastVerdict.fatalVetoes,
+          longScore: this.lastVerdict.longScore,
+          shortScore: this.lastVerdict.shortScore
+        } : null,
+        patternScore: candidateScore,
+        panelConviction: candidatePanelConviction,
+        analystWeights: this.metaLearner ? this.metaLearner.weights(regime ? regime.regime : 'UNKNOWN') : {},
         whale: Object.assign({}, this.whaleSignal),
         news: { label: this.newsSignal.sentimentLabel, score: this.newsSignal.sentimentScore, headline: this.newsSignal.headline },
         macro: Object.assign({}, this.macroSignal),

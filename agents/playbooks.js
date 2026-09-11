@@ -126,7 +126,13 @@
   }
 
   /** Nearest untested pivot above/below current price, from confirmed swings. */
-  function nearestLevels(structure, price, atrValue) {
+  /**
+   * Where is the trade actually going? Swing pivots are one answer; the
+   * Liquidity Cartographer's pools are a better one, because price is drawn to
+   * resting stops for a mechanical reason — that is where size can be filled.
+   * When a pool sits beyond the first target it becomes the target.
+   */
+  function nearestLevels(structure, price, atrValue, liquidityPools) {
     // Micro-pivots a few ticks away are noise, not resistance. Require a level
     // to sit at least a third of an ATR away before it is allowed to influence
     // target placement, and only look at the most recent pivots — an old level
@@ -134,11 +140,25 @@
     const minDist = (atrValue || 0) * 0.33;
     const recentHighs = structure.swingHighs.slice(-12);
     const recentLows = structure.swingLows.slice(-12);
-    const above = recentHighs.filter(h => h.price > price + minDist).sort((a, b) => a.price - b.price);
-    const below = recentLows.filter(l => l.price < price - minDist).sort((a, b) => b.price - a.price);
+    const above = recentHighs.filter(h => h.price > price + minDist).map(h => ({ price: h.price, src: 'swing' }));
+    const below = recentLows.filter(l => l.price < price - minDist).map(l => ({ price: l.price, src: 'swing' }));
+
+    // Fold in mapped liquidity pools, weighted by magnet strength — a heavy,
+    // untested shelf is a more reliable destination than a random old pivot.
+    for (const pool of (liquidityPools || [])) {
+      if (!pool || typeof pool.price !== 'number') continue;
+      if ((pool.magnet != null) && pool.magnet < 0.18) continue;
+      if (pool.price > price + minDist) above.push({ price: pool.price, src: pool.kind || 'pool', magnet: pool.magnet });
+      else if (pool.price < price - minDist) below.push({ price: pool.price, src: pool.kind || 'pool', magnet: pool.magnet });
+    }
+
+    above.sort((a, b) => a.price - b.price);
+    below.sort((a, b) => b.price - a.price);
     return {
       nextResistance: above.length ? above[0].price : null,
-      nextSupport: below.length ? below[0].price : null
+      nextSupport: below.length ? below[0].price : null,
+      resistanceSource: above.length ? above[0].src : null,
+      supportSource: below.length ? below[0].src : null
     };
   }
 
@@ -232,7 +252,7 @@
       distFromValue <= 0.2 ? 1 : I.clamp(1 - (distFromValue - 0.2) / 1.3, 0, 1),
       `Entry sits ${Math.max(distFromValue, 0).toFixed(2)} ATR beyond the value zone`));
 
-    const structure = nearestLevels(struct, price, atrMtf);
+    const structure = nearestLevels(struct, price, atrMtf, ctx.liquidityPools);
     const geometry = buildRiskGeometry(dir, price, swingExtreme, atrMtf, structure);
     if (!geometry) return null;
 
@@ -314,7 +334,7 @@
       regime.regime === 'RANGE' ? 1 : (regime.bias === dir ? 0.85 : 0.35),
       `Regime ${regime.regime}, bias ${regime.bias}`));
 
-    const structure = nearestLevels(struct, price, atrMtf);
+    const structure = nearestLevels(struct, price, atrMtf, ctx.liquidityPools);
     const geometry = buildRiskGeometry(dir, price, sweepExtreme, atrMtf, structure);
     if (!geometry) return null;
 
@@ -467,7 +487,7 @@
       regime.regime === 'TREND' && regime.bias === dir ? 1 : 0.45,
       `Regime ${regime.regime}, bias ${regime.bias}`));
 
-    const structure = nearestLevels(struct, price, atrMtf);
+    const structure = nearestLevels(struct, price, atrMtf, ctx.liquidityPools);
     const invalidation = dir === 'LONG' ? Math.min(brokenLevel, Math.min(...recent.map(c => c.low))) : Math.max(brokenLevel, Math.max(...recent.map(c => c.high)));
     const geometry = buildRiskGeometry(dir, price, invalidation, atrMtf, structure);
     if (!geometry) return null;

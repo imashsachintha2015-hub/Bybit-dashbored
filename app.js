@@ -115,8 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Per-symbol engines ───
   const engines = {}, whaleTrackers = {}, latestStates = {};
+  // One shared meta-learner across symbols: analyst reliability is a property
+  // of the analyst and the regime, not of the ticker.
+  const metaLearner = new SwarmMetaLearner.MetaLearner();
+
   WATCHLIST.forEach(sym => {
-    engines[sym] = new MasisEngine({ symbol: sym });
+    engines[sym] = new MasisEngine({ symbol: sym, metaLearner, swarmMode: 'advisory' });
     whaleTrackers[sym] = typeof WhaleTracker !== 'undefined' ? new WhaleTracker({ symbol: sym }) : null;
   });
 
@@ -298,6 +302,12 @@ document.addEventListener('DOMContentLoaded', () => {
       logEvent(`Failed to record outcome for ${trade.symbol}: ${e.message}`);
     }
     if (trade.riskAmount) riskGovernor.recordOutcome({ symbol: trade.symbol, pnl: realisedPnl, rMultiple: r });
+    // Score the panel as it stood AT ENTRY, so analysts are judged on what they
+    // said before the outcome was known.
+    if (trade.entryPanel && trade.entryPanel.length) {
+      metaLearner.recordOutcome(trade.regime, trade.entryPanel,
+        trade.side === 'Buy' ? 'LONG' : 'SHORT', r);
+    }
   }
 
   async function closePositionSlice(pos, trade, qty, reason, detail) {
@@ -756,10 +766,63 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCoinCards();
   }, 5000);
 
+  const READ_CLASS = {
+    BULLISH: 'bull', DRAW_UP: 'bull', BEARISH: 'bear', DRAW_DOWN: 'bear',
+    DANGER: 'danger', NEUTRAL: '', UNAVAILABLE: 'dim'
+  };
+
+  /** The panel, as a panel: every specialist's read, its conviction, and what
+   * it is actually looking at. Collapsed to one line each, expandable on hover
+   * via the title attribute — the full reasoning is always available rather
+   * than summarised away. */
+  function renderAnalystPanel(s) {
+    const el = $('analystPanel');
+    if (!el) return;
+    const panel = s.panel || [];
+    if (!panel.length) {
+      el.innerHTML = '<div class="analyst-empty">Analyst panel is warming up — it needs higher-timeframe history before it will offer a read.</div>';
+      return;
+    }
+    const weights = s.analystWeights || {};
+    el.innerHTML = `
+      <div class="analyst-head">ANALYST PANEL <span class="analyst-sub">${panel.length} specialists · independent reads</span></div>
+      ${panel.map(a => {
+        const cls = READ_CLASS[a.read] || '';
+        const w = weights[a.id];
+        const tip = [...(a.evidence || []), ...(a.vetoes || []).map(v => 'VETO: ' + v)].join(' \n\n').replace(/"/g, '&quot;');
+        return `<div class="analyst-row ${cls}" title="${tip}">
+          <span class="an-name">${a.name}</span>
+          <span class="an-read">${a.read}</span>
+          <span class="an-conv"><span class="an-bar" style="width:${Math.round((a.conviction || 0) * 100)}%"></span></span>
+          <span class="an-w">${w && Math.abs(w - 1) > 0.01 ? '×' + w.toFixed(2) : ''}</span>
+          ${(a.vetoes || []).length ? `<span class="an-veto">${a.vetoes.length} veto</span>` : ''}
+        </div>`;
+      }).join('')}`;
+  }
+
+  /** The debate, shown as a debate. If the panel talked itself out of a trade,
+   * the reason it did so is the most useful thing on the screen. */
+  function renderDebate(s) {
+    const el = $('debateTranscript');
+    if (!el) return;
+    const v = s.verdict;
+    if (!v) { el.innerHTML = ''; return; }
+    const outcome = v.thesis
+      ? `<span class="debate-verdict ${v.thesis === 'LONG' ? 'bull' : 'bear'}">${v.thesis} · conviction ${v.conviction}</span>`
+      : `<span class="debate-verdict none">NO THESIS${v.rejectedThesis ? ` (${v.rejectedThesis} abandoned)` : ''}</span>`;
+    el.innerHTML = `
+      <div class="debate-head">DELIBERATION ${outcome}</div>
+      ${(v.transcript || []).map(t => `<div class="debate-line">${t}</div>`).join('')}
+      ${(v.fatalVetoes || []).length ? `<div class="debate-fatal">${v.fatalVetoes.map(f => `<div>⛔ ${f.source}: ${f.veto}</div>`).join('')}</div>` : ''}
+      ${(v.opposition || []).length ? `<div class="debate-opp"><div class="debate-sub">Counter-case</div>${v.opposition.slice(0, 3).map(o => `<div>• <em>${o.source}</em>: ${o.argument}</div>`).join('')}</div>` : ''}`;
+  }
+
   function renderFocusedPanels(whaleSummary) {
     const s = latestStates[state.symbol];
     if (whaleSummary) renderWhalePanel(whaleSummary);
     if (!s) return;
+    renderAnalystPanel(s);
+    renderDebate(s);
 
     const decisionEl = $('masisDecision');
     if (decisionEl) {

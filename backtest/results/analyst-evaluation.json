@@ -1,0 +1,142 @@
+{
+  "generatedAt": "2026-09-11T14:12:11.689Z",
+  "horizon": 8,
+  "step": 3,
+  "rows": [
+    {
+      "analyst": "derivatives",
+      "n": 1692,
+      "hitRate": 49,
+      "avgFwdAtr": 0.1981,
+      "avgConviction": 0.36,
+      "byRegime": {
+        "CHOP": {
+          "n": 415,
+          "hits": 197,
+          "sumMove": 17.843697484653568
+        },
+        "MIXED": {
+          "n": 930,
+          "hits": 463,
+          "sumMove": 147.10543324461054
+        },
+        "TREND": {
+          "n": 347,
+          "hits": 169,
+          "sumMove": 170.24521897855405
+        }
+      },
+      "firstHalf": null,
+      "secondHalf": 0.1981,
+      "firstN": 0,
+      "secondN": 1692
+    },
+    {
+      "analyst": "traps",
+      "n": 1159,
+      "hitRate": 54.7,
+      "avgFwdAtr": 0.1422,
+      "avgConviction": 0.63,
+      "byRegime": {
+        "MIXED": {
+          "n": 747,
+          "hits": 392,
+          "sumMove": 86.5285582703159
+        },
+        "CHOP": {
+          "n": 336,
+          "hits": 193,
+          "sumMove": 64.95847431824546
+        },
+        "TREND": {
+          "n": 76,
+          "hits": 49,
+          "sumMove": 13.372828005317412
+        }
+      },
+      "firstHalf": 0.145,
+      "secondHalf": 0.1391,
+      "firstN": 612,
+      "secondN": 547
+    },
+    {
+      "analyst": "__DEBATE__",
+      "n": 7592,
+      "hitRate": 52.6,
+      "avgFwdAtr": 0.1092,
+      "avgConviction": 0.59,
+      "byRegime": {
+        "TREND": {
+          "n": 978,
+          "hits": 498,
+          "sumMove": 139.58636675205835
+        },
+        "MIXED": {
+          "n": 4595,
+          "hits": 2423,
+          "sumMove": 442.5741399095821
+        },
+        "CHOP": {
+          "n": 2019,
+          "hits": 1075,
+          "sumMove": 247.01167654881468
+        }
+      },
+      "firstHalf": 0.0856,
+      "secondHalf": 0.13,
+      "firstN": 3554,
+      "secondN": 4038
+    },
+    {
+      "analyst": "volumeProfile",
+      "n": 3397,
+      "hitRate": 57.2,
+      "avgFwdAtr": 0.0953,
+      "avgConviction": 0.58,
+      "byRegime": {
+        "MIXED": {
+          "n": 2472,
+          "hits": 1404,
+          "sumMove": 146.42206925365826
+        },
+        "CHOP": {
+          "n": 925,
+          "hits": 538,
+          "sumMove": 177.35726742519992
+        }
+      },
+      "firstHalf": 0.1688,
+      "secondHalf": 0.0192,
+      "firstN": 1728,
+      "secondN": 1669
+    },
+    {
+      "analyst": "liquidity",
+      "n": 6546,
+      "hitRate": 49,
+      "avgFwdAtr": 0.0635,
+      "avgConviction": 0.62,
+      "byRegime": {
+        "TREND": {
+          "n": 1018,
+          "hits": 509,
+          "sumMove": 131.12837697949286
+        },
+        "MIXED": {
+          "n": 3777,
+          "hits": 1851,
+          "sumMove": 242.53633285995537
+        },
+        "CHOP": {
+          "n": 1751,
+          "hits": 846,
+          "sumMove": 42.0464868798651
+        }
+      },
+      "firstHalf": 0.0173,
+      "secondHalf": 0.1051,
+      "firstN": 3099,
+      "secondN": 3447
+    }
+  ]
+}

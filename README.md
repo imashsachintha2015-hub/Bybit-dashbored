@@ -357,3 +357,136 @@ In priority order, with the reasoning:
    and re-run before changing a threshold.
 5. **Resist adding playbooks.** The failure mode being escaped is exactly the
    one that more, weaker signals recreate.
+
+---
+
+## 7. The analyst swarm (V3.1)
+
+V3's "agents" were deterministic rule modules with grand names. This adds a real
+panel of specialists that read the market the way a desk does, argue about it,
+and can veto each other.
+
+### The analysts
+
+| Analyst | What it actually reads |
+|---|---|
+| **Liquidity Cartographer** | Where the stops are. Equal highs/lows, session and previous-day extremes, round numbers, swing clusters — each scored for how much resting liquidity is likely there, how untested it is, and how close. Price is drawn to resting liquidity because that is the only place size can be filled. |
+| **Trap Forensics** | Completed trap sequences: inducement → raid → rejection → corroboration. Classifies SFP, failed breakout, liquidity grab and stop hunt. A poke through a level is not a trap; all four legs are required. |
+| **Positioning & Derivatives** | Open interest, funding, crowd long/short ratio and measured taker volume. Classifies the OI/price quadrant (new longs / short covering / new shorts / long liquidation), detects squeeze fuel and coiled leverage. |
+| **Market Structure** | BOS, CHoCH, order blocks, fair value gaps, premium/discount location. |
+| **Volume Profile** | POC, value area, high- and low-volume nodes. Where business actually got done. |
+| **Manipulation Forensics** | Spoofing, layering, iceberg signatures (live book), plus momentum ignition, wash-trade and liquidity-vacuum patterns from bars alone. |
+| **Session & Time** | Asia/London/NY, killzones, thin-book hours, weekends. Scales confidence; never argues a direction. |
+
+### How they argue
+
+Analysts read the market independently — none sees another's conclusion, so
+their agreement carries information. Then `swarm/debate.js` runs four stages:
+
+1. **Weighted vote** — conviction × reliability weight from the meta-learner.
+2. **Red team** — the provisional thesis is handed to an adversary that builds
+   the counter-case from dissenting evidence and every veto naming this
+   direction. A thesis that cannot outweigh its own best counter-argument is
+   not traded.
+3. **Fatal vetoes** — a small set of objections that cannot be outvoted:
+   entering into a dense untapped liquidity shelf, joining crowded and
+   well-paid positioning that price is refusing to reward, leaning on a level
+   shown to be spoofed, or trading into a fresh trap.
+4. **Concerns** — graded objections that shrink conviction without arguing the
+   other side. A concern is a reason to trade smaller; an opposing read is a
+   reason not to trade.
+
+`swarm/meta-learner.js` tracks how often each analyst agreed with the
+profitable direction, bucketed by regime, and reweights accordingly. Weights
+are bounded to [0.4, 1.6] and do not move at all below 15 observations.
+
+### What the measurement says — read this part
+
+Trade-level statistics cannot settle whether an analyst is any good; a backtest
+window produces a few dozen trades and a few dozen observations cannot separate
+skill from luck. So `backtest/evaluate-analysts.js` scores every analyst against
+forward returns on **every bar** — thousands of observations each.
+
+Average forward move over 8 × 15m bars, in the direction the analyst pointed
+(0.00 = no edge):
+
+| Analyst | n | hit % | avg forward (ATR) | 1st half | 2nd half |
+|---|---|---|---|---|---|
+| Positioning & Derivatives | 1,692 | 49.0 | **+0.198** | no data | +0.198 |
+| Trap Forensics | 1,159 | 54.7 | **+0.142** | +0.145 | +0.139 |
+| *Debate output* | 7,592 | 52.6 | **+0.109** | +0.086 | +0.130 |
+| Volume Profile | 3,397 | 57.2 | +0.095 | +0.169 | +0.019 |
+| Liquidity Cartographer | 6,546 | 49.0 | +0.064 | +0.017 | +0.105 |
+| Market Structure | 8,092 | 45.8 | **−0.040** | — | — |
+
+Three things came out of this, and two of them changed the code:
+
+- **Market Structure has no directional edge.** Break-of-structure pointed the
+  right way 45.8% of the time — most breaks fail, which is a known property of
+  the pattern. It no longer votes on direction and contributes levels, order
+  blocks and location instead. It was *not* inverted to profit from the negative
+  reading: fitting a sign to one dataset is how backtest artefacts are born.
+- **Volume Profile and Trap Forensics were voting where their model is invalid.**
+  Reversion to the POC is the wrong model in a trend (measured −0.241 ATR there),
+  and a trap fade against an established trend is a counter-trend trade wearing
+  a pattern's clothing (−0.096 ATR). Both now abstain in those conditions. That
+  single change took the debate from +0.040 to +0.109 ATR and made it positive
+  in *every* regime.
+- **Derivatives is the strongest analyst by a wide margin**, and in a trending
+  regime it is worth +0.491 ATR. Caveat: OKX retains only 30 days of open
+  interest and funding, so this analyst has **no first-half data and no
+  out-of-sample validation.** Treat it as promising, not proven.
+
+### And now the part that matters most
+
+**The analytical layer has measurable, split-sample-consistent directional edge.
+None of the three integration modes converts it into better trade outcomes.**
+
+Swing mode, same bars, same costs:
+
+| Panel mode | trades | win % | expectancy |
+|---|---|---|---|
+| off | 66 | 42.4 | −0.089R |
+| advisory (fatal vetoes only) | 18 | 50.0 | −0.153R |
+| gating (thesis must agree) | 34 | 32.4 | −0.389R |
+
+Full gating is clearly worse. Advisory is indistinguishable from off on 18
+trades. The simplest configuration is still the best one measured.
+
+The likely reason is arithmetic rather than mysterious: a **+0.109 ATR** edge is
+real but small against a **~1 ATR** stop plus **~0.2R** of round-trip costs. The
+panel is more often right about direction without being right by enough to pay
+for the risk being taken. Requiring consensus may also select for *later*
+entries — consensus forms after a move is underway — which is consistent with
+the gating mode showing a lower win rate and larger average loss.
+
+**Default is `advisory`.** The panel runs, its reasoning is displayed, and its
+fatal vetoes stay active because they are sound risk rules on their own terms
+rather than directional guesses. It is set to `advisory` and not `gating`
+because gating measured worse, and shipping the more sophisticated-sounding
+mode over the better-measured one is the same mistake V2 made with its agent
+names. `swarmMode: 'off'` is one option away.
+
+### A correction to Section 1
+
+While building this I found a bug in my own harness: each timeframe was fetched
+to the same **bar count**, so 12,000 one-minute bars covered 8 days while 12,000
+fifteen-minute bars covered 126 days. The intrabar stop check used only the
+1-minute series, so **stops went unchecked inside the bar for roughly 93% of
+every swing-mode run** and losses could run past 1R before a bar closed. The
+path now falls back through progressively coarser series and finally to the
+decision bar's own high/low, which is the most pessimistic option available.
+
+Section 1's V3 figures were produced before that fix. The corrected swing-mode
+V3 baseline is **66 trades at −0.089R** rather than 38 at −0.015R. The V2
+comparison is unaffected in its conclusion — V2 remains decisively negative at
+−0.335R over 1,051 trades — but the gap between V2 and V3 is smaller than
+Section 1 states.
+
+### Running the analyst study
+
+```bash
+node backtest/fetch-derivatives.js BTC,ETH,SOL     # OI, funding, positioning, real taker volume
+node backtest/evaluate-analysts.js --horizon 8 --step 3
+node backtest/run-backtest.js --mode swing --ab 1 --swarmMode advisory
+```

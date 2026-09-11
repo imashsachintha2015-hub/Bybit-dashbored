@@ -299,6 +299,8 @@
                   <span class="confluence-chip" id="trapGuardChip"><i class="fa-solid fa-triangle-exclamation"></i> Trap Guard: --</span>
                 </div>
               </div>
+              <div class="analyst-panel" id="analystPanel"></div>
+              <div class="debate-transcript" id="debateTranscript"></div>
               <div class="evidence-trail" id="evidenceTrail"></div>
               <div class="deepseek-meta" id="deepseekMeta">Supervisor is consulted only on grade-A setups, once per symbol per cooldown, within a daily budget.</div>
               <div class="deepseek-output font-mono" id="deepseekOutput" style="display:none;"></div>
@@ -346,6 +348,19 @@
   <script src="agents/risk-governor.js?v=3.0"></script>
   <script src="agents/position-manager.js?v=3.0"></script>
   <script src="agents/deepseek-governor.js?v=3.0"></script>
+
+  <!-- Specialist analysts. Each reads the market independently; the panel
+       collects them and the debate makes them argue before anything is traded. -->
+  <script src="analysts/liquidity-map.js?v=3.1"></script>
+  <script src="analysts/traps.js?v=3.1"></script>
+  <script src="analysts/structure.js?v=3.1"></script>
+  <script src="analysts/volume-profile.js?v=3.1"></script>
+  <script src="analysts/derivatives.js?v=3.1"></script>
+  <script src="analysts/manipulation.js?v=3.1"></script>
+  <script src="analysts/sessions.js?v=3.1"></script>
+  <script src="swarm/panel.js?v=3.1"></script>
+  <script src="swarm/debate.js?v=3.1"></script>
+  <script src="swarm/meta-learner.js?v=3.1"></script>
 
   <script src="bybit-ws.js?v=3.0"></script>
   <script src="chart.js?v=3.0"></script>

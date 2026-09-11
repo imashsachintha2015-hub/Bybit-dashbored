@@ -25,6 +25,7 @@ const { MasisEngine } = require('../masis-engine.js');
 const { PositionManager } = require('../agents/position-manager.js');
 const { RiskGovernor } = require('../agents/risk-governor.js');
 const { FlowProxy } = require('./flow-proxy.js');
+const { MetaLearner } = require('../swarm/meta-learner.js');
 const baselineV2 = require('./baseline-v2.js');
 
 const TAKER_FEE = 0.00055;   // Bybit linear perp taker fee
@@ -63,10 +64,17 @@ function selectTimeframes(bundle, mode) {
   const m1 = bundle.series['1'] || [];
   const m5 = bundle.series['5'] || [];
   const m15 = bundle.series['15'] || [];
+  // Each series is capped at the same BAR COUNT by the fetcher, so the finer
+  // ones cover far less calendar time: 12,000 one-minute bars is 8 days, while
+  // 12,000 fifteen-minute bars is 126 days. The intrabar path therefore has to
+  // be a LIST of candidates, finest first, and the walker must fall back when
+  // the fine series does not reach back far enough. Using only the 1m series
+  // (as the first version did) left stops unchecked intrabar across 93% of a
+  // swing-mode run, which let losses run past 1R before the bar closed.
   if (mode === 'swing') {
-    return { ltf: m5, mtf: m15, htf: resample(m15, 4), path: m1, mtfMs: 15 * 60 * 1000, label: '15m structure / 1h regime' };
+    return { ltf: m5, mtf: m15, htf: resample(m15, 4), paths: [m1, m5], mtfMs: 15 * 60 * 1000, label: '15m structure / 1h regime' };
   }
-  return { ltf: m1, mtf: m5, htf: m15, path: m1, mtfMs: 5 * 60 * 1000, label: '5m structure / 15m regime' };
+  return { ltf: m1, mtf: m5, htf: m15, paths: [m1], mtfMs: 5 * 60 * 1000, label: '5m structure / 15m regime' };
 }
 
 function args() {
@@ -107,9 +115,9 @@ function buildAligner(series) {
 // ────────────────────────────────────────────────────────────────────────
 // V3 run
 // ────────────────────────────────────────────────────────────────────────
-function runV3(symbol, bundle, startEquity, mode) {
+function runV3(symbol, bundle, startEquity, mode, opts = {}) {
   const tf = selectTimeframes(bundle, mode);
-  const m1 = tf.path;
+  const m1 = tf.paths[0];
   const m5 = tf.mtf;
   const m15 = tf.htf;
   const mLtf = tf.ltf;
@@ -121,7 +129,18 @@ function runV3(symbol, bundle, startEquity, mode) {
   // Clock is driven by the bar being replayed, so the engine's staleness and
   // recency checks evaluate against simulated time rather than wall time.
   let simNow = m5[0].start;
-  const engine = new MasisEngine({ symbol, now: () => simNow });
+  const metaLearner = new MetaLearner();
+  if (opts.seedStudy) metaLearner.seedFromStudy(opts.seedStudy);
+  const engine = new MasisEngine({
+    symbol, now: () => simNow, metaLearner,
+    swarmEnabled: opts.swarmEnabled !== false,
+    swarmMode: opts.swarmMode || (opts.swarmEnabled === false ? 'off' : 'advisory')
+  });
+
+  // Derivatives context, replayed causally: only rows timestamped at or before
+  // the bar being evaluated are ever visible to the engine.
+  const derivAll = opts.derivs || [];
+  let derivPtr = 0;
   const flow = new FlowProxy();
   engine.flow = flow;
 
@@ -142,6 +161,20 @@ function runV3(symbol, bundle, startEquity, mode) {
   const seek1 = buildAligner(m1);
   const seekLtf = buildAligner(mLtf);
 
+  // Finest available intrabar path for a given decision bar, with an explicit
+  // fallback chain. When no finer series reaches this far back, the decision
+  // bar itself is used — which is the most pessimistic option available, since
+  // it means the stop is evaluated against the bar's full high/low range.
+  const pathSeekers = tf.paths.map(series => ({ series, seek: buildAligner(series) }));
+  function intrabarPath(bar, barCloseTs) {
+    for (const { series, seek } of pathSeekers) {
+      const from = seek(bar.start);
+      const to = seek(barCloseTs);
+      if (to > from) return series.slice(from, to);
+    }
+    return [bar];
+  }
+
   let open = null; // { trade, qty, entryFillPrice, riskAmount }
 
   for (let i = 60; i < m5.length - 1; i++) {
@@ -155,6 +188,11 @@ function runV3(symbol, bundle, startEquity, mode) {
     engine.seedCandles('ltf', mLtf.slice(Math.max(0, seekLtf(barClose) - 120), seekLtf(barClose)));
     engine.ticker = { lastPrice: String(bar.close), symbol };
 
+    while (derivPtr < derivAll.length && derivAll[derivPtr].ts <= barClose) derivPtr++;
+    const visibleDerivs = derivAll.slice(0, derivPtr);
+    engine.setDerivatives(visibleDerivs);
+    flow.setTakerData(visibleDerivs);
+
     const state = engine.getState();
     evaluations++;
     gradeCounts[state.grade || 'none'] = (gradeCounts[state.grade || 'none'] || 0) + 1;
@@ -165,9 +203,7 @@ function runV3(symbol, bundle, startEquity, mode) {
 
     // ── Manage an open position across this bar's 1-minute path ──
     if (open) {
-      const from = seek1(bar.start);
-      const to = seek1(barClose);
-      const path = m1.slice(from, to);
+      const path = intrabarPath(bar, barClose);
       const t = open.trade;
       const isLong = t.side === 'Buy';
 
@@ -246,7 +282,12 @@ function runV3(symbol, bundle, startEquity, mode) {
               score: state.score,
               regime: state.regime,
               narrative: state.narrative,
-              entryBar: i
+              entryBar: i,
+              // The panel AS IT WAS at entry. Scoring analysts against a later
+              // snapshot would be marking their work with the answer sheet.
+              entryPanel: (state.panel || []).map(x => ({ id: x.id, read: x.read, conviction: x.conviction })),
+              panelConviction: state.panelConviction,
+              patternScore: state.patternScore
             });
             open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry) };
           }
@@ -292,16 +333,22 @@ function runV3(symbol, bundle, startEquity, mode) {
     const pnl = +open.netMoney.toFixed(6);
     t.finalR = +(pnl / open.riskAmount).toFixed(3);
     gov.recordOutcome({ symbol, pnl, rMultiple: t.finalR });
+    if (t.entryPanel && t.entryPanel.length) {
+      metaLearner.recordOutcome(t.regime, t.entryPanel, t.side === 'Buy' ? 'LONG' : 'SHORT', t.finalR);
+    }
     trades.push({
       symbol, side: t.side, setup: t.setupName, grade: t.grade, score: t.score,
       regime: t.regime, entry: +t.entryPrice.toFixed(6), exit: +exit.toFixed(6),
-      r: t.finalR, reason, barsHeld: t.barsHeld, explain: pm.explain(t)
+      r: t.finalR, reason, barsHeld: t.barsHeld, explain: pm.explain(t),
+      patternScore: t.patternScore, panelConviction: t.panelConviction
     });
     pm.forget(t.symbol, t.side);
     open = null;
   }
 
-  return summarise({ symbol, engine: 'V3', mode, tfLabel: tf.label, trades, equity, startEquity, maxDrawdown, evaluations, signalsRaised, gradeCounts, blockerCounts, entryRejects, bars: m5.length, source: bundle.source });
+  return summarise({ symbol, engine: opts.swarmEnabled === false ? 'V3 (swarm off)' : 'V3 (swarm)', mode, tfLabel: tf.label,
+    trades, equity, startEquity, maxDrawdown, evaluations, signalsRaised, gradeCounts, blockerCounts, entryRejects,
+    analystReport: metaLearner.report(), bars: m5.length, source: bundle.source });
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -445,6 +492,10 @@ function report(results) {
     row('total R', v3.totalR, v2.totalR);
     row('return %', fmtPct(v3.returnPct), fmtPct(v2.returnPct));
     row('max drawdown %', v3.maxDrawdownPct, v2.maxDrawdownPct);
+    if (pair.v3NoSwarm) {
+      const ns = pair.v3NoSwarm;
+      console.log(`  Swarm OFF (same bars): ${ns.tradeCount} trades, win ${ns.winRate}%, expectancy ${ns.expectancyR >= 0 ? '+' : ''}${ns.expectancyR}R, PF ${ns.profitFactor}`);
+    }
     console.log(`  V3 signals raised: ${v3.signalsRaised}, entries taken: ${v3.tradeCount}`);
     if (v3.entryRejects && Object.keys(v3.entryRejects).length) console.log(`  V3 entry rejections: ${JSON.stringify(v3.entryRejects)}`);
     console.log(`  V3 exits: ${JSON.stringify(v3.exitBreakdown)}`);
@@ -495,6 +546,18 @@ function main() {
   if (a.pm) global.__MASIS_PM_OVERRIDE__ = JSON.parse(a.pm);
   if (a.quiet) { const noop = () => {}; global.__origLog = console.log; console.log = noop; }
   const startEquity = parseFloat(a.equity || '1000');
+  // Optional: analyst weights seeded from the offline predictive-value study.
+  let seedStudy = null;
+  if (a.seed) {
+    const sp = path.join(__dirname, 'results', 'analyst-evaluation.json');
+    if (fs.existsSync(sp)) {
+      seedStudy = JSON.parse(fs.readFileSync(sp, 'utf8')).rows;
+      console.log(`  Analyst weights seeded from ${sp} (fitted to that study window — not an out-of-sample result).`);
+    } else {
+      console.log('  --seed requested but no study found; run backtest/evaluate-analysts.js first.');
+    }
+  }
+
   const files = fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json')) : [];
   if (!files.length) {
     console.error('No cached data. Run: node backtest/fetch-klines.js BTCUSDT,ETHUSDT,SOLUSDT 1,5,15 12000');
@@ -507,13 +570,42 @@ function main() {
     const symbol = f.replace('.json', '');
     if (wanted && !wanted.includes(symbol)) continue;
     const bundle = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf8'));
-    const v3 = runV3(symbol, bundle, startEquity, a.mode || 'fast');
+
+    // Derivatives are published per coin, not per contract symbol.
+    const ccy = symbol.replace(/USDT$/, '');
+    const derivFile = path.join(DATA_DIR, `${ccy}-derivs.json`);
+    const derivs = fs.existsSync(derivFile) ? JSON.parse(fs.readFileSync(derivFile, 'utf8')).series : [];
+
+    const mode = a.mode || 'fast';
+    const v3 = runV3(symbol, bundle, startEquity, mode, { derivs, swarmEnabled: true, swarmMode: a.swarmMode || 'advisory', seedStudy });
+    const v3NoSwarm = a.ab ? runV3(symbol, bundle, startEquity, mode, { derivs, swarmEnabled: false }) : null;
     const v2 = runV2(symbol, bundle, startEquity);
     if (v3.error) { console.error(`${symbol}: ${v3.error}`); continue; }
-    results.push({ v3, v2 });
+    results.push({ v3, v2, v3NoSwarm });
   }
   const combined = report(results);
   if (a.quiet) { console.log = global.__origLog; console.log(JSON.stringify(combined.v3)); }
+
+  // Analyst reliability, aggregated across symbols.
+  const analystRows = {};
+  for (const p of results) for (const row of (p.v3.analystReport || [])) {
+    const k = `${row.regime}|${row.analyst}`;
+    analystRows[k] = analystRows[k] || { regime: row.regime, analyst: row.analyst, sample: 0, hits: 0 };
+    analystRows[k].sample += row.sample;
+    analystRows[k].hits += Math.round((row.accuracy || 0) / 100 * row.sample);
+  }
+  const analystTable = Object.values(analystRows)
+    .filter(r => r.sample >= 5)
+    .map(r => ({ ...r, accuracy: +((r.hits / r.sample) * 100).toFixed(1) }))
+    .sort((x, y) => y.sample - x.sample);
+  if (analystTable.length) {
+    console.log(`\n  ANALYST RELIABILITY (agreement with the profitable direction, at entry)`);
+    console.log(`  ${'regime'.padEnd(10)}${'analyst'.padEnd(16)}${'n'.padStart(5)}${'agree %'.padStart(10)}`);
+    for (const r of analystTable) {
+      console.log(`  ${r.regime.padEnd(10)}${r.analyst.padEnd(16)}${String(r.sample).padStart(5)}${String(r.accuracy).padStart(10)}`);
+    }
+    console.log(`  (Below ~15 observations these are not yet meaningful and the meta-learner leaves the weight at 1.0.)`);
+  }
 
   if (a.json) {
     fs.writeFileSync(a.json, JSON.stringify({ generatedAt: new Date().toISOString(), costs: { TAKER_FEE, SLIPPAGE }, combined, results }, null, 2));
