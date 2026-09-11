@@ -504,13 +504,20 @@ cross from losing to profitable on execution style alone.**
 
 | execution | trades | win % | expectancy |
 |---|---|---|---|
-| taker (market in and out) | 66 | 42.4 | **−0.089R** |
-| maker, limit at the touch | 66 | 45.5 | **+0.016R** |
-| maker, limit 10 bps better | 59 | 47.5 | **+0.169R** |
+| taker (market in and out) | 244 | 41.4 | **−0.137R** |
+| maker, limit at the touch | 244 | 48.0 | **−0.057R** |
+| maker, limit 10 bps better | 222 | 43.7 | **+0.000R** |
 
-That swing is larger than every signal improvement made across this entire
-project, the analyst swarm included. It is available via `--exec maker` in the
-backtest, and it is the change to make before any further work on prediction.
+The **relative** gain — +0.137R per trade from execution alone, over 244 trades —
+is larger than every signal improvement made across this entire project, the
+analyst swarm included, and it is arithmetic rather than fitted. It is available
+via `--exec maker` and is the change to make before any further work on
+prediction.
+
+The absolute level is break-even, not profitable. An earlier version of this
+table, measured on 126 days and 66 trades, reported +0.169R and described the
+strategy as crossing into profit. That was small-sample optimism; on 3.3x the
+data it lands at zero. See `research/README.md` for the correction in full.
 
 The other three findings, briefly:
 

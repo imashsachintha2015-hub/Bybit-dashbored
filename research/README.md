@@ -352,3 +352,47 @@ And a rule earned the hard way: any future candidate goes through the same four
 gates — HAC standard errors, FDR correction across everything tested, both
 halves of the sample, and an effect larger than the cost of trading it. The 18
 anomalies that failed those gates would all have looked like discoveries.
+
+---
+
+# Correction to Part I — the maker finding, re-measured on 418 days
+
+Part I reported that switching execution from taker to maker moved the strategy
+from **−0.089R to +0.016R … +0.169R** per trade, and called that "crossing from
+losing to profitable". That was measured on 126 days and 44–66 trades.
+
+Re-run on 418 days, with 244 trades:
+
+| execution | n (126d) | expectancy (126d) | n (418d) | **expectancy (418d)** |
+|---|---|---|---|---|
+| taker | 66 | −0.089R | 244 | **−0.137R** |
+| maker, at the touch | 66 | +0.016R | 244 | **−0.057R** |
+| maker, 10 bps better | 59 | +0.169R | 222 | **+0.000R** |
+
+Two things to take from this, and they point in opposite directions.
+
+**The relative finding got stronger.** The gap between taker and maker execution
+is **+0.137R per trade**, now measured across 244 trades rather than 66. Every
+rung of the ladder improves monotonically, and the mechanism is arithmetic
+rather than fitted. That part holds.
+
+**The absolute claim did not.** "Crosses into profitable" was a small-sample
+artefact. On 3.3× the data the best execution lands at **exactly break-even**,
+not at +0.169R. The strategy is not profitable; it is merely no longer paying
+for the privilege of trading.
+
+This is the same lesson the anomaly scan taught, arriving from the other
+direction, and it applies to my own headline result as readily as to anyone
+else's: **an effect measured on a few dozen trades will shrink when you give it
+more data.** The honest summary of the whole project is therefore:
+
+- V2 was decisively losing (−0.335R over 1,051 trades) for identifiable,
+  fixed structural reasons.
+- V3 with taker execution is still losing, −0.137R over 244 trades.
+- V3 with maker execution is break-even, ±0 over 222 trades.
+- No anomaly search, analyst swarm, or signal improvement moved it past that.
+
+Getting to break-even from −0.335R is real progress and it came almost entirely
+from removing defects and costs rather than from adding prediction. Getting from
+break-even to profitable is a different problem, and nothing measured here
+solves it yet.
