@@ -116,7 +116,15 @@ async function main() {
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   for (const symbol of symbols) {
-    const bundle = { symbol, source: null, fetchedAt: new Date().toISOString(), series: {} };
+    // MERGE with whatever is already cached rather than replacing it. Fetching
+    // one interval used to wipe the others out of the file, which silently
+    // broke every consumer that needed a timeframe this run did not request.
+    const file0 = path.join(OUT_DIR, `${symbol}.json`);
+    let existing = { series: {} };
+    if (fs.existsSync(file0)) {
+      try { existing = JSON.parse(fs.readFileSync(file0, 'utf8')); } catch (e) { existing = { series: {} }; }
+    }
+    const bundle = { symbol, source: null, fetchedAt: new Date().toISOString(), series: existing.series || {} };
     for (const iv of intervals) {
       const { source, rows } = await fetchSeries(symbol, iv, depth);
       bundle.source = source;

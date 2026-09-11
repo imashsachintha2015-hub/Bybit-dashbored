@@ -203,3 +203,152 @@ The answers it would find, in descending order of how much they are worth to you
 
 The loophole was never a better prophet. It was noticing that the house takes a
 cut on every prediction, and that the cut is bigger than the prophecy is worth.
+
+---
+
+# Part II — Attacking the data
+
+The brief for this round was: stop re-examining the system, go after the data
+itself, look for what *isn't* being looked at, and don't believe anything —
+attack it.
+
+```bash
+node research/anomaly-scan.js --tf 15 --horizon 4   # 126 hypotheses, FDR-controlled
+node research/forced-flow.js --tf 15                # liquidation-cascade reversion
+node research/volatility-harvest.js --tf 15         # bet on magnitude, not direction
+```
+
+## The result, stated first
+
+**Nothing survived.** 126 calendar and market-state hypotheses, a causally
+motivated forced-flow hypothesis, and a strategy built specifically around the
+one quantity Study 1 proved to be forecastable. Across all of it, zero findings
+cleared the bar.
+
+That is not a failed search. It is a measured answer to "is there something
+obvious nobody is looking at", and the answer on this data is no. What follows
+is how that conclusion was reached, because the method matters more than the
+verdict.
+
+## How the scan nearly fooled us — twice
+
+**First trap: multiple testing.** Test 126 slices at the 5% level and about 6
+will look significant when nothing is there. The scan therefore applies
+Benjamini-Hochberg FDR control across all tests jointly.
+
+**Second trap: overlapping windows, and this one did fool me.** The first run
+of the scan reported **18 survivors**, several with effect sizes of 6–14 bps,
+including a +14.29 bps anomaly at 14:00 UTC on ETH that also appeared on SOL —
+cross-symbol confirmation, which is normally strong evidence.
+
+It was an artefact of my own error. A 4-bar forward return, sampled at every
+bar, means consecutive observations share 3 of their 4 forward bars. They are
+heavily autocorrelated, the naive standard error is far too small, and every
+t-statistic comes out inflated. Adding Newey-West HAC standard errors removed a
+median inflation of **1.44×** — and took the survivor count from 18 to **zero**.
+
+Every single one of those 18 "discoveries" was noise wearing a p-value.
+
+## Third trap: not enough data, which the data itself revealed
+
+The scan was first run on 126 days, then on 418 days. Watch what happened to the
+families that looked most promising:
+
+| family | median \|t\| on 126 days | median \|t\| on 418 days |
+|---|---|---|
+| runs | 1.42 | **0.26** |
+| volstate | 1.95 | **1.36** |
+| location | 1.05 | 0.65 |
+| hour | 0.83 | 0.85 |
+
+Under a true null, median |t| sits near 0.67. The `runs` family collapsed from
+1.42 to 0.26 when given more data. That is precisely what noise does, and it is
+the cleanest demonstration in this repository that the method is working.
+
+## Forced flow — a good hypothesis that didn't hold
+
+The strongest *causal* idea tested: a liquidation is not a decision. When a
+leveraged position crosses maintenance margin the exchange closes it at market,
+at any price. That order is completely price-insensitive — the only flow in the
+market with a mechanical reason to overshoot. If it overshoots mechanically, it
+should revert mechanically.
+
+Detected from bars via the cascade signature (outsized move against recent
+volatility, extreme volume, long rejection wick, close back from the extreme),
+tested at three severity thresholds and four horizons:
+
+- On 126 days of SOL, the severe filter gave **+13.85 bps at a 1-bar horizon**,
+  consistent across both halves (+12.6 / +15.0). Promising.
+- On 418 days of BTC, the same filter gives **−5.64 bps**. Opposite sign.
+- The largest effect found (BTC, severe, 48 bars, +18.58 bps, t=1.94) splits
+  +40.7 in the first half and −3.9 in the second.
+
+Signs disagree across symbols and across halves. The causal story is sound; the
+effect is not measurable at these thresholds on this data.
+
+## Betting on magnitude instead of direction
+
+The logical conclusion of Study 1: if direction is unpredictable and magnitude
+is predictable, stop betting on direction. The structure that expresses that
+without options is a two-sided breakout bracket — a buy stop above the coil and
+a sell stop below, so whichever way the expansion goes, you are in it.
+
+| BTC, 418 days | n | mean bps | t (HAC) | win % | 1st half | 2nd half |
+|---|---|---|---|---|---|---|
+| coil 8, all | 4,714 | −3.16 | **−2.04** | 49% | −2.0 | −4.3 |
+| coil 16, all | 2,351 | +2.47 | 0.80 | 51% | +2.8 | +2.2 |
+| coil 32, all | 1,189 | +7.28 | 1.21 | 52% | +2.7 | +11.8 |
+| coil 32, quietest 25% | 301 | +5.18 | 0.81 | 58% | +7.4 | +2.8 |
+
+The only result reaching |t| > 2 is **negative**: fast breakouts on short coils
+lose reliably. There is a visible gradient — longer coils and tighter
+compression give higher win rates (58%) and positive means — but no t-statistic
+reaches significance, so it stays a gradient, not a finding.
+
+## What "nothing survived" is worth
+
+Three things.
+
+**One: it cost almost nothing to find out.** Each of these is a few hundred
+lines. The alternative — trading them and finding out — is how the V2 system
+lost 49–70%.
+
+**Two: the anomalies that got killed are exactly the ones people trade.**
+Hour-of-day patterns, day-of-week effects, fading big moves, fading streaks,
+buying compression breakouts, fading volume spikes. All of them produce
+convincing-looking numbers on a few months of data. None survived 418 days plus
+correct standard errors.
+
+**Three: it sharpens where the edge actually was.** After attacking the data
+this hard and finding nothing, the finding from Part I is still standing:
+
+> Changing execution from taker to maker moved the existing strategy from
+> −0.089R to +0.016R… +0.169R per trade.
+
+That was never a prediction. It was the cost term — the one quantity not
+competed over, because it isn't a forecast at all. Every hypothesis in Part II
+was an attempt to out-predict a market; the one thing that worked was declining
+to pay 11 bps for the privilege.
+
+## What would be worth attacking next
+
+Ranked by the chance there is something there that this data cannot see:
+
+1. **Order book data.** Everything here is OHLCV plus hourly derivatives. Queue
+   dynamics, depth imbalance and iceberg behaviour live in the book, are not
+   reconstructable from bars, and are where the shortest-horizon edges are.
+   This is the largest genuine blind spot.
+2. **Cross-exchange.** One venue was measured. Lead-lag, basis and funding
+   differentials between venues are mechanical, and unlike direction they do not
+   require anyone to be wrong.
+3. **Liquidation feeds.** Exchanges publish actual liquidation prints. Study 6
+   inferred cascades from bar shape, which is a lossy proxy for an event that is
+   directly observable.
+4. **Longer history.** 418 days covers roughly one regime. A seasonality claim
+   needs years, and the 126-vs-418-day comparison above shows exactly how much
+   a short sample can lie.
+
+And a rule earned the hard way: any future candidate goes through the same four
+gates — HAC standard errors, FDR correction across everything tested, both
+halves of the sample, and an effect larger than the cost of trading it. The 18
+anomalies that failed those gates would all have looked like discoveries.
