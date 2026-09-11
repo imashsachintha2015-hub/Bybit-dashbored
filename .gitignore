@@ -1,0 +1,12 @@
+# Cached market data for the backtest — large, regenerable, and venue-specific.
+# Rebuild with: node backtest/fetch-klines.js BTCUSDT,ETHUSDT,SOLUSDT 1,5,15 12000
+backtest/data/
+
+# Live trade ledger — this is your account's data, not the project's.
+trade_stats.json
+
+# Secrets. .env.example is the template that IS committed.
+.env
+
+*.log
+__pycache__/

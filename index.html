@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MASIS V2.0 — Agent Operations Center</title>
+  <meta name="description" content="Institutional-grade multi-agent trading operations dashboard. Real-time agent monitoring, live positions, performance analytics, and AI-driven market intelligence.">
+  <meta name="theme-color" content="#F7F8FA">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="index.css?v=3.0">
+</head>
+<body>
+
+  <div class="dashboard">
+
+    <!-- ═══════════ SIDEBAR NAVIGATION ═══════════ -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon"><i class="fa-solid fa-bolt"></i></div>
+        <div class="brand-info">
+          <span class="brand-name">MASIS <span class="brand-version">V2.0</span></span>
+          <span class="brand-sub">Agent Operations Center</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#topAnchor" class="nav-item active" data-target="topAnchor"><i class="fa-solid fa-grid-2"></i> Dashboard</a>
+        <a href="#agentsSection" class="nav-item" data-target="agentsSection"><i class="fa-solid fa-network-wired"></i> Agent Network</a>
+        <a href="#chartSection" class="nav-item" data-target="chartSection"><i class="fa-solid fa-chart-line"></i> Market Chart</a>
+        <a href="#newsWhaleSection" class="nav-item" data-target="newsWhaleSection"><i class="fa-solid fa-newspaper"></i> News &amp; Whales</a>
+        <a href="#positionsSection" class="nav-item" data-target="positionsSection"><i class="fa-solid fa-briefcase"></i> Positions</a>
+        <a href="#intelSection" class="nav-item" data-target="intelSection"><i class="fa-solid fa-brain"></i> AI Intelligence</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-chip online" id="sysStatus"><span class="pulse-dot"></span> SYSTEM ONLINE</div>
+        <div class="status-chip" id="wsStatus"><i class="fa-solid fa-satellite-dish"></i> <span id="wsStatusText">Connecting...</span></div>
+        <div class="footer-item font-mono" id="footerUptime">Uptime: 00:00:00</div>
+      </div>
+    </aside>
+
+    <!-- ═══════════ MAIN AREA ═══════════ -->
+    <div class="main-area">
+
+      <header class="topbar" id="topAnchor">
+        <div class="topbar-left">
+          <h1 class="page-title">Dashboard</h1>
+          <span class="page-sub font-mono" id="footerEndpoint">wss://stream.bybit.com/v5/public/linear · Bybit V5 Demo Trading</span>
+        </div>
+        <div class="topbar-right">
+          <div class="account-strip" id="accountStrip">
+            <div class="acct-item"><span class="acct-label">Demo Equity</span><span class="acct-val text-cyan font-mono" id="equityVal">--</span></div>
+            <div class="acct-divider"></div>
+            <div class="acct-item"><span class="acct-label">Net P&amp;L</span><span class="acct-val font-mono" id="pnlVal">--</span></div>
+            <div class="acct-divider"></div>
+            <div class="acct-item"><span class="acct-label">Win Rate</span><span class="acct-val text-green font-mono" id="winRateVal">--</span></div>
+            <div class="acct-divider"></div>
+            <div class="acct-item compact"><span class="acct-label">W/L</span><span class="acct-val font-mono" id="wlVal">--</span></div>
+          </div>
+          <div class="time-display font-mono" id="clockDisplay">00:00:00</div>
+        </div>
+      </header>
+
+      <main class="content-scroll">
+
+        <!-- COIN KPI SPARKLINE CARDS -->
+        <section class="coin-cards-row" id="coinCardsRow">
+          <!-- Populated by app.js: live price + sparkline per watched coin -->
+        </section>
+
+        <!-- PERFORMANCE METRICS ROW -->
+        <section class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-icon green"><i class="fa-solid fa-trophy"></i></div>
+            <div class="metric-data">
+              <span class="metric-value font-mono" id="totalWins">0</span>
+              <span class="metric-label">Wins</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon red"><i class="fa-solid fa-xmark"></i></div>
+            <div class="metric-data">
+              <span class="metric-value font-mono" id="totalLosses">0</span>
+              <span class="metric-label">Losses</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon cyan"><i class="fa-solid fa-chart-pie"></i></div>
+            <div class="metric-data">
+              <span class="metric-value font-mono" id="profitFactor">0.00</span>
+              <span class="metric-label">Profit Factor</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon gold"><i class="fa-solid fa-arrow-trend-up"></i></div>
+            <div class="metric-data">
+              <span class="metric-value font-mono" id="grossProfit">$0</span>
+              <span class="metric-label">Gross Profit</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon purple"><i class="fa-solid fa-arrow-trend-down"></i></div>
+            <div class="metric-data">
+              <span class="metric-value font-mono" id="grossLoss">$0</span>
+              <span class="metric-label">Gross Loss</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="content-grid">
+          <div class="content-main">
+
+            <!-- AGENT STATUS GRID -->
+            <section class="card accent-cyan" id="agentsSection">
+              <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-network-wired"></i> Specialist Agent Network</div>
+                <span class="network-badge" id="networkBadge"><span class="pulse-dot green"></span> ALL OPERATIONAL</span>
+              </div>
+              <div class="agents-grid" id="agentsGrid">
+                <!-- Agent cards rendered here -->
+              </div>
+            </section>
+
+            <!-- NEWS & WHALE ROW -->
+            <section class="intel-widgets-row" id="newsWhaleSection">
+
+              <!-- DIV-10: NEWS SENTINEL -->
+              <div class="card news-panel accent-gold">
+                <div class="card-header">
+                  <div class="card-title"><i class="fa-solid fa-newspaper"></i> News Sentinel <span class="sub">Benzinga Live Feed</span></div>
+                  <span class="sentiment-badge neutral" id="newsSentimentBadge">NEUTRAL</span>
+                </div>
+                <div class="news-feed" id="newsFeed">
+                  <div class="news-empty">Polling Benzinga for market-moving headlines...</div>
+                </div>
+              </div>
+
+              <!-- DIV-11: WHALE FLOW TRACKER -->
+              <div class="card whale-panel accent-purple">
+                <div class="card-header">
+                  <div class="card-title"><i class="fa-solid fa-money-bill-trend-up"></i> Whale Flow Tracker <span class="sub">&gt;$50k trades · 5m</span></div>
+                  <span class="count-badge font-mono" id="whaleCount">0 detected</span>
+                </div>
+                <div class="whale-body">
+                  <div class="whale-pressure-bar">
+                    <div class="whale-pressure-fill" id="whalePressureFill" style="width:50%"></div>
+                  </div>
+                  <div class="whale-stats-row">
+                    <span class="whale-stat buy"><span class="dot"></span> BUY $<span id="whaleBuyUsd">0</span></span>
+                    <span class="whale-stat-dominant font-mono" id="whaleDominantPill">NEUTRAL</span>
+                    <span class="whale-stat sell"><span class="dot"></span> SELL $<span id="whaleSellUsd">0</span></span>
+                  </div>
+                  <div class="whale-list" id="whaleList">
+                    <div class="news-empty">No whale trades detected yet</div>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+
+            <!-- MARKET CHART -->
+            <section class="card chart-card accent-orange" id="chartSection">
+              <div class="card-header chart-header-row">
+                <div class="symbol-pills" id="symbolPills">
+                  <button class="sym-pill active" data-symbol="BTCUSDT">BTC</button>
+                  <button class="sym-pill" data-symbol="ETHUSDT">ETH</button>
+                  <button class="sym-pill" data-symbol="SOLUSDT">SOL</button>
+                  <button class="sym-pill" data-symbol="XRPUSDT">XRP</button>
+                  <button class="sym-pill" data-symbol="DOGEUSDT">DOGE</button>
+                </div>
+                <!-- Chart display only. The engine always analyses 5m/15m/1h
+                     regardless of what is selected here; in V2 this control
+                     silently changed the trading logic's only timeframe. -->
+                <div class="interval-btns" id="intervalBtns" title="Chart display only — the engine always analyses 5m / 15m / 1h">
+                  <button class="int-btn" data-interval="1">1m</button>
+                  <button class="int-btn" data-interval="5">5m</button>
+                  <button class="int-btn active" data-interval="15">15m</button>
+                  <button class="int-btn" data-interval="60">1h</button>
+                  <button class="int-btn" data-interval="240">4h</button>
+                </div>
+              </div>
+              <div class="ticker-price-row">
+                <div class="ticker-left">
+                  <span class="ticker-symbol" id="tickerSymbol">BTCUSDT</span>
+                  <span class="ticker-price font-mono" id="tickerPrice">--.--</span>
+                  <span class="ticker-change font-mono" id="tickerChange">+0.00%</span>
+                </div>
+                <div class="ticker-stats">
+                  <span class="tstat"><span class="tstat-label">24h H:</span> <span class="font-mono" id="tickerHigh">--</span></span>
+                  <span class="tstat"><span class="tstat-label">24h L:</span> <span class="font-mono" id="tickerLow">--</span></span>
+                  <span class="tstat"><span class="tstat-label">Vol:</span> <span class="font-mono" id="tickerVol">--</span></span>
+                </div>
+              </div>
+              <div class="chart-canvas-wrap" id="chartStage">
+                <canvas id="candleChartCanvas"></canvas>
+                <canvas id="depthChartCanvas" class="hidden"></canvas>
+              </div>
+            </section>
+
+            <!-- POSITIONS / HISTORY (TABBED) -->
+            <section class="card accent-blue" id="positionsSection">
+              <div class="card-header">
+                <div class="tab-bar" id="posHistTabs">
+                  <button class="tab-btn active" data-tab="positions"><i class="fa-solid fa-briefcase"></i> Active <span class="count-badge font-mono" id="posCount">0</span></button>
+                  <button class="tab-btn" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> History <span class="count-badge font-mono" id="tradeCount">0</span></button>
+                </div>
+              </div>
+              <div class="table-wrap tab-panel active" data-panel="positions">
+                <table class="data-table" id="positionsTable">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>Stop Loss</th><th>Liq Price</th><th>Unrealized PnL</th><th title="Profit or loss in units of the risk taken on this trade. 1R is exactly what the trade was set up to lose if wrong.">R</th><th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="positionsTbody">
+                    <tr><td colspan="10" class="empty-msg">No active positions</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-wrap tab-panel" data-panel="history">
+                <table class="data-table" id="historyTable">
+                  <thead>
+                    <tr>
+                      <th>ID</th><th>Time</th><th>Symbol</th><th>Side</th><th>Entry</th><th>Exit</th><th>PnL</th><th title="Result in units of the risk taken. Averaging these is the only honest way to say whether the system makes money.">R</th><th>Setup</th><th>Exit reason</th>
+                    </tr>
+                  </thead>
+                  <tbody id="historyTbody">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+          </div>
+
+          <div class="content-side">
+
+            <!-- LIVE TRADE TAPE -->
+            <section class="card trade-tape accent-blue">
+              <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-bolt"></i> Live Trade Tape</span>
+                <div class="tape-ratio">
+                  <span class="buy-ratio font-mono" id="buyRatio">B 50%</span>
+                  <span class="sell-ratio font-mono" id="sellRatio">S 50%</span>
+                </div>
+              </div>
+              <div class="tape-feed" id="tradeFeed">
+                <!-- Live trades rendered here -->
+              </div>
+            </section>
+
+            <!-- MASIS INTELLIGENCE SUMMARY -->
+            <section class="card intel-summary" id="intelSection">
+              <div class="card-header intel-header">
+                <span class="card-title"><i class="fa-solid fa-brain"></i> MASIS Intelligence</span>
+                <span class="decision-pill font-mono" id="masisDecision">WAIT</span>
+              </div>
+              <div class="intel-body">
+                <div class="intel-row">
+                  <span class="intel-label">State:</span>
+                  <span class="intel-val font-mono" id="intelState">CALCULATING...</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Bias:</span>
+                  <span class="intel-val font-mono" id="intelParticipant">--</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Taker flow (5m):</span>
+                  <span class="intel-val font-mono" id="intelCvd">--</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Setup grade:</span>
+                  <span class="intel-val font-mono" id="intelTrust">--/100</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Prosecution:</span>
+                  <span class="intel-val font-mono text-green" id="intelVerdict">PASS</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Stop Loss:</span>
+                  <span class="intel-val font-mono text-red" id="intelStopLoss">--</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Take Profit:</span>
+                  <span class="intel-val font-mono text-green" id="intelTakeProfit">--</span>
+                </div>
+                <div class="intel-row">
+                  <span class="intel-label">Risk:Reward:</span>
+                  <span class="intel-val font-mono" id="intelRiskReward">--</span>
+                </div>
+                <div class="confluence-chips">
+                  <span class="confluence-chip" id="newsConfluenceChip"><i class="fa-solid fa-newspaper"></i> News: --</span>
+                  <span class="confluence-chip" id="whaleConfluenceChip"><i class="fa-solid fa-money-bill-trend-up"></i> Whale: --</span>
+                  <span class="confluence-chip" id="trapGuardChip"><i class="fa-solid fa-triangle-exclamation"></i> Trap Guard: --</span>
+                </div>
+              </div>
+              <div class="evidence-trail" id="evidenceTrail"></div>
+              <div class="deepseek-meta" id="deepseekMeta">Supervisor is consulted only on grade-A setups, once per symbol per cooldown, within a daily budget.</div>
+              <div class="deepseek-output font-mono" id="deepseekOutput" style="display:none;"></div>
+            </section>
+
+            <!-- AUTONOMOUS EXECUTION & POSITION GUARDIAN -->
+            <section class="card trading-controls accent-green">
+              <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-robot"></i> Autonomous Execution</span>
+                <span class="arm-status stopped" id="armStatus">STOPPED</span>
+              </div>
+              <div class="trading-controls-body">
+                <div class="control-row">
+                  <label class="control-label" for="marginInput" title="Position size is derived from this and the distance to the stop, so every trade risks the same amount regardless of how wide its stop is.">Risk / Trade (% of equity)</label>
+                  <input type="number" id="marginInput" class="control-input" value="0.5" min="0.1" max="5" step="0.1">
+                </div>
+                <div class="control-buttons">
+                  <button class="start-btn" id="startBtn"><i class="fa-solid fa-play"></i> Start</button>
+                  <button class="stop-btn" id="stopBtn" disabled><i class="fa-solid fa-stop"></i> Stop</button>
+                </div>
+                <p class="control-hint">Armed = the system will auto-place a market order (with the stop-loss/take-profit shown above) the instant a signal clears every gate. Stopped = monitoring only, no new entries.</p>
+
+                <div class="guardian-block">
+                  <div class="guardian-title"><i class="fa-solid fa-shield-heart"></i> Position Guardian</div>
+                  <div id="guardianStatus"><span class="guardian-pill safe">No open position</span></div>
+                </div>
+                <div class="guardian-log" id="guardianLog"></div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+  </div>
+
+  <!-- Shared agent modules. Each is also loadable in Node, which is how the
+       backtest harness exercises the exact same decision code the browser runs. -->
+  <script src="agents/indicators.js?v=3.0"></script>
+  <script src="agents/regime-agent.js?v=3.0"></script>
+  <script src="agents/flow-agent.js?v=3.0"></script>
+  <script src="agents/playbooks.js?v=3.0"></script>
+  <script src="agents/risk-governor.js?v=3.0"></script>
+  <script src="agents/position-manager.js?v=3.0"></script>
+  <script src="agents/deepseek-governor.js?v=3.0"></script>
+
+  <script src="bybit-ws.js?v=3.0"></script>
+  <script src="chart.js?v=3.0"></script>
+  <script src="masis-engine.js?v=3.0"></script>
+  <script src="whale-agent.js?v=3.0"></script>
+  <script src="app.js?v=3.0"></script>
+</body>
+</html>

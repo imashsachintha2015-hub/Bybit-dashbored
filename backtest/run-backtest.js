@@ -1,0 +1,524 @@
+#!/usr/bin/env node
+/**
+ * Walk-forward backtest for MASIS V3, with the reconstructed V2 logic run over
+ * the identical bars, costs and fill rules for comparison.
+ *
+ * Design commitments, because a backtest is only worth reading if you know what
+ * it refuses to do:
+ *
+ *  - NO LOOK-AHEAD. Decisions at bar i use only bars 0..i. Entry fills at bar
+ *    i+1's OPEN, never at the close the decision was made on.
+ *  - PESSIMISTIC INTRABAR ORDERING. Stop and target are checked on 1-minute
+ *    bars. If a single 1-minute bar contains both the stop and a target, the
+ *    stop is assumed to have been hit first. Real fills are sometimes kinder;
+ *    assuming otherwise is how backtests lie.
+ *  - REAL COSTS. Taker fee both sides plus slippage on every fill, including
+ *    every partial scale-out.
+ *  - NO SURVIVORSHIP CHOICE. Whatever symbols are in backtest/data are run.
+ *
+ * Usage: node backtest/run-backtest.js [--symbols BTCUSDT,ETHUSDT] [--equity 1000] [--json out.json]
+ */
+const fs = require('fs');
+const path = require('path');
+
+const { MasisEngine } = require('../masis-engine.js');
+const { PositionManager } = require('../agents/position-manager.js');
+const { RiskGovernor } = require('../agents/risk-governor.js');
+const { FlowProxy } = require('./flow-proxy.js');
+const baselineV2 = require('./baseline-v2.js');
+
+const TAKER_FEE = 0.00055;   // Bybit linear perp taker fee
+const SLIPPAGE = 0.0002;     // 2 bps assumed on market fills
+
+const DATA_DIR = path.join(__dirname, 'data');
+
+/** Aggregates a series into a coarser one (e.g. 15m -> 1h with factor 4). */
+function resample(series, factor) {
+  const out = [];
+  for (let i = 0; i + factor <= series.length; i += factor) {
+    const chunk = series.slice(i, i + factor);
+    out.push({
+      start: chunk[0].start,
+      open: chunk[0].open,
+      high: Math.max(...chunk.map(c => c.high)),
+      low: Math.min(...chunk.map(c => c.low)),
+      close: chunk[chunk.length - 1].close,
+      volume: chunk.reduce((a, c) => a + c.volume, 0),
+      confirm: true
+    });
+  }
+  return out;
+}
+
+/**
+ * Which timeframes the engine runs on.
+ *  fast  — 5m structure under a 15m regime. More opportunities, tighter stops,
+ *          and therefore a much larger share of each R eaten by fees.
+ *  swing — 15m structure under a 1h regime (resampled from 15m). Fewer trades,
+ *          wider stops, and proportionally far less cost drag.
+ * The backtest runs whichever is asked for so the choice can be made on
+ * evidence rather than preference.
+ */
+function selectTimeframes(bundle, mode) {
+  const m1 = bundle.series['1'] || [];
+  const m5 = bundle.series['5'] || [];
+  const m15 = bundle.series['15'] || [];
+  if (mode === 'swing') {
+    return { ltf: m5, mtf: m15, htf: resample(m15, 4), path: m1, mtfMs: 15 * 60 * 1000, label: '15m structure / 1h regime' };
+  }
+  return { ltf: m1, mtf: m5, htf: m15, path: m1, mtfMs: 5 * 60 * 1000, label: '5m structure / 15m regime' };
+}
+
+function args() {
+  const a = {};
+  for (let i = 2; i < process.argv.length; i += 2) {
+    a[process.argv[i].replace(/^--/, '')] = process.argv[i + 1];
+  }
+  return a;
+}
+
+function fillPrice(price, side, isEntry) {
+  // Market orders pay the spread in the unfavourable direction either way.
+  const adverse = (side === 'Buy') === isEntry ? 1 : -1;
+  return price * (1 + adverse * SLIPPAGE);
+}
+
+function feeOn(notional) { return notional * TAKER_FEE; }
+
+/**
+ * Maps a timestamp to "how many bars of `series` have closed by then".
+ * Binary search rather than a moving pointer: the caller needs to ask about
+ * both the start and the end of a bar within the same iteration, and a
+ * forward-only pointer silently returns the wrong answer for the earlier of
+ * the two.
+ */
+function buildAligner(series) {
+  const starts = series.map(c => c.start);
+  return function upTo(ts) {
+    let lo = 0, hi = starts.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (starts[mid] < ts) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// V3 run
+// ────────────────────────────────────────────────────────────────────────
+function runV3(symbol, bundle, startEquity, mode) {
+  const tf = selectTimeframes(bundle, mode);
+  const m1 = tf.path;
+  const m5 = tf.mtf;
+  const m15 = tf.htf;
+  const mLtf = tf.ltf;
+  const MTF_MS = tf.mtfMs;
+  if (m5.length < 200 || m15.length < 100) {
+    return { symbol, error: `not enough bars (mtf ${m5.length}, htf ${m15.length})` };
+  }
+
+  // Clock is driven by the bar being replayed, so the engine's staleness and
+  // recency checks evaluate against simulated time rather than wall time.
+  let simNow = m5[0].start;
+  const engine = new MasisEngine({ symbol, now: () => simNow });
+  const flow = new FlowProxy();
+  engine.flow = flow;
+
+  const pm = new PositionManager(Object.assign({ now: () => simNow }, (global.__MASIS_PM_OVERRIDE__ || {})));
+  const gov = new RiskGovernor({ riskPerTradePct: 0.5, maxConcurrentPositions: 1, cooldownAfterLossMs: 20 * 60 * 1000, now: () => simNow });
+  gov.updateEquity(startEquity);
+
+  let equity = startEquity;
+  let peakEquity = startEquity;
+  let maxDrawdown = 0;
+  const trades = [];
+  const gradeCounts = {};
+  const blockerCounts = {};
+  let evaluations = 0, signalsRaised = 0;
+  const entryRejects = {};
+
+  const seek15 = buildAligner(m15);
+  const seek1 = buildAligner(m1);
+  const seekLtf = buildAligner(mLtf);
+
+  let open = null; // { trade, qty, entryFillPrice, riskAmount }
+
+  for (let i = 60; i < m5.length - 1; i++) {
+    const bar = m5[i];
+    const barClose = bar.start + MTF_MS;
+    simNow = barClose;
+
+    flow.push(bar);
+    engine.seedCandles('mtf', m5.slice(Math.max(0, i - 399), i + 1));
+    engine.seedCandles('htf', m15.slice(Math.max(0, seek15(barClose) - 399), seek15(barClose)));
+    engine.seedCandles('ltf', mLtf.slice(Math.max(0, seekLtf(barClose) - 120), seekLtf(barClose)));
+    engine.ticker = { lastPrice: String(bar.close), symbol };
+
+    const state = engine.getState();
+    evaluations++;
+    gradeCounts[state.grade || 'none'] = (gradeCounts[state.grade || 'none'] || 0) + 1;
+    for (const b of state.blockers || []) {
+      const k = b.split(/[:(]/)[0].trim().slice(0, 60);
+      blockerCounts[k] = (blockerCounts[k] || 0) + 1;
+    }
+
+    // ── Manage an open position across this bar's 1-minute path ──
+    if (open) {
+      const from = seek1(bar.start);
+      const to = seek1(barClose);
+      const path = m1.slice(from, to);
+      const t = open.trade;
+      const isLong = t.side === 'Buy';
+
+      for (const min of path) {
+        // Pessimistic ordering: stop before target inside the same minute.
+        const stopHit = isLong ? min.low <= t.stopLoss : min.high >= t.stopLoss;
+        if (stopHit) {
+          closeRemainder(t.stopLoss, 'STOP');
+          break;
+        }
+        let tpDone = false;
+        for (let k = 0; k < t.targets.length && !tpDone; k++) {
+          if (t.tpFilled[k]) continue;
+          const level = t.targets[k];
+          const reached = isLong ? min.high >= level : min.low <= level;
+          if (!reached) break;
+          scaleOut(k, level);
+          tpDone = true;
+        }
+        if (open && open.trade.remainingFraction <= 0.0001) { closeRemainder(t.targets[t.targets.length - 1], 'TARGET'); break; }
+      }
+    }
+
+    // ── Position manager decision at the bar close ──
+    if (open) {
+      const t = open.trade;
+      const action = pm.evaluate(t, {
+        price: bar.close,
+        confirmedCandle: bar,
+        atr: state.regimeMetrics.htfAtr || null,
+        spreadPct: 0.02,
+        dataValid: state.dataStatus !== 'INVALID',
+        opposingSignal: state.grade && state.direction ? { direction: state.direction, grade: state.grade, score: state.score } : null
+      });
+      if (action.action === 'CLOSE_ALL') {
+        closeRemainder(bar.close, action.reason);
+      } else if (action.action === 'MOVE_STOP') {
+        pm.markStopMoved(t, action.newStop, action.reason);
+      } else if (action.action === 'SCALE_OUT') {
+        scaleOut(action.tpIndex, t.targets[action.tpIndex]);
+      }
+    }
+
+    // ── Entry ──
+    if (!open && (state.decision === 'BUY' || state.decision === 'SELL')) {
+      signalsRaised++;
+      const gate = gov.canOpen({ symbol, openPositions: [] });
+      if (!gate.allowed) {
+        for (const r of gate.reasons) {
+          const k = r.split(/[(]/)[0].trim().slice(0, 50);
+          entryRejects[k] = (entryRejects[k] || 0) + 1;
+        }
+      }
+      if (gate.allowed) {
+        const next = m5[i + 1];
+        const side = state.decision === 'BUY' ? 'Buy' : 'Sell';
+        const entry = fillPrice(next.open, side, true);
+        // Re-anchor the stop to the actual fill so risk stays exactly 0.5%.
+        const stop = state.stopLoss;
+        const riskDist = Math.abs(entry - stop);
+        if (riskDist > 0) {
+          const sized = gov.sizePosition({ entry, stop, equity, symbol, qtyStep: 0.0001, minQty: 0.0001 });
+          if (sized.qty <= 0) entryRejects[`sizing: ${sized.rejected}`.slice(0, 60)] = (entryRejects[`sizing: ${sized.rejected}`.slice(0, 60)] || 0) + 1;
+          if (sized.qty > 0) {
+            equity -= feeOn(sized.qty * entry);
+            const t = pm.open({
+              symbol, side,
+              entryPrice: entry,
+              stopLoss: stop,
+              invalidation: state.invalidation,
+              targets: state.takeProfit,
+              riskDist,
+              qty: sized.qty,
+              setupName: state.setupType,
+              grade: state.grade,
+              score: state.score,
+              regime: state.regime,
+              narrative: state.narrative,
+              entryBar: i
+            });
+            open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry) };
+          }
+        }
+      }
+    }
+
+    peakEquity = Math.max(peakEquity, equity);
+    maxDrawdown = Math.max(maxDrawdown, (peakEquity - equity) / peakEquity);
+    gov.updateEquity(equity);
+  }
+
+  if (open) closeRemainder(m5[m5.length - 1].close, 'END_OF_DATA');
+
+  function scaleOut(index, level) {
+    const t = open.trade;
+    const fraction = pm.config.scaleOutFractions[index];
+    const qty = open.qty * fraction;
+    const exit = fillPrice(level, t.side, false);
+    const gross = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * qty;
+    const net = gross - feeOn(qty * exit);
+    equity += net;
+    open.netMoney += net;
+    open.remainingQty -= qty;
+    pm.markTpFilled(t, index, exit);
+  }
+
+  function closeRemainder(price, reason) {
+    const t = open.trade;
+    const qty = open.remainingQty;
+    const exit = fillPrice(price, t.side, false);
+    if (qty > 0) {
+      const gross = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * qty;
+      const net = gross - feeOn(qty * exit);
+      equity += net;
+      open.netMoney += net;
+    }
+    pm.finalise(t, exit, reason);
+    // R is reported NET of every fee and every unit of slippage actually paid,
+    // entry fee included. Gross R flatters an intraday system badly: at these
+    // stop distances the round trip costs a meaningful fraction of 1R, and a
+    // report that hides it is telling you about a system nobody can trade.
+    const pnl = +open.netMoney.toFixed(6);
+    t.finalR = +(pnl / open.riskAmount).toFixed(3);
+    gov.recordOutcome({ symbol, pnl, rMultiple: t.finalR });
+    trades.push({
+      symbol, side: t.side, setup: t.setupName, grade: t.grade, score: t.score,
+      regime: t.regime, entry: +t.entryPrice.toFixed(6), exit: +exit.toFixed(6),
+      r: t.finalR, reason, barsHeld: t.barsHeld, explain: pm.explain(t)
+    });
+    pm.forget(t.symbol, t.side);
+    open = null;
+  }
+
+  return summarise({ symbol, engine: 'V3', mode, tfLabel: tf.label, trades, equity, startEquity, maxDrawdown, evaluations, signalsRaised, gradeCounts, blockerCounts, entryRejects, bars: m5.length, source: bundle.source });
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// V2 baseline run — same data, same costs, same fill rules
+// ────────────────────────────────────────────────────────────────────────
+function runV2(symbol, bundle, startEquity) {
+  const m1 = bundle.series['1'] || [];
+  if (m1.length < 300) return { symbol, error: 'not enough 1m bars' };
+
+  let equity = startEquity;
+  let peakEquity = startEquity, maxDrawdown = 0;
+  const trades = [];
+  let open = null;
+  let signalsRaised = 0, evaluations = 0;
+
+  // V2 sized by a flat margin per trade, not by risk. Reproduced here as the
+  // same 0.5%-of-equity notional the dashboard's default $50-on-a-$10k account
+  // implies, so the comparison is on decision quality rather than on sizing.
+  for (let i = 60; i < m1.length - 1; i++) {
+    const window = m1.slice(Math.max(0, i - 199), i + 1);
+    const bar = m1[i];
+    const sig = baselineV2.decide(window);
+    evaluations++;
+
+    if (open) {
+      const t = open;
+      const isLong = t.side === 'Buy';
+      const stopHit = isLong ? bar.low <= t.stopLoss : bar.high >= t.stopLoss;
+      const tpHit = isLong ? bar.high >= t.takeProfit : bar.low <= t.takeProfit;
+      if (stopHit) {
+        closeV2(t.stopLoss, 'STOP');
+      } else if (tpHit) {
+        closeV2(t.takeProfit, 'TARGET');
+      } else if ((sig.decision === 'BUY' || sig.decision === 'SELL')) {
+        // The Position Guardian: flip against the position closes it at market,
+        // irrespective of P&L or how long it has been open.
+        const flipped = (isLong && sig.decision === 'SELL') || (!isLong && sig.decision === 'BUY');
+        if (flipped) closeV2(bar.close, 'GUARDIAN_FLIP');
+      }
+    }
+
+    if (!open && (sig.decision === 'BUY' || sig.decision === 'SELL')) {
+      signalsRaised++;
+      const next = m1[i + 1];
+      const side = sig.decision === 'BUY' ? 'Buy' : 'Sell';
+      const entry = fillPrice(next.open, side, true);
+      const riskDist = Math.abs(entry - sig.stopLoss);
+      if (riskDist > 0) {
+        const riskAmount = equity * 0.005;
+        const qty = riskAmount / riskDist;
+        equity -= feeOn(qty * entry);
+        open = {
+          symbol, side, entryPrice: entry, stopLoss: sig.stopLoss,
+          takeProfit: sig.takeProfit[0], qty, riskDist, riskAmount, entryBar: i
+        };
+      }
+    }
+
+    peakEquity = Math.max(peakEquity, equity);
+    maxDrawdown = Math.max(maxDrawdown, (peakEquity - equity) / peakEquity);
+  }
+  if (open) closeV2(m1[m1.length - 1].close, 'END_OF_DATA');
+
+  function closeV2(price, reason) {
+    const t = open;
+    const exit = fillPrice(price, t.side, false);
+    const gross = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * t.qty;
+    const net = gross - feeOn(t.qty * exit);
+    equity += net;
+    const r = net / t.riskAmount;
+    trades.push({ symbol, side: t.side, setup: 'V2_VOTE', grade: 'n/a', entry: +t.entryPrice.toFixed(6), exit: +exit.toFixed(6), r: +r.toFixed(3), reason, barsHeld: 0 });
+    open = null;
+  }
+
+  return summarise({ symbol, engine: 'V2 (reconstruction)', trades, equity, startEquity, maxDrawdown, evaluations, signalsRaised, gradeCounts: {}, blockerCounts: {}, bars: m1.length, source: bundle.source });
+}
+
+// ────────────────────────────────────────────────────────────────────────
+function summarise(r) {
+  const { trades } = r;
+  const wins = trades.filter(t => t.r > 0);
+  const losses = trades.filter(t => t.r <= 0);
+  const rs = trades.map(t => t.r);
+  const grossWin = wins.reduce((a, t) => a + t.r, 0);
+  const grossLoss = Math.abs(losses.reduce((a, t) => a + t.r, 0));
+  const avgWin = wins.length ? grossWin / wins.length : 0;
+  const avgLoss = losses.length ? grossLoss / losses.length : 0;
+  const winRate = trades.length ? wins.length / trades.length : 0;
+
+  const byReason = {};
+  for (const t of trades) byReason[t.reason] = (byReason[t.reason] || 0) + 1;
+  const bySetup = {};
+  for (const t of trades) {
+    bySetup[t.setup] = bySetup[t.setup] || { n: 0, wins: 0, totalR: 0 };
+    bySetup[t.setup].n++;
+    if (t.r > 0) bySetup[t.setup].wins++;
+    bySetup[t.setup].totalR += t.r;
+  }
+  for (const k of Object.keys(bySetup)) {
+    bySetup[k].winRate = +((bySetup[k].wins / bySetup[k].n) * 100).toFixed(1);
+    bySetup[k].totalR = +bySetup[k].totalR.toFixed(2);
+    bySetup[k].expectancyR = +(bySetup[k].totalR / bySetup[k].n).toFixed(3);
+  }
+
+  return Object.assign({}, r, {
+    tradeCount: trades.length,
+    winRate: +(winRate * 100).toFixed(1),
+    avgWinR: +avgWin.toFixed(2),
+    avgLossR: +avgLoss.toFixed(2),
+    expectancyR: trades.length ? +(rs.reduce((a, b) => a + b, 0) / trades.length).toFixed(3) : 0,
+    totalR: +rs.reduce((a, b) => a + b, 0).toFixed(2),
+    profitFactor: grossLoss > 0 ? +(grossWin / grossLoss).toFixed(2) : (grossWin > 0 ? Infinity : 0),
+    netPnl: +(r.equity - r.startEquity).toFixed(2),
+    returnPct: +(((r.equity - r.startEquity) / r.startEquity) * 100).toFixed(2),
+    maxDrawdownPct: +(r.maxDrawdown * 100).toFixed(2),
+    signalRate: r.evaluations ? +((r.signalsRaised / r.evaluations) * 100).toFixed(2) : 0,
+    exitBreakdown: byReason,
+    setupBreakdown: bySetup
+  });
+}
+
+function fmtPct(v) { return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; }
+
+function report(results) {
+  const line = '─'.repeat(78);
+  console.log(`\n${line}\n  MASIS BACKTEST — V3 vs. reconstructed V2, identical bars and costs\n${line}`);
+  console.log(`  Costs modelled: ${(TAKER_FEE * 100).toFixed(3)}% taker fee + ${(SLIPPAGE * 100).toFixed(2)}% slippage per fill, both sides.`);
+  console.log(`  Intrabar rule: when a 1m bar contains both stop and target, the STOP is taken.`);
+
+  for (const pair of results) {
+    const { v3, v2 } = pair;
+    console.log(`\n  ${v3.symbol}  (data source: ${v3.source}, ${v3.bars} decision bars, V3 on ${v3.tfLabel})`);
+    console.log(`  ${'metric'.padEnd(22)}${'V3'.padStart(14)}${'V2 (recon)'.padStart(16)}`);
+    const row = (label, a, b) => console.log(`  ${label.padEnd(22)}${String(a).padStart(14)}${String(b).padStart(16)}`);
+    row('trades', v3.tradeCount, v2.tradeCount);
+    row('win rate %', v3.winRate, v2.winRate);
+    row('avg win (R)', v3.avgWinR, v2.avgWinR);
+    row('avg loss (R)', v3.avgLossR, v2.avgLossR);
+    row('expectancy (R)', v3.expectancyR, v2.expectancyR);
+    row('profit factor', v3.profitFactor, v2.profitFactor);
+    row('total R', v3.totalR, v2.totalR);
+    row('return %', fmtPct(v3.returnPct), fmtPct(v2.returnPct));
+    row('max drawdown %', v3.maxDrawdownPct, v2.maxDrawdownPct);
+    console.log(`  V3 signals raised: ${v3.signalsRaised}, entries taken: ${v3.tradeCount}`);
+    if (v3.entryRejects && Object.keys(v3.entryRejects).length) console.log(`  V3 entry rejections: ${JSON.stringify(v3.entryRejects)}`);
+    console.log(`  V3 exits: ${JSON.stringify(v3.exitBreakdown)}`);
+    console.log(`  V2 exits: ${JSON.stringify(v2.exitBreakdown)}`);
+    if (Object.keys(v3.setupBreakdown).length) {
+      console.log('  V3 by setup:');
+      for (const [k, s] of Object.entries(v3.setupBreakdown)) {
+        console.log(`    ${k.padEnd(20)} n=${String(s.n).padStart(3)}  win ${String(s.winRate).padStart(5)}%  expectancy ${s.expectancyR >= 0 ? '+' : ''}${s.expectancyR}R`);
+      }
+    }
+  }
+
+  // Portfolio aggregate
+  const agg = (key) => {
+    const all = results.flatMap(p => p[key].trades);
+    const wins = all.filter(t => t.r > 0);
+    const rs = all.map(t => t.r);
+    const gw = wins.reduce((a, t) => a + t.r, 0);
+    const gl = Math.abs(all.filter(t => t.r <= 0).reduce((a, t) => a + t.r, 0));
+    return {
+      n: all.length,
+      winRate: all.length ? +((wins.length / all.length) * 100).toFixed(1) : 0,
+      expectancyR: all.length ? +(rs.reduce((a, b) => a + b, 0) / all.length).toFixed(3) : 0,
+      totalR: +rs.reduce((a, b) => a + b, 0).toFixed(2),
+      profitFactor: gl > 0 ? +(gw / gl).toFixed(2) : 0
+    };
+  };
+  const a3 = agg('v3'), a2 = agg('v2');
+  console.log(`\n${line}\n  COMBINED ACROSS SYMBOLS\n${line}`);
+  console.log(`  ${'metric'.padEnd(22)}${'V3'.padStart(14)}${'V2 (recon)'.padStart(16)}`);
+  console.log(`  ${'trades'.padEnd(22)}${String(a3.n).padStart(14)}${String(a2.n).padStart(16)}`);
+  console.log(`  ${'win rate %'.padEnd(22)}${String(a3.winRate).padStart(14)}${String(a2.winRate).padStart(16)}`);
+  console.log(`  ${'expectancy (R)'.padEnd(22)}${String(a3.expectancyR).padStart(14)}${String(a2.expectancyR).padStart(16)}`);
+  console.log(`  ${'profit factor'.padEnd(22)}${String(a3.profitFactor).padStart(14)}${String(a2.profitFactor).padStart(16)}`);
+  console.log(`  ${'total R'.padEnd(22)}${String(a3.totalR).padStart(14)}${String(a2.totalR).padStart(16)}`);
+
+  console.log(`\n  Sample size is ${a3.n} V3 trades. Read that number before reading any`);
+  console.log(`  other number here: under a few hundred trades, win rate and expectancy`);
+  console.log(`  carry wide confidence intervals and neither figure should be treated`);
+  console.log(`  as a forecast. What this run can legitimately establish is direction:`);
+  console.log(`  whether the selectivity and exit changes move expectancy the right way.\n${line}\n`);
+
+  return { v3: a3, v2: a2 };
+}
+
+function main() {
+  const a = args();
+  if (a.pm) global.__MASIS_PM_OVERRIDE__ = JSON.parse(a.pm);
+  if (a.quiet) { const noop = () => {}; global.__origLog = console.log; console.log = noop; }
+  const startEquity = parseFloat(a.equity || '1000');
+  const files = fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR).filter(f => f.endsWith('.json')) : [];
+  if (!files.length) {
+    console.error('No cached data. Run: node backtest/fetch-klines.js BTCUSDT,ETHUSDT,SOLUSDT 1,5,15 12000');
+    process.exit(1);
+  }
+  const wanted = a.symbols ? a.symbols.split(',') : null;
+
+  const results = [];
+  for (const f of files) {
+    const symbol = f.replace('.json', '');
+    if (wanted && !wanted.includes(symbol)) continue;
+    const bundle = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf8'));
+    const v3 = runV3(symbol, bundle, startEquity, a.mode || 'fast');
+    const v2 = runV2(symbol, bundle, startEquity);
+    if (v3.error) { console.error(`${symbol}: ${v3.error}`); continue; }
+    results.push({ v3, v2 });
+  }
+  const combined = report(results);
+  if (a.quiet) { console.log = global.__origLog; console.log(JSON.stringify(combined.v3)); }
+
+  if (a.json) {
+    fs.writeFileSync(a.json, JSON.stringify({ generatedAt: new Date().toISOString(), costs: { TAKER_FEE, SLIPPAGE }, combined, results }, null, 2));
+    console.log(`  Full detail written to ${a.json}\n`);
+  }
+}
+
+main();

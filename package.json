@@ -1,0 +1,12 @@
+{
+  "name": "masis-trading-terminal",
+  "private": true,
+  "version": "3.0.0",
+  "description": "MASIS V3 — multi-timeframe confluence trading engine, risk governor and backtest harness for the Bybit live dashboard.",
+  "type": "commonjs",
+  "scripts": {
+    "serve": "python3 server.py",
+    "backtest": "node backtest/run-backtest.js",
+    "fetch-data": "node backtest/fetch-klines.js"
+  }
+}
