@@ -665,3 +665,94 @@ neither is a signal:
 
 Both shrink the cost term. Nothing found in three rounds of searching grows the
 gross term.
+
+---
+
+# Part V — Patience at the entry
+
+A fair challenge: every study up to here, including the 2,448-configuration
+grid, entered **at market on the signal bar**. The holding period varied; the
+entry never did. That is one narrow scenario tested many times.
+
+```bash
+node research/patient-entry.js --tf 15 --hold 48 --wait 8
+```
+
+Waiting before entering does two separate things, and they had to be measured
+apart because only one of them would be new:
+
+1. **It lowers cost.** A resting limit pays maker instead of taker and does not
+   cross the spread. Already known, worth about +0.137R per trade.
+2. **It selects which trades you get.** A limit below the market only fills if
+   price comes back — so you systematically miss the trades that ran away
+   immediately. That is a *filter on the population of trades*, and unlike a
+   fee, a filter can change **gross** expectancy.
+
+So gross is reported next to net everywhere. That comparison is the study.
+
+## The answer
+
+| entry method | mean **GROSS** bps | vs instant | mean **NET** bps | vs instant | fill rate |
+|---|---|---|---|---|---|
+| INSTANT (market) | −0.70 | — | −15.70 | — | 100% |
+| delay 1 bar | −0.40 | +0.30 | −15.40 | +0.30 | 100% |
+| delay 4 bars | −0.58 | +0.12 | −15.58 | +0.12 | 100% |
+| limit 5 bps better | −1.19 | −0.49 | −3.19 | **+12.51** | 93% |
+| limit 15 bps better | −0.57 | **+0.12** | −2.57 | **+13.12** | 81% |
+| limit 40 bps better | −1.57 | −0.87 | −3.57 | **+12.13** | 54% |
+| pullback 25% of move | −3.35 | −2.66 | −5.35 | **+10.34** | 67% |
+| pullback 50% of move | −1.30 | −0.61 | −3.30 | **+12.39** | 41% |
+
+**Gross does not move.** The column wobbles between −2.66 and +0.30 — noise
+around zero, with no relationship to how patient the entry is. Waiting for a
+better price does **not** select better trades. The ones you miss were not
+systematically the good ones.
+
+**Net improves by +10 to +13 bps** — and the taker/maker difference is 13 bps.
+Patience is worth exactly the fee saving, to the basis point, and nothing more.
+
+Even the most extreme filter tested — waiting for a 50% retracement, which
+discards 59% of all signals — leaves gross unchanged. Throwing away most of the
+trades does not improve the ones you keep.
+
+## What it does do for win rate
+
+| | win rate |
+|---|---|
+| instant, taker | 43.1% |
+| limit 15 bps better, maker | 47.8% |
+| limit 40 bps better, maker | **48.4%** |
+
+Patient entry raises the win rate ~5 points, and on the mean-reverting signals it
+reaches **51.9-52.1%**. That is the honest route to a higher win rate — but note
+what produced it: not better prediction, just fewer trades being flipped from
+winner to loser by the fee. Same mechanism as holding longer, from Part IV.
+
+## After correction
+
+28 signal × entry-method combinations, FDR at q=0.10: 12 pass, and
+
+> **0 are positive and stable across both halves.**
+
+Consistent with everything before it.
+
+## Where this leaves the entry question
+
+Patient limit entry is **worth doing** — it is the single largest improvement
+available, it moves net expectancy by +13 bps, and it takes a losing
+configuration to approximately break-even (net −0.34 to +0.68 bps on the
+reverting signals, versus −13 to −20 instant).
+
+But it is worth doing for the boring reason. It is a rebate, not an insight.
+Gross expectancy was zero before the wait and is zero after it, which is now the
+fourth independent route to the same conclusion:
+
+- holding longer: gross flat at 50.0% win, net improves (Part IV)
+- inverting: gross flips a number that is already zero (Part IV)
+- patient entry: gross flat, net improves by exactly the fee (Part V)
+- maker vs taker execution: +0.137R per trade (Part I)
+
+Every lever that has ever moved the number in this repository moved the **cost**
+term. Nothing has moved the **gross** term, across 2,448 indicator
+configurations, 126 market-state slices, 69 calendar hypotheses, four
+cross-venue and basis structures, and now 28 entry methods.
