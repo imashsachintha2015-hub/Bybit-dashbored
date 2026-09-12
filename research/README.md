@@ -1492,3 +1492,133 @@ follow-up re-checks BTC/ETH once the accidentally-shortened cache is
 restored to its original 418-day depth, to settle whether the numbers in
 Part XI/XII still hold exactly, or shift now that a few more weeks of data
 sit at the end of the series.
+
+# Part XIV — Testing two user-supplied "universal crypto market equations"
+
+Two uploaded specifications, CME-Ultimate and CME-X, describe the same
+architecture in different words: a multi-scale momentum/coherence/regime
+core, a cross-asset field (breadth, relative value, lead-lag,
+synchronization, entropy), a temporal-geometry layer (persistence,
+acceleration, exhaustion), a liquidity-stress discount, a derivatives-
+reflexivity term, all combined and passed through tanh. Both documents are
+explicit that the goal is a discovered *invariant*, not a fitted curve, and
+both name the same decisive test before trusting one (CME-X section 22,
+its own words: "the most important test"): train on one set of coins, test
+on a completely different set, reject anything that doesn't survive.
+
+```bash
+node research/cme-invariant-test.js --cost 4
+```
+
+## What was actually built and tested
+
+The shared "universal" (price+volume+cross-asset) core was implemented
+across all 6 coins CME-X names — BTC/ETH/SOL/DOGE/LINK/AVAX, ~418 days of
+15-minute bars, 40,099 aligned bars per coin. Both documents ask for
+"learnable" coefficients everywhere; doing that literally would mean fitting
+dozens of parameters from one pass over this data with no held-out check —
+exactly the "immediately optimize thousands of coefficients" both documents
+themselves warn against. So the lower-level sub-weights (the K={1..128}
+momentum blend, the regime-gate blend, the liquidity-stress blend, the
+lead-lag lags) were fixed at equal weight, and only the top-level
+combination across 15 named state features was fit, by ridge regression,
+strictly on the training rows. This is the same two-tier discipline Part VI
+used for its own "combine everything into one score" model.
+
+The derivatives-reflexivity term was left out of this core test on purpose:
+OKX only retains ~30 days of derivatives history (this project's own
+recurring caveat since Part VI), and folding a 30-day-bounded term into a
+418-day, 6-coin invariance test would silently cut the whole test down to
+30 days.
+
+Three experiments, each evaluated with this project's full standard
+discipline (moving-block bootstrap significance — a barrier-race outcome is
+heavily overlapping, Part II's exact false-positive trap — FDR correction,
+split-half stability, a 4bps cost floor):
+
+- **Experiment A** — fit on BTC+ETH+SOL, freeze the weights, test on
+  DOGE+LINK+AVAX, never seen during fit.
+- **Experiment B** — the reverse: fit on DOGE+LINK+AVAX, test on
+  BTC+ETH+SOL.
+- **Experiment C** — time invariance: same coins, fit on the first 60% of
+  the series in time, test on the last 40%. This separates "fails because
+  of a different asset" from "fails because of a different period".
+
+## The result
+
+**A short-horizon (30-60 min) effect is real, but it is concentrated on
+BTC/ETH specifically, not on the coins used to fit the weights.**
+
+| experiment | best result | worst result at the same horizon |
+|---|---|---|
+| A: train majors, test alts (DOGE/LINK/AVAX) | DOGE, h=2 (30min): 54.3% WR, +0.006R, p=0.003, stable split (54%/55%) | AVAX, h=2: 53.8% WR but **negative** expR (-0.005) |
+| B: train alts, test majors (BTC/ETH/SOL) | **BTC, h=2: 61.1% WR, +0.143R, p=0.003, stable split (57%/64%)** | SOL, h=2: 53.1% WR, negative expR (-0.018) |
+| C: same-coin, time-split only | **BTC, h=2: 60.8% WR, +0.136R** · ETH, h=2: 59.5% WR, +0.110R | LINK, every horizon: 47-49% WR, negative |
+
+The pattern across all three experiments is the same regardless of which
+coins supplied the fitted weights: **BTC and ETH show a strong, stable,
+cost-clearing edge at h=2 (30 minutes)** that decays fast — by h=8 (2
+hours) BTC/ETH are down to 52-54% and by h=16 (4 hours) mostly
+indistinguishable from a coin flip. **SOL, DOGE, LINK and AVAX never show
+more than a marginal, mostly cost-negative effect**, in any experiment,
+including Experiment C where LINK trained and tested on nothing but its own
+history and still came back flat-to-negative at every horizon.
+
+The fitted top-level weights make the mechanism visible: in both
+Experiment A and B, `M_COH` (the multi-scale momentum × coherence × regime
+term) and `EX`/`BA` (exhaustion, breadth acceleration) get the largest
+magnitude — everything else (`BREADTH`, `RV`, `LL`, `SYNC`, `SYNC_A`, `DH`,
+the cross-asset/entropy machinery both documents spend most of their length
+on) is shrunk to near zero by the ridge. That is the same shape Part VI
+found checking RSI/ROC/Bollinger's effective rank, and the same shape Part
+XII found for volume/cross-asset gates on the ensemble formula: the
+sophisticated-sounding additions are not where the signal lives.
+
+## The verdict, by the documents' own stated rule
+
+CME-X section 49, verbatim: *"If it finds Formula A: 92% historical win
+rate but unseen assets = 51%... REJECT IT... If it works on BTC/ETH but
+fails on SOL/DOGE/LINK/AVAX: REJECT or classify as asset-specific."*
+
+Applying that rule to this project's own result: **REJECT as a universal
+invariant. Classify as BTC/ETH-specific.** Experiment A — the literal
+"train on majors, does it transfer to alts" test both documents call the
+most important one — clears essentially nothing: one borderline survivor
+(DOGE, +0.006R, barely above the 4bps floor) out of twelve cells, and every
+other alt-coin cell is either not significant or has negative
+cost-adjusted expectancy. The strength in Experiments B and C shows up
+because BTC and ETH are in the *test* set, not because DOGE/LINK/AVAX's
+history taught the model anything transferable — training on alts and
+testing on majors works about as well as training on majors and testing on
+the same majors in a later period (compare Experiment B's BTC h=2 +0.143R
+to Experiment C's BTC h=2 +0.136R — nearly identical, which is the tell
+that the alt-coin training data wasn't doing the work).
+
+This is not a new phenomenon for this project. It is the same effect Part
+X/XI/XII already characterized — a real, short-horizon, BTC/ETH-specific
+trend-efficiency signal that decays with horizon — arrived at independently
+through a completely different, much larger feature construction (cross-
+asset breadth, synchronization, entropy, lead-lag, exhaustion, none of
+which existed in the Part X-XII formulas), and landing on the same
+conclusion Part XIII already reached when it asked the market-wide
+question directly: real on BTC/ETH, not a market-wide invariant.
+
+## What's honestly still open
+
+- The derivatives-reflexivity term (OFI × OI × funding) was not tested here
+  for the reason stated above. Part X already tested a derivatives-enhanced
+  formula family on the same ~30-day window and found real-looking numbers
+  confined to one continuous market episode — worth a look, not worth
+  trusting at the same level as this 418-day result.
+- The lower-level sub-weights (momentum-horizon blend, regime-gate blend,
+  lead-lag lags) were fixed at equal weight rather than fit, on the
+  MDL/no-thousand-coefficient grounds stated above. It's possible a properly
+  cross-validated fit of those too would move the numbers — but given how
+  hard the top-level ridge already shrank the cross-asset/entropy terms
+  toward zero, there is no positive evidence yet that a bigger search would
+  find something this one didn't.
+- Placebo/shuffled-label and shuffled-asset tests (CME-X sections 26-27)
+  were not run. Given the result already fails the project's and the
+  documents' own headline test, running the remaining robustness checks on
+  a result already classified "asset-specific, not universal" would mostly
+  confirm what Experiment A already showed.
