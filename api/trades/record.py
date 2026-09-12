@@ -6,9 +6,25 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from backend_lib.http_utils import JsonApiHandler
 from backend_lib import trade_stats as trade_stats_mod
+from backend_lib.kv import kv_configured
 
 
 class handler(JsonApiHandler):
+    # Diagnostic only -- lets us confirm from outside the container whether
+    # a Redis/KV store is actually attached and whether writes are landing
+    # in it, without needing a real closed trade to test with. This is what
+    # caught the original bug: every one of 17 production trades came back
+    # with blank setup_type/grade because there was no durable store behind
+    # this at all (see kv.py's module docstring).
+    def do_GET(self):
+        stats = trade_stats_mod.load()
+        history = stats.get("trade_history", [])
+        self._send_json(200, {
+            "kv_configured": kv_configured(),
+            "trade_count": len(history),
+            "most_recent": history[0] if history else None
+        })
+
     # Records the reasoning behind a close: which setup fired, what grade it
     # scored, why the position was exited, and the realised R. It no longer
     # maintains its own win/loss/profit tallies -- those came from here AND
