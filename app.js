@@ -159,14 +159,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return +(Math.floor(qty / step) * step).toFixed(decimals);
   }
 
+  /** Reads a fetch Response as JSON, but never lets a non-JSON body (an HTML
+   * error/block page, an empty response, a proxy's error page -- anything
+   * that isn't valid JSON) surface as the cryptic default
+   * "JSON.parse: unexpected character at line 1 column 1 of the JSON data".
+   * Throws a message that says what actually happened instead. */
+  async function readJSONResponse(r, url) {
+    const text = await r.text();
+    if (!text) throw new Error(`empty response from ${url} (status ${r.status})`);
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      const preview = text.slice(0, 120).replace(/\s+/g, ' ');
+      throw new Error(`non-JSON response from ${url} (status ${r.status}): "${preview}"`);
+    }
+  }
+
   async function fetchJSON(url) {
-    try { const r = await fetch(url); return await r.json(); }
-    catch (e) { console.warn('API fetch error:', url, e); return null; }
+    try { const r = await fetch(url); return await readJSONResponse(r, url); }
+    catch (e) { console.warn('API fetch error:', url, e.message); return null; }
   }
 
   async function postJSON(url, body) {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    return r.json();
+    return readJSONResponse(r, url);
   }
 
   // ─────────────────────────────────────────────────────────────────────

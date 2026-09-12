@@ -10,6 +10,23 @@
  * tape is currently rendered); it never changes what's subscribed.
  */
 
+/** Parses a fetch Response as JSON, but turns a non-JSON body (most often an
+ * HTML block/compliance page returned with a 200 status when Bybit's public
+ * API is geo-restricted for the caller's region, or a proxy/CDN error page)
+ * into a clear diagnostic instead of the default
+ * "JSON.parse: unexpected character at line 1 column 1 of the JSON data". */
+async function parseBybitJson(res, label) {
+  const text = await res.text();
+  if (!text) throw new Error(`${label}: empty response (status ${res.status})`);
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const preview = text.slice(0, 100).replace(/\s+/g, ' ');
+    const looksBlocked = /<html|<!doctype/i.test(preview);
+    throw new Error(`${label}: non-JSON response (status ${res.status})${looksBlocked ? ' -- looks like an HTML page, likely a geo-block or CDN error page rather than the Bybit API' : ''}: "${preview}"`);
+  }
+}
+
 class BybitWebSocketClient {
   constructor(options = {}) {
     this.category = options.category || 'linear'; // 'linear' | 'spot'
@@ -303,7 +320,7 @@ class BybitWebSocketClient {
 
       const res = await fetch(url);
       if (!res.ok) return [];
-      const json = await res.json();
+      const json = await parseBybitJson(res, `fetchHistoricalKlines(${symbol})`);
 
       if (json.retCode === 0 && json.result && Array.isArray(json.result.list)) {
         // Bybit returns newest first, reverse for chronological order
@@ -339,7 +356,7 @@ class BybitWebSocketClient {
         this.isLoadingOlder = false;
         return;
       }
-      const json = await res.json();
+      const json = await parseBybitJson(res, `fetchOlderHistory(${this.symbol})`);
 
       if (json.retCode === 0 && json.result && Array.isArray(json.result.list) && json.result.list.length > 0) {
         const rawList = json.result.list.slice().reverse();

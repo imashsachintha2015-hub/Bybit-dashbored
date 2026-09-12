@@ -13,6 +13,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import json
+import math
 import hmac
 import hashlib
 import time
@@ -695,12 +696,31 @@ Reply with exactly this JSON:
     }
 
 
+def _sanitize_for_json(obj):
+    """Recursively replaces NaN/Infinity/-Infinity (valid Python floats, not
+    valid JSON) with None, and anything json.dumps can't otherwise handle
+    with its str(). Guarantees _send_json always emits parseable JSON."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(v) for v in obj]
+    if obj is None or isinstance(obj, (str, int, bool)):
+        return obj
+    return str(obj)
+
+
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
     def _send_json(self, status, payload):
-        body = json.dumps(payload).encode("utf-8")
+        # json.dumps allows Python's NaN/Infinity by default, which are not
+        # valid JSON tokens -- a browser's JSON.parse rejects them outright
+        # ("unexpected character at line 1 column 1"). Sanitize recursively so
+        # this endpoint can never emit a body the client can't parse.
+        body = json.dumps(_sanitize_for_json(payload)).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -865,6 +885,21 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         except Exception:
             body = {}
 
+        # Every route below is expected to always call self._send_json(...)
+        # and return. If any of them raises instead (a bad symbol, a None
+        # where .capitalize() is called, anything unanticipated), the
+        # exception must still end in a JSON response -- an uncaught
+        # exception here otherwise closes the connection with no body (or,
+        # depending on the client, a generic non-JSON error page), which
+        # surfaces client-side as a cryptic "JSON.parse: unexpected
+        # character..." instead of a message that says what actually failed.
+        try:
+            return self._route_post(body)
+        except Exception as e:
+            print(f"[POST {self.path}] Unhandled error: {e}")
+            self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+
+    def _route_post(self, body):
         # 1. API: Place Demo Order
         if self.path == "/api/order/place":
             category = body.get("category", "linear")
