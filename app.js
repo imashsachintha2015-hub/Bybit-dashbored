@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     SUIUSDT: { name: 'Sui', short: 'SUI', color: '#6FBCF0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
     TONUSDT: { name: 'Toncoin', short: 'TON', color: '#0088CC', icon: 'fa-paper-plane', brand: false, qtyStep: 0.1, minQty: 0.1 },
     TRXUSDT: { name: 'TRON', short: 'TRX', color: '#EF0027', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    SHIBUSDT: { name: 'Shiba Inu', short: 'SHIB', color: '#F00500', icon: 'fa-dog', brand: false, qtyStep: 1000, minQty: 1000 },
+    SHIB1000USDT: { name: 'Shiba Inu', short: 'SHIB', color: '#F00500', icon: 'fa-dog', brand: false, qtyStep: 1000, minQty: 1000 },
     UNIUSDT: { name: 'Uniswap', short: 'UNI', color: '#FF007A', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
     FILUSDT: { name: 'Filecoin', short: 'FIL', color: '#0090FF', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
     ETCUSDT: { name: 'Ethereum Classic', short: 'ETC', color: '#328332', icon: 'fa-ethereum', brand: false, qtyStep: 0.01, minQty: 0.01 },
@@ -676,6 +676,11 @@ document.addEventListener('DOMContentLoaded', () => {
       statusText.textContent = 'Disconnected';
       statusChip.classList.remove('online');
     }
+  });
+
+  wsClient.on('subscribeError', ({ topics, reason }) => {
+    const symbols = [...new Set(topics.map(t => t.split('.').pop()))];
+    logEvent(`WS subscribe rejected (${reason}) for: ${symbols.join(', ') || 'unknown symbols'} — those coins won't get live data until this is fixed`);
   });
 
   wsClient.on('ticker', (d) => {
