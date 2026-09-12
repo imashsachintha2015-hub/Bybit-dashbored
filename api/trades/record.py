@@ -62,3 +62,19 @@ class handler(JsonApiHandler):
         except Exception as e:
             print(f"[POST /api/trades/record] Unhandled error: {e}")
             self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+
+    # Narrow cleanup valve for exactly the synthetic rows the GET/POST above
+    # are used to write during a persistence check (setup_type
+    # "KV_PERSISTENCE_TEST") -- never touches a real trade, so it's safe to
+    # leave wired in rather than one-shot it and rip it back out.
+    def do_DELETE(self):
+        stats = trade_stats_mod.load()
+        before = len(stats.get("trade_history", []))
+        stats["trade_history"] = [
+            t for t in stats.get("trade_history", [])
+            if t.get("setup_type") != "KV_PERSISTENCE_TEST"
+        ]
+        removed = before - len(stats["trade_history"])
+        if removed:
+            trade_stats_mod.save(stats)
+        self._send_json(200, {"removed": removed})
