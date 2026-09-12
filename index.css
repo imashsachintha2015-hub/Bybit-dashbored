@@ -860,7 +860,7 @@ body {
   font-size: 10px;
   padding: 3px 0;
 }
-.evidence-item .ev-label  { color: var(--text, #E2E8F0); }
+.evidence-item .ev-label  { color: var(--text-bright); }
 .evidence-item .ev-detail { color: var(--text-dim, #94A3B8); }
 .evidence-item .ev-bar {
   height: 5px;
@@ -917,7 +917,7 @@ body {
 .analyst-row.danger { border-left-color: var(--gold); }
 .analyst-row.dim    { opacity: 0.45; }
 
-.an-name { color: var(--text, #E2E8F0); }
+.an-name { color: var(--text-bright); }
 .an-read { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; color: var(--text-dim, #94A3B8); }
 .an-conv { height: 4px; border-radius: 2px; background: rgba(148, 163, 184, 0.16); overflow: hidden; }
 .an-bar  { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); }
@@ -943,7 +943,7 @@ body {
 .debate-fatal { margin-top: 5px; font-size: 10px; line-height: 1.5; color: #FCA5A5; }
 .debate-opp   { margin-top: 6px; font-size: 10px; line-height: 1.5; color: var(--text-dim, #94A3B8); }
 .debate-sub   { font-size: 8px; font-weight: 700; letter-spacing: 0.08em; opacity: 0.75; margin-bottom: 2px; }
-.debate-opp em { color: var(--text, #E2E8F0); font-style: normal; }
+.debate-opp em { color: var(--text-bright); font-style: normal; }
 .analyst-empty { font-size: 10px; color: var(--text-dim, #94A3B8); padding: 6px; }
 
 @media (max-width: 760px) {
