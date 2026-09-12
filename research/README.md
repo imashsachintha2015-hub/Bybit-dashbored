@@ -1364,3 +1364,56 @@ sign. It moves win rate from ~55-57% to ~56-59% and roughly doubles the
 margin over realistic execution cost. It does not change the underlying
 finding's nature: it is still one short-horizon trend-efficiency signal, now
 measured slightly better.
+
+# Part XII — New features on top of the ensemble
+
+Four candidates, each adding information the ensemble does not already use
+(not just re-slicing m4/m16/vz/eff again): volume confirmation, cross-asset
+agreement (does ETH's ensemble agreeing with BTC's, at the same timestamp,
+raise BTC's win rate — real new information, since it can't be derived from
+BTC's own price series), signal persistence (has the ensemble been in its
+own top decile for ≥2 consecutive bars, vs. just crossing in this bar), and
+session timing (Asia/Europe/US UTC blocks).
+
+**Signal persistence is the one that holds up on both coins:**
+
+| coin | test | n | win rate | vs. baseline | split |
+|---|---|---|---|---|---|
+| BTC | Ensemble top10% (baseline) | 864 | 58.9% | — | 56%/62% |
+| BTC | AND sustained ≥2 consecutive bars | 243 | 61.3% | **+2.4pp** | 60%/62% |
+| ETH | Ensemble top10% (baseline) | 1544 | 56.3% | — | 55%/57% |
+| ETH | AND sustained ≥2 consecutive bars | 450 | 57.1% | **+0.8pp** | 57%/57% |
+
+Consistent direction on both coins, both with tight, stable split-halves,
+and a real mechanism: a signal that has stayed elevated for more than one
+bar is less likely to be a single noisy spike and more likely reflects
+sustained conviction. The cost is trade count — this filters out roughly
+70-72% of the baseline's trades, so it trades much less often in exchange
+for a meaningfully higher win rate on what's left (breakeven cost rises to
+11.3bps on BTC).
+
+**Volume confirmation and cross-asset agreement added nothing.** Gating on
+elevated volume (vz>0) moved win rate by less than half a point either way
+on both coins — unsurprising, since vz is already an ingredient inside four
+of the five ensemble formulas, so this "new" gate wasn't actually new
+information. BTC's win rate barely moved (−0.3pp, n=852 — 99% of the
+baseline's trades) when requiring ETH's ensemble to simultaneously agree,
+meaning the two coins' signals are usually already pointing the same way at
+the same time and the gate filters almost nothing.
+
+**Session timing is a genuine "interesting, not yet trustworthy" lead.**
+Both coins were *worse* in the US session (16-24 UTC: BTC −4.8pp, ETH
+−2.0pp) — a directionally consistent result worth noting. But their best
+sessions disagreed (BTC liked Asia, +3.8pp; ETH liked Europe, +1.2pp), six
+session/coin combinations were tested here (more multiple-testing exposure
+than the other three ideas combined), and BTC's worst cell (US session)
+has a first-half win rate of exactly 50% — a flip risk sitting right at the
+edge, not a stable pattern. This needs a longer, purpose-built session
+study (more coins, explicit FDR across all 24 individual hours rather than
+3 wide blocks) before being trusted as more than a lead.
+
+**The honest combined picture:** persistence is a real, validated upgrade —
+trade less often, win more when you do. Volume and cross-asset gates are
+dead ends here specifically because the ensemble already captures what
+they'd add. Session timing deserves a dedicated follow-up, not a verdict
+yet.
