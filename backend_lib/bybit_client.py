@@ -86,6 +86,19 @@ class BybitDemoClient:
     def get_wallet_balance(self):
         return self.signed_request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})
 
+    def apply_demo_funds(self, coin, amount, reduce=False):
+        """Demo-trading-only: credits (or, with reduce=True, debits) virtual
+        balance via Bybit's demo-apply-money endpoint. Real Bybit API, real
+        virtual funds -- not something this app fabricates. Amount is a
+        string per Bybit's spec; max per request is coin-dependent (e.g.
+        100000 for USDT), and adding is rejected once total equity is
+        already above 10,000 USDT (Bybit's own rule, not this app's)."""
+        body = {
+            "adjustType": 1 if reduce else 0,
+            "utaDemoApplyMoney": [{"coin": coin, "amountStr": str(amount)}],
+        }
+        return self.signed_request("POST", "/v5/account/demo-apply-money", body=body)
+
     def get_positions(self, symbol=None):
         params = {"category": "linear", "settleCoin": "USDT"}
         if symbol:
