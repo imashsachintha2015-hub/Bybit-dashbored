@@ -8,20 +8,28 @@ every invocation can land on a different, short-lived instance, and anything
 written to /tmp disappears the moment that instance is recycled. Neither
 counter means anything if it silently resets on the next cold start.
 
-So this reaches for Vercel KV (Upstash Redis's REST API, the same one the
-Vercel KV integration provisions -- the KV_REST_API_URL / KV_REST_API_TOKEN
-env vars it sets automatically) when it's configured, and falls back to an
-in-process dict mirrored to /tmp otherwise. The fallback is fine for local
-testing; it is NOT real persistence in production -- attach a KV store to
-the Vercel project for the trade ledger and the daily model-call cap to
-actually hold across requests.
+So this reaches for Upstash Redis's REST API when it's configured, and
+falls back to an in-process dict mirrored to /tmp otherwise. The fallback
+is fine for local testing; it is NOT real persistence in production --
+confirmed the hard way once already (every trade recorded in production
+came back with blank setup_type/grade/exit_reason, because the write from
+POST /api/trades/record and the read from GET /api/performance landed on
+different serverless instances with no shared memory or KV attached).
+
+Attach a Redis store to the Vercel project (Storage tab -> Marketplace ->
+Upstash, or equivalent) for the trade ledger and the daily model-call cap
+to actually hold across requests. The original "Vercel KV" product was
+folded into this Marketplace/Upstash integration; env var naming has
+shifted with it, so both the legacy KV_REST_API_* names and Upstash's own
+UPSTASH_REDIS_REST_* names are checked here, whichever the integration
+actually injects.
 """
 import json
 import os
 import urllib.request
 
-KV_URL = os.environ.get("KV_REST_API_URL")
-KV_TOKEN = os.environ.get("KV_REST_API_TOKEN")
+KV_URL = os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL")
+KV_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
 
 _memory_store = {}
 
