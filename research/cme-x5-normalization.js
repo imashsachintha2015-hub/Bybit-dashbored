@@ -748,4 +748,7 @@ function main() {
     { generatedAt: new Date().toISOString(), costBps, partsRun: partsArg, results: { ...prior, ...results } }, null, 2));
 }
 
-main();
+// Exported so small follow-up diagnostics can reuse the universe builders without
+// duplicating them; running the file directly still executes the study.
+module.exports = { buildUniverse, CORE_COINS, WIDE_EXTRA, FEATURE_NAMES, IDX, loadBars };
+if (require.main === module) main();
