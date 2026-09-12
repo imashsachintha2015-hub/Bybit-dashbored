@@ -548,3 +548,120 @@ That is not a discouraging finding, it is a specific one: it says the remaining
 levers are **cost, speed, and access**, not insight. Which is where Part I
 landed from the opposite direction, and why the execution change remains the
 only thing in this repository that moved the number.
+
+---
+
+# Part IV — "We always land at 41-47%. What if we do the opposite?"
+
+Three studies, answering the question directly.
+
+```bash
+node research/winrate-frontier.js --tf 15 --cost 15    # is win rate a free parameter?
+node research/indicator-grid.js  --tf 15 --cost 15     # 2,448 configurations
+```
+
+## The 41-47% is not a signal problem. It is 50% minus the fee.
+
+The grid ran **2,448 strategy configurations** — 10 custom indicators × 2-3
+parameters each × 3 thresholds × momentum *and* reversion × 6 holding periods ×
+6 symbols. Here is the single most important table it produced:
+
+| holding period | configs | **gross win %** | **net win %** | mean bps |
+|---|---|---|---|---|
+| 15 min | 408 | **49.7%** | **25.0%** | −15.00 |
+| 30 min | 408 | **49.8%** | 30.6% | −15.00 |
+| 60 min | 408 | **49.8%** | 35.3% | −15.00 |
+| 4 hours | 408 | **49.9%** | 41.7% | −15.00 |
+| 12 hours | 408 | **50.0%** | 45.6% | −15.00 |
+| 24 hours | 408 | **50.0%** | 47.2% | −15.00 |
+
+**Gross win rate is 49.7-50.0% at every horizon.** Flat. Across every indicator,
+every parameter, every threshold, both directions. The indicators have no
+directional edge at any holding period — before costs, all of it is a coin flip.
+
+**Net win rate climbs from 25% to 47%** as the hold lengthens. That entire climb
+is cost dilution: the fee is fixed per trade while the expected move grows with
+time, so a shorter hold has a larger share of its trades converted from winner
+to loser by the fee. At 15 minutes, the fee flips a quarter of all trades.
+
+So the 41-47% that keeps appearing is not the strategy failing to predict. It is
+**50% minus what the exchange takes.** That is why it appears no matter what
+indicator is used.
+
+## Can we get 53-59%? Yes, trivially, and it does not help
+
+`winrate-frontier.js` takes **random coin-flip entries** on BTC and changes only
+the target/stop ratio:
+
+| target : stop | win rate | gross expectancy | net expectancy |
+|---|---|---|---|
+| 0.25 : 1 | **80.0%** | +0.002 | −0.229 |
+| 0.5 : 1 | **66.5%** | +0.002 | −0.229 |
+| 1 : 1 | 50.2% | +0.005 | −0.225 |
+| 2 : 1 | 37.2% | +0.018 | −0.212 |
+| 3 : 1 | 33.1% | +0.017 | −0.214 |
+
+An 80% win rate, on **no information whatsoever**, by putting the target at a
+quarter of the stop distance. Gross expectancy stays pinned at zero across the
+entire sweep, because moving the target trades win *rate* against win *size* at
+a fixed exchange rate. There is nothing to manufacture expectancy from.
+
+Across the 2,448-configuration grid, the **correlation between win rate and
+expectancy is 0.036**. Effectively zero. The top 12 configurations by win rate
+and the top 12 by expectancy share almost no members.
+
+**Win rate is a dial. Expectancy is the score.**
+
+## Does inverting a losing strategy make it a winning one?
+
+No, and the reason is arithmetic: **Net = Gross − Cost.** Inverting flips the
+sign of Gross. It does not flip Cost, because you pay the spread and the fee in
+both directions.
+
+Every rule run forwards and inverted on identical bars:
+
+| rule | win% | exp R | inverted win% | inverted exp R | gross R |
+|---|---|---|---|---|---|
+| momentum, last bar | 36.8% | −0.162 | 37.3% | −0.154 | +0.005 |
+| momentum, 5-bar | 37.6% | −0.142 | 36.5% | −0.175 | +0.025 |
+| reversion, last bar | 37.3% | −0.154 | 36.8% | −0.162 | +0.013 |
+| above/below 20-EMA | 37.0% | −0.156 | 37.1% | −0.161 | +0.012 |
+| 20-bar breakout | 37.6% | −0.131 | 36.0% | −0.187 | +0.047 |
+
+Both columns lose. The "gross R" column — the same rule with costs switched off
+— is where the rules actually sit: between +0.005 and +0.047, i.e. nothing.
+There is no negative edge to invert into a positive one. There is a zero edge
+and a fee.
+
+Inverting a strategy that loses to *costs* gives you a strategy that also loses
+to costs. You do not get −(−0.137R). You get −(Gross) − Cost.
+
+## After correcting for the size of the search
+
+2,181 of the 2,448 configurations passed FDR correction — because they are
+reliably, significantly **negative**. Of everything that passed:
+
+> **0 are positive and hold their sign across both halves of the sample.**
+
+Not one, out of 2,448 combinations of indicator, parameter, threshold,
+direction, holding period and symbol.
+
+## What this actually leaves
+
+The three studies agree on the same mechanism from three directions:
+
+1. Gross edge is ~0 at every horizon tested, for every indicator tested.
+2. Win rate is set by the target/stop ratio, not by skill, and is uncorrelated
+   with profitability (r = 0.036).
+3. The observed 41-47% is 50% minus the fee, which is why it is so stable.
+
+Which means there are exactly two levers that demonstrably move the number, and
+neither is a signal:
+
+- **Hold longer.** Not because prediction improves — gross win rate is 50.0% at
+  24 hours just as it is at 15 minutes — but because the fixed fee becomes a
+  smaller share of a larger move. Net win rate goes 25% → 47% on that alone.
+- **Pay less.** The maker/taker result from Part I, worth +0.137R per trade.
+
+Both shrink the cost term. Nothing found in three rounds of searching grows the
+gross term.
