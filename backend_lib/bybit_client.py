@@ -152,14 +152,25 @@ def get_client():
     global _client
     if _client is not None:
         return _client, None
-    key = os.environ.get("BYBIT_API_KEY")
-    secret = os.environ.get("BYBIT_API_SECRET")
+    # .strip() matters here, not just as hygiene: a dashboard env-var field
+    # that picked up a stray tab/newline from a copy-paste (observed in
+    # production -- BYBIT_BASE_URL came through as "api-demo.bybit.com\t")
+    # makes urllib refuse the URL outright ("URL can't contain control
+    # characters"), and would just as silently break HMAC signing if it
+    # were in the key or secret instead.
+    key = (os.environ.get("BYBIT_API_KEY") or "").strip()
+    secret = (os.environ.get("BYBIT_API_SECRET") or "").strip()
     if not key or not secret:
         return None, "BYBIT_API_KEY / BYBIT_API_SECRET not set in the environment"
     # `.get(name, default)` only substitutes the default when the var is
     # UNSET, not when it's set to an empty string -- an env var added in a
     # host's dashboard with a blank value (BYBIT_BASE_URL="") would otherwise
     # silently produce a schemeless URL. `or` treats both cases the same.
-    base_url = os.environ.get("BYBIT_BASE_URL") or "https://api-demo.bybit.com"
+    base_url = (os.environ.get("BYBIT_BASE_URL") or "https://api-demo.bybit.com").strip()
+    # A base URL saved without its scheme (e.g. "api-demo.bybit.com") is
+    # another silent, otherwise-hard-to-notice way to end up with a request
+    # urllib refuses to send at all.
+    if base_url and not base_url.startswith(("http://", "https://")):
+        base_url = "https://" + base_url
     _client = BybitDemoClient(key, secret, base_url)
     return _client, None
