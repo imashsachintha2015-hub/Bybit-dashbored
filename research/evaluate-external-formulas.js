@@ -225,20 +225,33 @@ function blockBootstrapP(outcomes, blockLen, iters = 300) {
 }
 
 /** Causal (expanding-window) decile threshold: at bar i, the cutoff for "top
- * 10%" uses only scores from bars seen so far, never future ones. */
+ * 10%" uses only scores from bars seen so far, never future ones.
+ *
+ * Re-sorting the full "seen so far" array at every single bar is O(n^2 log n)
+ * over a 40,000-bar series -- that made the first run of this script take
+ * over an hour and never finish. The threshold is instead refreshed only
+ * every REFRESH bars (still using only past data at the moment it's
+ * computed, so it stays causal) and reused for the bars in between -- a
+ * standard walk-forward approximation, not a look-ahead shortcut. */
 function causalTopBottomMask(scores, frac, minHistory) {
-  const topMask = new Array(scores.length).fill(false);
-  const botMask = new Array(scores.length).fill(false);
+  const n = scores.length;
+  const topMask = new Array(n).fill(false);
+  const botMask = new Array(n).fill(false);
+  const REFRESH = 200;
   const seen = [];
-  for (let i = 0; i < scores.length; i++) {
+  let hi = null, lo = null, sinceRefresh = 0;
+  for (let i = 0; i < n; i++) {
     if (scores[i] != null && seen.length >= minHistory) {
-      const sorted = seen.slice().sort((a, b) => a - b);
-      const hi = sorted[Math.floor(sorted.length * (1 - frac))];
-      const lo = sorted[Math.floor(sorted.length * frac)];
+      if (hi == null || sinceRefresh >= REFRESH) {
+        const sorted = seen.slice().sort((a, b) => a - b);
+        hi = sorted[Math.floor(sorted.length * (1 - frac))];
+        lo = sorted[Math.floor(sorted.length * frac)];
+        sinceRefresh = 0;
+      }
       if (scores[i] >= hi) topMask[i] = true;
       if (scores[i] <= lo) botMask[i] = true;
     }
-    if (scores[i] != null) seen.push(scores[i]);
+    if (scores[i] != null) { seen.push(scores[i]); sinceRefresh++; }
   }
   return { topMask, botMask };
 }

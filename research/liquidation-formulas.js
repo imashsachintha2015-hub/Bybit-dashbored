@@ -96,18 +96,27 @@ function buildOhlcvSignals(bars) {
   return { R, E, G };
 }
 
+// Refreshes the sort every REFRESH bars instead of every single bar --
+// re-sorting the full "seen so far" array at every bar is O(n^2 log n) over
+// a 40,000-bar series, which is what made the first run of this never finish.
 function causalDecileMask(scores, frac, minHistory) {
-  const top = new Array(scores.length).fill(false), bot = new Array(scores.length).fill(false);
+  const n = scores.length;
+  const top = new Array(n).fill(false), bot = new Array(n).fill(false);
+  const REFRESH = 200;
   const seen = [];
-  for (let i = 0; i < scores.length; i++) {
+  let hi = null, lo = null, sinceRefresh = 0;
+  for (let i = 0; i < n; i++) {
     if (scores[i] != null && seen.length >= minHistory) {
-      const sorted = seen.slice().sort((a, b) => a - b);
-      const hi = sorted[Math.floor(sorted.length * (1 - frac))];
-      const lo = sorted[Math.floor(sorted.length * frac)];
+      if (hi == null || sinceRefresh >= REFRESH) {
+        const sorted = seen.slice().sort((a, b) => a - b);
+        hi = sorted[Math.floor(sorted.length * (1 - frac))];
+        lo = sorted[Math.floor(sorted.length * frac)];
+        sinceRefresh = 0;
+      }
       if (scores[i] >= hi) top[i] = true;
       if (scores[i] <= lo) bot[i] = true;
     }
-    if (scores[i] != null) seen.push(scores[i]);
+    if (scores[i] != null) { seen.push(scores[i]); sinceRefresh++; }
   }
   return { top, bot };
 }
