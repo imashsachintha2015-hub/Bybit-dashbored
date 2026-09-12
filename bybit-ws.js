@@ -105,6 +105,9 @@ class BybitWebSocketClient {
     // Bybit rejects an ENTIRE subscribe batch if even one topic in it is already
     // subscribed, so every subscribe/unsubscribe must go through sendSubscribe/sendUnsubscribe.
     this.subscribedTopics = new Set();
+    // req_id -> topics sent in that subscribe message, so a failed ack (see
+    // handleMessage) can report and un-mark exactly the symbols it covered.
+    this.pendingSubscribes = new Map();
 
     // Per-symbol local orderbook state (price -> size maps), one per watched symbol.
     this.orderbooks = {};
@@ -245,13 +248,30 @@ class BybitWebSocketClient {
     }, delay);
   }
 
+  /** Max topics per subscribe message. Bybit acks a subscribe request
+   * all-or-nothing for the WHOLE batch (the same reason a duplicate topic
+   * rejects everything, per the note below) — one invalid or already-taken
+   * symbol anywhere in a single giant request can silently fail every other
+   * symbol in it too. Sending the watchlist in small chunks means a bad
+   * symbol only ever costs its own chunk, not the other ~25 watched coins. */
+  static SUBSCRIBE_CHUNK_SIZE = 20;
+
   /** Subscribes only the topics not already active — Bybit rejects the whole batch otherwise. */
   sendSubscribe(topics) {
     if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const newTopics = topics.filter(t => !this.subscribedTopics.has(t));
     if (!newTopics.length) return;
     newTopics.forEach(t => this.subscribedTopics.add(t));
-    this.ws.send(JSON.stringify({ req_id: `sub_${Date.now()}`, op: 'subscribe', args: newTopics }));
+    const size = BybitWebSocketClient.SUBSCRIBE_CHUNK_SIZE;
+    for (let i = 0; i < newTopics.length; i += size) {
+      const chunk = newTopics.slice(i, i + size);
+      const reqId = `sub_${Date.now()}_${i}`;
+      // Tracked so a failed ack (below) can name exactly which symbols/topics
+      // it covered, and un-mark them so a later resubscribe can retry them --
+      // otherwise a rejected chunk stays wrongly flagged "subscribed" forever.
+      this.pendingSubscribes.set(reqId, chunk);
+      this.ws.send(JSON.stringify({ req_id: reqId, op: 'subscribe', args: chunk }));
+    }
   }
 
   /** Unsubscribes only topics we actually believe are active. */
@@ -421,8 +441,14 @@ class BybitWebSocketClient {
 
     // 2. Handle Subscription confirmation
     if (msg.op === 'subscribe') {
+      const chunk = this.pendingSubscribes.get(msg.req_id);
+      this.pendingSubscribes.delete(msg.req_id);
       if (!msg.success) {
-        console.warn('Subscription error:', msg.ret_msg);
+        console.warn('Subscription error:', msg.ret_msg, chunk);
+        // The whole chunk was rejected -- un-mark it as subscribed so a
+        // future resubscribe attempt doesn't skip it thinking it's live.
+        if (chunk) chunk.forEach(t => this.subscribedTopics.delete(t));
+        this.emit('subscribeError', { topics: chunk || [], reason: msg.ret_msg || 'unknown' });
       }
       return;
     }
