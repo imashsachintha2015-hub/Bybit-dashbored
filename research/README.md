@@ -2415,10 +2415,15 @@ cost assumption.
 
 ## What follows from this
 
-- **Strip the feature set back to momentum.** Every result in this part points
-  the same way, and the live engine should not carry fourteen features that
-  measurably subtract. This is the one finding with an immediate production
-  consequence.
+- **Any future model built from this research track should start at momentum
+  and justify every addition against it.** Every result in this part points the
+  same way: one plain momentum feature is the baseline that fourteen hand-built
+  market aggregates failed to beat.
+  *(To be explicit about scope: this implies no change to the live engine. The
+  CME-X feature set was never wired into it — `app.js` and `masis-engine.js`
+  contain no breadth, coherence, synchronization or entropy terms. Parts
+  XIV–XVIII are an offline research track, and nothing in them has yet earned
+  a place in live trading.)*
 - **Re-audit Parts XIV–XVI for the same shuffle/collinearity error.** Part XV's
   interaction terms and Part XVI's 2×2 both leaned on importance arguments that
   were never refit-and-remove tested. The label-pooling bug already showed this
