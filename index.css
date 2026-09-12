@@ -190,10 +190,39 @@ body {
 }
 
 /* ═══════════ COIN SPARKLINE CARDS ═══════════ */
+.coin-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.coin-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-bright);
+  font-size: 13px;
+  outline: none;
+}
+.coin-search-input::placeholder { color: var(--text-dim); }
+
 .coin-cards-row {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 12px;
+}
+.coin-search-empty {
+  grid-column: 1 / -1;
+  padding: 16px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
 }
 
 .coin-card {

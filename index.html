@@ -71,8 +71,14 @@
       <main class="content-scroll">
 
         <!-- COIN KPI SPARKLINE CARDS -->
+        <div class="coin-search-bar">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="coinSearchInput" class="coin-search-input" placeholder="Search a coin (e.g. BTC, Solana)…" autocomplete="off">
+        </div>
         <section class="coin-cards-row" id="coinCardsRow">
-          <!-- Populated by app.js: live price + sparkline per watched coin -->
+          <!-- Populated by app.js: live price + sparkline per watched coin.
+               Search box above filters across the full watchlist; empty
+               search shows a compact default set rather than all 30. -->
         </section>
 
         <!-- PERFORMANCE METRICS ROW -->

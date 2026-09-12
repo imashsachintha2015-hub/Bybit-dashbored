@@ -42,8 +42,13 @@ document.addEventListener('DOMContentLoaded', () => {
     lastPrice: 0,
     prevPrice: 0,
     recentTrades: [],
-    uptimeSeconds: 0
+    uptimeSeconds: 0,
+    coinSearch: ''           // filters the coin-cards-row; see renderCoinCards()
   };
+
+  // Shown in the coin-cards-row when the search box is empty, instead of all
+  // 30 watchlist coins at once -- the search box is how the rest are reached.
+  const DEFAULT_VISIBLE_COINS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT'];
 
   // Which subscribed kline interval feeds which engine slot.
   const INTERVAL_TO_TF = { '5': 'ltf', '15': 'mtf', '60': 'htf' };
@@ -482,6 +487,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeMobileSidebar);
 
+  // ─── Coin search (coin-cards-row) ───
+  const coinSearchInput = $('coinSearchInput');
+  if (coinSearchInput) {
+    coinSearchInput.addEventListener('input', () => {
+      state.coinSearch = coinSearchInput.value;
+      renderCoinCards();
+    });
+  }
+
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
       const target = document.getElementById(item.dataset.target);
@@ -530,10 +544,33 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
+  function visibleCoinList() {
+    const query = state.coinSearch.trim().toUpperCase();
+    if (!query) {
+      // Always include the focused symbol even if it's outside the default
+      // set, so switching coins via a search never gets silently hidden
+      // again the next time the box is empty.
+      return DEFAULT_VISIBLE_COINS.includes(state.symbol)
+        ? DEFAULT_VISIBLE_COINS
+        : [state.symbol, ...DEFAULT_VISIBLE_COINS];
+    }
+    return WATCHLIST.filter(sym => {
+      const meta = COIN_META[sym] || {};
+      return sym.toUpperCase().includes(query)
+        || (meta.short || '').toUpperCase().includes(query)
+        || (meta.name || '').toUpperCase().includes(query);
+    });
+  }
+
   function renderCoinCards() {
     const row = $('coinCardsRow');
     if (!row) return;
-    row.innerHTML = WATCHLIST.map(sym => {
+    const visible = visibleCoinList();
+    if (!visible.length) {
+      row.innerHTML = `<div class="coin-search-empty">No watchlist coin matches "${state.coinSearch}"</div>`;
+      return;
+    }
+    row.innerHTML = visible.map(sym => {
       const meta = COIN_META[sym], lk = lastKnown[sym], hist = priceHistory[sym];
       const isUp = lk.changePct >= 0;
       const color = isUp ? '#16C784' : '#EA3943';
