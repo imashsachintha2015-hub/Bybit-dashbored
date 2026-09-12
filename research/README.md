@@ -1299,3 +1299,68 @@ timed specifically around an F3/F8/F1-style trend-efficiency signal, tested
 on this project's own asymmetric hold-to-close structure rather than the
 report's barrier race — is the one genuinely new thing this round surfaced
 that has not been tried yet.
+
+# Part XI — Upgrading the surviving formula: what actually raises win rate
+
+Asked directly: can the Part X survivor family be pushed to a higher win
+rate? Four specific, testable ideas, not "tune it until it looks better" —
+run on BTC/ETH at h=2 (30min), same discipline as Study 15 (causal decile
+thresholds, block-bootstrap significance, split-half, FDR, cost-adjusted
+breakeven):
+
+1. **Ensemble** — average the five correlated formulas (F1, F3, F6, F7, F8)
+   into one score, instead of using the single best (F3_TrendEfficiency)
+   alone.
+2. **Tighter percentile** — does the most extreme 5% or 2% of readings beat
+   the top 10%, as a real monotonic signal should?
+3. **Conviction** — require k-of-5 formulas to simultaneously sit in their
+   own individual top decile at once.
+4. **Regime filter** — split the F3 top-decile signal by whether the
+   trend-efficiency feature itself is in a high or low regime.
+
+**The ensemble is the one that actually works, consistently.** Averaging the
+five formulas beats the single-best formula on *both* coins at *both*
+thresholds where it was tested:
+
+| coin | test | n | win rate | vs. F3-alone baseline | breakeven cost | split |
+|---|---|---|---|---|---|---|
+| BTC | F3 alone, top10% (baseline) | 1298 | 57.2% | — | 7.2bps | 59%/56% |
+| BTC | Ensemble, top10% | 864 | 58.9% | **+1.7pp** | 8.9bps | 56%/62% |
+| BTC | Ensemble, top5% | 579 | 59.1% | **+1.9pp** | 9.1bps | 59%/59% |
+| ETH | F3 alone, top10% (baseline) | 1873 | 54.8% | — | 4.8bps | 56%/54% |
+| ETH | Ensemble, top10% | 1544 | 56.3% | **+1.5pp** | 6.3bps | 55%/57% |
+| ETH | Ensemble, top5% | 931 | 56.1% | **+1.2pp** | 6.1bps | 55%/57% |
+
+That's a real, mechanism-explainable improvement, not noise: five correlated
+but not identical measurements of the same underlying short-horizon trend-
+efficiency signal, averaged, cancel some of each other's idiosyncratic
+noise — the textbook reason ensembling helps. It raises the breakeven cost
+this edge needs to clear from 4.8-7.2bps to 6.1-9.1bps, which matters
+concretely: Part V/IX found patient maker execution reaching breakeven
+around 0-10bps depending on offset, so the ensemble version sits more
+comfortably inside what this project has actually demonstrated it can
+execute at, rather than right on the boundary.
+
+**The other three ideas did not hold up as cleanly:**
+
+- *Tighter percentile alone* (without ensembling) is not monotonic — BTC's
+  top5% (55.8%) is actually *worse* than its top10% (57.2%); ETH's top5%
+  (54.3%) is worse than its top10% (54.8%). A real signal sharpening under
+  extremity would show a clean rise; this doesn't, which argues the single-
+  formula tails contain real noise, not just a purer version of the signal.
+- *Conviction (k-of-5 agreement)* helped on BTC at k≥4 (+0.9pp) but was flat
+  or negative on ETH at the same threshold, and the strictest version
+  (5-of-5, n=217-294) flipped direction between coins entirely (BTC −1.9pp,
+  ETH +1.6pp) — exactly the small-sample inconsistency this project treats
+  as a warning sign, not a result.
+- *The regime filter* moved win rate by only 0.3-1.4pp and only on BTC's
+  high-efficiency half; ETH barely moved at all.
+
+**The honest upgrade, stated once:** ensembling the five formulas — not
+picking a cleverer one, not trading less often on a stricter cutoff, not
+requiring unanimous agreement — is the one change here with a mechanism, a
+consistent direction across both coins tested, and a stable split-sample
+sign. It moves win rate from ~55-57% to ~56-59% and roughly doubles the
+margin over realistic execution cost. It does not change the underlying
+finding's nature: it is still one short-horizon trend-efficiency signal, now
+measured slightly better.
