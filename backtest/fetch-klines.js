@@ -128,7 +128,14 @@ async function main() {
     for (const iv of intervals) {
       const { source, rows } = await fetchSeries(symbol, iv, depth);
       bundle.source = source;
-      bundle.series[iv] = dedupe(rows);
+      // MERGE with whatever was already cached for THIS SAME interval, too --
+      // not just across intervals (above). A shallower re-fetch (smaller
+      // --depth than a previous run) used to silently replace a deep cached
+      // history with a shorter one, since dedupe(rows) here ignored
+      // existing.series[iv] entirely. Now the union of old+new rows is kept,
+      // so history only ever grows.
+      const priorRows = (existing.series && existing.series[iv]) || [];
+      bundle.series[iv] = dedupe([...priorRows, ...rows]);
       process.stdout.write('\n');
     }
     const file = path.join(OUT_DIR, `${symbol}.json`);

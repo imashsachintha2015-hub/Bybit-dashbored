@@ -43,11 +43,13 @@
         <div class="footer-item font-mono" id="footerUptime">Uptime: 00:00:00</div>
       </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
     <!-- ═══════════ MAIN AREA ═══════════ -->
     <div class="main-area">
 
       <header class="topbar" id="topAnchor">
+        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
         <div class="topbar-left">
           <h1 class="page-title">Dashboard</h1>
           <span class="page-sub font-mono" id="footerEndpoint">wss://stream.bybit.com/v5/public/linear · Bybit V5 Demo Trading</span>
@@ -167,11 +169,7 @@
             <section class="card chart-card accent-orange" id="chartSection">
               <div class="card-header chart-header-row">
                 <div class="symbol-pills" id="symbolPills">
-                  <button class="sym-pill active" data-symbol="BTCUSDT">BTC</button>
-                  <button class="sym-pill" data-symbol="ETHUSDT">ETH</button>
-                  <button class="sym-pill" data-symbol="SOLUSDT">SOL</button>
-                  <button class="sym-pill" data-symbol="XRPUSDT">XRP</button>
-                  <button class="sym-pill" data-symbol="DOGEUSDT">DOGE</button>
+                  <!-- Populated by app.js from the full WATCHLIST (30 coins) -->
                 </div>
                 <!-- Chart display only. The engine always analyses 5m/15m/1h
                      regardless of what is selected here; in V2 this control

@@ -521,6 +521,13 @@ body {
 .chart-header-row { justify-content: space-between; }
 
 .symbol-pills, .interval-btns { display: flex; gap: 4px; }
+.symbol-pills {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
+}
+.sym-pill { flex-shrink: 0; }
 .sym-pill, .int-btn {
   background: rgba(15,23,42,0.04);
   border: 1px solid transparent;
@@ -908,4 +915,97 @@ body {
 @media (max-width: 760px) {
   .analyst-row { grid-template-columns: 1fr 60px 40px; }
   .an-w, .an-veto { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE / RESPONSIVE LAYOUT
+   The shell below was built desktop-only (fixed 230px sidebar, fixed
+   340px content-side column, 5-wide grids). Everything in this block
+   only activates at narrower widths -- desktop is untouched.
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-nav-toggle {
+  display: none;
+  width: 36px; height: 36px;
+  align-items: center; justify-content: center;
+  background: rgba(15,23,42,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(11,17,32,0.5);
+  z-index: 40;
+}
+
+/* Tablet: content-side moves below content-main instead of a fixed 340px rail. */
+@media (max-width: 1024px) {
+  .content-grid { grid-template-columns: 1fr; }
+  .content-side { order: 2; }
+  .content-main { order: 1; }
+}
+
+/* Phone/small-tablet: sidebar becomes an off-canvas drawer behind a hamburger. */
+@media (max-width: 860px) {
+  .mobile-nav-toggle { display: flex; }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.25s var(--ease);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 12px 0 32px rgba(11,17,32,0.25);
+  }
+  .sidebar-backdrop.open { display: block; }
+
+  .topbar { padding: 0 14px; height: auto; min-height: 60px; flex-wrap: wrap; gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+  .page-title { font-size: 15px; }
+  .page-sub { max-width: 40vw; }
+  .topbar-right { gap: 10px; }
+  .account-strip { gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 55vw; }
+  .acct-item { white-space: nowrap; }
+  .time-display { display: none; } /* redundant with footerUptime in the drawer on mobile */
+
+  .content-scroll { padding: 14px 12px 24px; gap: 12px; }
+
+  .coin-cards-row { grid-template-columns: repeat(2, 1fr); }
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Narrow phones */
+@media (max-width: 480px) {
+  .coin-cards-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .metrics-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .coin-card { padding: 10px 12px; }
+  .coin-sparkline { display: none; } /* reclaim width for the price/name on very narrow screens */
+  .metric-card { padding: 10px 12px; gap: 8px; }
+  .metric-value { font-size: 15px; }
+
+  .page-sub { display: none; } /* the long endpoint string never fits usefully at this width */
+  .account-strip { max-width: 48vw; }
+  .acct-label { font-size: 8px; }
+  .acct-val { font-size: 12px; }
+
+  .card-header { flex-wrap: wrap; gap: 6px; }
+  .symbol-pills { max-width: 100%; }
+  .sym-pill, .int-btn { padding: 5px 9px; font-size: 10px; }
+}
+
+/* Any element that assumes desktop hover-only interaction still needs a real
+   tap target on touch devices -- floors below apply whenever the primary
+   input has no hover (touchscreens), regardless of viewport width. */
+@media (hover: none) and (pointer: coarse) {
+  .nav-item, .sym-pill, .int-btn, .coin-card, button { min-height: 36px; }
+  .mobile-nav-toggle { min-height: 44px; min-width: 44px; }
 }
