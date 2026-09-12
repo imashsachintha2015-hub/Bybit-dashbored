@@ -169,10 +169,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const cur = shadowTracker.active[sym];
     const hasCandidate = !!(s.grade && s.entry && s.stopLoss && s.takeProfit && s.takeProfit.length);
 
-    // A different setup replaced an unresolved one -- the old call never
-    // got the chance to hit its own target or stop, so it's neither a win
-    // nor a loss; record it as superseded rather than silently dropping it.
-    if (cur && (!hasCandidate || cur.setupType !== s.setupType || cur.direction !== s.direction)) {
+    // The engine re-derives a candidate from scratch every single cycle --
+    // it has no memory of "this is the same setup as last time". For a
+    // pattern like a range fade, that means a practically-identical
+    // RANGE_FADE/SHORT can re-appear every 5s with its entry ticking along
+    // with current price, cycle after cycle. Treating each of those as a
+    // "new" setup (the old behavior: superseding on any setupType mismatch,
+    // or the moment the engine stops re-detecting it) meant a call almost
+    // never survived long enough to actually hit its own stop or target --
+    // it just kept getting reset. Once a call is being watched, keep
+    // watching its ORIGINAL entry/stop/target until they actually resolve.
+    // Only a candidate in the OPPOSITE direction is a genuine reversal that
+    // invalidates the old thesis; a same-direction re-detection, or the
+    // engine simply not seeing anything this cycle, changes nothing.
+    if (cur && hasCandidate && cur.direction !== s.direction) {
       shadowTracker.history.unshift({ ...cur, status: 'SUPERSEDED', resolvedAt: Date.now(), exitPrice: null });
       delete shadowTracker.active[sym];
     }
