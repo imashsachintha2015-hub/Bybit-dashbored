@@ -396,3 +396,155 @@ Getting to break-even from −0.335R is real progress and it came almost entirel
 from removing defects and costs rather than from adding prediction. Getting from
 break-even to profitable is a different problem, and nothing measured here
 solves it yet.
+
+---
+
+# Part III — Attacking everything
+
+Four remaining blind spots, attacked. One produced the clearest result in the
+whole project.
+
+```bash
+node research/fetch-extra.js daily BTC-USDT-SWAP,ETH-USDT-SWAP,SOL-USDT-SWAP
+node research/fetch-extra.js index BTC-USDT,ETH-USDT,SOL-USDT
+node research/fetch-extra.js spot BTC,ETH,SOL,AVAX,LINK,DOGE
+node research/seasonality-multiyear.js    # calendar, 5-7 years of daily bars
+node research/basis-convergence.js        # perp vs its own index
+node research/cross-venue.js              # OKX perp vs Coinbase spot
+node research/collect-orderbook.js        # the blind spot that needs time, not code
+```
+
+## The headline
+
+**A large, unambiguously real inefficiency was found. It is unreachable.**
+
+Cross-venue dislocation between OKX perpetuals and Coinbase spot reverts with
+t-statistics up to **38**, on thousands of observations, surviving every gate.
+On DOGE the p99 dislocation is **11.31 bps** — comfortably above any plausible
+cost.
+
+Then the execution-lag test:
+
+| symbol | reversion measured at the close | reversion available at the NEXT bar's open |
+|---|---|---|
+| BTC | +0.45 bps | −0.05 bps |
+| ETH | +1.15 bps | +0.02 bps |
+| SOL | +2.32 bps | +0.19 bps |
+| AVAX | +9.44 bps | +0.04 bps |
+| **DOGE** | **+11.31 bps** | **−0.60 bps** |
+
+**The entire dislocation closes inside the one minute between seeing it and
+being able to act on it.** Not most of it. All of it, and on DOGE slightly past
+zero. This is what a competitive market looks like from the inside: not an
+absence of inefficiency, but an inefficiency that exists only in the interval
+you cannot reach.
+
+## Attack 1 — Perpetual basis
+
+The most mechanically forced quantity available. Funding is a literal
+negative-feedback controller wired into the contract: when the perp trades above
+its index, longs pay shorts, in proportion to the gap. This needs nobody to be
+wrong.
+
+It works, overwhelmingly. Fading an extreme basis as a spread (long one leg,
+short the other) is significant at **t up to 44.8**, p-values past 1e-300, on
+8,000 observations. 19 of 24 tests survive FDR.
+
+And the effect is **0.5–2.3 bps** against a two-leg cost floor of 2 bps. All but
+one land below it.
+
+The directional version — does an extreme basis predict the perp's own return —
+is **not significant anywhere**. The mechanical part works exactly as the
+contract specifies, and contributes nothing beyond that.
+
+## Attack 2 — Calendar effects over 5–7 years
+
+The earlier scan tested hour-of-day and weekday on 418 days. This used 2,000+
+daily bars per instrument, back to 2019.
+
+The first run found ETH in July at **+74.7 bps/day, t=3.20**, consistent across
+both halves. It survived FDR. It looked like a genuine seasonal.
+
+It was wrong, for two reasons I had to fix in my own test:
+
+1. **It was measured against zero, not against the drift.** Crypto rose over the
+   period (+19 bps/day for ETH). Any subset of a rising series has a positive
+   mean. The question worth asking is whether July differs from an *ordinary
+   day*, so the series must be demeaned first.
+2. **The independent unit for a monthly effect is a year, not a day.** Reporting
+   n=217 for "July" is misleading — those are 7 Julys, and days inside one July
+   share a regime almost entirely. The honest sample size is 7.
+
+With both corrected: **nothing survives**, and monthly effects become untestable
+at all — 5–7 independent observations cannot support the claim. Family median
+|t| collapses to 0.64 / 0.51 / 0.28 against a null expectation of 0.67. Textbook
+null behaviour.
+
+## Attack 3 — Cross-venue
+
+Detailed above. Two further points worth keeping.
+
+**The dislocation is the size of the cost of closing it.** Measured against live
+top-of-book spreads:
+
+| symbol | spot spread | perp spread | combined | p99 dislocation |
+|---|---|---|---|---|
+| BTC | 0.00 | 0.01 | 0.01 | 0.45 |
+| ETH | 0.04 | 0.04 | 0.08 | 1.15 |
+| SOL | 0.98 | 0.98 | 1.96 | 2.32 |
+| AVAX | 2.68 | 1.34 | 4.02 | 9.44 |
+| DOGE | 3.56 | 1.19 | 4.75 | 11.31 |
+
+Across a 25× range of liquidity, the gap tracks the cost of removing it. That is
+arbitrageurs competing until what remains is exactly their own friction.
+
+**I had to kill an artefact first.** A thin venue's 1-minute bar may contain no
+trades, making its close stale. Comparing a live price against a stale one
+manufactures a gap that "reverts" the moment the thin venue prints — and
+staleness rises as liquidity falls, which would generate this exact gradient
+fraudulently. Filtering every bar with zero volume or an unchanged close (7–9%
+of bars on the thin names) left the effect **slightly stronger**. The artefact
+explanation is dead; the execution-lag one is what killed it.
+
+**Lead-lag is zero.** Cross-venue return correlations at 1–3 minute lags are
+0.01–0.04 in both directions, against a contemporaneous correlation of 0.99.
+Neither venue leads the other at any resolution this data can see.
+
+## Attack 4 — Order book and liquidations
+
+This one could not be attacked, and the reason is worth stating precisely rather
+than dressed up.
+
+- **Order books are served live only.** No exchange offers historical depth via
+  public API. Nothing about queue position, depth imbalance, or genuine
+  spoofing is reconstructable from bars.
+- **OKX's liquidation feed returns ~100 events**, roughly three hours, and
+  backward pagination does not work. The fetcher was written and run; it
+  retrieved 100 prints spanning 0.13 days per symbol. That cannot support an
+  event study.
+
+So `collect-orderbook.js` records both going forward — top-of-book depth,
+imbalance at 5 and 25 levels, and liquidation prints — to newline-delimited
+JSON. It needs to run for weeks before the questions become answerable. That is
+a waiting problem, not a coding one, and this is the largest genuinely
+unexplored area left.
+
+## What all of this adds up to
+
+Every real effect found across three rounds of attacking has the same shape:
+
+| effect | statistically real? | large enough to trade? | reachable? |
+|---|---|---|---|
+| mean reversion (15m) | yes, ~5 SE | no, 0.26 bps vs 2 bps floor | yes |
+| basis convergence | yes, t up to 44.8 | mostly no, 0.5–2.3 bps | yes |
+| cross-venue dislocation | yes, t up to 38 | **yes, up to 11.3 bps** | **no — closes in <1 min** |
+| calendar effects | no | — | — |
+| forced-flow reversion | no | — | — |
+| volatility breakout | no | — | — |
+
+Nothing here is hidden. Everything is measurable with public data and a few
+hundred lines. And each one is sealed — by cost, by speed, or by not existing.
+That is not a discouraging finding, it is a specific one: it says the remaining
+levers are **cost, speed, and access**, not insight. Which is where Part I
+landed from the opposite direction, and why the execution change remains the
+only thing in this repository that moved the number.

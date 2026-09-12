@@ -10,3 +10,7 @@ trade_stats.json
 
 *.log
 __pycache__/
+
+# Research data: regenerable from the fetchers, and the live collector's output
+# grows without bound.
+research/data/
