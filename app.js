@@ -452,6 +452,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // (maker, 20-30bps offset, 287-300 trades). 20bps is used here: solidly
   // inside the range actually measured, rather than the untested edge of it.
   const MAKER_OFFSET_BPS = 20;
+  // Stop and invalidation distances, as multiples of what the playbook proposes.
+  //
+  // Measured cause: across 98 backtested trades the median bar spanned 1.39R
+  // while a position was open, and a typical bar exceeded 1R on 54 of 82. One
+  // ordinary bar therefore reached the stop, so a trade had to go right
+  // immediately or die however good the signal was -- and the same tight
+  // geometry made a routine retrace look like structural failure to the
+  // position manager, whose exits won 9.1% of the time with nine of ten losses
+  // already in profit.
+  //
+  // Widening both is risk-neutral by construction: sizePosition() derives
+  // quantity from the stop distance, so a wider stop simply buys less and each
+  // trade still risks 0.5% of equity. Measured effect on the same 98 trades,
+  // baseline -> 2.5x/2.0x: win rate 31.6% -> 53.1%, expectancy -0.179R ->
+  // +0.063R, max drawdown 5.5% -> 3.4%, and trades losing more than 2R fell
+  // from 8.2% to 2.0% -- losses got rarer AND smaller, because a tight stop
+  // makes every overshoot a larger fraction of R.
+  //
+  // 2.5x is a plateau rather than a peak (2.0-3.0 all land within noise of each
+  // other), so nothing here is finely tuned. Caveat worth keeping in view: this
+  // is one 42-day window, and on the four symbols Part IX used the sample is 19
+  // trades. The direction is well evidenced; the magnitude is not yet.
+  const STOP_MULT = 2.5;
+  const INVALIDATION_MULT = 2.0;
   // The backtest's makerTimeout was 20 bars of 15-minute data (~5 hours) --
   // not a value that should be ported directly into a live resting order,
   // since a thesis this engine re-derives from scratch every cycle (see
@@ -487,6 +511,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!price) return;
 
     const side = s.decision === 'BUY' ? 'Buy' : 'Sell';
+    // Anchored on the engine's own entry reference so the widening is measured
+    // from where the setup was framed, matching how the backtest applied it.
+    const ref = s.entry || price;
+    const wideStop = s.stopLoss != null
+      ? ref - Math.sign(ref - s.stopLoss) * Math.abs(ref - s.stopLoss) * STOP_MULT
+      : s.stopLoss;
+    const wideInvalidation = s.invalidation != null
+      ? ref - Math.sign(ref - s.invalidation) * Math.abs(ref - s.invalidation) * INVALIDATION_MULT
+      : s.invalidation;
     // Priced BELOW market for a long, ABOVE market for a short -- it only
     // fills if price comes back to a better level than it's at right now,
     // which is what makes this a maker (rebate-side) fill instead of a
@@ -498,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const meta = COIN_META[sym] || {};
     const sized = riskGovernor.sizePosition({
-      entry: limitPrice, stop: s.stopLoss, equity: accountEquity, symbol: sym,
+      entry: limitPrice, stop: wideStop, equity: accountEquity, symbol: sym,
       qtyStep: meta.qtyStep, minQty: meta.minQty
     });
     if (!sized.qty) {
@@ -515,17 +548,17 @@ document.addEventListener('DOMContentLoaded', () => {
       // that must survive a browser crash; the targets are managed here.
       const res = await postJSON('/api/order/place', {
         category: 'linear', symbol: sym, side, orderType: 'Limit',
-        price: limitPrice, qty, stopLoss: s.stopLoss
+        price: limitPrice, qty, stopLoss: wideStop
       });
       if (res.retCode === 0 && res.result && res.result.orderId) {
         pendingEntries[sym] = {
           orderId: res.result.orderId, side, limitPrice, qty,
-          stopLoss: s.stopLoss, invalidation: s.invalidation, targets: s.takeProfit,
+          stopLoss: wideStop, invalidation: wideInvalidation, targets: s.takeProfit,
           riskAmount: sized.riskAmount, setupName: s.setupType, grade: s.grade,
           score: s.score, regime: s.regime, narrative: s.narrative,
           placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS
         };
-        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${s.stopLoss} · invalidation ${s.invalidation} | R:R ${s.riskReward}`);
+        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${wideStop} (${STOP_MULT}x) · invalidation ${wideInvalidation} (${INVALIDATION_MULT}x) | R:R ${s.riskReward}`);
         pendingEntries[sym].signalState = s;
         logSignal(sym, s, 'ORDER_PLACED', '');
       } else {
