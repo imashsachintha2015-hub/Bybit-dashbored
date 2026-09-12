@@ -276,8 +276,11 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       const worst = dir === 1 ? bar.low : bar.high;
       const rOf = px => (dir * (px - t.entryPrice)) / open.riskAmountPerUnit;
       if (open.riskAmountPerUnit > 0) {
-        open.mfeR = Math.max(open.mfeR == null ? -Infinity : open.mfeR, rOf(best));
-        open.maeR = Math.min(open.maeR == null ? Infinity : open.maeR, rOf(worst));
+        open.mfeR = Math.max(open.mfeR, rOf(best));
+        open.maeR = Math.min(open.maeR, rOf(worst));
+        const barR = (bar.high - bar.low) / open.riskAmountPerUnit;
+        open.barRSum = (open.barRSum || 0) + barR;
+        open.barRCount = (open.barRCount || 0) + 1;
       }
     }
 
@@ -364,7 +367,12 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               patternScore: state.patternScore
             });
             open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry),
-              riskAmountPerUnit: riskDist, mfeR: null, maeR: null };
+              riskAmountPerUnit: riskDist, mfeR: 0, maeR: 0,
+              // Stop distance relative to a typical bar. If one bar routinely
+              // spans more than 1R the stop sits inside normal noise, and both
+              // the giveback and the stop-out rate are explained by geometry
+              // rather than by the signal being wrong.
+              stopVsBar: null };
           }
         }
       }
@@ -420,7 +428,8 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       r: t.finalR, reason, barsHeld: t.barsHeld, explain: pm.explain(t),
       patternScore: t.patternScore, panelConviction: t.panelConviction,
       mfeR: open.mfeR != null ? +open.mfeR.toFixed(3) : null,
-      maeR: open.maeR != null ? +open.maeR.toFixed(3) : null
+      maeR: open.maeR != null ? +open.maeR.toFixed(3) : null,
+      avgBarR: open.barRCount ? +(open.barRSum / open.barRCount).toFixed(3) : null
     });
     pm.forget(t.symbol, t.side);
     open = null;

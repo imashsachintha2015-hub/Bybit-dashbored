@@ -74,6 +74,24 @@ console.log(`  median MAE across all winners              ${(wins.map(t => t.mae
 console.log(`  A large share here means the stop sits inside normal noise: the same distance`);
 console.log(`  that stopped the losers was survived by these winners only by luck.`);
 
+// ── Is 1R smaller than a single bar? ──────────────────────────────────────
+const barRs = withX.map(t => t.avgBarR).filter(v => v != null);
+if (barRs.length) {
+  const sorted = barRs.slice().sort((a, b) => a - b);
+  const med = sorted[Math.floor(sorted.length / 2)];
+  console.log(`\n  ${'─'.repeat(88)}\n  IS THE STOP INSIDE THE NOISE?\n  ${'─'.repeat(88)}`);
+  console.log(`  median bar range while in trade   ${med.toFixed(2)}R per bar`);
+  console.log(`  trades where a typical bar spans >1R  ${barRs.filter(v => v > 1).length}/${barRs.length}`);
+  if (med > 0.5) {
+    console.log(`  A single bar covering ${med.toFixed(2)}R means the stop is well inside ordinary bar`);
+    console.log(`  movement. Both the giveback and the stop-out rate are then explained by stop`);
+    console.log(`  GEOMETRY rather than by the entry being wrong, and widening the stop (with size`);
+    console.log(`  reduced to hold risk constant) is the change that follows -- not a better signal.`);
+  } else {
+    console.log(`  Stops sit outside typical bar movement, so giveback is genuine exit timing.`);
+  }
+}
+
 // ── Where do losses concentrate? ──────────────────────────────────────────
 function breakdown(key, label) {
   console.log(`\n  ${'─'.repeat(88)}\n  LOSSES BY ${label}\n  ${'─'.repeat(88)}`);

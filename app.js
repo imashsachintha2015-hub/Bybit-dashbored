@@ -331,6 +331,49 @@ document.addEventListener('DOMContentLoaded', () => {
   // Supervisor consultation — gated, so a decision-grade call is the only
   // kind that ever costs anything.
   // ─────────────────────────────────────────────────────────────────────
+  // Every candidate the engine forms is recorded, whether or not it is traded.
+  // Recording only executed trades makes the most useful question about the
+  // system unanswerable -- of everything it wanted to do, was skipping the rest
+  // correct? -- because a gate that rejects good setups looks exactly like one
+  // that rejects bad setups when only the survivors are kept.
+  //
+  // The fingerprint lets the server fold repeated evaluations of an unchanged
+  // candidate into a single row: the engine re-evaluates every 5 seconds and a
+  // setup that stands for an hour would otherwise write ~720 identical rows.
+  function signalFingerprint(sym, s) {
+    return [sym, s.setupType || '', s.direction || '', s.grade || '', s.decision || ''].join('|');
+  }
+
+  async function logSignal(sym, s, outcome, rejectReason) {
+    try {
+      await postJSON('/api/trades/record?_action=signal', {
+        fingerprint: signalFingerprint(sym, s),
+        symbol: sym,
+        direction: s.direction || (s.decision === 'BUY' ? 'LONG' : s.decision === 'SELL' ? 'SHORT' : ''),
+        setup_type: s.setupType || '',
+        grade: s.grade || '',
+        score: s.score,
+        regime: s.regime || '',
+        bias: s.bias || '',
+        entry: s.entry,
+        stop: s.stopLoss,
+        targets: s.takeProfit,
+        risk_reward: s.riskReward,
+        outcome,
+        reject_reason: rejectReason || '',
+        flow: s.flow || null,
+        supervisor: s.llmVerdict ? {
+          verdict: s.llmVerdict.verdict, confidence: s.llmVerdict.confidence,
+          rationale: s.llmVerdict.rationale, is_fallback: s.llmVerdict.is_fallback
+        } : null,
+        evidence: (s.components || []).map(c => `${c.label}: ${c.detail}`)
+      });
+    } catch (e) {
+      // Logging must never be able to interfere with trading.
+      logEvent(`Signal log failed for ${sym}: ${e.message}`);
+    }
+  }
+
   async function maybeConsultSupervisor(sym, s) {
     const candidate = s.grade ? { name: s.setupType, direction: s.direction, grade: s.grade, score: s.score, geometry: { entry: s.entry, riskDist: Math.abs((s.entry || 0) - (s.stopLoss || 0)) } } : null;
     const ctx = {
@@ -413,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gate = riskGovernor.canOpen({ symbol: sym, openPositions: openPositionsSnapshot });
     if (!gate.allowed) {
       logEvent(`${s.decision} ${sym} (${s.setupType}, grade ${s.grade}) not taken — ${gate.reasons[0]}`);
+      logSignal(sym, s, 'REJECTED_RISK', gate.reasons[0]);
       return;
     }
 
@@ -459,8 +503,11 @@ document.addEventListener('DOMContentLoaded', () => {
           placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS
         };
         logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${s.stopLoss} · invalidation ${s.invalidation} | R:R ${s.riskReward}`);
+        pendingEntries[sym].signalState = s;
+        logSignal(sym, s, 'ORDER_PLACED', '');
       } else {
         logEvent(`Order rejected for ${sym}: ${res.retMsg || 'unknown error'}`);
+        logSignal(sym, s, 'REJECTED_EXCHANGE', res.retMsg || 'unknown error');
       }
       setTimeout(pollDemoData, 900);
     } catch (e) {
@@ -482,6 +529,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pos.symbol === sym && pos.side === p.side && !positionManager.get(sym, p.side));
       if (filled) {
         const entryPrice = parseFloat(filled.avgPrice || p.limitPrice);
+        // The maker offset is only worth what it actually captures, so record
+        // the realised improvement against the limit rather than assuming it.
+        if (p.signalState) logSignal(sym, p.signalState, 'TAKEN', `filled @ ${entryPrice}`);
         positionManager.open({
           symbol: sym, side: p.side, entryPrice,
           stopLoss: p.stopLoss, invalidation: p.invalidation, targets: p.targets,
@@ -501,6 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           if (res.retCode === 0) {
             logEvent(`Limit entry for ${sym} ${p.side.toUpperCase()} unfilled after ${Math.round(MAKER_TIMEOUT_MS / 60000)}m at ${p.limitPrice.toLocaleString()} — cancelled, standing aside`);
+            if (p.signalState) logSignal(sym, p.signalState, 'NO_FILL', `limit ${p.limitPrice} never reached in ${Math.round(MAKER_TIMEOUT_MS / 60000)}m`);
             toDrop.push(sym);
           } else if (!p.cancelWarned) {
             // Cancel racing an actual fill is expected, not exceptional --
@@ -1057,7 +1108,13 @@ document.addEventListener('DOMContentLoaded', () => {
       updateShadowTracking(sym, s);
 
       if (s.grade === 'A' || s.grade === 'A+') maybeConsultSupervisor(sym, s);
-      if (s.decision === 'BUY' || s.decision === 'SELL') executeEntry(sym, s);
+      if (s.decision === 'BUY' || s.decision === 'SELL') {
+        executeEntry(sym, s);
+      } else if (s.setupType && s.grade) {
+        // A candidate formed but the engine declined to act on it. This is the
+        // majority of what the system does and, until now, none of it was kept.
+        logSignal(sym, s, 'NOT_TRADED', s.blocks && s.blocks.length ? s.blocks[0] : 'engine declined — below decision threshold');
+      }
 
       if (sym === state.symbol) focusedWhale = whaleSummary;
     }

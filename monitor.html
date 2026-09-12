@@ -110,8 +110,53 @@
 
     <h2>Resolved</h2>
     <div id="historyList"><div class="empty">Nothing has resolved yet</div></div>
+
+    <h2 style="margin-top:22px;">All Suggestions <span style="font-weight:400;opacity:.6;font-size:11px;">— every candidate the engine formed, traded or not. Survives reload.</span></h2>
+    <div id="sigCounts" class="sig-counts"></div>
+    <div class="sig-filters">
+      <button class="sig-f active" data-outcome="">All</button>
+      <button class="sig-f" data-outcome="TAKEN">Taken</button>
+      <button class="sig-f" data-outcome="ORDER_PLACED">Order placed</button>
+      <button class="sig-f" data-outcome="NO_FILL">No fill</button>
+      <button class="sig-f" data-outcome="REJECTED_RISK">Rejected (risk)</button>
+      <button class="sig-f" data-outcome="NOT_TRADED">Not traded</button>
+      <input id="sigSymbol" placeholder="symbol filter, e.g. BTCUSDT" />
+    </div>
+    <div id="sigList"><div class="empty">Loading…</div></div>
+    <div class="sig-pager">
+      <button id="sigPrev">&larr; Prev</button>
+      <span id="sigPageInfo">--</span>
+      <button id="sigNext">Next &rarr;</button>
+      <span id="sigStatus" style="opacity:.6;margin-left:10px;"></span>
+    </div>
   </main>
 
+<style>
+  .sig-counts { display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 10px; font-size:11px; opacity:.8; }
+  .sig-counts span { background:rgba(255,255,255,.06); padding:2px 8px; border-radius:10px; }
+  .sig-filters { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .sig-f { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:inherit;
+           padding:4px 10px; border-radius:12px; cursor:pointer; font-size:11px; }
+  .sig-f.active { background:rgba(80,160,255,.25); border-color:rgba(80,160,255,.5); }
+  .sig-filters input { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+           color:inherit; padding:4px 8px; border-radius:6px; font-size:11px; min-width:170px; }
+  .sig-row { border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:8px 10px; margin-bottom:6px;
+           font-size:11px; background:rgba(255,255,255,.03); }
+  .sig-head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .sig-head .sym { font-weight:700; min-width:52px; }
+  .sig-tag { padding:1px 7px; border-radius:9px; font-size:10px; letter-spacing:.3px; }
+  .o-TAKEN { background:rgba(60,200,120,.25); }
+  .o-ORDER_PLACED { background:rgba(80,160,255,.25); }
+  .o-NO_FILL { background:rgba(200,160,60,.25); }
+  .o-REJECTED_RISK, .o-REJECTED_EXCHANGE { background:rgba(230,80,80,.25); }
+  .o-NOT_TRADED { background:rgba(255,255,255,.10); }
+  .sig-meta { margin-top:5px; opacity:.75; line-height:1.55; word-break:break-word; }
+  .sig-meta b { opacity:.6; font-weight:500; }
+  .sig-pager { display:flex; gap:10px; align-items:center; margin-top:10px; font-size:11px; }
+  .sig-pager button { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+           color:inherit; padding:4px 12px; border-radius:6px; cursor:pointer; }
+  .sig-pager button:disabled { opacity:.35; cursor:default; }
+</style>
 <script>
   const channel = new BroadcastChannel('masis-shadow-monitor');
   const connState = document.getElementById('connState');
@@ -184,6 +229,94 @@
     renderHistory(msg.history || []);
     renderStats(msg.active || [], msg.history || []);
   };
+
+  // ── Persisted suggestion history ──────────────────────────────────────
+  // The BroadcastChannel feed above is live-only and in-memory: it shows
+  // nothing if the dashboard tab is closed and loses everything on reload.
+  // This section reads the server-side log instead, so the full record of what
+  // the engine proposed -- including everything it declined to trade -- is
+  // there regardless of which tabs are open.
+  let sigPage = 1, sigOutcome = '', sigSymbol = '', sigPages = 1;
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+  function num(v, d) { return v == null ? '--' : (typeof v === 'number' ? fmtPrice(v) : esc(v)); }
+
+  function renderSignals(data) {
+    const el = document.getElementById('sigList');
+    const items = data.items || [];
+    if (!items.length) {
+      el.innerHTML = '<div class="empty">No suggestions recorded yet. They appear here once the dashboard evaluates a setup.</div>';
+    } else {
+      el.innerHTML = items.map(r => {
+        const flow = r.flow || {};
+        const sup = r.supervisor || {};
+        const tgts = Array.isArray(r.targets) ? r.targets.map(t => fmtPrice(t)).join(' / ') : '--';
+        const repeat = r.seen_count > 1 ? ` &middot; seen ${r.seen_count}x` : '';
+        return `<div class="sig-row">
+          <div class="sig-head">
+            <span class="sym">${esc((r.symbol || '').replace('USDT', ''))}</span>
+            <span class="dir ${r.direction === 'LONG' ? 'long' : 'short'}">${esc(r.direction || '--')}</span>
+            <span class="setup">${esc(r.setup_type || '--')}</span>
+            <span class="grade">${esc(r.grade || '--')}${r.score != null ? ' ' + esc(r.score) : ''}</span>
+            <span class="sig-tag o-${esc(r.outcome || 'NOT_TRADED')}">${esc(r.outcome || '--')}</span>
+            <span style="margin-left:auto;opacity:.55;">${esc(r.time || '')}${repeat}</span>
+          </div>
+          <div class="sig-meta">
+            <b>regime</b> ${esc(r.regime || '--')} / ${esc(r.bias || '--')} &nbsp;
+            <b>entry</b> ${num(r.entry)} &nbsp; <b>stop</b> ${num(r.stop)} &nbsp;
+            <b>targets</b> ${tgts} &nbsp; <b>R:R</b> ${esc(r.risk_reward != null ? r.risk_reward : '--')}
+            ${r.reject_reason ? `<br><b>why</b> ${esc(r.reject_reason)}` : ''}
+            ${flow.imbalance != null || flow.absorption ? `<br><b>flow</b> imbalance ${esc(flow.imbalance)} &middot; absorption ${esc(flow.absorption || '--')} &middot; taker5m ${esc(flow.takerRatio5m)} &middot; spread ${esc(flow.spread)}` : ''}
+            ${sup.verdict ? `<br><b>supervisor</b> ${esc(sup.verdict)}${sup.is_fallback ? ' (local fallback)' : ''} ${sup.rationale ? '&mdash; ' + esc(sup.rationale) : ''}` : ''}
+            ${Array.isArray(r.evidence) && r.evidence.length ? `<br><b>evidence</b> ${esc(r.evidence.slice(0, 4).join(' | '))}` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+    sigPages = data.pages || 1;
+    document.getElementById('sigPageInfo').textContent = `Page ${data.page || 1} of ${sigPages} (${data.total || 0} suggestions)`;
+    document.getElementById('sigPrev').disabled = (data.page || 1) <= 1;
+    document.getElementById('sigNext').disabled = (data.page || 1) >= sigPages;
+    const c = data.counts || {};
+    document.getElementById('sigCounts').innerHTML = Object.keys(c).length
+      ? Object.entries(c).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('')
+      : '';
+  }
+
+  async function loadSignals() {
+    const st = document.getElementById('sigStatus');
+    st.textContent = 'loading…';
+    try {
+      const qs = new URLSearchParams({ _action: 'signals', page: String(sigPage), limit: '25' });
+      if (sigOutcome) qs.set('outcome', sigOutcome);
+      if (sigSymbol) qs.set('symbol', sigSymbol);
+      const res = await fetch(`/api/trades/record?${qs.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      renderSignals(await res.json());
+      st.textContent = '';
+    } catch (e) {
+      st.textContent = `failed: ${e.message}`;
+    }
+  }
+
+  document.getElementById('sigPrev').onclick = () => { if (sigPage > 1) { sigPage--; loadSignals(); } };
+  document.getElementById('sigNext').onclick = () => { if (sigPage < sigPages) { sigPage++; loadSignals(); } };
+  document.querySelectorAll('.sig-f').forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll('.sig-f').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      sigOutcome = b.dataset.outcome; sigPage = 1; loadSignals();
+    };
+  });
+  let symTimer = null;
+  document.getElementById('sigSymbol').oninput = (e) => {
+    clearTimeout(symTimer);
+    symTimer = setTimeout(() => { sigSymbol = e.target.value.trim().toUpperCase(); sigPage = 1; loadSignals(); }, 350);
+  };
+  loadSignals();
+  setInterval(() => { if (sigPage === 1) loadSignals(); }, 20000);
 
   // No message within 5s of opening usually means the main dashboard tab
   // isn't open in this browser at all -- same-origin BroadcastChannel only

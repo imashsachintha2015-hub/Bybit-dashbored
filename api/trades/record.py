@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from backend_lib.http_utils import JsonApiHandler
 from backend_lib import trade_stats as trade_stats_mod
+from backend_lib import signal_log as signal_log_mod
 from backend_lib.kv import kv_configured
 
 
@@ -16,12 +17,46 @@ class handler(JsonApiHandler):
     # caught the original bug: every one of 17 production trades came back
     # with blank setup_type/grade because there was no durable store behind
     # this at all (see kv.py's module docstring).
+    # Actions are dispatched on a query param rather than split into separate
+    # files: this deployment is one function short of the plan's route cap, so
+    # a new endpoint would cost a deploy slot the project does not have.
+    #   (no action)          -> the persistence diagnostic, unchanged
+    #   ?_action=signals     -> paged suggestion history (every candidate)
+    #   ?_action=trades      -> paged closed-trade history
     def do_GET(self):
+        q = self._query()
+        action = (q.get("_action") or [""])[0]
+
+        if action == "signals":
+            self._send_json(200, signal_log_mod.page(
+                page_num=(q.get("page") or ["1"])[0],
+                limit=(q.get("limit") or ["25"])[0],
+                symbol=(q.get("symbol") or [None])[0],
+                outcome=(q.get("outcome") or [None])[0],
+            ))
+            return
+
+        if action == "trades":
+            history = trade_stats_mod.load().get("trade_history", [])
+            try:
+                limit = max(1, min(int((q.get("limit") or ["25"])[0]), 100))
+                page_num = max(1, int((q.get("page") or ["1"])[0]))
+            except (TypeError, ValueError):
+                limit, page_num = 25, 1
+            start = (page_num - 1) * limit
+            self._send_json(200, {
+                "items": history[start:start + limit],
+                "page": page_num, "limit": limit, "total": len(history),
+                "pages": max(1, (len(history) + limit - 1) // limit),
+            })
+            return
+
         stats = trade_stats_mod.load()
         history = stats.get("trade_history", [])
         self._send_json(200, {
             "kv_configured": kv_configured(),
             "trade_count": len(history),
+            "signal_count": len(signal_log_mod.load().get("signals", [])),
             "most_recent": history[0] if history else None
         })
 
@@ -31,6 +66,14 @@ class handler(JsonApiHandler):
     # from Bybit, which double-counted every trade (see api/performance.py).
     def do_POST(self):
         body = self._read_json_body()
+        q = self._query()
+        if (q.get("_action") or [""])[0] == "signal":
+            try:
+                self._send_json(200, {"success": True, "row": signal_log_mod.record(body)})
+            except Exception as e:
+                print(f"[POST /api/trades/record?_action=signal] Unhandled error: {e}")
+                self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+            return
         try:
             try:
                 pnl = float(body.get("pnl", 0))
