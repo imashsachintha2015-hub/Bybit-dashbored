@@ -219,11 +219,11 @@
                 <table class="data-table" id="positionsTable">
                   <thead>
                     <tr>
-                      <th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>Stop Loss</th><th>Liq Price</th><th>Unrealized PnL</th><th title="Profit or loss in units of the risk taken on this trade. 1R is exactly what the trade was set up to lose if wrong.">R</th><th>Action</th>
+                      <th>Symbol</th><th>Side</th><th>Size</th><th>Size (USD)</th><th>Entry</th><th>Mark</th><th>Stop Loss</th><th>Liq Price</th><th>Unrealized PnL</th><th>ROI %</th><th title="Profit or loss in units of the risk taken on this trade. 1R is exactly what the trade was set up to lose if wrong.">R</th><th>Action</th>
                     </tr>
                   </thead>
                   <tbody id="positionsTbody">
-                    <tr><td colspan="10" class="empty-msg">No active positions</td></tr>
+                    <tr><td colspan="12" class="empty-msg">No active positions</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -318,9 +318,20 @@
                 <span class="arm-status stopped" id="armStatus">STOPPED</span>
               </div>
               <div class="trading-controls-body">
-                <div class="control-row">
+                <div class="control-row sizing-mode-row">
+                  <label class="control-label">Position Sizing</label>
+                  <div class="sizing-mode-toggle">
+                    <button type="button" class="sizing-mode-btn active" id="sizeModeRiskBtn" data-mode="risk">Risk %</button>
+                    <button type="button" class="sizing-mode-btn" id="sizeModeUsdtBtn" data-mode="usdt">USDT Size</button>
+                  </div>
+                </div>
+                <div class="control-row" id="riskSizeRow">
                   <label class="control-label" for="marginInput" title="Position size is derived from this and the distance to the stop, so every trade risks the same amount regardless of how wide its stop is.">Risk / Trade (% of equity)</label>
                   <input type="number" id="marginInput" class="control-input" value="0.5" min="0.1" max="5" step="0.1">
+                </div>
+                <div class="control-row" id="usdtSizeRow" style="display:none;">
+                  <label class="control-label" for="usdtSizeInput" title="Every trade opens at exactly this notional size (quantity = size / entry price), regardless of stop distance -- unlike Risk %, wider stops then risk more of your equity than tighter ones.">Position Size (USDT)</label>
+                  <input type="number" id="usdtSizeInput" class="control-input" value="100" min="1" step="1">
                 </div>
                 <div class="control-buttons">
                   <button class="start-btn" id="startBtn"><i class="fa-solid fa-play"></i> Start</button>

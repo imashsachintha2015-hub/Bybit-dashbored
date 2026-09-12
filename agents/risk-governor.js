@@ -19,6 +19,13 @@
 
   const DEFAULTS = {
     riskPerTradePct: 0.5,        // % of equity risked between entry and stop
+    // 'risk' (default): size so entry-to-stop always equals riskPerTradePct
+    // of equity, per the note above. 'usdt': size to a fixed notional
+    // instead -- the operator's explicit choice to trade the older, simpler
+    // way, understanding a wide stop then risks more of that fixed notional
+    // than a tight one does.
+    sizingMode: 'risk',
+    fixedUsdtSize: 100,
     maxDailyLossPct: 3.0,        // hard stop for the session
     maxConcurrentPositions: 2,
     maxCorrelatedPositions: 2,   // BTC/ETH/SOL move together — they are one bet, not three
@@ -184,10 +191,19 @@
     }
 
     /**
-     * Size by risk, not by margin. Quantity is set so that entry-to-stop equals
-     * exactly `riskPerTradePct` of equity — a wide stop gets a small position,
-     * a tight stop gets a larger one, and every trade loses the same amount when
-     * it is wrong. That single change is what makes a win rate meaningful.
+     * Two sizing modes:
+     *
+     *   'risk' (default) — size by risk, not by margin. Quantity is set so
+     *   that entry-to-stop equals exactly `riskPerTradePct` of equity — a
+     *   wide stop gets a small position, a tight stop gets a larger one,
+     *   and every trade loses the same amount when it is wrong. That single
+     *   change is what makes a win rate meaningful.
+     *
+     *   'usdt' — size to a fixed notional (`fixedUsdtSize`) instead,
+     *   regardless of stop distance. Simpler to reason about in dollar
+     *   terms, at the cost of the property above: a trade with a stop twice
+     *   as far away now risks twice as much of that fixed notional as one
+     *   with a tight stop. An explicit operator choice, not the default.
      */
     sizePosition({ entry, stop, equity, symbol, qtyStep, minQty, maxLeverage = 10 }) {
       const eq = equity || this.currentEquity;
@@ -195,10 +211,12 @@
       if (!eq || !riskDist || !entry) {
         return { qty: 0, rejected: 'Missing equity, entry or stop' };
       }
-      const riskAmount = eq * (this.config.riskPerTradePct / 100);
-      let qty = riskAmount / riskDist;
 
-      // Never let risk-sizing push notional past the leverage ceiling.
+      const usdtMode = this.config.sizingMode === 'usdt';
+      const riskAmount = usdtMode ? +(riskDist * (this.config.fixedUsdtSize / entry)).toFixed(2) : eq * (this.config.riskPerTradePct / 100);
+      let qty = usdtMode ? this.config.fixedUsdtSize / entry : riskAmount / riskDist;
+
+      // Never let sizing push notional past the leverage ceiling.
       const maxNotional = eq * maxLeverage;
       if (qty * entry > maxNotional) {
         qty = maxNotional / entry;
@@ -211,16 +229,18 @@
       if (minQty && qty < minQty) {
         return {
           qty: 0,
-          rejected: `Risk-based size (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raising size would mean risking more than ${this.config.riskPerTradePct}% of equity on this trade, so the trade is skipped instead.`
+          rejected: usdtMode
+            ? `Size at $${this.config.fixedUsdtSize} notional (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raise the USDT size to trade this symbol.`
+            : `Risk-based size (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raising size would mean risking more than ${this.config.riskPerTradePct}% of equity on this trade, so the trade is skipped instead.`
         };
       }
       if (qty <= 0) {
-        return { qty: 0, rejected: `Risk-based size rounds to zero at ${symbol}'s step size — equity too small for this stop distance` };
+        return { qty: 0, rejected: `${usdtMode ? 'Fixed-USDT' : 'Risk-based'} size rounds to zero at ${symbol}'s step size` };
       }
 
       return {
         qty,
-        riskAmount: +riskAmount.toFixed(2),
+        riskAmount,
         notional: +(qty * entry).toFixed(2),
         effectiveLeverage: +((qty * entry) / eq).toFixed(2)
       };

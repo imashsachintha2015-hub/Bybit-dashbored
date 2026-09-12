@@ -14,7 +14,10 @@ class handler(JsonApiHandler):
     def do_POST(self):
         body = self._read_json_body()
         try:
-            state = auto_trade_state.save(body.get("armed", False), body.get("riskPerTradePct"))
+            state = auto_trade_state.save(
+                body.get("armed", False), body.get("riskPerTradePct"),
+                body.get("sizingMode"), body.get("fixedUsdtSize"),
+            )
             self._send_json(200, state)
         except Exception as e:
             print(f"[POST /api/auto-trade/state] Unhandled error: {e}")
