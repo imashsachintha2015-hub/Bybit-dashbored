@@ -1100,3 +1100,86 @@ project has not yet been able to reach: the order-book collector
 (`collect-orderbook.js`) needs weeks of runtime it has not had, and every
 derivatives-based construct here is still bounded by OKX's 30-day retention.
 Those are the two honest places left to look.
+
+# Part IX — What is the best this project can get, combined?
+
+Every prior part tested *whether* a signal exists. This part asks a different
+question: given the one lever that has ever moved net expectancy (execution
+cost — Part V) and the one structural layer that ever showed a positive,
+if noisy, number (the seven-analyst swarm's advisory gating — Part III), what
+does the V3 engine actually produce if both are pushed together, end to end,
+on the full 418-day / four-symbol backtest?
+
+This grid was run twice. The first pass was reported to the user verbally,
+from memory, as "roughly breakeven to +0.05R" for the disabled-swarm case and
+"an erratic +0.44R at n=50" for advisory mode. That recollection undersold the
+disabled-swarm case and used a stale number for advisory mode. The table below
+is the actual second run, saved to JSON so it can be checked rather than
+recalled — `swarmMode off|advisory`, `--exec maker`, offset swept 0-30bps,
+`--makerTimeout 20`, full 418-day backtest, `--seed 1` (meta-learner seeded
+from Part III's study):
+
+| swarmMode | offset | n | win rate | expectancy (R) | total R | profit factor |
+|---|---|---|---|---|---|---|
+| off | 0bps | 320 | 49.1% | −0.009 | −2.99 | 0.98 |
+| off | 5bps | 315 | 47.6% | +0.015 | +4.82 | 1.04 |
+| off | 10bps | 310 | 47.1% | +0.065 | +20.04 | 1.16 |
+| off | 15bps | 302 | 47.4% | +0.098 | +29.70 | 1.24 |
+| off | 20bps | 300 | 47.7% | +0.155 | +46.48 | 1.38 |
+| off | 30bps | 287 | 48.1% | **+0.288** | +82.72 | 1.70 |
+| advisory | 0bps | 94 | 57.4% | −0.040 | −3.73 | 0.90 |
+| advisory | 5bps | 90 | 57.8% | +0.045 | +4.07 | 1.11 |
+| advisory | 10bps | 87 | 56.3% | +0.055 | +4.78 | 1.12 |
+| advisory | 15bps | 84 | 57.1% | +0.077 | +6.46 | 1.16 |
+| advisory | 20bps | 83 | 55.4% | +0.215 | +17.84 | 1.45 |
+| advisory | 30bps | 76 | 56.6% | **+0.791** | +60.08 | 2.79 |
+
+For reference, the original V2 baseline on the identical data is a constant
+n=1,638, win rate 42.6%, expectancy **−0.174R**, total −284R — every row above
+already beats it by a wide margin.
+
+**Two different things are happening in this table, and they should not be
+read as the same finding:**
+
+1. **The `off`-mode column is the trustworthy one.** Win rate and n move
+   smoothly and monotonically as offset rises — n falls only 10% (320→287)
+   while expectancy rises steadily. This is patient limit entry doing exactly
+   what Part V already proved it does: saving the spread/fee on every trade
+   that fills, with no change to trade *selection* (win rate is flat at
+   47-49% throughout, exactly Part V's finding that gross edge never moves).
+   +0.155R to +0.288R at 20-30bps offset, on 300+ trades, is a real, stable
+   number given everything this project has verified about the mechanism
+   producing it.
+
+2. **The `advisory`-mode column is not trustworthy at face value**, and this
+   needs to be said plainly rather than quoted as a headline number. n
+   collapses to 76-94 — the swarm's gating rejects roughly 70% of the setups
+   `off` mode takes — and the expectancy figures are noisy and non-monotonic
+   in a way `off` mode's are not (57.8%→56.3%→57.1% win rate has no trend).
+   The advisory@30bps cell (+0.791R, n=76) is the largest number in the whole
+   table and the least trustworthy one in it: at n=76 a handful of large
+   winners can move expectancy by tenths of an R, and the analyst-reliability
+   diagnostic printed with every one of these runs says so directly — every
+   analyst in every regime is still below the ~15-observation floor the
+   meta-learner itself uses before it will trust a reliability weight (see
+   the per-run tables: RANGE/volumeProfile n=23-31, RANGE/liquidity n=24-28,
+   TREND/liquidity n=17-19, RANGE/traps n=11-13, across all six advisory
+   runs). The swarm is gating trades on weights the project's own code
+   considers statistically premature. This isn't a new finding — Part III
+   already reported the swarm's measured impact as "mostly negative/neutral"
+   — but this grid shows specifically *why* the occasional positive advisory
+   number should not be banked on: it's a small, cherry-pickable sample
+   riding on unvalidated weights, not a stable effect the way the `off`-mode
+   trend is.
+
+**The honest combined ceiling, stated once and precisely:** with the swarm
+left in an advisory role turned **off** and execution moved to a 20-30bps
+patient maker offset, this project's full pipeline — four coins, 418 days,
+real fee and slippage costs, the corrected intrabar stop-check logic from
+Part I, every validated finding from Parts I-VIII folded in as "things not to
+bother retesting" — produces **+0.155R to +0.288R average expectancy over
+287-300 trades**, a profit factor of 1.38-1.70, entirely attributable to
+paying less to enter and exit, not to predicting direction. Turning the
+swarm's advisory gating on does not add a validated increment on top of that;
+it produces a much smaller, noisier sample whose best cell looks better only
+because it is the easiest of twelve numbers to have happened by chance.
