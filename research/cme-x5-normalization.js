@@ -187,7 +187,15 @@ function buildAssetSeries(bars) {
   return out;
 }
 
-function buildCrossAsset(alignedBars, perAsset, baLag = DEFAULT_BA_LAG) {
+/**
+ * baOpts (Part C only; null reproduces Parts A/B bit-for-bit) controls how the
+ * BREADTH_M series that BA differences is composed:
+ *   weight:  'dvw' (trailing-200-bar median dollar volume, the original) | 'eqw'
+ *   exclude: 'self' to drop the target coin from its own breadth, or an array of
+ *            symbols to drop for everyone
+ *   include: an array restricting contributors to just those symbols
+ */
+function buildCrossAsset(alignedBars, perAsset, baLag = DEFAULT_BA_LAG, baOpts = null) {
   const symbols = Object.keys(alignedBars);
   const n = alignedBars[symbols[0]].length;
   const out = {};
@@ -223,7 +231,26 @@ function buildCrossAsset(alignedBars, perAsset, baLag = DEFAULT_BA_LAG) {
     const downFrac = states.filter(v => v < 0).length / states.length;
     const neutFrac = states.filter(v => v === 0).length / states.length;
     H[i] = -[upFrac, downFrac, neutFrac].reduce((a, p) => a + (p > 0 ? p * Math.log(p + 1e-9) : 0), 0);
-    for (const s of symbols) if (perAsset[s].M[i] != null) out[s].BREADTH_M[i] = bmSum;
+    if (!baOpts) {
+      for (const s of symbols) if (perAsset[s].M[i] != null) out[s].BREADTH_M[i] = bmSum;
+    } else {
+      // Recompose the breadth-momentum average under the requested contributor
+      // set and weighting, separately for each target coin (exclude:'self'
+      // makes the series genuinely different per coin).
+      const base = baOpts.include ? symbols.filter(s => baOpts.include.includes(s)) : symbols;
+      const dropped = Array.isArray(baOpts.exclude) ? baOpts.exclude : [];
+      for (const tgt of symbols) {
+        if (perAsset[tgt].M[i] == null) continue;
+        const contrib = base.filter(s => s !== (baOpts.exclude === 'self' ? tgt : null) && !dropped.includes(s));
+        let num = 0, den = 0;
+        for (const s of contrib) {
+          const m = perAsset[s].M[i]; if (m == null) continue;
+          const w = baOpts.weight === 'eqw' ? 1 : weights[s];
+          num += w * m; den += w;
+        }
+        out[tgt].BREADTH_M[i] = den > 0 ? num / den : null;
+      }
+    }
 
     const logCs = symbols.map(s => Math.log(alignedBars[s][i].close));
     const avgLogC = mean(logCs);
@@ -407,13 +434,13 @@ function spearman(xs, ys) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-function buildUniverse(coins, baLag = DEFAULT_BA_LAG) {
+function buildUniverse(coins, baLag = DEFAULT_BA_LAG, baOpts = null) {
   const rawBars = {};
   for (const s of coins) { const b = loadBars(s); if (b) rawBars[s] = b; }
   const present = Object.keys(rawBars);
   const { bars: alignedBars } = alignAll(rawBars);
   const perAsset = {}; for (const s of present) perAsset[s] = buildAssetSeries(alignedBars[s]);
-  const cross = buildCrossAsset(alignedBars, perAsset, baLag);
+  const cross = buildCrossAsset(alignedBars, perAsset, baLag, baOpts);
   const temporal = {};
   for (const s of present) {
     const mCoh = perAsset[s].M.map((m, i) => m != null && perAsset[s].COH[i] != null && perAsset[s].TREND_GATE[i] != null
@@ -546,6 +573,47 @@ function main() {
     console.log(`  Mean AUC, top 5 by liquidity:               ${mean(top5.map(r => r.auc)).toFixed(4)}`);
     console.log(`  Mean AUC, bottom 5 by liquidity:            ${mean(bottom5.map(r => r.auc)).toFixed(4)}`);
     results.groupMeans = { top2Auc, restAuc, top5Auc: mean(top5.map(r => r.auc)), bottom5Auc: mean(bottom5.map(r => r.auc)) };
+  }
+
+  // ═══════ PART C — is BA market-wide information, or laundered mega-cap momentum? ═══════
+  //
+  // A construction detail that Part XVII never examined, and that decides how to
+  // read its headline result: BA differences BREADTH_M, a DOLLAR-VOLUME-WEIGHTED
+  // average of every coin's momentum -- including the momentum of the very coin
+  // being predicted. Dollar-volume weighting is dominated by BTC and ETH. So
+  // "shuffling BA hurts most" has two readings that the shuffle test cannot tell
+  // apart: (1) market-wide breadth genuinely carries the information, or (2) BA is
+  // a smoothed, 16-bar-differenced restatement of BTC/ETH's own momentum, and the
+  // BTC/ETH-specificity found in Part XVII is partly built into the feature.
+  //
+  // There is no temporal leak either way -- everything is contemporaneous at bar i
+  // and the weights are trailing-only -- but the two readings imply opposite
+  // conclusions, so they have to be separated directly.
+  console.log(`\n${line}\n  PART C — BREADTH PROVENANCE: is BA market-wide info, or BTC/ETH momentum in disguise?\n${line}`);
+  {
+    const liqA = uni.cross.medDollarVol;
+    const totalLiq = uni.coins.reduce((a, s) => a + liqA[s], 0);
+    const megaShare = (liqA.BTCUSDT + liqA.ETHUSDT) / totalLiq;
+    console.log(`  BTC+ETH are ${(megaShare * 100).toFixed(1)}% of the dollar-volume weight in the reference BREADTH_M average.`);
+    console.log(`  Each variant below recomposes that average, refits momentum+BA on DOGE/LINK/AVAX, tests on BTC/ETH.\n`);
+
+    const baVariants = {
+      'dollar-vol wtd, ALL coins (reference)': null,
+      'dollar-vol wtd, EXCLUDING the test coin': { weight: 'dvw', exclude: 'self' },
+      'EQUAL wtd, all coins': { weight: 'eqw' },
+      'EQUAL wtd, excluding the test coin': { weight: 'eqw', exclude: 'self' },
+      'BTC+ETH ONLY (pure mega-cap momentum)': { weight: 'dvw', include: ['BTCUSDT', 'ETHUSDT'] },
+      'ALTS ONLY (BTC+ETH removed entirely)': { weight: 'dvw', exclude: ['BTCUSDT', 'ETHUSDT'] }
+    };
+    results.baProvenance = { megaCapDollarVolShare: megaShare, variants: {} };
+    for (const [label, opts] of Object.entries(baVariants)) {
+      const u = opts == null ? uni : buildUniverse(CORE_COINS, DEFAULT_BA_LAG, opts);
+      const res = fitAndEval(u, [IDX.M_COH, IDX.BA], TRAIN_COINS, TEST_COINS, `prov-${label}`);
+      results.baProvenance.variants[label] = res ? res.out : null;
+      const b = res && res.out.BTCUSDT, e = res && res.out.ETHUSDT;
+      const cell = r => r ? `AUC=${r.auc.toFixed(3)} WR=${r.topWR != null ? (r.topWR * 100).toFixed(1) + '%' : '—'}` : 'n/a';
+      console.log(`    ${label.padEnd(42)} BTC ${cell(b).padEnd(24)} ETH ${cell(e)}`);
+    }
   }
 
   console.log(`\n${line}\n`);
