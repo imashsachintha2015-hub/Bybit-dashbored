@@ -455,6 +455,9 @@ function main() {
   const args = {};
   for (let i = 2; i < process.argv.length; i += 2) args[process.argv[i].replace(/^--/, '')] = process.argv[i + 1];
   const costBps = parseFloat(args.cost || String(COST_BPS_DEFAULT));
+  // --part lets B and C be re-run without repeating Part A's universe rebuilds
+  const partsArg = (args.part || 'ABC').toUpperCase();
+  const runA = partsArg.includes('A'), runB = partsArg.includes('B'), runC = partsArg.includes('C');
   const line = '─'.repeat(114);
   const results = {};
 
@@ -494,6 +497,7 @@ function main() {
   const ALL = FEATURE_NAMES.map((_, j) => j);
   const CROSS_ASSET_IDX = ['BREADTH', 'BREADTH_M', 'BA', 'RV', 'LL', 'SYNC', 'SYNC_A', 'DH'].map(n => IDX[n]);
 
+  if (runA) {
   console.log('  Reference + explicit removals (full 15-feature model, refit each time):');
   const partA = {};
   const variants = {
@@ -524,9 +528,11 @@ function main() {
     const btc = res && res.out.BTCUSDT, eth = res && res.out.ETHUSDT;
     console.log(`    BA lag ${String(lag).padStart(2)} bars  BTC ${btc ? `AUC=${btc.auc.toFixed(3)} WR=${(btc.topWR * 100).toFixed(1)}%` : 'n/a'}   ETH ${eth ? `AUC=${eth.auc.toFixed(3)} WR=${(eth.topWR * 100).toFixed(1)}%` : 'n/a'}`);
   }
+  }
 
   // ══════════════════ PART B — liquidity-rank transfer test ══════════════════
   console.log(`\n${line}\n  PART B — "BTC/ETH FACT" OR "LARGE-CAP FACT"? (wide universe, leave-one-asset-out)\n${line}`);
+  if (runB) {
   const wideCoins = CORE_COINS.concat(WIDE_EXTRA);
   const available = wideCoins.filter(s => loadBars(s));
   if (available.length < 10) {
@@ -544,35 +550,50 @@ function main() {
     ranked.forEach((s, k) => console.log(`    ${String(k + 1).padStart(2)}. ${s.padEnd(11)} $${Math.round(liq[s]).toLocaleString()}`));
     console.log('');
 
-    console.log('  Leave-one-asset-out (train on all others, test on held-out), 2-feature momentum+BA model:');
-    console.log(`  ${'rank'.padStart(4)}  ${'coin'.padEnd(11)}${'AUC'.padStart(8)}${'topN'.padStart(7)}${'WR'.padStart(8)}${'expR'.padStart(9)}${'p'.padStart(8)}`);
-    const looRows = [];
-    for (let k = 0; k < ranked.length; k++) {
-      const held = ranked[k];
-      const others = wide.coins.filter(c => c !== held);
-      const res = fitAndEval(wide, [IDX.M_COH, IDX.BA], others, [held], `loo-${held}`);
-      const r = res && res.out[held];
-      looRows.push({ rank: k + 1, coin: held, liq: liq[held], ...(r || {}) });
-      console.log(`  ${String(k + 1).padStart(4)}  ${held.padEnd(11)}${(r && r.auc != null ? r.auc.toFixed(3) : '—').padStart(8)}${String(r && r.topN != null ? r.topN : '—').padStart(7)}${(r && r.topWR != null ? (r.topWR * 100).toFixed(1) + '%' : '—').padStart(8)}${(r && r.expR != null ? r.expR.toFixed(3) : '—').padStart(9)}${(r && r.p != null ? r.p.toFixed(3) : '—').padStart(8)}`);
+    // Part A showed momentum-only OUTPERFORMS momentum+BA (BTC AUC 0.574 vs 0.559,
+    // WR 60.8% vs 55.4%), so the rank test is run under BOTH candidate models: the
+    // one this study was originally written around, and the one Part A prefers. If
+    // the rank conclusion only holds under the weaker model it is not a conclusion.
+    const LOO_MODELS = {
+      'momentum only (Part A\'s best)': [IDX.M_COH],
+      'momentum + BA (original plan)': [IDX.M_COH, IDX.BA]
+    };
+    results.liquidityLOO = {};
+    results.spearman = {};
+    results.groupMeans = {};
+    for (const [mLabel, featIdx] of Object.entries(LOO_MODELS)) {
+      console.log(`  Leave-one-asset-out (train on all others, test on held-out) — ${mLabel}:`);
+      console.log(`  ${'rank'.padStart(4)}  ${'coin'.padEnd(11)}${'AUC'.padStart(8)}${'topN'.padStart(7)}${'WR'.padStart(8)}${'expR'.padStart(9)}${'p'.padStart(8)}`);
+      const looRows = [];
+      for (let k = 0; k < ranked.length; k++) {
+        const held = ranked[k];
+        const others = wide.coins.filter(c => c !== held);
+        const res = fitAndEval(wide, featIdx, others, [held], `loo-${held}`);
+        const r = res && res.out[held];
+        looRows.push({ rank: k + 1, coin: held, liq: liq[held], ...(r || {}) });
+        console.log(`  ${String(k + 1).padStart(4)}  ${held.padEnd(11)}${(r && r.auc != null ? r.auc.toFixed(3) : '—').padStart(8)}${String(r && r.topN != null ? r.topN : '—').padStart(7)}${(r && r.topWR != null ? (r.topWR * 100).toFixed(1) + '%' : '—').padStart(8)}${(r && r.expR != null ? r.expR.toFixed(3) : '—').padStart(9)}${(r && r.p != null ? r.p.toFixed(3) : '—').padStart(8)}`);
+      }
+      results.liquidityLOO[mLabel] = looRows;
+
+      const withAuc = looRows.filter(r => r.auc != null);
+      const wr = withAuc.filter(r => r.topWR != null);
+      const rhoRankAuc = spearman(withAuc.map(r => r.rank), withAuc.map(r => r.auc));
+      const rhoRankWr = spearman(wr.map(r => r.rank), wr.map(r => r.topWR));
+      console.log(`    Spearman(liquidity rank, AUC) = ${rhoRankAuc != null ? rhoRankAuc.toFixed(3) : '—'}   (negative = more liquid -> higher AUC)`);
+      console.log(`    Spearman(liquidity rank, win rate) = ${rhoRankWr != null ? rhoRankWr.toFixed(3) : '—'}`);
+      results.spearman[mLabel] = { rankVsAuc: rhoRankAuc, rankVsWr: rhoRankWr };
+
+      // Are BTC/ETH outliers beyond their rank, or just the top of a smooth gradient?
+      const top2 = withAuc.filter(r => r.rank <= 2), rest = withAuc.filter(r => r.rank > 2);
+      const top5 = withAuc.filter(r => r.rank <= 5), bottom5 = withAuc.filter(r => r.rank > withAuc.length - 5);
+      const gm = {
+        top2Auc: mean(top2.map(r => r.auc)), restAuc: mean(rest.map(r => r.auc)),
+        top5Auc: mean(top5.map(r => r.auc)), bottom5Auc: mean(bottom5.map(r => r.auc))
+      };
+      console.log(`    Mean AUC — top 2 (${top2.map(r => r.coin.replace('USDT', '')).join('/')}): ${gm.top2Auc.toFixed(4)}   all others: ${gm.restAuc.toFixed(4)}   top 5: ${gm.top5Auc.toFixed(4)}   bottom 5: ${gm.bottom5Auc.toFixed(4)}\n`);
+      results.groupMeans[mLabel] = gm;
     }
-    results.liquidityLOO = looRows;
-
-    const withAuc = looRows.filter(r => r.auc != null);
-    const rhoRankAuc = spearman(withAuc.map(r => r.rank), withAuc.map(r => r.auc));
-    const rhoRankWr = spearman(withAuc.filter(r => r.topWR != null).map(r => r.rank), withAuc.filter(r => r.topWR != null).map(r => r.topWR));
-    console.log(`\n  Spearman(liquidity rank, AUC) = ${rhoRankAuc != null ? rhoRankAuc.toFixed(3) : '—'}   (negative = more liquid -> higher AUC)`);
-    console.log(`  Spearman(liquidity rank, win rate) = ${rhoRankWr != null ? rhoRankWr.toFixed(3) : '—'}`);
-    results.spearman = { rankVsAuc: rhoRankAuc, rankVsWr: rhoRankWr };
-
-    // Is BTC/ETH an outlier beyond its rank? Compare top-2 vs the rest.
-    const top2 = withAuc.filter(r => r.rank <= 2), rest = withAuc.filter(r => r.rank > 2);
-    const top2Auc = mean(top2.map(r => r.auc)), restAuc = mean(rest.map(r => r.auc));
-    const top5 = withAuc.filter(r => r.rank <= 5), bottom5 = withAuc.filter(r => r.rank > withAuc.length - 5);
-    console.log(`\n  Mean AUC, top 2 by liquidity (${top2.map(r => r.coin.replace('USDT', '')).join('/')}):  ${top2Auc.toFixed(4)}`);
-    console.log(`  Mean AUC, all others:                       ${restAuc.toFixed(4)}`);
-    console.log(`  Mean AUC, top 5 by liquidity:               ${mean(top5.map(r => r.auc)).toFixed(4)}`);
-    console.log(`  Mean AUC, bottom 5 by liquidity:            ${mean(bottom5.map(r => r.auc)).toFixed(4)}`);
-    results.groupMeans = { top2Auc, restAuc, top5Auc: mean(top5.map(r => r.auc)), bottom5Auc: mean(bottom5.map(r => r.auc)) };
+  }
   }
 
   // ═══════ PART C — is BA market-wide information, or laundered mega-cap momentum? ═══════
@@ -589,6 +610,7 @@ function main() {
   // There is no temporal leak either way -- everything is contemporaneous at bar i
   // and the weights are trailing-only -- but the two readings imply opposite
   // conclusions, so they have to be separated directly.
+  if (runC) {
   console.log(`\n${line}\n  PART C — BREADTH PROVENANCE: is BA market-wide info, or BTC/ETH momentum in disguise?\n${line}`);
   {
     const liqA = uni.cross.medDollarVol;
@@ -615,11 +637,17 @@ function main() {
       console.log(`    ${label.padEnd(42)} BTC ${cell(b).padEnd(24)} ETH ${cell(e)}`);
     }
   }
+  }
 
   console.log(`\n${line}\n`);
   fs.mkdirSync(path.join(__dirname, 'results'), { recursive: true });
-  fs.writeFileSync(path.join(__dirname, 'results', 'cme-x5-normalization.json'),
-    JSON.stringify({ generatedAt: new Date().toISOString(), costBps, results }, null, 2));
+  const outFile = path.join(__dirname, 'results', 'cme-x5-normalization.json');
+  // Merge rather than overwrite, so re-running a single part with --part keeps the
+  // other parts' results instead of silently blanking them.
+  let prior = {};
+  if (fs.existsSync(outFile)) { try { prior = JSON.parse(fs.readFileSync(outFile, 'utf8')).results || {}; } catch (e) { prior = {}; } }
+  fs.writeFileSync(outFile, JSON.stringify(
+    { generatedAt: new Date().toISOString(), costBps, partsRun: partsArg, results: { ...prior, ...results } }, null, 2));
 }
 
 main();
