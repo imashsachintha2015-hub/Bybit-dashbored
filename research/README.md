@@ -756,3 +756,131 @@ Every lever that has ever moved the number in this repository moved the **cost**
 term. Nothing has moved the **gross** term, across 2,448 indicator
 configurations, 126 market-state slices, 69 calendar hypotheses, four
 cross-venue and basis structures, and now 28 entry methods.
+
+---
+
+# Part VI — "Build advanced indicators, not MA and RSI"
+
+The challenge: it's a binary outcome — up or down in 15/30/60 minutes. It's the
+result of a million causes. Can we identify those causes, build genuinely
+advanced indicators, and find the moments where the answer is knowable? And five
+well-calculated trades would be enough — I don't need a hundred.
+
+**The first half of that was right, and it exposed a real flaw in my own work.**
+
+## The flaw: 2,448 tests of ~2 things
+
+Study 11 measured the information content of the indicator set the grid used.
+Eight "different" indicators, correlation matrix:
+
+| | roc14 | rsi14 | boll20 | donch20 | emaX12 | eff30 |
+|---|---|---|---|---|---|---|
+| roc_14 | 1.00 | **0.99** | 0.80 | 0.80 | 0.60 | 0.63 |
+| bollinger_20 | 0.80 | 0.82 | 1.00 | **0.94** | 0.50 | 0.59 |
+| emaCross_12 | 0.60 | 0.61 | 0.50 | 0.54 | 1.00 | **0.91** |
+
+RSI and rate-of-change correlate **0.99**. Bollinger and Donchian **0.94**. EMA
+cross and efficiency ratio **0.91**.
+
+**Effective rank: 2.42 out of 8.**
+
+So the 2,448-configuration grid was not 2,448 independent attempts at
+prediction. It was roughly 2.4 dimensions of information, tested 2,448 ways.
+That is much weaker evidence than it appeared, and the criticism lands.
+
+**Adding a cleverer price formula cannot help.** No transform of a series adds
+information the series does not contain. That is not a market fact, it is an
+arithmetic one.
+
+## So new information was added
+
+Open interest, funding, crowd long/short positioning, measured taker flow, and
+cross-venue basis — five sources that are not functions of the price series.
+
+| feature set | effective rank |
+|---|---|
+| 8 price indicators | 2.47 |
+| + 5 non-price sources | **5.19** |
+
+And each new source is genuinely orthogonal to the price block:
+
+| non-price feature | max \|corr\| with ANY price indicator |
+|---|---|
+| crowd long/short ratio | 0.064 |
+| cross-venue basis | 0.087 |
+| funding z-score | 0.125 |
+| open-interest change | 0.240 |
+| taker imbalance | 0.299 |
+
+The information content more than doubled. This is exactly the "advanced
+indicators" the question asked for — not new arithmetic, new measurements.
+
+## Then it was tested, walk-forward
+
+Ridge-regularised, strictly walk-forward, standardised on training statistics
+only, refit as the window rolls. 1,518 out-of-sample forecasts per symbol.
+
+| symbol | feature set | accuracy | **IC** | net bps |
+|---|---|---|---|---|
+| BTC | price only (2.4 dims) | 49.9% | −0.044 | −3.97 |
+| BTC | **price + derivatives (5.2 dims)** | 49.7% | −0.052 | −4.19 |
+| ETH | price only | 50.1% | −0.052 | −3.70 |
+| ETH | **price + derivatives** | 49.1% | −0.033 | −4.44 |
+| SOL | price only | 50.1% | +0.026 | −2.52 |
+| SOL | **price + derivatives** | 48.9% | +0.030 | −4.22 |
+
+Doubling the information content changed nothing. IC — the correlation between
+forecast and outcome — sits between −0.052 and +0.030 across every combination.
+A good systematic equity signal runs an IC of 0.02–0.05; this is indistinguishable
+from zero in both directions.
+
+## And the "five well-calculated trades" test
+
+This deserved its own test, because a model can be useless on average and still
+be right where it is most confident. Restricting to the strongest forecasts:
+
+| confidence slice | BTC | ETH | SOL |
+|---|---|---|---|
+| all 1,518 forecasts | 49.7% | 49.1% | 48.9% |
+| strongest 10% (n=151) | **34.4%** | 47.0% | 56.3% |
+| strongest 2% (n=30) | **26.7%** | 46.7% | **40.0%** |
+
+**Accuracy gets worse as confidence rises.** On BTC the model's most confident
+forecasts are right 26.7% of the time — it is reliably, strongly wrong exactly
+where it is most sure.
+
+That is the specific answer to "five well-calculated trades is enough". There is
+no high-conviction subset to select. The model has no region where it knows
+more; its confidence is anti-correlated with its accuracy. Five trades chosen
+this way would be five trades chosen from its worst-performing region.
+
+(The SOL 56.3% at n=151 is the sort of lone positive cell this whole project has
+learned to distrust — it collapses to 40.0% at the next slice down.)
+
+## What is honestly still open
+
+This is a negative result on **thin data**, and that limit should be stated
+plainly rather than buried:
+
+- **The derivatives history is 30 days.** OKX retains only 720 hourly rows, which
+  yields ~2,758 aligned observations and 1,518 out-of-sample forecasts. That is
+  enough to rule out a large effect, not a small one. Years of open-interest and
+  funding history would make this a real test rather than an indication.
+- **The five sources are the ones that happen to be free.** Order book depth,
+  liquidation prints, options positioning, on-chain flows and stablecoin
+  issuance are all genuinely orthogonal information that was not available here.
+  The collector in `collect-orderbook.js` exists precisely because that is the
+  largest reachable gap.
+- **A linear model was used.** A non-linear one could find interactions a ridge
+  regression cannot. With 2,758 rows and 13 features that would mostly fit
+  noise, so it was not attempted — but with years of data it would be the
+  obvious next step.
+
+So the correct summary is not "this is impossible". It is: **the information
+that was reachable here, combined properly and tested honestly, does not
+forecast 15-to-60-minute direction — and the model's own confidence is not a
+guide to when it does.**
+
+The premise of the question was right. Better formulas on the same data cannot
+work, and new information is the only path. That path was taken as far as the
+available data allows, and it stopped here.
