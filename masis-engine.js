@@ -86,11 +86,22 @@
   const AUTO_TRADE_MIN_GRADE = 'A';
   const GRADE_RANK = { 'A+': 3, 'A': 2, 'B': 1, 'C': 0, 'D': 0 };
 
+  /** Minimum 24h quote-currency turnover (USDT) a symbol must print to be
+   * considered tradable at all. The watchlist spans large-cap majors down to
+   * thin alts; regime and spread gates are both self-relative (they compare a
+   * symbol against its own recent range), so neither one catches a coin that
+   * is simply too thin for real size — a book can look tight for a moment on
+   * a handful of resting orders. This is the one absolute floor in the gate
+   * stack, deliberately: liquidity below it doesn't get more tradable just
+   * because the tape looks orderly. */
+  const MIN_24H_TURNOVER_USD = 5_000_000;
+
   class MasisEngine {
     constructor(options = {}) {
       this.symbol = options.symbol || 'BTCUSDT';
       this.maxCandles = options.maxCandles || 400;
       this.autoTradeMinGrade = options.autoTradeMinGrade || AUTO_TRADE_MIN_GRADE;
+      this.minLiquidityUsd = options.minLiquidityUsd || MIN_24H_TURNOVER_USD;
       // Injectable clock. The live system uses the wall clock; the backtest
       // supplies the timestamp of the bar being replayed, so staleness and
       // recency checks mean the same thing in both.
@@ -275,6 +286,18 @@
       const book = this.flow.bookState();
       gates.spreadAcceptable = !book.available || book.spreadPct < 0.12;
       if (!gates.spreadAcceptable) blocks.push(`Spread ${book.spreadPct.toFixed(3)}% exceeds the 0.12% execution ceiling`);
+
+      // Liquidity floor: a symbol thin enough here doesn't get a pass just
+      // because its regime and spread happen to look clean at this instant —
+      // see MIN_24H_TURNOVER_USD's comment for why this is the one absolute
+      // (non-self-relative) gate in the stack. No ticker snapshot yet is not
+      // treated as a failure, the same convention spreadAcceptable uses for
+      // an unavailable book.
+      const turnover24h = parseFloat(this.ticker.turnover24h);
+      gates.liquidityAcceptable = !Number.isFinite(turnover24h) || turnover24h >= this.minLiquidityUsd;
+      if (!gates.liquidityAcceptable) {
+        blocks.push(`24h turnover $${Math.round(turnover24h).toLocaleString()} is below the $${this.minLiquidityUsd.toLocaleString()} floor — too thin to trade cleanly`);
+      }
 
       if (!candidate) {
         gates.setupPresent = false;
@@ -553,5 +576,5 @@
     }
   }
 
-  return { MasisEngine, TIMEFRAMES, GRADE_RANK, AUTO_TRADE_MIN_GRADE };
+  return { MasisEngine, TIMEFRAMES, GRADE_RANK, AUTO_TRADE_MIN_GRADE, MIN_24H_TURNOVER_USD };
 });
