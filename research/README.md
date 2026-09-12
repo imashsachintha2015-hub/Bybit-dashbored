@@ -1183,3 +1183,119 @@ paying less to enter and exit, not to predicting direction. Turning the
 swarm's advisory gating on does not add a validated increment on top of that;
 it produces a much smaller, noisier sample whose best cell looks better only
 because it is the easiest of twelve numbers to have happened by chance.
+
+# Part X — Re-testing an external formula report, and the candle/liquidation
+# indicator family
+
+Two things arrived from outside this project's own research: a user-supplied
+report of 192 tests of 16 tanh-wrapped formulas (F1-F8 on price/volume/
+volatility, A-H adding OKX derivatives) against a barrier-race event (does
+price hit +0.5% before -0.5% within a horizon of 2/4/8/16 bars on 15m data),
+and a proposed five-indicator family (Forced-Flow Absorption Residual, Candle
+Rejection w/ Volume, Liquidation Concentration Shock, Cross-Asset Stress
+Breadth, Trend Efficiency & Fragility) built against a liquidation+OHLCV
+dataset bundle. Both were re-implemented and tested with this project's full
+discipline — plus two checks specific to a barrier-race structure that a
+naive read of "win rate" would get wrong: causal (expanding-window) decile
+thresholds instead of a fixed cutoff that could leak the future, and a
+moving-block bootstrap instead of a binomial test, because a horizon-race
+outcome sampled every bar is exactly the kind of heavily-overlapping series
+that inflated 18 anomalies to false significance back in Part II.
+
+**Two rounds were needed to trust the result.** The first implementation had
+a real performance bug — the causal decile threshold re-sorted the entire
+"seen so far" history array at *every single bar*, which is O(n² log n) over
+a ~40,000-bar series. Neither script finished; one ran 1h43m, the other
+1h14m, both killed and fixed (refresh the sorted threshold every 200 bars
+instead of every bar — still strictly causal, just not re-derived 40,000
+times). Independently checking the first successful run then turned up a
+second bug: the split-half stability check only ever computed the long
+tail's first-half/second-half win rate, so a short-tail survivor's
+"stability" was silently checked against the wrong tail's numbers entirely.
+Both are fixed; the numbers below are from the corrected re-run.
+
+## The liquidation-dependent indicators: untestable, and said so up front
+
+Before testing anything against it, the liquidation feed was audited: OKX's
+public liquidation-orders endpoint returns only its ~100 most recent records
+per instrument — in this fetch, 100 events spanning 3-7 hours per coin.
+Re-fetching gets a different recent 100, never a longer history. That is
+far below this project's n≥300 floor for any HAC/FDR test, so Forced-Flow
+Absorption Residual, Liquidation Concentration Shock, and Cross-Asset Stress
+Breadth are reported only as descriptive snapshots of that one ~3-7h window
+per coin (BTC/ETH/SOL all showed heavy net forced *selling*, F=−0.87 to
+−0.99, in their respective captured windows) — not as tested hypotheses.
+Dressing an n=100-over-a-few-hours sample up with a t-statistic would repeat
+exactly the small-sample mistake this project's own Part II caught once
+already.
+
+## Candle Rejection & Trend Efficiency/Fragility: zero survive (again)
+
+The two indicators that need only OHLCV — which this project has at 418
+days depth for four coins — got the full test at all four requested
+horizons (15min/30min/1h/1day). **0 of 224 tests (7 signal variants × 4
+coins × 4 horizons × 2 tails) survive FDR.** Same pattern as every prior
+part of this project.
+
+## The formula report: the first result in this entire project to survive everything
+
+This is different. **8 of the price formulas (F1_NonlinearPressure,
+F3_TrendEfficiency, F6_Interaction, F7_Asymmetry, F8_MultiScale) show a
+55-57% win rate at the 30-minute-to-1-hour horizon on BTC and ETH, stable in
+sign across both halves of samples of 1,200-3,000 trades, surviving FDR
+across 448 tests at p≈0.003-0.02.** That is a real, positive, HAC-equivalent-
+significant, split-sample-stable, cost-floor-clearing result — the first
+thing in sixteen studies (price transforms, microstructure impact, jump/
+diffusion, transfer entropy, market gravity, permutation entropy, cross-
+asset dispersion, the full entry/exit/hold grid, candle rejection, trend
+fragility) to clear every one of this project's own gates simultaneously.
+
+It needs three honest qualifications, not a headline without them:
+
+1. **Effective rank of the 8 price formulas is 2.44 out of 8** — the same
+   check Part VI ran on RSI/ROC/Bollinger etc. This is one real thing (short-
+   horizon trend/momentum efficiency, expressed via a symmetric barrier
+   instead of a hold-to-close return) restated in five slightly different
+   linear combinations, not five independent discoveries.
+2. **It is cost-fragile.** Converting each survivor's win rate to a
+   breakeven round-trip cost (2×WR−1, in the 50bps-wide barrier's own units)
+   gives 4.0-7.2bps for every price-formula survivor. This project's own
+   Part I/V found realistic taker cost around 13-17bps and patient-maker
+   execution reaching breakeven only around 0-10bps depending on offset —
+   so this edge lives right at the boundary of what the best execution this
+   project has demonstrated can reach, not comfortably inside it.
+3. **The effect decays with horizon** — 26 of 56 long-tail tests clear
+   WR>53% at h=2 (30min), falling to 18/56 by h=16 (4h) — consistent with a
+   real but short-lived momentum-continuation effect, which is a sensible
+   thing to find, not a red flag by itself, but it means this is not a
+   "hold it and forget it" edge.
+
+**The derivatives-formula results (D_RegimeWeighted, F_CrossPressure,
+C_LiquidityCascade, A_ConvexFlow at 60-69% win rate, breakeven costs 10-19bps
+— on paper the most attractive numbers in this entire project) get a fourth,
+more serious qualification: every one of them is drawn from the same single
+~33-day window** (2026-08-09 to 2026-09-11 — OKX's derivatives history
+retention limit, the same ceiling noted throughout this project). Four
+different formulas "confirming" a pattern inside one continuous 33-day
+market episode is much weaker evidence than four independent months would
+be — it is one regime, not four. This project has already watched exactly
+this shape of finding (strong, clean, and confined to one narrow window)
+evaporate once, in the cross-venue and seasonality studies' own early,
+self-corrected mistakes. The derivatives numbers are worth re-checking
+against a second independent window before being trusted at the same level
+as the price-only result; they are not there yet.
+
+## Where this leaves the project
+
+The price-formula finding is real by every gate this project uses, and it is
+the first one. It is also thin — a few basis points of edge that patient
+execution can only just clear, decaying with horizon, and built from what
+is effectively one underlying signal wearing five names. It belongs
+alongside Part IX's finding, not above it: the swarm-off / patient-maker
+ceiling of +0.155R to +0.288R remains the larger, better-established number,
+built on 418 days and hundreds of trades rather than a symmetric barrier's
+more forgiving payoff structure. Whether the two combine — patient entry
+timed specifically around an F3/F8/F1-style trend-efficiency signal, tested
+on this project's own asymmetric hold-to-close structure rather than the
+report's barrier race — is the one genuinely new thing this round surfaced
+that has not been tried yet.
