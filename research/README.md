@@ -1622,3 +1622,137 @@ question directly: real on BTC/ETH, not a market-wide invariant.
   documents' own headline test, running the remaining robustness checks on
   a result already classified "asset-specific, not universal" would mostly
   confirm what Experiment A already showed.
+
+# Part XV — CME-X2: a revision that erased the one real thing Part XIV found
+
+A follow-up specification, CME-X2, was uploaded next — explicitly written
+as a response to Part XIV, quoting its exact BTC/ETH numbers back as "the
+current baseline to beat." Three real structural changes from CME-X:
+
+1. **Volatility-relative targets.** Instead of Part XIV's one fixed
+   +/-0.5% barrier for every coin and regime, TP/SL scale to causal
+   realized volatility: `B_t(H) = sigma_t * sqrt(H)`, `TP = alpha*B_t`,
+   `SL = beta*B_t` — the document's own example values, alpha=1.0,
+   beta=0.75, used as given rather than re-fit (same one-thing-at-a-time
+   discipline as fixing Part XIV's low-level sub-weights).
+2. **An explicit "Market Potential" construct** and the document's own
+   proposed core equation (its section 49): `I = tanh(w1*D*C*POT + w2*F*D
+   + w3*RR*SYNC + w4*P*A - w5*X*L + w6*E*C)` — six named interaction terms,
+   fit by ridge, replacing Part XIV's flat blend of 15 raw features.
+3. **Separate long/short models.** The document explicitly bans
+   `P_SHORT = 1 - P_LONG`; two independent fits were run, one per
+   direction, each against its own success event.
+
+```bash
+node research/cme-x2-test.js --cost 4
+```
+
+Same 418-day, 6-coin dataset as Part XIV. Every mandatory test the
+document itself names was run: the universal-asset test (train
+BTC+ETH+SOL / test DOGE+LINK+AVAX, and the reverse), leave-one-asset-out
+for all 6 coins individually, and a 60/20/20 time-transfer split.
+
+## A performance bug worth naming, because it nearly ended the study
+
+The first implementation recomputed each causal Z-score by rescanning its
+full trailing window from scratch at every call site — and the entropy
+feature called that rescan 64 times per bar. That's O(n × 64 × window)
+compounding across 6 coins and ~40,000 bars, and it did not finish in 10
+minutes of wall time before being killed. Rewritten as O(1)-amortized
+sliding-window statistics (running sum / sum-of-squares for mean and std,
+running cross-sums for covariance) — mean/std in place of median/MAD,
+mitigated by clamping every Z-score to [-4,4] before use, same as before —
+it now runs the full battery in under 3 minutes. Worth stating plainly:
+this is the second study in a row where the actual engineering bottleneck
+was accidental O(n²)-shaped code, not the statistics.
+
+## The result: no edge anywhere, on any coin, in any experiment
+
+| test | LONG topN win rate range | SHORT topN win rate range | AUC range (both directions) |
+|---|---|---|---|
+| Universal A (train majors, test alts) | 39.5–43.6% | 39.9–46.5% | 0.503–0.525 |
+| Universal B (train alts, test majors) | 38.9–42.4% | 42.2–46.2% | 0.508–0.523 |
+| Leave-one-asset-out (all 6 coins) | 38.9–43.3% | 40.5–46.7% | 0.504–0.524 |
+| Time transfer (per-coin, time-split only) | 37.5–47.3% | 36.4–45.7% | 0.481–0.519 |
+
+**175 of 180 tests "pass" FDR correction (p ≤ 0.093) — and every single one
+of them is negative or indistinguishable from the fair baseline. Zero
+clear the cost floor with a stable split-sample sign.** That combination —
+significant by p-value, wrong sign or no lift — is exactly what a real,
+if small and unhelpful, effect looks like, not what noise looks like (pure
+noise would scatter roughly evenly around the baseline; this is uniformly
+on one side of it).
+
+The most telling number is AUC, because it's a full-sample rank statistic
+that doesn't depend on where a decile cutoff happens to fall: **every
+single AUC in this entire study sits between 0.48 and 0.52** — literally
+indistinguishable from a coin flip's ranking ability. Compare that to Part
+XIV's cleanest result, BTC at 30 minutes: AUC 0.556 (train alts) / 0.588
+(same-asset time-split). That was a thin edge, but it was a real,
+measurable one. Here, on the identical BTC and ETH price history, it is
+gone entirely.
+
+**One reporting mistake worth flagging rather than hiding:** this study's
+own console output initially compares raw win rates against CME-X2's own
+benchmark table (55% weak / 58-61% baseline / 62%+ target), which assumes
+a standard 50%-random-baseline scale. It doesn't apply directly here.
+Because alpha (1.0) and beta (0.75) are unequal, the TP sits farther from
+entry than the SL does, so a pure random walk under this exact barrier
+geometry has a fair, breakeven win rate of about **42.9%**, not 50% —
+derived from solving `WR × (alpha/beta) = (1 − WR)`. Every observed win
+rate in this study (37–47%) clusters right around that 42.9% figure, not
+around 50%. So "RANDOM" is still the right verdict — the topN selections
+show no measurable lift over the fair baseline either way — but the
+*reason* is "no lift over 42.9%," not "far below 50%." Anyone re-running
+this with a different alpha/beta ratio needs to re-derive that baseline
+before reading win rates off CME-X2's own 50%-anchored scale.
+
+## Why this is more informative than "also fails"
+
+Part XIV, on the same data, the same coins, and the same underlying idea
+(momentum × coherence, cross-asset context, temporal geometry), found a
+real if thin BTC/ETH-specific edge. CME-X2 — a more elaborate
+construction of essentially the same ingredients, aimed explicitly at
+*improving* on that number — found nothing at all, on any coin, in any of
+three independent validation designs. Something in the revision actively
+destroyed the one real signal in the system rather than merely failing to
+add to it. Two candidate mechanisms, not yet isolated from each other:
+
+1. **The asymmetric barrier itself is a much harder target.** A symmetric
+   50/50 barrier (Part XIV) gives every trade the same fixed payout
+   structure; an alpha≠beta barrier changes the fair baseline and, more
+   importantly, changes which *kind* of move counts as a win — a shallow
+   drift that would have closed a symmetric barrier in profit now needs to
+   travel proportionally farther to clear the bigger TP before the closer
+   SL catches it. That's a structurally different, likely harder,
+   statistical target, independent of anything about the formula scoring
+   it.
+2. **Market Potential may be diluting rather than sharpening the momentum
+   term it's built from.** `POT = tanh(|D|·C·(1+F)/(1+|X|+|L|))` is built
+   from `|D|` (magnitude, not sign) and can itself go negative whenever
+   `F < -1`, since nothing in the specification floors `(1+F)` at zero.
+   `D·C·POT` — the single largest fitted weight in both Universal Asset
+   Tests, exactly like Part XIV's `M_COH` was — is therefore a noisier,
+   more conditionally-signed version of the same momentum×coherence term
+   that worked before, rather than a strict refinement of it.
+
+Distinguishing these needs one further, cheap experiment neither this nor
+Part XIV ran: score Part XIV's original symmetric barrier with THIS
+study's core-equation structure, and separately score THIS study's
+asymmetric barrier with Part XIV's flat feature blend. Whichever one still
+shows the BTC/ETH edge identifies which change actually broke it. That
+2×2 is the natural next step, not yet run here.
+
+## What this means for the project
+
+CME-X2's own section 56 lists what would count as a discovery; section 57
+lists what would invalidate the theory, including "performance disappears
+on unseen assets" and "only one short time period works." This result
+clears neither bar in either direction — it isn't a discovery, but it also
+isn't the specific asset-only or time-only failure CME-X2 anticipated. It
+is a plainer thing: the specific formula as revised carries no detectable
+information at all, by the single most theory-agnostic measure available
+(AUC), on data where a related but simpler construction did. The standing
+result to build from is still Part XIV's: a real, thin, BTC/ETH-specific,
+short-horizon momentum effect — and, so far, every attempt to make it more
+sophisticated has made it disappear rather than improve it.
