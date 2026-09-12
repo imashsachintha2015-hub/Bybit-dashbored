@@ -408,6 +408,7 @@ body {
   padding-top: 6px;
   margin-top: 2px;
 }
+.agent-detail span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ═══════════ DATA TABLES ═══════════ */
 .table-wrap { overflow-x: auto; }
@@ -770,7 +771,11 @@ body {
 
 @media (max-width: 1100px) {
   .sidebar { width: 76px; }
-  .sidebar-brand .brand-info, .nav-item span:not(.count-badge), .nav-item { font-size: 0; }
+  /* brand-name/-version/-sub each set their own font-size, so zeroing it on
+     the .brand-info wrapper alone doesn't reach them -- hide the block
+     outright, the same way the icon rail drops nav-item labels. */
+  .sidebar-brand .brand-info { display: none; }
+  .nav-item span:not(.count-badge), .nav-item { font-size: 0; }
   .nav-item i { font-size: 15px; }
   .sidebar-footer { display: none; }
   .content-grid { grid-template-columns: 1fr; }
@@ -959,10 +964,19 @@ body {
     position: fixed;
     top: 0; left: 0; bottom: 0;
     z-index: 50;
+    /* Below 1100px the sidebar is normally a collapsed 76px icon rail; here
+       it becomes a full slide-out drawer instead, so it needs its own real
+       width and its labels back rather than inheriting the icon-rail sizing. */
+    width: 250px;
+    max-width: 78vw;
     transform: translateX(-100%);
     transition: transform 0.25s var(--ease);
     box-shadow: 0 0 0 rgba(0,0,0,0);
   }
+  .sidebar-brand .brand-info { display: flex; }
+  .nav-item span:not(.count-badge), .nav-item { font-size: 13px; }
+  .nav-item i { font-size: 13px; }
+  .sidebar-footer { display: flex; }
   .sidebar.open {
     transform: translateX(0);
     box-shadow: 12px 0 32px rgba(11,17,32,0.25);
@@ -987,6 +1001,9 @@ body {
 @media (max-width: 480px) {
   .coin-cards-row { grid-template-columns: 1fr 1fr; gap: 8px; }
   .metrics-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* At this width a 2-up agent card doesn't leave room for its "label: value"
+     detail row on one line each -- full width fixes it without truncating. */
+  .agents-grid { grid-template-columns: 1fr; }
   .coin-card { padding: 10px 12px; }
   .coin-sparkline { display: none; } /* reclaim width for the price/name on very narrow screens */
   .metric-card { padding: 10px 12px; gap: 8px; }
