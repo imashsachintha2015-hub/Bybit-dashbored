@@ -98,12 +98,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const candleChart = new CandlestickChartEngine('candleChartCanvas', null);
 
+  // qtyStep/minQty below are placeholder fallbacks only, used if the live
+  // instrument-spec fetch (fetchInstrumentSpecs, called during init) fails or
+  // hasn't completed yet -- they get overwritten with Bybit's real lot-size
+  // filter for every symbol on startup, so a wrong guess here never reaches
+  // an actual order.
   const COIN_META = {
     BTCUSDT: { name: 'Bitcoin', short: 'BTC', color: '#F7931A', icon: 'fa-btc', brand: true, qtyStep: 0.001, minQty: 0.001 },
     ETHUSDT: { name: 'Ethereum', short: 'ETH', color: '#627EEA', icon: 'fa-ethereum', brand: true, qtyStep: 0.01, minQty: 0.01 },
     SOLUSDT: { name: 'Solana', short: 'SOL', color: '#14F195', icon: 'fa-bolt', brand: false, qtyStep: 0.1, minQty: 0.1 },
     XRPUSDT: { name: 'XRP', short: 'XRP', color: '#25A9E0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    DOGEUSDT: { name: 'Dogecoin', short: 'DOGE', color: '#C2A633', icon: 'fa-dog', brand: false, qtyStep: 1, minQty: 1 }
+    DOGEUSDT: { name: 'Dogecoin', short: 'DOGE', color: '#C2A633', icon: 'fa-dog', brand: false, qtyStep: 1, minQty: 1 },
+    ADAUSDT: { name: 'Cardano', short: 'ADA', color: '#0033AD', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
+    AVAXUSDT: { name: 'Avalanche', short: 'AVAX', color: '#E84142', icon: 'fa-mountain', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    LINKUSDT: { name: 'Chainlink', short: 'LINK', color: '#2A5ADA', icon: 'fa-link', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    DOTUSDT: { name: 'Polkadot', short: 'DOT', color: '#E6007A', icon: 'fa-circle-dot', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    LTCUSDT: { name: 'Litecoin', short: 'LTC', color: '#345D9D', icon: 'fa-litecoin-sign', brand: true, qtyStep: 0.01, minQty: 0.01 },
+    BCHUSDT: { name: 'Bitcoin Cash', short: 'BCH', color: '#8DC351', icon: 'fa-coins', brand: false, qtyStep: 0.01, minQty: 0.01 },
+    ATOMUSDT: { name: 'Cosmos', short: 'ATOM', color: '#2E3148', icon: 'fa-atom', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    NEARUSDT: { name: 'NEAR Protocol', short: 'NEAR', color: '#00C08B', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    APTUSDT: { name: 'Aptos', short: 'APT', color: '#00D2A0', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    ARBUSDT: { name: 'Arbitrum', short: 'ARB', color: '#28A0F0', icon: 'fa-layer-group', brand: false, qtyStep: 1, minQty: 1 },
+    OPUSDT: { name: 'Optimism', short: 'OP', color: '#FF0420', icon: 'fa-layer-group', brand: false, qtyStep: 1, minQty: 1 },
+    SUIUSDT: { name: 'Sui', short: 'SUI', color: '#6FBCF0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
+    TONUSDT: { name: 'Toncoin', short: 'TON', color: '#0088CC', icon: 'fa-paper-plane', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    TRXUSDT: { name: 'TRON', short: 'TRX', color: '#EF0027', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
+    SHIBUSDT: { name: 'Shiba Inu', short: 'SHIB', color: '#F00500', icon: 'fa-dog', brand: false, qtyStep: 1000, minQty: 1000 },
+    UNIUSDT: { name: 'Uniswap', short: 'UNI', color: '#FF007A', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    FILUSDT: { name: 'Filecoin', short: 'FIL', color: '#0090FF', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    ETCUSDT: { name: 'Ethereum Classic', short: 'ETC', color: '#328332', icon: 'fa-ethereum', brand: false, qtyStep: 0.01, minQty: 0.01 },
+    XLMUSDT: { name: 'Stellar', short: 'XLM', color: '#14B6E7', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
+    ICPUSDT: { name: 'Internet Computer', short: 'ICP', color: '#3B00B9', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    HBARUSDT: { name: 'Hedera', short: 'HBAR', color: '#000000', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
+    INJUSDT: { name: 'Injective', short: 'INJ', color: '#00D2FF', icon: 'fa-syringe', brand: false, qtyStep: 0.1, minQty: 0.1 },
+    SEIUSDT: { name: 'Sei', short: 'SEI', color: '#8B2FE8', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
+    AAVEUSDT: { name: 'Aave', short: 'AAVE', color: '#B6509E', icon: 'fa-ghost', brand: false, qtyStep: 0.01, minQty: 0.01 },
+    ALGOUSDT: { name: 'Algorand', short: 'ALGO', color: '#000000', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 }
   };
   const WATCHLIST = Object.keys(COIN_META);
   const priceHistory = {}, lastKnown = {}, tradeStats = {};
@@ -437,12 +467,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ─── Sidebar Navigation ───
+  const sidebarEl = document.querySelector('.sidebar');
+  const sidebarBackdrop = $('sidebarBackdrop');
+  function closeMobileSidebar() {
+    if (sidebarEl) sidebarEl.classList.remove('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('open');
+  }
+  const mobileNavToggle = $('mobileNavToggle');
+  if (mobileNavToggle) {
+    mobileNavToggle.addEventListener('click', () => {
+      if (sidebarEl) sidebarEl.classList.toggle('open');
+      if (sidebarBackdrop) sidebarBackdrop.classList.toggle('open');
+    });
+  }
+  if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
       const target = document.getElementById(item.dataset.target);
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       item.classList.add('active');
+      closeMobileSidebar(); // a nav tap on mobile should also close the drawer it was opened from
     });
   });
 
@@ -513,6 +559,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pill) pill.click();
       });
     });
+  }
+
+  // Generated from the full WATCHLIST rather than hand-maintained in HTML,
+  // now that the watchlist is 30 coins instead of the original 5.
+  const symbolPillsRow = $('symbolPills');
+  if (symbolPillsRow) {
+    symbolPillsRow.innerHTML = WATCHLIST.map((sym, i) =>
+      `<button class="sym-pill${i === 0 ? ' active' : ''}" data-symbol="${sym}">${(COIN_META[sym] || {}).short || sym}</button>`
+    ).join('');
   }
 
   document.querySelectorAll('.sym-pill').forEach(btn => {
@@ -1093,6 +1148,23 @@ document.addEventListener('DOMContentLoaded', () => {
     $('marginInput').disabled = false;
     logEvent('Autonomous execution STOPPED — monitoring only. Open positions keep their broker-side stops but will not be managed further.');
   });
+
+  // Overwrite the placeholder qtyStep/minQty above with Bybit's real lot-size
+  // filter for every watched symbol, so a wrong hand-typed guess for a newly
+  // added coin never reaches an actual order. Non-fatal if it fails (a slow
+  // network, geo-block) -- the placeholders stand until the next reload.
+  (async () => {
+    try {
+      const specs = await window.fetchInstrumentSpecs(state.network);
+      let updated = 0;
+      for (const sym of WATCHLIST) {
+        if (specs[sym]) { Object.assign(COIN_META[sym], specs[sym]); updated++; }
+      }
+      logEvent(`Instrument specs confirmed live for ${updated}/${WATCHLIST.length} symbols (qty step / min order size).`);
+    } catch (e) {
+      logEvent(`Could not fetch live instrument specs (${e.message}) — using built-in fallback qty steps.`);
+    }
+  })();
 
   bootstrapEngines();
   wsClient.connect();

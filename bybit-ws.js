@@ -27,6 +27,35 @@ async function parseBybitJson(res, label) {
   }
 }
 
+/** Fetches real lot-size specs (qty step, min order qty) for every linear
+ * perpetual from Bybit's public instruments-info endpoint, in one call.
+ * Used to populate COIN_META for new watchlist symbols instead of guessing
+ * qtyStep/minQty by hand -- a wrong guess there either gets orders rejected
+ * or silently sizes a position wrong. */
+async function fetchInstrumentSpecs(network = 'mainnet') {
+  const host = network === 'testnet' ? 'https://api-testnet.bybit.com' : 'https://api.bybit.com';
+  const specs = {};
+  let cursor = '';
+  for (let page = 0; page < 20; page++) { // hard cap: ~2000 instruments max, plenty of headroom
+    const url = `${host}/v5/market/instruments-info?category=linear&limit=1000${cursor ? `&cursor=${cursor}` : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) break;
+    const json = await parseBybitJson(res, 'fetchInstrumentSpecs');
+    if (json.retCode !== 0 || !json.result || !Array.isArray(json.result.list)) break;
+    for (const inst of json.result.list) {
+      if (inst.quoteCoin !== 'USDT' || inst.status !== 'Trading') continue;
+      const lot = inst.lotSizeFilter || {};
+      specs[inst.symbol] = {
+        qtyStep: parseFloat(lot.qtyStep) || 0.001,
+        minQty: parseFloat(lot.minOrderQty) || parseFloat(lot.qtyStep) || 0.001
+      };
+    }
+    cursor = json.result.nextPageCursor;
+    if (!cursor) break;
+  }
+  return specs;
+}
+
 class BybitWebSocketClient {
   constructor(options = {}) {
     this.category = options.category || 'linear'; // 'linear' | 'spot'
@@ -502,3 +531,4 @@ class BybitWebSocketClient {
 }
 
 window.BybitWebSocketClient = BybitWebSocketClient;
+window.fetchInstrumentSpecs = fetchInstrumentSpecs;

@@ -1417,3 +1417,78 @@ trade less often, win more when you do. Volume and cross-asset gates are
 dead ends here specifically because the ensemble already captures what
 they'd add. Session timing deserves a dedicated follow-up, not a verdict
 yet.
+
+# Part XIII — Does it generalize across the whole market?
+
+Every survivor so far held on only 2 of 4-6 coins (BTC, ETH). This runs the
+exact same, already-frozen ensemble+persistence formula from Parts XI/XII —
+no new tuning — against 28 more liquid USDT perpetuals (majors, L1s, L2s,
+DeFi names, memecoins; ~84 days of 15m history each, fetched fresh from OKX
+for this test), to ask directly: is this a market-wide phenomenon, or were
+BTC/ETH a fluke?
+
+**A data mistake happened while fetching this set, disclosed here because
+it affects how one number below should be read.** Re-running
+`fetch-klines.js` for BTC/ETH/SOL/DOGE/AVAX/LINK at a shallower depth
+(sized for the new 84-day fetch) silently replaced their existing 418-day
+cached history — the script merged across different intervals but not
+within the same interval, so a shallower re-fetch overwrote deeper history
+instead of extending it. Fixed (union old+new rows before deduping,
+history can now only grow) and the 418-day depth is being restored for
+those 6 coins in the background. Until that finishes, **BTC's number in
+this Part is measured on a recent 84-day window, not the 418-day series
+Part X/XI/XII used** — it is not a like-for-like replication and is
+flagged everywhere it appears below.
+
+## The answer: no, it does not generalize
+
+| | result |
+|---|---|
+| Coins clearing WR>52% | 13 of 28 |
+| ...and also split-half stable | 12 of 28 |
+| Coins surviving FDR (q=0.10) across all 28 | **1 (BTC only)** |
+| Split-half sign flips | 10 of 28 — roughly a third |
+| **Pooled test (all 28 coins' top-decile trades combined)** | **n=12,053, WR=51.46%, p=0.24 — not significant** |
+
+The pooled test is the cleanest single answer, and it is decisive: combining
+every coin's trades into one sample — the honest way to ask "is there a
+market-wide edge" instead of eyeballing which individual coins happened to
+clear 52% — gives a win rate barely above a coin flip with a p-value of
+0.24. That is indistinguishable from noise. A third of the 28 coins flip
+sign between the first and second half of their own sample, which is
+exactly what pure noise scattered around 50% produces, not what a real,
+shared signal would do.
+
+BTC (67.7% WR, n=167, the sole FDR survivor here) is the one exception —
+but on the *84-day* window this fetch used, not the 418-day one Part XI/XII
+measured 57.2-58.9% on. A win rate that jumps from ~58% to ~68% when the
+window shrinks from 418 days to 84 is itself a warning sign this project
+has flagged before (Part X's single-33-day-window derivatives caveat,
+almost verbatim): it means this particular 84-day stretch was unusually
+favorable for BTC specifically, not that BTC is uniquely 68%-predictable.
+ETH's number here (57.3%, n=293) sits close enough to Part XI's original
+54.8-56.3% to look like a genuine, if modest, replication rather than
+window-selection luck — but it, too, is on the shorter window and will be
+re-checked once the 418-day restore finishes.
+
+The persistence filter, applied across the same 28 coins, does not rescue
+this: BTC again leads (68.5%, but n collapses to 54 trades on the short
+window), a handful of coins (SOL, XRP, LINK, FIL) show a modest positive
+tilt, but 11 of 28 flip sign and the overall pattern is the same scatter,
+not a market-wide effect.
+
+## What this means for the project's central finding
+
+Part XI/XII's result is not overturned — BTC and ETH's numbers on their own
+418-day series still stand as measured, and ETH's rough replication here is
+a mildly encouraging sign. But "the whole crypto market" was the right
+question to ask, and the honest answer is that this specific short-horizon
+trend-efficiency signal is not a market-wide phenomenon. It is, at most, a
+BTC/ETH-specific (large-cap, deep-liquidity) effect, and even that should
+now be held with slightly less confidence than before this test, precisely
+because the one thing that would have made it more convincing — the same
+edge showing up broadly across many coins — did not happen. A pending
+follow-up re-checks BTC/ETH once the accidentally-shortened cache is
+restored to its original 418-day depth, to settle whether the numbers in
+Part XI/XII still hold exactly, or shift now that a few more weeks of data
+sit at the end of the series.
