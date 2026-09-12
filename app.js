@@ -150,6 +150,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Per-symbol engines ───
   const engines = {}, whaleTrackers = {}, latestStates = {};
+
+  // ─── Shadow setup tracker ───
+  // The dashboard only ever shows a setup as "taken" once it clears every
+  // gate AND reaches grade A/A+ -- everything below that (a B-grade
+  // pullback, a setup a gate blocked) is graded and then never followed up
+  // on. This tracks EVERY graded candidate on EVERY watchlist coin, at
+  // every grade, independent of whether it passed gates or was ever traded,
+  // and watches its own entry/stop/targets against live price until it
+  // resolves WIN or LOSS -- a shadow record of "would this call have been
+  // right", for the pop-out monitor window (monitor.html) rather than the
+  // main dashboard's already-busy views.
+  const shadowTracker = { active: {}, history: [] };
+  const SHADOW_HISTORY_LIMIT = 200;
+  const shadowChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('masis-shadow-monitor') : null;
+
+  function updateShadowTracking(sym, s) {
+    const cur = shadowTracker.active[sym];
+    const hasCandidate = !!(s.grade && s.entry && s.stopLoss && s.takeProfit && s.takeProfit.length);
+
+    // A different setup replaced an unresolved one -- the old call never
+    // got the chance to hit its own target or stop, so it's neither a win
+    // nor a loss; record it as superseded rather than silently dropping it.
+    if (cur && (!hasCandidate || cur.setupType !== s.setupType || cur.direction !== s.direction)) {
+      shadowTracker.history.unshift({ ...cur, status: 'SUPERSEDED', resolvedAt: Date.now(), exitPrice: null });
+      delete shadowTracker.active[sym];
+    }
+
+    if (hasCandidate && !shadowTracker.active[sym]) {
+      shadowTracker.active[sym] = {
+        id: `${sym}-${Date.now()}`,
+        symbol: sym,
+        direction: s.direction,
+        grade: s.grade,
+        setupType: s.setupType,
+        entry: s.entry,
+        stop: s.stopLoss,
+        target: s.takeProfit[0],
+        startedAt: Date.now(),
+        gatesPassed: (s.blockers || []).length === 0,
+        decision: s.decision
+      };
+    }
+
+    const active = shadowTracker.active[sym];
+    if (!active) return;
+    const price = s.entry && lastKnown[sym] ? (lastKnown[sym].price || s.entry) : s.entry;
+    if (!price) return;
+
+    const hitTarget = active.direction === 'LONG' ? price >= active.target : price <= active.target;
+    const hitStop = active.direction === 'LONG' ? price <= active.stop : price >= active.stop;
+    if (hitTarget || hitStop) {
+      shadowTracker.history.unshift({
+        ...active,
+        status: hitTarget ? 'WIN' : 'LOSS',
+        resolvedAt: Date.now(),
+        exitPrice: price
+      });
+      delete shadowTracker.active[sym];
+    }
+  }
+
+  function broadcastShadowSnapshot() {
+    if (shadowTracker.history.length > SHADOW_HISTORY_LIMIT) {
+      shadowTracker.history.length = SHADOW_HISTORY_LIMIT;
+    }
+    if (!shadowChannel) return;
+    shadowChannel.postMessage({
+      type: 'snapshot',
+      active: Object.values(shadowTracker.active),
+      history: shadowTracker.history,
+      currentPrices: Object.fromEntries(WATCHLIST.map(s => [s, lastKnown[s] ? lastKnown[s].price : null]))
+    });
+  }
   // One shared meta-learner across symbols: analyst reliability is a property
   // of the analyst and the regime, not of the ticker.
   const metaLearner = new SwarmMetaLearner.MetaLearner();
@@ -486,6 +559,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+
+  // ─── Signal monitor pop-out ───
+  const openMonitorBtn = $('openMonitorBtn');
+  if (openMonitorBtn) {
+    openMonitorBtn.addEventListener('click', () => {
+      window.open('monitor.html', 'masisMonitor', 'width=480,height=760,menubar=no,toolbar=no,location=no,status=no');
+    });
+  }
 
   // ─── Coin search (coin-cards-row) ───
   const coinSearchInput = $('coinSearchInput');
@@ -866,6 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const s = eng.getState();
       latestStates[sym] = s;
+      updateShadowTracking(sym, s);
 
       if (s.grade === 'A' || s.grade === 'A+') maybeConsultSupervisor(sym, s);
       if (s.decision === 'BUY' || s.decision === 'SELL') executeEntry(sym, s);
@@ -877,6 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAgentTelemetry();
     await managePositions();
     renderCoinCards();
+    broadcastShadowSnapshot();
   }, 5000);
 
   const READ_CLASS = {
