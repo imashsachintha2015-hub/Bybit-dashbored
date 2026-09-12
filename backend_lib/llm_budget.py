@@ -19,7 +19,10 @@ import time
 from .kv import kv_get_json, kv_set_json
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
-DAILY_BUDGET = int(os.environ.get("DEEPSEEK_DAILY_CALL_BUDGET", "120"))
+# `.get(name, default)` only falls back when the var is UNSET, not when it's
+# set to "" -- an env var added with a blank value would otherwise crash
+# int() at import time and take the whole function down. `or` catches both.
+DAILY_BUDGET = int(os.environ.get("DEEPSEEK_DAILY_CALL_BUDGET") or "120")
 
 BUDGET_KEY = "llm_budget"
 
