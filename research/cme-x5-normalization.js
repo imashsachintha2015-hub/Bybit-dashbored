@@ -402,10 +402,10 @@ function causalTopMask(scores, frac, minHistory) {
   }
   return topMask;
 }
-function evaluate(bars, scoreByIdx, costBps) {
+function evaluate(bars, scoreByIdx, costBps, barrier = BARRIER) {
   const idxs = [...scoreByIdx.keys()];
   const validPairs = [];
-  for (const i of idxs) { const y = barrierOutcome(bars, i, EVAL_HORIZON); if (y != null) validPairs.push({ i, score: scoreByIdx.get(i), y }); }
+  for (const i of idxs) { const y = barrierOutcome(bars, i, EVAL_HORIZON, barrier); if (y != null) validPairs.push({ i, score: scoreByIdx.get(i), y }); }
   if (validPairs.length < 300) return null;
   const auc = computeAUC(validPairs.map(p => p.score), validPairs.map(p => p.y));
   const scoresArr = new Array(Math.max(...validPairs.map(p => p.i)) + 1).fill(null);
@@ -456,8 +456,8 @@ function main() {
   for (let i = 2; i < process.argv.length; i += 2) args[process.argv[i].replace(/^--/, '')] = process.argv[i + 1];
   const costBps = parseFloat(args.cost || String(COST_BPS_DEFAULT));
   // --part lets B and C be re-run without repeating Part A's universe rebuilds
-  const partsArg = (args.part || 'ABC').toUpperCase();
-  const runA = partsArg.includes('A'), runB = partsArg.includes('B'), runC = partsArg.includes('C');
+  const partsArg = (args.part || 'ABCD').toUpperCase();
+  const runA = partsArg.includes('A'), runB = partsArg.includes('B'), runC = partsArg.includes('C'), runD = partsArg.includes('D');
   const line = '─'.repeat(114);
   const results = {};
 
@@ -472,16 +472,17 @@ function main() {
   const TEST_COINS = ['BTCUSDT', 'ETHUSDT'];
   const TRAIN_COINS = ['DOGEUSDT', 'LINKUSDT', 'AVAXUSDT'];
 
-  function outcomesFor(u, symbol, horizon) {
+  function outcomesFor(u, symbol, horizon, barMap = null) {
     const m = new Map();
-    for (const r of u.rows[symbol]) { const y = barrierOutcome(u.alignedBars[symbol], r.i, horizon); if (y != null) m.set(r.i, y); }
+    const bar = barMap && barMap[symbol] != null ? barMap[symbol] : BARRIER;
+    for (const r of u.rows[symbol]) { const y = barrierOutcome(u.alignedBars[symbol], r.i, horizon, bar); if (y != null) m.set(r.i, y); }
     return m;
   }
   /** Fit on TRAIN_COINS using a chosen subset of feature indices, evaluate on each test coin. */
-  function fitAndEval(u, featureIdx, trainCoins, testCoins, label) {
+  function fitAndEval(u, featureIdx, trainCoins, testCoins, label, barMap = null) {
     const trainRows = [];
     for (const s of trainCoins) {
-      const y = outcomesFor(u, s, FIT_HORIZON);
+      const y = outcomesFor(u, s, FIT_HORIZON, barMap);
       for (const r of u.rows[s]) if (y.has(r.i)) trainRows.push({ i: r.i, x: featureIdx.map(j => r.x[j]), y: y.get(r.i) });
     }
     if (trainRows.length < 500) return null;
@@ -489,7 +490,7 @@ function main() {
     const out = {};
     for (const s of testCoins) {
       const scoreByIdx = new Map(u.rows[s].map(r => [r.i, scoreVector(featureIdx.map(j => r.x[j]), model)]));
-      out[s] = evaluate(u.alignedBars[s], scoreByIdx, costBps);
+      out[s] = evaluate(u.alignedBars[s], scoreByIdx, costBps, barMap && barMap[s] != null ? barMap[s] : BARRIER);
     }
     return { model, out };
   }
@@ -637,6 +638,103 @@ function main() {
       console.log(`    ${label.padEnd(42)} BTC ${cell(b).padEnd(24)} ETH ${cell(e)}`);
     }
   }
+  }
+
+  // ═══════ PART D — is the liquidity gradient real, or a barrier-scaling artifact? ═══════
+  //
+  // Part B found Spearman(liquidity rank, AUC) = -0.762 across 16 coins and read it
+  // as "large-cap effect". The topN column undercuts that reading. Every coin is
+  // scored against the SAME absolute +/-0.5% barrier over 2 bars, but low-liquidity
+  // coins are far more volatile, so they resolve that race far more often (BTC 379
+  // resolved top-decile bars vs OP 1299). For BTC the label therefore only exists
+  // when a >=0.5% move happened inside 30 minutes -- a heavily selected, trending
+  // subset that a momentum feature is naturally good at calling. For OP nearly
+  // everything resolves, so the problem is close to unconditional.
+  //
+  // Liquidity, volatility and label-resolution rate are collinear, so the rank
+  // correlation may be measuring how selective the fixed barrier is rather than any
+  // property of large-cap markets. Part D equalises the label difficulty and asks
+  // again: each coin gets its OWN barrier, calibrated so every coin resolves at the
+  // same rate, and the rank correlation is recomputed.
+  if (runD) {
+    console.log(`\n${line}\n  PART D — IS THE LIQUIDITY GRADIENT REAL, OR A BARRIER-SCALING ARTIFACT?\n${line}`);
+    const wideCoins2 = CORE_COINS.concat(WIDE_EXTRA).filter(s => loadBars(s));
+    const wide = buildUniverse(wideCoins2);
+    const liq = wide.cross.medDollarVol;
+    const ranked = wide.coins.slice().sort((a, b) => liq[b] - liq[a]);
+
+    // Per-coin volatility and the resolution rate under the ORIGINAL fixed barrier.
+    const vol = {}, resFixed = {};
+    for (const s of wide.coins) {
+      const bars = wide.alignedBars[s];
+      const rets = []; for (let i = 1; i < bars.length; i++) rets.push(Math.abs(Math.log(bars[i].close / bars[i - 1].close)));
+      vol[s] = median(rets);
+      let res = 0, tot = 0;
+      for (const r of wide.rows[s]) { tot++; if (barrierOutcome(bars, r.i, EVAL_HORIZON) != null) res++; }
+      resFixed[s] = tot ? res / tot : null;
+    }
+
+    // Calibrate a per-coin barrier to a common resolution rate. The target is the
+    // median rate under the fixed barrier, so the calibration re-scales rather than
+    // making the problem uniformly harder or easier. Calibrated on the FIRST 30% of
+    // bars only, then held fixed -- the barrier never sees the evaluation window.
+    const target = median(wide.coins.map(s => resFixed[s]));
+    const barMap = {};
+    for (const s of wide.coins) {
+      const bars = wide.alignedBars[s];
+      const calRows = wide.rows[s].filter(r => r.i < bars.length * 0.3);
+      let lo = 0.0005, hi = 0.05;
+      for (let it = 0; it < 24; it++) {
+        const mid = (lo + hi) / 2;
+        let res = 0, tot = 0;
+        for (const r of calRows) { tot++; if (barrierOutcome(bars, r.i, EVAL_HORIZON, mid) != null) res++; }
+        const rate = tot ? res / tot : 0;
+        if (rate > target) lo = mid; else hi = mid;   // wider barrier -> fewer resolve
+      }
+      barMap[s] = (lo + hi) / 2;
+    }
+
+    console.log(`  Target resolution rate (median across coins under the fixed ±0.5% barrier): ${(target * 100).toFixed(1)}%`);
+    console.log(`  ${'rank'.padStart(4)}  ${'coin'.padEnd(11)}${'medVol/bar'.padStart(12)}${'resolved@0.5%'.padStart(15)}${'calib barrier'.padStart(15)}${'resolved@calib'.padStart(16)}`);
+    const calRate = {};
+    for (let k = 0; k < ranked.length; k++) {
+      const s = ranked[k], bars = wide.alignedBars[s];
+      let res = 0, tot = 0;
+      for (const r of wide.rows[s]) { tot++; if (barrierOutcome(bars, r.i, EVAL_HORIZON, barMap[s]) != null) res++; }
+      calRate[s] = tot ? res / tot : null;
+      console.log(`  ${String(k + 1).padStart(4)}  ${s.padEnd(11)}${(vol[s] * 100).toFixed(3).padStart(11)}%${((resFixed[s] * 100).toFixed(1) + '%').padStart(15)}${('±' + (barMap[s] * 100).toFixed(3) + '%').padStart(15)}${((calRate[s] * 100).toFixed(1) + '%').padStart(16)}`);
+    }
+
+    const f3 = v => v != null ? v.toFixed(3) : '—';
+    const rankIdx = ranked.map((s, k) => k + 1);
+    console.log(`\n  Collinearity check (this is what makes Part B ambiguous):`);
+    console.log(`    Spearman(liquidity rank, volatility)      = ${f3(spearman(rankIdx, ranked.map(s => vol[s])))}`);
+    console.log(`    Spearman(liquidity rank, resolution rate) = ${f3(spearman(rankIdx, ranked.map(s => resFixed[s])))}`);
+
+    results.partD = { target, vol, resFixed, barMap, calRate, models: {} };
+    const D_MODELS = { 'momentum only': [IDX.M_COH], 'momentum + BA': [IDX.M_COH, IDX.BA] };
+    for (const [mLabel, featIdx] of Object.entries(D_MODELS)) {
+      console.log(`\n  Leave-one-asset-out under the CALIBRATED per-coin barrier — ${mLabel}:`);
+      console.log(`  ${'rank'.padStart(4)}  ${'coin'.padEnd(11)}${'AUC'.padStart(8)}${'topN'.padStart(7)}${'WR'.padStart(8)}${'expR'.padStart(9)}${'p'.padStart(8)}`);
+      const rows = [];
+      for (let k = 0; k < ranked.length; k++) {
+        const held = ranked[k];
+        const others = wide.coins.filter(c => c !== held);
+        const res = fitAndEval(wide, featIdx, others, [held], `d-${held}`, barMap);
+        const r = res && res.out[held];
+        rows.push({ rank: k + 1, coin: held, ...(r || {}) });
+        console.log(`  ${String(k + 1).padStart(4)}  ${held.padEnd(11)}${(r && r.auc != null ? r.auc.toFixed(3) : '—').padStart(8)}${String(r && r.topN != null ? r.topN : '—').padStart(7)}${(r && r.topWR != null ? (r.topWR * 100).toFixed(1) + '%' : '—').padStart(8)}${(r && r.expR != null ? r.expR.toFixed(3) : '—').padStart(9)}${(r && r.p != null ? r.p.toFixed(3) : '—').padStart(8)}`);
+      }
+      const wa = rows.filter(r => r.auc != null);
+      const rho = spearman(wa.map(r => r.rank), wa.map(r => r.auc));
+      const top2 = mean(wa.filter(r => r.rank <= 2).map(r => r.auc)), rest = mean(wa.filter(r => r.rank > 2).map(r => r.auc));
+      console.log(`    Spearman(liquidity rank, AUC) under equalised labels = ${rho != null ? rho.toFixed(3) : '—'}`);
+      console.log(`    Mean AUC — top 2: ${top2.toFixed(4)}   all others: ${rest.toFixed(4)}`);
+      results.partD.models[mLabel] = { rows, spearmanRankAuc: rho, top2Auc: top2, restAuc: rest };
+    }
+    console.log(`\n  Read: if the -0.762 gradient from Part B survives here, the fixed barrier was not`);
+    console.log(`  driving it and the large-cap reading stands. If it collapses toward 0, Part B was`);
+    console.log(`  measuring how selective an absolute ±0.5% target is on a low-volatility asset.`);
   }
 
   console.log(`\n${line}\n`);
