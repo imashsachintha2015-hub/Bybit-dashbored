@@ -108,37 +108,44 @@ document.addEventListener('DOMContentLoaded', () => {
   // hasn't completed yet -- they get overwritten with Bybit's real lot-size
   // filter for every symbol on startup, so a wrong guess here never reaches
   // an actual order.
+  // tick is each symbol's minimum price increment on Bybit USDT perps --
+  // needed now that entries are patient limit orders at a specific price
+  // rather than Market orders (which never need a price at all). These are
+  // best-effort values, not fetched live from Bybit's instruments-info
+  // endpoint; if one is wrong for a given symbol, Bybit rejects the order
+  // with a precision error, which surfaces as an ordinary "Order rejected"
+  // log line (see executeEntry) rather than anything silently wrong.
   const COIN_META = {
-    BTCUSDT: { name: 'Bitcoin', short: 'BTC', color: '#F7931A', icon: 'fa-btc', brand: true, qtyStep: 0.001, minQty: 0.001 },
-    ETHUSDT: { name: 'Ethereum', short: 'ETH', color: '#627EEA', icon: 'fa-ethereum', brand: true, qtyStep: 0.01, minQty: 0.01 },
-    SOLUSDT: { name: 'Solana', short: 'SOL', color: '#14F195', icon: 'fa-bolt', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    XRPUSDT: { name: 'XRP', short: 'XRP', color: '#25A9E0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    DOGEUSDT: { name: 'Dogecoin', short: 'DOGE', color: '#C2A633', icon: 'fa-dog', brand: false, qtyStep: 1, minQty: 1 },
-    ADAUSDT: { name: 'Cardano', short: 'ADA', color: '#0033AD', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    AVAXUSDT: { name: 'Avalanche', short: 'AVAX', color: '#E84142', icon: 'fa-mountain', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    LINKUSDT: { name: 'Chainlink', short: 'LINK', color: '#2A5ADA', icon: 'fa-link', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    DOTUSDT: { name: 'Polkadot', short: 'DOT', color: '#E6007A', icon: 'fa-circle-dot', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    LTCUSDT: { name: 'Litecoin', short: 'LTC', color: '#345D9D', icon: 'fa-litecoin-sign', brand: true, qtyStep: 0.01, minQty: 0.01 },
-    BCHUSDT: { name: 'Bitcoin Cash', short: 'BCH', color: '#8DC351', icon: 'fa-coins', brand: false, qtyStep: 0.01, minQty: 0.01 },
-    ATOMUSDT: { name: 'Cosmos', short: 'ATOM', color: '#2E3148', icon: 'fa-atom', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    NEARUSDT: { name: 'NEAR Protocol', short: 'NEAR', color: '#00C08B', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    APTUSDT: { name: 'Aptos', short: 'APT', color: '#00D2A0', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    ARBUSDT: { name: 'Arbitrum', short: 'ARB', color: '#28A0F0', icon: 'fa-layer-group', brand: false, qtyStep: 1, minQty: 1 },
-    OPUSDT: { name: 'Optimism', short: 'OP', color: '#FF0420', icon: 'fa-layer-group', brand: false, qtyStep: 1, minQty: 1 },
-    SUIUSDT: { name: 'Sui', short: 'SUI', color: '#6FBCF0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    TONUSDT: { name: 'Toncoin', short: 'TON', color: '#0088CC', icon: 'fa-paper-plane', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    TRXUSDT: { name: 'TRON', short: 'TRX', color: '#EF0027', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    SHIB1000USDT: { name: 'Shiba Inu', short: 'SHIB', color: '#F00500', icon: 'fa-dog', brand: false, qtyStep: 1000, minQty: 1000 },
-    UNIUSDT: { name: 'Uniswap', short: 'UNI', color: '#FF007A', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    FILUSDT: { name: 'Filecoin', short: 'FIL', color: '#0090FF', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    ETCUSDT: { name: 'Ethereum Classic', short: 'ETC', color: '#328332', icon: 'fa-ethereum', brand: false, qtyStep: 0.01, minQty: 0.01 },
-    XLMUSDT: { name: 'Stellar', short: 'XLM', color: '#14B6E7', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    ICPUSDT: { name: 'Internet Computer', short: 'ICP', color: '#3B00B9', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    HBARUSDT: { name: 'Hedera', short: 'HBAR', color: '#000000', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    INJUSDT: { name: 'Injective', short: 'INJ', color: '#00D2FF', icon: 'fa-syringe', brand: false, qtyStep: 0.1, minQty: 0.1 },
-    SEIUSDT: { name: 'Sei', short: 'SEI', color: '#8B2FE8', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 },
-    AAVEUSDT: { name: 'Aave', short: 'AAVE', color: '#B6509E', icon: 'fa-ghost', brand: false, qtyStep: 0.01, minQty: 0.01 },
-    ALGOUSDT: { name: 'Algorand', short: 'ALGO', color: '#000000', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1 }
+    BTCUSDT: { name: 'Bitcoin', short: 'BTC', color: '#F7931A', icon: 'fa-btc', brand: true, qtyStep: 0.001, minQty: 0.001, tick: 0.1 },
+    ETHUSDT: { name: 'Ethereum', short: 'ETH', color: '#627EEA', icon: 'fa-ethereum', brand: true, qtyStep: 0.01, minQty: 0.01, tick: 0.01 },
+    SOLUSDT: { name: 'Solana', short: 'SOL', color: '#14F195', icon: 'fa-bolt', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.01 },
+    XRPUSDT: { name: 'XRP', short: 'XRP', color: '#25A9E0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    DOGEUSDT: { name: 'Dogecoin', short: 'DOGE', color: '#C2A633', icon: 'fa-dog', brand: false, qtyStep: 1, minQty: 1, tick: 0.00001 },
+    ADAUSDT: { name: 'Cardano', short: 'ADA', color: '#0033AD', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    AVAXUSDT: { name: 'Avalanche', short: 'AVAX', color: '#E84142', icon: 'fa-mountain', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.01 },
+    LINKUSDT: { name: 'Chainlink', short: 'LINK', color: '#2A5ADA', icon: 'fa-link', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    DOTUSDT: { name: 'Polkadot', short: 'DOT', color: '#E6007A', icon: 'fa-circle-dot', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    LTCUSDT: { name: 'Litecoin', short: 'LTC', color: '#345D9D', icon: 'fa-litecoin-sign', brand: true, qtyStep: 0.01, minQty: 0.01, tick: 0.01 },
+    BCHUSDT: { name: 'Bitcoin Cash', short: 'BCH', color: '#8DC351', icon: 'fa-coins', brand: false, qtyStep: 0.01, minQty: 0.01, tick: 0.01 },
+    ATOMUSDT: { name: 'Cosmos', short: 'ATOM', color: '#2E3148', icon: 'fa-atom', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    NEARUSDT: { name: 'NEAR Protocol', short: 'NEAR', color: '#00C08B', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    APTUSDT: { name: 'Aptos', short: 'APT', color: '#00D2A0', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    ARBUSDT: { name: 'Arbitrum', short: 'ARB', color: '#28A0F0', icon: 'fa-layer-group', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    OPUSDT: { name: 'Optimism', short: 'OP', color: '#FF0420', icon: 'fa-layer-group', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    SUIUSDT: { name: 'Sui', short: 'SUI', color: '#6FBCF0', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    TONUSDT: { name: 'Toncoin', short: 'TON', color: '#0088CC', icon: 'fa-paper-plane', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.0001 },
+    TRXUSDT: { name: 'TRON', short: 'TRX', color: '#EF0027', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.00001 },
+    SHIB1000USDT: { name: 'Shiba Inu', short: 'SHIB', color: '#F00500', icon: 'fa-dog', brand: false, qtyStep: 1000, minQty: 1000, tick: 0.000001 },
+    UNIUSDT: { name: 'Uniswap', short: 'UNI', color: '#FF007A', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    FILUSDT: { name: 'Filecoin', short: 'FIL', color: '#0090FF', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    ETCUSDT: { name: 'Ethereum Classic', short: 'ETC', color: '#328332', icon: 'fa-ethereum', brand: false, qtyStep: 0.01, minQty: 0.01, tick: 0.001 },
+    XLMUSDT: { name: 'Stellar', short: 'XLM', color: '#14B6E7', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    ICPUSDT: { name: 'Internet Computer', short: 'ICP', color: '#3B00B9', icon: 'fa-coins', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    HBARUSDT: { name: 'Hedera', short: 'HBAR', color: '#000000', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.00001 },
+    INJUSDT: { name: 'Injective', short: 'INJ', color: '#00D2FF', icon: 'fa-syringe', brand: false, qtyStep: 0.1, minQty: 0.1, tick: 0.001 },
+    SEIUSDT: { name: 'Sei', short: 'SEI', color: '#8B2FE8', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 },
+    AAVEUSDT: { name: 'Aave', short: 'AAVE', color: '#B6509E', icon: 'fa-ghost', brand: false, qtyStep: 0.01, minQty: 0.01, tick: 0.01 },
+    ALGOUSDT: { name: 'Algorand', short: 'ALGO', color: '#000000', icon: 'fa-coins', brand: false, qtyStep: 1, minQty: 1, tick: 0.0001 }
   };
   const WATCHLIST = Object.keys(COIN_META);
   const priceHistory = {}, lastKnown = {}, tradeStats = {};
@@ -237,8 +244,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // of the analyst and the regime, not of the ticker.
   const metaLearner = new SwarmMetaLearner.MetaLearner();
 
+  // swarmMode 'off' -- research/README.md Part IX ran this project's full
+  // 418-day/4-symbol backtest with the 7-analyst swarm's advisory gating
+  // both on and off. 'off' produced a smooth, monotonic, trustworthy
+  // expectancy curve (+0.155R to +0.288R over 287-300 trades); 'advisory'
+  // collapsed the sample to 76-94 trades and rode on analyst-reliability
+  // weights the meta-learner's own code considers statistically premature
+  // (most cells n=11-31, below its ~15-observation trust floor). This was
+  // running 'advisory' live, i.e. the mode the project's own research
+  // recommends against. The panel/debate code stays in place -- getState()
+  // still reports panel=[] and a null-thesis verdict so the UI can say
+  // truthfully that the swarm is off, not "warming up".
   WATCHLIST.forEach(sym => {
-    engines[sym] = new MasisEngine({ symbol: sym, metaLearner, swarmMode: 'advisory' });
+    engines[sym] = new MasisEngine({ symbol: sym, metaLearner, swarmMode: 'off' });
     whaleTrackers[sym] = typeof WhaleTracker !== 'undefined' ? new WhaleTracker({ symbol: sym }) : null;
   });
 
@@ -275,6 +293,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const step = (COIN_META[symbol] || {}).qtyStep || 0.001;
     const decimals = Math.max(0, Math.round(-Math.log10(step)));
     return +(Math.floor(qty / step) * step).toFixed(decimals);
+  }
+
+  function roundPrice(symbol, price) {
+    const tick = (COIN_META[symbol] || {}).tick || 0.01;
+    const decimals = Math.max(0, Math.round(-Math.log10(tick)));
+    return +(Math.round(price / tick) * tick).toFixed(decimals);
   }
 
   /** Reads a fetch Response as JSON, but never lets a non-JSON body (an HTML
@@ -354,10 +378,35 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─────────────────────────────────────────────────────────────────────
   // Execution
   // ─────────────────────────────────────────────────────────────────────
+  // research/README.md Part I/V/IX, repeatedly: a Market (taker) entry is
+  // the single biggest destroyer of expectancy this project ever measured
+  // -- bigger than every signal improvement combined. A resting limit order
+  // priced better than the market, filled only if price comes back to it,
+  // is what turned the backtest from -0.137R (taker) to +0.155R..+0.288R
+  // (maker, 20-30bps offset, 287-300 trades). 20bps is used here: solidly
+  // inside the range actually measured, rather than the untested edge of it.
+  const MAKER_OFFSET_BPS = 20;
+  // The backtest's makerTimeout was 20 bars of 15-minute data (~5 hours) --
+  // not a value that should be ported directly into a live resting order,
+  // since a thesis this engine re-derives from scratch every cycle (see
+  // updateShadowTracking's comment) can go stale long before 5 hours pass.
+  // This is a live-safety judgment call, not itself a validated number.
+  const MAKER_TIMEOUT_MS = 20 * 60 * 1000;
+  // symbol -> { orderId, side, limitPrice, qty, stopLoss, invalidation,
+  //             targets, riskAmount, setupName, grade, score, regime,
+  //             narrative, placedAt, expiresAt, cancelWarned }
+  // A resting entry order that hasn't filled yet. Deliberately NOT registered
+  // with positionManager until the fill is confirmed against /api/positions
+  // (see checkPendingEntries) -- positionManager.all() drives the "STOP hit"
+  // detection loop in pollDemoData, and an unfilled order is not a position,
+  // it has no stop to hit.
+  const pendingEntries = {};
+
   async function executeEntry(sym, s) {
     if (!autoTradingArmed) return;
     if (s.decision !== 'BUY' && s.decision !== 'SELL') return;
     if (!s.stopLoss || !s.takeProfit || !s.takeProfit.length) return;
+    if (pendingEntries[sym]) return; // already have a resting order out on this symbol
     const key = `entry-${sym}`;
     if (inFlightActions.has(key)) return;
 
@@ -370,9 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const price = lastKnown[sym] ? lastKnown[sym].price : 0;
     if (!price) return;
 
+    const side = s.decision === 'BUY' ? 'Buy' : 'Sell';
+    // Priced BELOW market for a long, ABOVE market for a short -- it only
+    // fills if price comes back to a better level than it's at right now,
+    // which is what makes this a maker (rebate-side) fill instead of a
+    // taker (fee-side) one.
+    const rawLimit = side === 'Buy'
+      ? price * (1 - MAKER_OFFSET_BPS / 10000)
+      : price * (1 + MAKER_OFFSET_BPS / 10000);
+    const limitPrice = roundPrice(sym, rawLimit);
+
     const meta = COIN_META[sym] || {};
     const sized = riskGovernor.sizePosition({
-      entry: price, stop: s.stopLoss, equity: accountEquity, symbol: sym,
+      entry: limitPrice, stop: s.stopLoss, equity: accountEquity, symbol: sym,
       qtyStep: meta.qtyStep, minQty: meta.minQty
     });
     if (!sized.qty) {
@@ -380,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const qty = roundQty(sym, sized.qty);
-    const side = s.decision === 'BUY' ? 'Buy' : 'Sell';
 
     inFlightActions.add(key);
     try {
@@ -389,27 +447,18 @@ document.addEventListener('DOMContentLoaded', () => {
       // made the three-level ladder below unreachable. The stop is the one order
       // that must survive a browser crash; the targets are managed here.
       const res = await postJSON('/api/order/place', {
-        category: 'linear', symbol: sym, side, orderType: 'Market',
-        qty, stopLoss: s.stopLoss
+        category: 'linear', symbol: sym, side, orderType: 'Limit',
+        price: limitPrice, qty, stopLoss: s.stopLoss
       });
-      if (res.retCode === 0) {
-        positionManager.open({
-          symbol: sym, side,
-          entryPrice: price,
-          stopLoss: s.stopLoss,
-          invalidation: s.invalidation,
-          targets: s.takeProfit,
-          riskDist: Math.abs(price - s.stopLoss),
-          qty,
-          originalQty: qty,
-          riskAmount: sized.riskAmount,
-          setupName: s.setupType,
-          grade: s.grade,
-          score: s.score,
-          regime: s.regime,
-          narrative: s.narrative
-        });
-        logEvent(`ENTERED ${side.toUpperCase()} ${sym} qty=${qty} @ ~${price.toLocaleString()} | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${s.stopLoss} · invalidation ${s.invalidation} | risking $${sized.riskAmount} (${riskGovernor.config.riskPerTradePct}% of equity) | R:R ${s.riskReward}`);
+      if (res.retCode === 0 && res.result && res.result.orderId) {
+        pendingEntries[sym] = {
+          orderId: res.result.orderId, side, limitPrice, qty,
+          stopLoss: s.stopLoss, invalidation: s.invalidation, targets: s.takeProfit,
+          riskAmount: sized.riskAmount, setupName: s.setupType, grade: s.grade,
+          score: s.score, regime: s.regime, narrative: s.narrative,
+          placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS
+        };
+        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${s.stopLoss} · invalidation ${s.invalidation} | R:R ${s.riskReward}`);
       } else {
         logEvent(`Order rejected for ${sym}: ${res.retMsg || 'unknown error'}`);
       }
@@ -419,6 +468,54 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       inFlightActions.delete(key);
     }
+  }
+
+  /** Resolves every resting entry order each poll cycle: opens the position
+   * once Bybit shows a fill, or cancels it once its patience window has
+   * expired without one. Must run after openPositionsSnapshot is refreshed
+   * for this cycle. */
+  async function checkPendingEntries() {
+    const toDrop = [];
+    for (const sym of Object.keys(pendingEntries)) {
+      const p = pendingEntries[sym];
+      const filled = openPositionsSnapshot.find(pos =>
+        pos.symbol === sym && pos.side === p.side && !positionManager.get(sym, p.side));
+      if (filled) {
+        const entryPrice = parseFloat(filled.avgPrice || p.limitPrice);
+        positionManager.open({
+          symbol: sym, side: p.side, entryPrice,
+          stopLoss: p.stopLoss, invalidation: p.invalidation, targets: p.targets,
+          riskDist: Math.abs(entryPrice - p.stopLoss),
+          qty: p.qty, originalQty: p.qty, riskAmount: p.riskAmount,
+          setupName: p.setupName, grade: p.grade, score: p.score,
+          regime: p.regime, narrative: p.narrative
+        });
+        logEvent(`FILLED ${p.side.toUpperCase()} ${sym} qty=${p.qty} @ ~${entryPrice.toLocaleString()} (limit placed ${Math.round((Date.now() - p.placedAt) / 1000)}s earlier at ${p.limitPrice.toLocaleString()}) | ${p.setupName} grade ${p.grade}`);
+        toDrop.push(sym);
+        continue;
+      }
+      if (Date.now() > p.expiresAt) {
+        try {
+          const res = await postJSON('/api/order/place?_action=cancel', {
+            category: 'linear', symbol: sym, orderId: p.orderId
+          });
+          if (res.retCode === 0) {
+            logEvent(`Limit entry for ${sym} ${p.side.toUpperCase()} unfilled after ${Math.round(MAKER_TIMEOUT_MS / 60000)}m at ${p.limitPrice.toLocaleString()} — cancelled, standing aside`);
+            toDrop.push(sym);
+          } else if (!p.cancelWarned) {
+            // Cancel racing an actual fill is expected, not exceptional --
+            // leave it in pendingEntries so next cycle's fill-check (above)
+            // gets a chance to see the position rather than dropping it and
+            // orphaning a real, unmanaged position.
+            logEvent(`Cancel failed for ${sym} pending entry (${res.retMsg || 'unknown'}) — checking next cycle whether it filled instead`);
+            p.cancelWarned = true;
+          }
+        } catch (e) {
+          if (!p.cancelWarned) { logEvent(`Cancel request failed for ${sym}: ${e.message}`); p.cancelWarned = true; }
+        }
+      }
+    }
+    for (const sym of toDrop) delete pendingEntries[sym];
   }
 
   async function recordOutcome(trade, exitPrice, reason, qtyClosed, realisedPnl) {
@@ -986,7 +1083,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     const panel = s.panel || [];
     if (!panel.length) {
-      el.innerHTML = '<div class="analyst-empty">Analyst panel is warming up — it needs higher-timeframe history before it will offer a read.</div>';
+      el.innerHTML = s.swarmMode === 'off'
+        ? '<div class="analyst-empty">Analyst panel is disabled — research/README.md Part IX found its advisory gating adds no validated edge over trading without it, riding on analyst-reliability samples too small to trust.</div>'
+        : '<div class="analyst-empty">Analyst panel is warming up — it needs higher-timeframe history before it will offer a read.</div>';
       return;
     }
     const weights = s.analystWeights || {};
@@ -1013,6 +1112,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     const v = s.verdict;
     if (!v) { el.innerHTML = ''; return; }
+    if (s.swarmMode === 'off') {
+      el.innerHTML = '<div class="debate-head">DELIBERATION <span class="debate-verdict none">DISABLED</span></div><div class="debate-line">Swarm-off mode — see the Analyst Panel above for why.</div>';
+      return;
+    }
     const outcome = v.thesis
       ? `<span class="debate-verdict ${v.thesis === 'LONG' ? 'bull' : 'bear'}">${v.thesis} · conviction ${v.conviction}</span>`
       : `<span class="debate-verdict none">NO THESIS${v.rejectedThesis ? ` (${v.rejectedThesis} abandoned)` : ''}</span>`;
@@ -1142,6 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pos = await fetchJSON('/api/positions');
     if (pos && pos.result && pos.result.list) {
       openPositionsSnapshot = pos.result.list.filter(p => parseFloat(p.size) > 0);
+      await checkPendingEntries();
       const openKeys = new Set(openPositionsSnapshot.map(p => `${p.symbol}-${p.side}`));
 
       // A tracked trade that is no longer open was closed by the broker — in

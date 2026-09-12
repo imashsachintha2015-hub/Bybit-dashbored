@@ -567,6 +567,7 @@
         } : null,
         patternScore: candidateScore,
         panelConviction: candidatePanelConviction,
+        swarmMode: this.swarmMode,
         analystWeights: this.metaLearner ? this.metaLearner.weights(regime ? regime.regime : 'UNKNOWN') : {},
         whale: Object.assign({}, this.whaleSignal),
         news: { label: this.newsSignal.sentimentLabel, score: this.newsSignal.sentimentScore, headline: this.newsSignal.headline },

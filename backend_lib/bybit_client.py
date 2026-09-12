@@ -139,6 +139,19 @@ class BybitDemoClient:
             body["takeProfit"] = str(take_profit)
         return self.signed_request("POST", "/v5/position/trading-stop", body=body)
 
+    def cancel_order(self, category, symbol, order_id):
+        """Cancels a resting (unfilled) order -- used for the patient-maker
+        entry's timeout: if a limit order placed at an offset from market
+        hasn't filled within its window, the entry is abandoned rather than
+        left resting indefinitely against a setup that may no longer be
+        valid. Bybit returns an error if the order already filled or was
+        already cancelled; the caller treats that as "check for a fill next
+        cycle" rather than a hard failure, since a fill and a cancel racing
+        each other is expected, not exceptional.
+        """
+        body = {"category": category, "symbol": symbol, "orderId": order_id}
+        return self.signed_request("POST", "/v5/order/cancel", body=body)
+
     def close_position(self, category, symbol, side, qty):
         # To close a position, place an opposing reduceOnly market order
         close_side = "Sell" if side.lower() == "buy" else "Buy"
