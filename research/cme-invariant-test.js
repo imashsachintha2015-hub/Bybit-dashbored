@@ -380,7 +380,16 @@ function buildFeatureRows(symbol, perAsset, cross, temporal, bars) {
 /** Ridge regression via normal equations: (X'X + lambda*I) w = X'y.
  * Features are standardised using TRAIN-only mean/std, frozen and reused
  * for every subsequent prediction (including on held-out assets). */
-function fitRidge(rows, yByIdx, lambda) {
+// CORRECTION (see research/README.md's correction note): rows must carry
+// their own `.y` embedded, not be looked up afterward via a shared
+// `Map<index, y>` keyed by `r.i` alone. Every coin's row array uses its
+// own 0..n-1 index into the SAME aligned timeline, so BTC's row i=5000 and
+// DOGE's row i=5000 are different bars sharing the same index -- pooling
+// multiple coins into one lookup map let whichever coin was processed
+// last silently overwrite every earlier coin's label at each shared
+// index. This affected Experiments A and B (multi-coin training) but not
+// Experiment C (single-coin per fit, no collision possible).
+function fitRidge(rows, lambda) {
   const p = rows[0].x.length;
   const mu = new Array(p).fill(0), sigma = new Array(p).fill(1);
   for (let j = 0; j < p; j++) {
@@ -388,7 +397,7 @@ function fitRidge(rows, yByIdx, lambda) {
     mu[j] = mean(col); sigma[j] = sd(col) || 1;
   }
   const X = rows.map(r => r.x.map((v, j) => (v - mu[j]) / sigma[j]));
-  const y = rows.map(r => yByIdx.get(r.i));
+  const y = rows.map(r => r.y);
 
   const XtX = Array.from({ length: p }, () => new Array(p).fill(0));
   const Xty = new Array(p).fill(0);
@@ -591,20 +600,13 @@ function main() {
 
   function runExperiment(label, trainSymbols, testSymbols) {
     console.log(`${line}\n  ${label}\n${line}`);
-    const trainY = new Map();
     const trainRows = [];
     for (const s of trainSymbols) {
       const y = outcomesFor(s, FIT_HORIZON);
-      for (const r of featureRows[s]) if (y.has(r.i)) { trainRows.push(r); trainY.set(r.i, y.get(r.i)); }
+      for (const r of featureRows[s]) if (y.has(r.i)) trainRows.push({ i: r.i, x: r.x, y: y.get(r.i) });
     }
-    // NOTE: trainY keys by bar index `i`, which collides across coins (each
-    // coin's row array uses its own 0..n-1 indices into the SAME aligned
-    // timeline) -- rows carry their own x-vector already, and fitRidge only
-    // ever looks up y via r.i on the SAME rows array, so collisions across
-    // symbols are harmless: each row's own aligned index maps correctly to
-    // its own outcome because both were derived from the same symbol's loop.
     console.log(`  Train: ${trainSymbols.join('+')} (${trainRows.length} rows) -> Test: ${testSymbols.join('+')} (never seen during fit)`);
-    const model = fitRidge(trainRows, trainY, RIDGE_LAMBDA);
+    const model = fitRidge(trainRows, RIDGE_LAMBDA);
     console.log(`  Fitted weights: ${FEATURE_NAMES.map((nm, j) => `${nm}=${model.w[j].toFixed(3)}`).join(', ')}\n`);
 
     const allTests = [];
@@ -631,10 +633,9 @@ function main() {
     const cut = Math.floor(rows.length * 0.6);
     const trainRows = rows.slice(0, cut), testRows = rows.slice(cut);
     const y = outcomesFor(s, FIT_HORIZON);
-    const trainY = new Map(); for (const r of trainRows) if (y.has(r.i)) trainY.set(r.i, y.get(r.i));
-    const trainRowsFiltered = trainRows.filter(r => trainY.has(r.i));
+    const trainRowsFiltered = trainRows.filter(r => y.has(r.i)).map(r => ({ i: r.i, x: r.x, y: y.get(r.i) }));
     if (trainRowsFiltered.length < 500) continue;
-    const model = fitRidge(trainRowsFiltered, trainY, RIDGE_LAMBDA);
+    const model = fitRidge(trainRowsFiltered, RIDGE_LAMBDA);
     const scoreByIdx = predict(testRows, model);
     for (const h of HORIZONS) {
       const res = evaluateScore(alignedBars[s], scoreByIdx, h, costBps);
