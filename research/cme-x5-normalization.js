@@ -402,7 +402,7 @@ function causalTopMask(scores, frac, minHistory) {
   }
   return topMask;
 }
-function evaluate(bars, scoreByIdx, costBps, barrier = BARRIER) {
+function evaluate(bars, scoreByIdx, costBps, barrier = BARRIER, topFrac = 0.10) {
   const idxs = [...scoreByIdx.keys()];
   const validPairs = [];
   for (const i of idxs) { const y = barrierOutcome(bars, i, EVAL_HORIZON, barrier); if (y != null) validPairs.push({ i, score: scoreByIdx.get(i), y }); }
@@ -410,7 +410,7 @@ function evaluate(bars, scoreByIdx, costBps, barrier = BARRIER) {
   const auc = computeAUC(validPairs.map(p => p.score), validPairs.map(p => p.y));
   const scoresArr = new Array(Math.max(...validPairs.map(p => p.i)) + 1).fill(null);
   for (const p of validPairs) scoresArr[p.i] = p.score;
-  const topMask = causalTopMask(scoresArr, 0.10, 200);
+  const topMask = causalTopMask(scoresArr, topFrac, 200);
   const topPairs = validPairs.filter(p => topMask[p.i]);
   if (topPairs.length < 30) return { n: validPairs.length, auc, topN: topPairs.length, topWR: null };
   const topWR = mean(topPairs.map(p => p.y));
@@ -750,5 +750,6 @@ function main() {
 
 // Exported so small follow-up diagnostics can reuse the universe builders without
 // duplicating them; running the file directly still executes the study.
-module.exports = { buildUniverse, CORE_COINS, WIDE_EXTRA, FEATURE_NAMES, IDX, loadBars };
+module.exports = { buildUniverse, CORE_COINS, WIDE_EXTRA, FEATURE_NAMES, IDX, loadBars,
+  fitRidge, scoreVector, evaluate, barrierOutcome, BARRIER, FIT_HORIZON, EVAL_HORIZON, RIDGE_LAMBDA };
 if (require.main === module) main();

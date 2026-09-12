@@ -2442,3 +2442,91 @@ cost assumption.
 - **The positive-momentum-only asymmetry from Part XVII is still untested** and
   is now the most interesting surviving lead, since momentum is the only feature
   left standing.
+
+# Part XIX — CME-X6: can the rate be raised without inventing another formula?
+
+The user asked whether the win rate could be raised by inventing more formulas
+rather than depending on one. Parts XIV–XVIII answer the formula half: no —
+five successive formula families, and fifteen hand-built features lost to one.
+This part tests the other half, the two levers that need no new formula at all,
+on the momentum-only model Part XVIII left standing. 16 coins, leave-one-asset-
+out, 4bps, symmetric ±0.5% barrier, **breakeven 52.0%**.
+
+```bash
+node research/cme-x6-selectivity.js
+```
+
+## Lever 1 — selectivity: a real but small and quickly-exhausted gain
+
+Every number in Parts XIV–XVIII came from the top **decile** of scored bars.
+Nothing forces that choice.
+
+| top % | BTC WR (n) | ETH WR (n) | top-5 coins WR | top-5 expR | all-16 WR | #>breakeven |
+|---|---|---|---|---|---|---|
+| 10% | 61.7% (368) | 57.6% (618) | 56.0% | +0.079 | 53.2% | 11/16 |
+| **5%** | 61.2% (183) | 60.2% (299) | **57.3%** | **+0.106** | 53.6% | 11/16 |
+| 2% | 53.4% (73) | 62.7% (118) | 57.3% | +0.105 | 54.6% | 11/16 |
+| 1% | 38.1% (42) | 71.2% (66) | 55.7% | +0.075 | 54.5% | 9/16 |
+
+Tightening from the top decile to the top 5% raises top-5 expectancy from
++0.079R to **+0.106R**, a ~34% gain for free. Past that it flattens and then
+declines.
+
+The per-coin columns show why the tail of the table cannot be taken at face
+value. BTC falls to 38.1% while ETH rises to 71.2% — at n=42 and n=66 over
+seven months. With n≈42 the standard error on a win rate is ≈7.7pp, so neither
+number is distinguishable from the other, let alone from chance. That is the
+threshold selecting noise, exactly the failure mode the sweep was built to
+expose. **The usable finding is 10% → 5%, and no further.**
+
+## Lever 2 — the positive-momentum gate: no gain, and the reason matters
+
+Part XVII found the edge lives entirely in positive-momentum states (BTC 62.0%
+WR, against 47.8% and AUC 0.502 when momentum is negative) and recommended
+building around a hard momentum-sign gate. That had never been applied. Applied
+here at both training and decision time:
+
+| top % | top-5 WR | top-5 expR | all-16 WR | #>breakeven | vs ungated |
+|---|---|---|---|---|---|
+| 10% | 56.0% | +0.079 | 52.6% | 9/16 | identical expR, **fewer coins clear** |
+| 5% | 55.7% | +0.075 | 52.5% | 9/16 | worse (+0.075 vs +0.106) |
+| 2% | 52.8% | +0.017 | 51.4% | 7/16 | much worse |
+| 1% | 55.4% | +0.068 | 50.8% | 3/11 | much worse |
+
+**The gate does nothing at best and hurts everywhere else**, while halving the
+trade count (BTC 368 → 178 at the top decile).
+
+The reason is the useful part. **You cannot gate on the variable you are already
+ranking by.** The model is momentum-only; its score *is* momentum. High scores
+are already positive-momentum states, so the gate removes rows the ranking was
+never going to select anyway, then refits on a truncated range of the one
+variable carrying the signal. Part XVII's regime split was not describing an
+independent filter — it was describing what the score already does.
+
+This is the same lesson as Part XVIII's BA result in different clothing. There,
+a feature 0.56–0.58 collinear with momentum looked important under a shuffle
+test and contributed nothing. Here, a gate perfectly redundant with the ranking
+looked like a free filter and contributed nothing. **Both are cases of adding
+machinery that carries no information the model did not already have.**
+
+## Conclusion — the answer to "more formulas?"
+
+No, and this part explains why in a way the formula studies alone could not.
+The binding constraint is not the number of equations, it is the amount of
+independent information available to them. Every formula in Parts XIV–XIX reads
+the same input — 15m OHLCV on the same coins over the same window — so each new
+one is largely a restatement of the last. That is why fifteen features lost to
+one, why a 0.57-collinear feature added nothing, and why a redundant gate added
+nothing. More formulas over one data source multiply the multiple-testing
+burden without adding information, and `lib-stats.js`'s FDR machinery exists to
+punish exactly that, not to enable it.
+
+What actually moved the number in this part was **spending the existing signal
+better** (10% → 5% selectivity, +34% expectancy) — and that lever is now spent.
+
+The next real gain has to come from **new information, not new arithmetic**:
+order-book depth and imbalance, funding rates, open interest, taker aggressor
+side, cross-venue basis. Short-horizon crypto edge is a microstructure
+phenomenon, and this project has never fed its models a single microstructure
+input. That is the gap, and it is a data-acquisition problem rather than a
+formula-design one.
