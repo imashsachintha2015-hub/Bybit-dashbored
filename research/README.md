@@ -985,3 +985,118 @@ The honest limits stand exactly as in Part VI: Kyle's lambda and transfer
 entropy are tied to the 30-day derivatives window and would deserve a real
 retest on years of open-interest/funding history; the jump/diffusion result is
 now well-powered and is a clean negative, not an inconclusive one.
+
+---
+
+# Part VIII — Three new constructs, exactly 30 minutes, four coins together
+
+Two direct requests: commit to a fixed 30-minute forecast horizon instead of
+instant exits, and use four coins' data together rather than one at a time,
+testing constructs invented for this rather than reused from anywhere else.
+
+```bash
+node research/fetch-klines.js DOGEUSDT 15 40000     # 4th coin, same depth as BTC/ETH/SOL
+node research/creative-equations.js --cost 4
+```
+
+On the 30-minute question directly: Part VI already fit a combined
+price+derivatives model at exactly this horizon (2 bars) and found IC between
+−0.052 and +0.030 — indistinguishable from zero. This round does not repeat
+that model; it tests three constructs that were never tried in any form.
+
+## 1. Market Gravity
+
+Retail volume-profile tools weight nearby volume nodes roughly linearly. This
+applies Newton's inverse-square law instead — literally F = mass / distance² —
+treating each historical volume node as a mass and current price as a test
+particle, summing the signed pull from every node within range. The
+inverse-square kernel is a specific, physically-motivated choice nothing in
+Part VI or any indicator library makes.
+
+| symbol | lookback | n | mean bps | t(HAC) | 1st half | 2nd half |
+|---|---|---|---|---|---|---|
+| BTC | 40 | 8,012 | −3.80 | **−11.04** | −3.9 | −3.7 |
+| ETH | 40 | 8,011 | −4.45 | **−8.81** | −5.4 | −3.6 |
+| SOL | 96 | 8,000 | −4.97 | **−9.09** | −5.1 | −4.9 |
+| DOGE | 40 | 8,011 | −3.51 | **−6.08** | −3.8 | −3.2 |
+
+Overwhelmingly significant, negative, stable across both halves, and stable
+across four unrelated coins. Betting price moves toward the strongest
+inverse-square pull loses reliably.
+
+## 2. Permutation Entropy regime filter
+
+A genuine result from nonlinear dynamics (Bandt & Pompe, 2002), not finance:
+measures how *ordered* the sequence of recent moves is via the diversity of
+their ordinal patterns, independent of size or direction. This operationalises
+the "five well-calculated trades" instinct precisely, as a testable selection
+filter rather than a feeling: does a simple reversion signal work specifically
+in the rare windows where price is behaving unusually non-randomly, even though
+Part IV/VI showed it does not work on average?
+
+| symbol | entropy band | n | mean bps | t(HAC) |
+|---|---|---|---|---|
+| BTC | lowest 20% (ordered) | 8,025 | **−4.39** | −10.52 |
+| BTC | all bars (baseline) | 40,033 | −3.84 | −20.73 |
+| ETH | lowest 20% (ordered) | 8,166 | **−5.49** | −9.03 |
+| ETH | all bars (baseline) | 40,018 | −4.31 | −16.06 |
+
+The ordered-regime filter does not beat the unfiltered baseline anywhere — on
+BTC and ETH it is slightly *worse*. Restricting to the moments where the path
+looks most non-random does not surface a better subset of trades. The
+selectivity instinct was reasonable; this is a real test of it, and it says no.
+
+## 3. Cross-Asset Dispersion Rank
+
+The one construct here that structurally cannot be computed from a single
+coin's data: at every bar, each coin's trailing return is z-scored against the
+*other three* coins at that same instant, and the test is whether being the
+basket's extreme outlier — laggard or leader relative to normally-correlated
+peers — predicts snapping back toward the group.
+
+(First pass had a bug worth naming: the z-score included the coin's own value
+in the sample it was scored against, which mathematically bounds the maximum
+achievable z-score with only 4 points and starved the test of the exact
+extreme events it needed. Fixed to score strictly against the other three.)
+
+| symbol | extreme | n | mean bps | t(HAC) |
+|---|---|---|---|---|
+| BTC | laggard (z<−1.5) | 1,544 | −5.00 | −5.28 |
+| ETH | leader (z>1.5) | 4,011 | −4.89 | −5.61 |
+| DOGE | laggard (z<−1.5) | 9,838 | −4.76 | −5.86 |
+
+Same pattern. An outlier coin does not reliably snap back toward its peers at
+this horizon.
+
+## The result
+
+**28 of 28 tests survive FDR correction. Zero are positive and stable across
+both halves.** Every one of the three constructs, on every one of the four
+coins, at exactly the 30-minute horizon asked for.
+
+The one thing worth pointing out about this round specifically: the negative
+means cluster remarkably tightly, −2 to −5 bps, across three unrelated
+constructs and four unrelated assets. Pure noise would not do that — it would
+scatter both in sign and in magnitude. This tight, one-sided clustering is
+itself the signature of a real, near-zero gross edge being consistently
+overwhelmed by the same few basis points of cost, which is the exact finding
+of every part of this research from Part I onward, arrived at again from three
+constructs invented specifically to be unlike anything already tried.
+
+## Where the honest boundary is now
+
+Eight structurally different approaches agree: price transforms (VI),
+microstructure impact (VII), jump/diffusion decomposition (VII), information-
+theoretic transfer (VII), the full entry/exit/hold grid (IV/V), and now
+inverse-square volume gravity, ordinal-pattern entropy, and cross-sectional
+dispersion (VIII). None of this proves no equation could work. It means the
+mathematics genuinely worth trying — reused from finance, physics, and
+information theory, and three built fresh for this — has been tried, correctly,
+on the data actually available, at the exact horizon asked for, using all four
+coins together where that was the point, and none of it clears its own cost.
+
+What remains untried is not a smarter equation on this data. It is data this
+project has not yet been able to reach: the order-book collector
+(`collect-orderbook.js`) needs weeks of runtime it has not had, and every
+derivatives-based construct here is still bounded by OKX's 30-day retention.
+Those are the two honest places left to look.
