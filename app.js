@@ -1168,7 +1168,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
           const entryPrice = parseFloat(p.avgPrice || 0);
           const im = parseFloat(p.positionIM || 0);
-          const notional = entryPrice * parseFloat(p.size || 0);
+          // positionValue is Bybit's own reported "Position value" for this
+          // position (confirmed field on GET /v5/position/list) -- use it
+          // directly so this matches what Bybit itself calls the size,
+          // rather than our own avgPrice x size approximation (which is the
+          // ENTRY value and drifts from it as price moves). Only fall back
+          // to computing it if Bybit didn't send the field.
+          const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
           // ROI% is against margin (positionIM) when Bybit reports it -- that's
           // the actual return on capital committed to the trade. Falling back
           // to notional only covers the rare case IM isn't reported yet.
