@@ -276,9 +276,18 @@ function evaluateFormula(bars, scores, horizon, costBpsForBarrier) {
   const topWR = topIdx.length >= 30 ? mean(topIdx.map(i => outcomes[i])) : null;       // long tail: want outcome=1
   const botWR = botIdx.length >= 30 ? 1 - mean(botIdx.map(i => outcomes[i])) : null;   // short tail: want outcome=0
 
+  // Position-in-validIdx lookup done once (O(n)), not via .indexOf() inside a
+  // filter (which was O(n) per element -- O(n^2) overall on a ~40k-bar series).
+  const posInValid = new Map();
+  validIdx.forEach((idx, pos) => posInValid.set(idx, pos));
   const mid = Math.floor(validIdx.length / 2);
-  const topFirst = topIdx.filter(i => validIdx.indexOf(i) < mid).map(i => outcomes[i]);
-  const topSecond = topIdx.filter(i => validIdx.indexOf(i) >= mid).map(i => outcomes[i]);
+  const topFirst = topIdx.filter(i => posInValid.get(i) < mid).map(i => outcomes[i]);
+  const topSecond = topIdx.filter(i => posInValid.get(i) >= mid).map(i => outcomes[i]);
+  // Short tail wants outcome=0, so its "hit rate" for split-half purposes is
+  // 1-mean, same transform as botWR itself -- computed separately from the
+  // top tail's split (they are different bars, not interchangeable).
+  const botFirstRaw = botIdx.filter(i => posInValid.get(i) < mid).map(i => outcomes[i]);
+  const botSecondRaw = botIdx.filter(i => posInValid.get(i) >= mid).map(i => outcomes[i]);
 
   const blockLen = Math.max(8, horizon * 3);
   const topP = topIdx.length >= 30 ? blockBootstrapP(topIdx.map(i => outcomes[i]), blockLen) : null;
@@ -295,7 +304,8 @@ function evaluateFormula(bars, scores, horizon, costBpsForBarrier) {
     n: validIdx.length, auc,
     topN: topIdx.length, topWR, topP, topExpR,
     topFirst: topFirst.length >= 10 ? mean(topFirst) : null, topSecond: topSecond.length >= 10 ? mean(topSecond) : null,
-    botN: botIdx.length, botWR, botP, botExpR
+    botN: botIdx.length, botWR, botP, botExpR,
+    botFirst: botFirstRaw.length >= 10 ? 1 - mean(botFirstRaw) : null, botSecond: botSecondRaw.length >= 10 ? 1 - mean(botSecondRaw) : null
   };
 }
 
@@ -410,18 +420,23 @@ function main() {
     console.log(`  Nothing survived.`);
   } else {
     const solid = survivors.filter(s => {
-      const wr = s.p === s.topP ? s.topWR : s.botWR;
-      const expR = s.p === s.topP ? s.topExpR : s.botExpR;
-      const stable = s.topFirst != null && s.topSecond != null ? Math.sign(s.topFirst - 0.5) === Math.sign(s.topSecond - 0.5) : true;
+      const isTop = s.p === s.topP;
+      const wr = isTop ? s.topWR : s.botWR;
+      const expR = isTop ? s.topExpR : s.botExpR;
+      const first = isTop ? s.topFirst : s.botFirst;
+      const second = isTop ? s.topSecond : s.botSecond;
+      const stable = first != null && second != null ? Math.sign(first - 0.5) === Math.sign(second - 0.5) : true;
       return wr > 0.5 && expR > 0 && stable;
     });
     console.log(`  ${survivors.length} of ${tested} passed FDR (p <= ${threshold.toExponential(2)}).`);
     console.log(`  ${solid.length} also have positive cost-adjusted expectancy and (where checkable) stable split-sample sign.\n`);
     if (solid.length) {
-      console.log(`  ${'family'.padEnd(9)}${'coin'.padEnd(10)}${'formula'.padEnd(20)}${'h'.padStart(4)}${'tail'.padStart(6)}${'n'.padStart(6)}${'WR'.padStart(7)}${'expR@cost'.padStart(11)}${'p'.padStart(10)}`);
-      for (const s of solid.slice(0, 20)) {
+      console.log(`  ${'family'.padEnd(9)}${'coin'.padEnd(10)}${'formula'.padEnd(20)}${'h'.padStart(4)}${'tail'.padStart(6)}${'n'.padStart(6)}${'WR'.padStart(7)}${'expR@cost'.padStart(11)}${'p'.padStart(10)}${'split'.padStart(12)}`);
+      for (const s of solid) {
         const isTop = s.p === s.topP;
-        console.log(`  ${s.family.padEnd(9)}${s.coin.padEnd(10)}${s.formula.padEnd(20)}${String(s.horizon).padStart(4)}${(isTop ? 'long' : 'short').padStart(6)}${String(isTop ? s.topN : s.botN).padStart(6)}${((isTop ? s.topWR : s.botWR) * 100).toFixed(1).padStart(6)}%${(isTop ? s.topExpR : s.botExpR).toFixed(3).padStart(11)}${s.p.toExponential(1).padStart(10)}`);
+        const first = isTop ? s.topFirst : s.botFirst, second = isTop ? s.topSecond : s.botSecond;
+        const split = (first != null && second != null) ? `${(first*100).toFixed(0)}%/${(second*100).toFixed(0)}%` : '—';
+        console.log(`  ${s.family.padEnd(9)}${s.coin.padEnd(10)}${s.formula.padEnd(20)}${String(s.horizon).padStart(4)}${(isTop ? 'long' : 'short').padStart(6)}${String(isTop ? s.topN : s.botN).padStart(6)}${((isTop ? s.topWR : s.botWR) * 100).toFixed(1).padStart(6)}%${(isTop ? s.topExpR : s.botExpR).toFixed(3).padStart(11)}${s.p.toExponential(1).padStart(10)}${split.padStart(12)}`);
       }
     }
   }
