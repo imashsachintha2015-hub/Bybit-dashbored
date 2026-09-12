@@ -1034,6 +1034,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function pollDemoData() {
+    await resyncArmedState();
+
     const acct = await fetchJSON('/api/account');
     if (acct && acct.result && acct.result.list && acct.result.list.length) {
       const equity = parseFloat(acct.result.list[0].totalEquity || 0);
@@ -1169,27 +1171,64 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ─── Arm / disarm ───
-  $('startBtn').addEventListener('click', () => {
-    const riskPct = parseFloat($('marginInput').value);
-    if (riskPct > 0 && riskPct <= 5) riskGovernor.config.riskPerTradePct = riskPct;
-    autoTradingArmed = true;
-    $('armStatus').textContent = 'ARMED';
-    $('armStatus').className = 'arm-status armed';
-    $('startBtn').disabled = true;
-    $('stopBtn').disabled = false;
-    $('marginInput').disabled = true;
-    logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — risking ${riskGovernor.config.riskPerTradePct}% of equity per trade, max ${riskGovernor.config.maxConcurrentPositions} concurrent, daily loss limit ${riskGovernor.config.maxDailyLossPct}%`);
-  });
+  //
+  // The arm flag used to live only in this tab's JS memory, so opening the
+  // dashboard on another device -- or just reloading -- always came back up
+  // STOPPED regardless of what was actually armed a moment ago. It's now
+  // mirrored to /api/auto-trade/state (see backend_lib/auto_trade_state.py)
+  // so every device shows the same current state, and re-synced on every
+  // poll cycle so arming/stopping from one device is picked up by others
+  // within a few seconds.
+  //
+  // This does NOT make it safe to leave two tabs both actively armed: each
+  // tab's engine still runs and places orders independently, with nothing
+  // stopping two tabs from both firing on the same signal in the same
+  // cycle. Only drive trades from one device at a time -- the others are
+  // fine for read-only monitoring, armed or not.
+  function applyArmedUI(armed) {
+    autoTradingArmed = armed;
+    $('armStatus').textContent = armed ? 'ARMED' : 'STOPPED';
+    $('armStatus').className = armed ? 'arm-status armed' : 'arm-status stopped';
+    $('startBtn').disabled = armed;
+    $('stopBtn').disabled = !armed;
+    $('marginInput').disabled = armed;
+  }
 
-  $('stopBtn').addEventListener('click', () => {
-    autoTradingArmed = false;
-    $('armStatus').textContent = 'STOPPED';
-    $('armStatus').className = 'arm-status stopped';
-    $('startBtn').disabled = false;
-    $('stopBtn').disabled = true;
-    $('marginInput').disabled = false;
-    logEvent('Autonomous execution STOPPED — monitoring only. Open positions keep their broker-side stops but will not be managed further.');
-  });
+  async function setArmed(armed) {
+    if (armed) {
+      const riskPct = parseFloat($('marginInput').value);
+      if (riskPct > 0 && riskPct <= 5) riskGovernor.config.riskPerTradePct = riskPct;
+    }
+    applyArmedUI(armed);
+    if (armed) {
+      logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — risking ${riskGovernor.config.riskPerTradePct}% of equity per trade, max ${riskGovernor.config.maxConcurrentPositions} concurrent, daily loss limit ${riskGovernor.config.maxDailyLossPct}%`);
+    } else {
+      logEvent('Autonomous execution STOPPED — monitoring only. Open positions keep their broker-side stops but will not be managed further.');
+    }
+    try {
+      await postJSON('/api/auto-trade/state', { armed, riskPerTradePct: riskGovernor.config.riskPerTradePct });
+    } catch (e) {
+      logEvent(`Could not sync arm state to the server (${e.message}) — other devices won't see this change until it succeeds`);
+    }
+  }
+
+  $('startBtn').addEventListener('click', () => setArmed(true));
+  $('stopBtn').addEventListener('click', () => setArmed(false));
+
+  // Cross-device re-sync: if the server's arm state differs from ours --
+  // because another device changed it, or (on first load) because we
+  // haven't adopted it yet -- follow it. Called from pollDemoData()'s very
+  // first tick (1s after load) as well as every cycle after, so a page
+  // load picks up whatever's currently armed instead of always starting
+  // STOPPED, with no separate startup fetch needed.
+  async function resyncArmedState() {
+    const saved = await fetchJSON('/api/auto-trade/state');
+    if (!saved || saved.armed === autoTradingArmed) return;
+    if (saved.armed) riskGovernor.config.riskPerTradePct = saved.riskPerTradePct || riskGovernor.config.riskPerTradePct;
+    $('marginInput').value = riskGovernor.config.riskPerTradePct;
+    applyArmedUI(saved.armed);
+    logEvent(`Auto-trading was ${saved.armed ? 'ARMED' : 'STOPPED'} from another device — following that here.`);
+  }
 
   // Overwrite the placeholder qtyStep/minQty above with Bybit's real lot-size
   // filter for every watched symbol, so a wrong hand-typed guess for a newly
