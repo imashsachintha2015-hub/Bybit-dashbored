@@ -53,6 +53,8 @@ const SLIPPAGE = 0.0002;     // 2 bps assumed on market fills
  * this and hiding it would make the comparison meaningless.
  */
 let EXEC_STYLE = 'taker';
+let STOP_MULT = 1.0;
+let INVAL_MULT = 1.0;
 let MAKER_ENTRY_TIMEOUT_BARS = 3;
 /**
  * How far BETTER than the signal price the resting limit is placed, in bps.
@@ -339,7 +341,17 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
         }
 
         // Re-anchor the stop to the actual fill so risk stays exactly 0.5%.
-        const stop = state.stopLoss;
+        const rawStop = state.stopLoss;
+        // Push the stop away from the fill by STOP_MULT. Anchored on the FILL,
+        // not the signal price, so the widening is measured from where the trade
+        // actually sits rather than from where it was proposed.
+        const stop = (entry === null || STOP_MULT === 1)
+          ? rawStop
+          : entry - Math.sign(entry - rawStop) * Math.abs(entry - rawStop) * STOP_MULT;
+        const rawInval = state.invalidation;
+        const invalidation = (entry === null || INVAL_MULT === 1 || rawInval == null)
+          ? rawInval
+          : entry - Math.sign(entry - rawInval) * Math.abs(entry - rawInval) * INVAL_MULT;
         const riskDist = entry === null ? 0 : Math.abs(entry - stop);
         if (entry !== null && riskDist > 0) {
           const sized = gov.sizePosition({ entry, stop, equity, symbol, qtyStep: 0.0001, minQty: 0.0001 });
@@ -350,7 +362,7 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               symbol, side,
               entryPrice: entry,
               stopLoss: stop,
-              invalidation: state.invalidation,
+              invalidation,
               targets: state.takeProfit,
               riskDist,
               qty: sized.qty,
@@ -637,6 +649,16 @@ function main() {
   if (a.exec === 'maker' || a.exec === 'taker') EXEC_STYLE = a.exec;
   if (a.makerOffset != null) MAKER_OFFSET_BPS = parseFloat(a.makerOffset);
   if (a.makerTimeout != null) MAKER_ENTRY_TIMEOUT_BARS = parseInt(a.makerTimeout, 10);
+  // Stop and invalidation distances, as multiples of what the playbook proposed.
+  // The 98-trade forensics measured a median bar range of 1.39R while in trade,
+  // meaning one ordinary bar reaches the stop: the trade must go right
+  // immediately or die. Widening both moves them outside routine noise. Risk per
+  // trade is unchanged because sizePosition() derives quantity from the stop
+  // distance, so a wider stop simply buys less. The cost is that targets are
+  // absolute prices, so each win is worth proportionally fewer R -- which is
+  // exactly the trade-off this sweep is meant to price.
+  if (a.stopMult != null) STOP_MULT = parseFloat(a.stopMult);
+  if (a.invalMult != null) INVAL_MULT = parseFloat(a.invalMult);
   if (a.quiet) { const noop = () => {}; global.__origLog = console.log; console.log = noop; }
   const startEquity = parseFloat(a.equity || '1000');
   // Optional: analyst weights seeded from the offline predictive-value study.
