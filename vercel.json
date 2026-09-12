@@ -1,3 +1,7 @@
 {
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "rewrites": [
+    { "source": "/api/order/close", "destination": "/api/order/place?_action=close" },
+    { "source": "/api/position/stop", "destination": "/api/order/place?_action=stop" }
+  ]
 }
