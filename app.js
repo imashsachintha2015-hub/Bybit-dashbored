@@ -1161,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
       $('posCount').textContent = `${openPositionsSnapshot.length} active`;
       const tbody = $('positionsTbody');
       if (!openPositionsSnapshot.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty-msg">No active positions</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="empty-msg">No active positions</td></tr>';
       } else {
         tbody.innerHTML = openPositionsSnapshot.map(p => {
           const pnl = parseFloat(p.unrealisedPnl || 0);
@@ -1169,6 +1169,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const entryPrice = parseFloat(p.avgPrice || 0);
           const im = parseFloat(p.positionIM || 0);
           const notional = entryPrice * parseFloat(p.size || 0);
+          // ROI% is against margin (positionIM) when Bybit reports it -- that's
+          // the actual return on capital committed to the trade. Falling back
+          // to notional only covers the rare case IM isn't reported yet.
           const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
           const sl = parseFloat(p.stopLoss || 0);
           const trade = positionManager.get(p.symbol, p.side);
@@ -1177,11 +1180,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${p.symbol}</td>
             <td><span class="badge ${p.side === 'Buy' ? 'buy' : 'sell'}">${p.side.toUpperCase()}</span></td>
             <td>${p.size}</td>
+            <td>$${notional.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${entryPrice.toLocaleString()}</td>
             <td>${parseFloat(p.markPrice || 0).toLocaleString()}</td>
             <td class="text-red">${sl ? sl.toLocaleString() : '--'}</td>
             <td>${p.liqPrice ? parseFloat(p.liqPrice).toLocaleString() : '--'}</td>
             <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
+            <td class="${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</td>
             <td class="${pnlClass}">${rTxt}</td>
             <td><button class="close-btn-sm" onclick="closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
           </tr>`;
@@ -1285,21 +1290,45 @@ document.addEventListener('DOMContentLoaded', () => {
     $('startBtn').disabled = armed;
     $('stopBtn').disabled = !armed;
     $('marginInput').disabled = armed;
+    $('usdtSizeInput').disabled = armed;
+    $('sizeModeRiskBtn').disabled = armed;
+    $('sizeModeUsdtBtn').disabled = armed;
   }
+
+  function applySizingModeUI(mode) {
+    riskGovernor.config.sizingMode = mode;
+    $('sizeModeRiskBtn').classList.toggle('active', mode === 'risk');
+    $('sizeModeUsdtBtn').classList.toggle('active', mode === 'usdt');
+    $('riskSizeRow').style.display = mode === 'risk' ? '' : 'none';
+    $('usdtSizeRow').style.display = mode === 'usdt' ? '' : 'none';
+  }
+
+  $('sizeModeRiskBtn').addEventListener('click', () => applySizingModeUI('risk'));
+  $('sizeModeUsdtBtn').addEventListener('click', () => applySizingModeUI('usdt'));
 
   async function setArmed(armed) {
     if (armed) {
       const riskPct = parseFloat($('marginInput').value);
       if (riskPct > 0 && riskPct <= 5) riskGovernor.config.riskPerTradePct = riskPct;
+      const usdtSize = parseFloat($('usdtSizeInput').value);
+      if (usdtSize > 0) riskGovernor.config.fixedUsdtSize = usdtSize;
     }
     applyArmedUI(armed);
     if (armed) {
-      logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — risking ${riskGovernor.config.riskPerTradePct}% of equity per trade, max ${riskGovernor.config.maxConcurrentPositions} concurrent, daily loss limit ${riskGovernor.config.maxDailyLossPct}%`);
+      const sizingDesc = riskGovernor.config.sizingMode === 'usdt'
+        ? `a fixed $${riskGovernor.config.fixedUsdtSize} notional per trade`
+        : `risking ${riskGovernor.config.riskPerTradePct}% of equity per trade`;
+      logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — ${sizingDesc}, max ${riskGovernor.config.maxConcurrentPositions} concurrent, daily loss limit ${riskGovernor.config.maxDailyLossPct}%`);
     } else {
       logEvent('Autonomous execution STOPPED — monitoring only. Open positions keep their broker-side stops but will not be managed further.');
     }
     try {
-      await postJSON('/api/auto-trade/state', { armed, riskPerTradePct: riskGovernor.config.riskPerTradePct });
+      await postJSON('/api/auto-trade/state', {
+        armed,
+        riskPerTradePct: riskGovernor.config.riskPerTradePct,
+        sizingMode: riskGovernor.config.sizingMode,
+        fixedUsdtSize: riskGovernor.config.fixedUsdtSize
+      });
     } catch (e) {
       logEvent(`Could not sync arm state to the server (${e.message}) — other devices won't see this change until it succeeds`);
     }
@@ -1316,7 +1345,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // STOPPED, with no separate startup fetch needed.
   async function resyncArmedState() {
     const saved = await fetchJSON('/api/auto-trade/state');
-    if (!saved || saved.armed === autoTradingArmed) return;
+    if (!saved) return;
+    if (saved.sizingMode && saved.sizingMode !== riskGovernor.config.sizingMode) {
+      applySizingModeUI(saved.sizingMode);
+    }
+    if (saved.fixedUsdtSize && saved.fixedUsdtSize !== riskGovernor.config.fixedUsdtSize) {
+      riskGovernor.config.fixedUsdtSize = saved.fixedUsdtSize;
+      $('usdtSizeInput').value = saved.fixedUsdtSize;
+    }
+    if (saved.armed === autoTradingArmed) return;
     if (saved.armed) riskGovernor.config.riskPerTradePct = saved.riskPerTradePct || riskGovernor.config.riskPerTradePct;
     $('marginInput').value = riskGovernor.config.riskPerTradePct;
     applyArmedUI(saved.armed);
