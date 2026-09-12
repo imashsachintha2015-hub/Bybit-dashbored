@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASIS Signal Monitor</title>
+<style>
+  :root {
+    --bg-page: #0B1120;
+    --bg-card: #131B2E;
+    --border: rgba(148,163,184,0.14);
+    --text-bright: #E2E8F0;
+    --text-dim: #94A3B8;
+    --green: #16C784;
+    --green-dim: rgba(22,199,132,0.14);
+    --red: #EA3943;
+    --red-dim: rgba(234,57,67,0.14);
+    --gold: #F59E0B;
+    --gold-dim: rgba(245,158,11,0.14);
+    --dim-badge: rgba(148,163,184,0.14);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--text-bright);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    font-size: 12px;
+  }
+  header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  h1 { font-size: 13px; margin: 0; font-weight: 700; letter-spacing: 0.02em; }
+  .sub { color: var(--text-dim); font-size: 10px; margin-top: 2px; }
+  #connState {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 3px 8px; border-radius: 4px;
+    background: var(--dim-badge); color: var(--text-dim);
+  }
+  #connState.live { background: var(--green-dim); color: var(--green); }
+  main { padding: 10px 14px 20px; }
+  h2 {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-dim); margin: 16px 0 8px;
+  }
+  h2:first-child { margin-top: 0; }
+  .row {
+    display: grid;
+    grid-template-columns: 74px 40px 1fr 70px 56px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--dim-badge);
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  .row.pending { border-left-color: var(--gold); }
+  .row.win { border-left-color: var(--green); }
+  .row.loss { border-left-color: var(--red); }
+  .row.superseded { border-left-color: var(--text-dim); opacity: 0.6; }
+  .sym { font-weight: 700; }
+  .dir { font-family: 'JetBrains Mono', 'SF Mono', monospace; font-size: 10px; }
+  .dir.long { color: var(--green); }
+  .dir.short { color: var(--red); }
+  .setup { color: var(--text-dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grade {
+    font-size: 9px; font-weight: 800; text-align: center;
+    padding: 2px 0; border-radius: 4px; background: var(--dim-badge); color: var(--text-dim);
+  }
+  .status {
+    font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-align: center;
+    padding: 3px 0; border-radius: 4px;
+  }
+  .status.pending { background: var(--gold-dim); color: var(--gold); }
+  .status.win { background: var(--green-dim); color: var(--green); }
+  .status.loss { background: var(--red-dim); color: var(--red); }
+  .status.superseded { background: var(--dim-badge); color: var(--text-dim); }
+  .empty { color: var(--text-dim); padding: 20px 10px; text-align: center; font-size: 11px; }
+  .stats { display: flex; gap: 14px; padding: 0 14px 10px; border-bottom: 1px solid var(--border); }
+  .stat { text-align: center; }
+  .stat .n { font-size: 16px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .stat .l { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Signal Monitor</h1>
+      <div class="sub">Every graded setup, any grade &mdash; win/loss regardless of whether it was ever traded</div>
+    </div>
+    <span id="connState">WAITING</span>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="statPending">0</div><div class="l">Pending</div></div>
+    <div class="stat"><div class="n" id="statWins" style="color:var(--green)">0</div><div class="l">Wins</div></div>
+    <div class="stat"><div class="n" id="statLosses" style="color:var(--red)">0</div><div class="l">Losses</div></div>
+    <div class="stat"><div class="n" id="statWinRate">--</div><div class="l">Win Rate</div></div>
+  </div>
+
+  <main>
+    <h2>Active</h2>
+    <div id="activeList"><div class="empty">No setup currently being watched</div></div>
+
+    <h2>Resolved</h2>
+    <div id="historyList"><div class="empty">Nothing has resolved yet</div></div>
+  </main>
+
+<script>
+  const channel = new BroadcastChannel('masis-shadow-monitor');
+  const connState = document.getElementById('connState');
+  let staleTimer = null;
+
+  function fmtPrice(p) {
+    if (p == null) return '--';
+    return p < 10 ? p.toFixed(4) : p.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }
+
+  function ageStr(ms) {
+    const s = Math.floor((Date.now() - ms) / 1000);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    return `${Math.floor(s / 3600)}h`;
+  }
+
+  function renderActive(active, currentPrices) {
+    const el = document.getElementById('activeList');
+    if (!active.length) { el.innerHTML = '<div class="empty">No setup currently being watched</div>'; return; }
+    el.innerHTML = active.map(a => {
+      const cur = currentPrices[a.symbol];
+      return `<div class="row pending">
+        <span class="sym">${a.symbol.replace('USDT', '')}</span>
+        <span class="dir ${a.direction === 'LONG' ? 'long' : 'short'}">${a.direction === 'LONG' ? 'LONG' : 'SHORT'}</span>
+        <span class="setup" title="${a.setupType}">${a.setupType} &middot; entry ${fmtPrice(a.entry)} &rarr; ${fmtPrice(cur)}</span>
+        <span class="grade">${a.grade}</span>
+        <span class="status pending">${ageStr(a.startedAt)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderHistory(history) {
+    const el = document.getElementById('historyList');
+    if (!history.length) { el.innerHTML = '<div class="empty">Nothing has resolved yet</div>'; return; }
+    el.innerHTML = history.slice(0, 100).map(h => {
+      const cls = h.status.toLowerCase();
+      return `<div class="row ${cls}">
+        <span class="sym">${h.symbol.replace('USDT', '')}</span>
+        <span class="dir ${h.direction === 'LONG' ? 'long' : 'short'}">${h.direction === 'LONG' ? 'LONG' : 'SHORT'}</span>
+        <span class="setup" title="${h.setupType}">${h.setupType} &middot; entry ${fmtPrice(h.entry)}${h.exitPrice != null ? ' &rarr; ' + fmtPrice(h.exitPrice) : ''}</span>
+        <span class="grade">${h.grade}</span>
+        <span class="status ${cls}">${h.status}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderStats(active, history) {
+    const wins = history.filter(h => h.status === 'WIN').length;
+    const losses = history.filter(h => h.status === 'LOSS').length;
+    const total = wins + losses;
+    document.getElementById('statPending').textContent = active.length;
+    document.getElementById('statWins').textContent = wins;
+    document.getElementById('statLosses').textContent = losses;
+    document.getElementById('statWinRate').textContent = total ? `${(wins / total * 100).toFixed(1)}%` : '--';
+  }
+
+  channel.onmessage = (ev) => {
+    const msg = ev.data;
+    if (!msg || msg.type !== 'snapshot') return;
+    connState.textContent = 'LIVE';
+    connState.classList.add('live');
+    clearTimeout(staleTimer);
+    staleTimer = setTimeout(() => {
+      connState.textContent = 'NO SIGNAL';
+      connState.classList.remove('live');
+    }, 15000);
+
+    renderActive(msg.active || [], msg.currentPrices || {});
+    renderHistory(msg.history || []);
+    renderStats(msg.active || [], msg.history || []);
+  };
+
+  // No message within 5s of opening usually means the main dashboard tab
+  // isn't open in this browser at all -- same-origin BroadcastChannel only
+  // reaches other tabs/windows of this exact site.
+  setTimeout(() => {
+    if (connState.textContent === 'WAITING') {
+      connState.textContent = 'NO DASHBOARD TAB OPEN';
+    }
+  }, 5000);
+</script>
+</body>
+</html>
