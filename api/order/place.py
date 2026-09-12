@@ -17,6 +17,11 @@ class handler(JsonApiHandler):
     # function actually sees on self.path (per Vercel's own rewrite docs,
     # which show a source path's segments arriving at the destination as
     # query params), so branching on _action here is reliable.
+    #
+    # _action=cancel is called directly as /api/order/place?_action=cancel
+    # (no rewrite needed -- there's no pre-existing frontend URL to preserve
+    # for a brand-new action) to cancel a resting patient-maker entry that
+    # hasn't filled within its timeout. See app.js's pendingEntries.
     def do_POST(self):
         action = parse_qs(urlparse(self.path).query).get("_action", ["place"])[0]
         body = self._read_json_body()
@@ -32,6 +37,12 @@ class handler(JsonApiHandler):
                 side = body.get("side", "Buy")
                 qty = body.get("qty", 0.001)
                 res = client.close_position(category, symbol, side, qty)
+            elif action == "cancel":
+                res = client.cancel_order(
+                    body.get("category", "linear"),
+                    body.get("symbol", "BTCUSDT"),
+                    body.get("orderId"),
+                )
             elif action == "stop":
                 res = client.set_trading_stop(
                     body.get("category", "linear"),
