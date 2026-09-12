@@ -261,7 +261,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ─── Shared supervisory agents ───
-  const riskGovernor = new MasisRiskGovernor.RiskGovernor({ riskPerTradePct: 0.5 });
+  // Throughput caps lifted so a new setup is never refused merely because
+  // another position is open. The defaults (2 concurrent, 2 correlated) were
+  // written for a single-symbol operator; this engine watches 30 symbols, so
+  // they meant most signals were declined for having company rather than for
+  // anything about the signal.
+  //
+  // consecutiveLossLimit is raised for a specific measured reason: the deployed
+  // configuration wins about a third of its trades, so three losses in a row
+  // occur roughly a third of the time by chance alone. Pausing an hour on that
+  // is reacting to noise, not to evidence the system has stopped working.
+  //
+  // What is deliberately NOT lifted: maxDailyLossPct is the session circuit
+  // breaker and the only limit here that bounds a bad day, and the no-pyramiding
+  // rule still prevents stacking size onto one symbol. Per-trade risk stays at
+  // 0.5%, so concurrency raises total exposure -- 12 open positions is 6% at
+  // risk at once, and crypto positions tend to lose together.
+  const riskGovernor = new MasisRiskGovernor.RiskGovernor({
+    riskPerTradePct: 0.5,
+    maxConcurrentPositions: 12,
+    maxCorrelatedPositions: 6,
+    consecutiveLossLimit: 8,
+    cooldownAfterLossMs: 5 * 60 * 1000,
+    cooldownAfterWinMs: 0
+  });
   const positionManager = new MasisPositionManager.PositionManager();
   const llmGovernor = new MasisDeepSeekGovernor.DeepSeekGovernor();
 
