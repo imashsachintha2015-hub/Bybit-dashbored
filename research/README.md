@@ -2383,10 +2383,17 @@ fully cleaned estimate.
 
 Three things changed in this study, and only one of them is good news.
 
-1. **Part XVII's breadth-acceleration finding does not survive.** BA is inert
-   at every lag and under every composition; the model is better without it.
-   The finding was an artifact of reading shuffle sensitivity as importance on
-   a feature that is 0.56–0.58 collinear with momentum by construction.
+1. **Part XVII's breadth-acceleration finding does not survive.** BA is nowhere
+   near the dominant lever it was reported to be. The finding was an artifact of
+   reading shuffle sensitivity as importance on a feature that is 0.56–0.58
+   collinear with momentum by construction.
+   *Precision about how far this goes:* in Part A's setting (6 coins, 418 days,
+   fixed ±0.5% barrier) BA is actively harmful — momentum-only beats momentum+BA
+   0.574/60.8% to 0.559/55.4%. In Part D's setting (16 coins, equalized labels)
+   the two are near-identical, with BA marginally *ahead* (top-2 AUC 0.5642 vs
+   0.5619; 10 of 16 coins clear breakeven vs 9). So "BA is not the engine" is
+   robust everywhere; "BA actively hurts" holds in Part A's window and not in
+   Part D's, and should not be stated unconditionally.
 2. **The whole cross-asset apparatus built across Parts XIV–XVII is
    net-negative.** One plain momentum feature outperforms all fifteen. Fourteen
    features of breadth, synchronization, entropy, liquidity and dispersion
