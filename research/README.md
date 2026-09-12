@@ -2530,3 +2530,138 @@ side, cross-venue basis. Short-horizon crypto edge is a microstructure
 phenomenon, and this project has never fed its models a single microstructure
 input. That is the gap, and it is a data-acquisition problem rather than a
 formula-design one.
+
+# Part XX — Stop geometry: the losses were the stop distance, not the signal
+
+This part began from a live observation rather than a study. A UNI position was
+entered at 6.367, moved favourably, retraced, and was closed by the position
+manager before it resolved. That is not an anecdote — it is the modal failure of
+this system, and instrumenting for it turned up the largest validated
+improvement the project has produced.
+
+```bash
+node backtest/run-backtest.js --symbols ... --exec maker --makerOffset 20 \
+  --makerTimeout 20 --stopMult 2.5 --invalMult 2.0
+node backtest/loss-forensics.js
+```
+
+## The measurement that was missing
+
+Every prior part reported how trades ended and none reported what they offered
+along the way, which makes the central question about a loss unanswerable: was
+the entry wrong, or was the entry right and the exit gave it back? Those have
+opposite fixes. Max favourable and adverse excursion now land on every trade
+record, along with the average bar range in R while the position is open.
+
+On 98 trades across 12 symbols, the deployed configuration:
+
+| | value |
+|---|---|
+| dead on arrival (never reached +0.25R) | 29.9% of losses |
+| **reached +0.5R, then lost** | **67.2% of losses** |
+| winners that ever traded to −0.5R | 6.5% |
+| **median bar range while in trade** | **1.39R** |
+| typical bar exceeds 1R | 54 of 82 trades |
+
+**One ordinary bar reached the stop.** A trade had to go right immediately or
+die, however good the signal was. Two thirds of losses were trades already in
+profit, and only 6.5% of winners ever survived an adverse move — winners were
+not trades that endured drawdown, they were trades that never faced any. That
+is not an edge surviving noise; it is a coin flip on the next bar.
+
+The same geometry broke the position manager. Its structural exit closed at the
+invalidation level, but at that stop distance a routine retrace *is* a
+structural break: the guardian won 9.1% of the time with nine of its ten losses
+already in profit — the worst exit path in the system, and the one that closed
+the UNI trade.
+
+## The fix, and why it is risk-neutral
+
+Stops and invalidation levels are set at multiples of what the playbook
+proposes. This costs nothing in risk because position size is derived from the
+stop distance: a wider stop simply buys less, and every trade still risks 0.5%
+of equity. What it costs is that targets are absolute prices, so each win is
+worth proportionally fewer R — which is exactly the trade-off the sweep prices.
+
+98 trades, 12 symbols, 42 days:
+
+| stop × inval | WR | expR | total R | maxDD | P(loss < −2R) |
+|---|---|---|---|---|---|
+| 1.0 × 1.0 | 31.6% | −0.179 | −17.55 | 5.5% | 8.2% |
+| 1.0 × 2.0 | 38.8% | −0.034 | −3.29 | 5.5% | 7.1% |
+| 1.5 × 1.0 | 45.9% | −0.034 | −3.29 | 4.3% | 3.1% |
+| 1.5 × 2.0 | 49.0% | +0.032 | +3.15 | 4.5% | 2.0% |
+| 2.0 × 2.0 | 51.0% | +0.028 | +2.70 | 3.9% | 2.0% |
+| **2.5 × 2.0** | **53.1%** | **+0.063** | **+6.21** | **3.4%** | **2.0%** |
+| 3.0 × 2.0 | 54.1% | +0.055 | +5.38 | 3.4% | 2.0% |
+
+Neither lever worked alone at first — stop-only and invalidation-only both
+landed on exactly −0.034R, because widening one simply handed the trade to the
+other. They were two doors on the same trap.
+
+**Risk improved alongside returns rather than against them**, which is unusual
+enough to deserve suspicion. Max drawdown fell, average loss shrank from −1.109R
+to −0.763R, trades losing more than 2R fell from 8.2% to 2.0%, and the worst
+single trade held near −2.5R at every width, so the tail never grew. The
+mechanism is plain: with a stop inside the noise every gap and guardian exit
+overshoots into a large fraction of R. The tight stop was not only causing more
+losses, it was causing bigger ones.
+
+2.5× is a plateau, not a peak — 2.0× through 3.0× land within noise of one
+another — so nothing here is finely tuned.
+
+## Validation on 418 days, and a failure to reproduce Part IX
+
+The sweep above sits on one 42-day window whose baseline was losing, so it
+could not distinguish "fixes bad geometry" from "rescues one bad window". Re-run
+on 120,099 5m bars per symbol (2025-07-22 → 2026-09-12), Part IX's four symbols:
+
+| | baseline | **2.5 × 2.0** |
+|---|---|---|
+| n | 233 | 236 |
+| win rate | 38.2% | **55.5%** |
+| expectancy | −0.195R | **+0.104R** |
+| total R | −45.38R | **+24.55R** |
+| profit factor | 0.76 | **1.28** |
+| max drawdown | **15.5%** | **5.6%** |
+
+The fix holds on 2.4× the sample and 10× the window, in the same direction and
+at similar magnitude. The drawdown result is arguably the more important half:
+15.5% → 5.6% at identical per-trade risk means the old geometry was not merely
+unprofitable, its losses clustered.
+
+**Part IX does not reproduce, and that has to be recorded rather than left
+standing.** Its documented result for this exact configuration — swarm off,
+20bps maker, four symbols, 418 days — is n=300, 47.7% win rate, +0.155R, +46.5R,
+PF 1.38. The run above, same configuration and window length, returns n=233,
+38.2%, −0.195R, −45.38R, PF 0.76: the opposite sign.
+
+The new stop code is not the cause (at `stopMult 1.0` it takes an identity
+branch). The differing trade count points at genuinely different data: Part IX
+ran earlier, so its 418 days ended earlier and covered a different regime, and
+OKX is now the source after the Bybit geo-block. Part IX also used `--seed 1`,
+though that seeds analyst weights and should not affect swarm-off rows.
+
+Until that is explained, **Part IX's +0.155R and +0.288R should not be used as a
+baseline or quoted as this project's ceiling**, and the recommendation derived
+from it — raise the maker offset to 30bps — is withdrawn pending a reproduction
+on current data. It may well still be correct; it is simply no longer supported.
+
+## Where this leaves the project
+
+**+0.104R at 55.5% over 236 trades and 418 days, PF 1.28, max drawdown 5.6%, is
+the best reproducible result this project has**, and it comes from stop
+placement rather than from any signal, formula, model or gate. Parts XIV–XIX
+searched for a better prediction across five formula families, sixteen coins,
+per-coin selection, LLM gating and an analyst swarm, and none of it moved
+expectancy the way changing one distance did.
+
+The standing lesson, consistent with Part V's execution finding: on this system,
+**how a trade is entered and exited has repeatedly mattered more than what it
+predicts.** Two of the three largest effects ever measured here — patient maker
+entry and stop geometry — are mechanical rather than predictive.
+
+Outstanding: the sample is 236 trades in one regime; live behaviour will differ
+from a backtest that assumes the widened stop fills where modelled; and the
+concurrency limits raised alongside this change are unvalidated, because the
+backtest holds one position at a time by construction.
