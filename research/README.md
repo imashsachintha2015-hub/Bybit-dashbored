@@ -884,3 +884,104 @@ guide to when it does.**
 The premise of the question was right. Better formulas on the same data cannot
 work, and new information is the only path. That path was taken as far as the
 available data allows, and it stopped here.
+
+---
+
+# Part VII — Equations from outside technical analysis
+
+The challenge here was specific: stop rearranging price into new indicator
+shapes, and instead bring in mathematics from a field that isn't technical
+analysis — the kind a market microstructure researcher or an information
+theorist would reach for.
+
+```bash
+node research/novel-equations.js --tf 15 --cost 4
+```
+
+Three were implemented, each a real, named equation from a different
+discipline, none a variant of anything in Part VI:
+
+## 1. Kyle's Lambda (market microstructure, Kyle 1985)
+
+The canonical price-impact equation: regress price change on signed order flow
+over a trailing window. The slope, λ, is literally "how much does it cost in
+price to push this much size" — the founding equation of market microstructure
+theory, built from the same real taker-flow data Part VI used, not from price
+alone.
+
+Tested both directions — does an impact spike predict reversion (an
+informationally-driven overshoot) or continuation (informed flow that keeps
+being right) — at 2 horizons on 3 symbols, 728/609/756 extreme events:
+
+Every configuration failed. One reaches conventional significance before
+correction (BTC, follow, 4 bars, t=−2.61) — and it's negative and unstable
+(+1.1 second half vs −7.8 first). Nothing survives FDR.
+
+## 2. Jump / continuous decomposition (Barndorff-Nielsen & Shephard, 2004)
+
+Realised variance mixes two different underlying stochastic processes —
+continuous diffusion and discontinuous jumps. Bipower variation (the product of
+adjacent absolute returns, correctly rescaled) estimates the continuous part
+alone; realised variance minus that isolates the jump component. This is
+mathematically distinct from "big candle" detection: it's asking which
+*process* generated the move, not how large it was.
+
+First pass was starved — only 30 days of derivatives-aligned data gave BTC 92
+events and ETH/SOL too few to test at all. The equation itself needs only
+price, so it got a fair rerun on the full 418-day series: **1,742 events** at
+the loosest threshold.
+
+| symbol | thresh | mode | hold | n | mean bps | t(HAC) | 1st half | 2nd half |
+|---|---|---|---|---|---|---|---|---|
+| ETH | 0.6 | fade | 48b | 380 | **−22.18** | **−2.98** | −14.5 | −25.3 |
+| BTC | 0.4 | fade | 16b | 1560 | −8.09 | −3.32 | −7.7 | −8.2 |
+| ETH | 0.5 | fade | 16b | 757 | −11.77 | −3.29 | −14.0 | −10.4 |
+
+FDR across 54 configurations: **13 survive — all negative.** Fading a jump
+loses reliably; following one doesn't reliably win either (t stays under 2
+everywhere in that direction). **Zero positive and stable across both halves.**
+The equation is real and now well-powered; the market doesn't reward trading it
+in either direction after cost.
+
+## 3. Transfer entropy (information theory, Schreiber 2000)
+
+Correlation only sees linear dependence. Transfer entropy measures how much
+uncertainty about price's future is resolved by another series' past, beyond
+what price's own past already resolves — including non-linear, non-monotonic
+dependence that Part VI's correlation-based effective-rank calculation is
+structurally blind to. Significance via a 200-fold permutation test (the
+correct null for this statistic, no normality assumption).
+
+| symbol | source | TE observed | null mean | z | perm p |
+|---|---|---|---|---|---|
+| BTC | signed order flow | 0.0009 | 0.0020 | −1.08 | 0.900 |
+| BTC | open interest | 0.0007 | 0.0019 | −1.40 | 0.955 |
+| ETH | signed order flow | 0.0013 | 0.0020 | −0.78 | 0.766 |
+| SOL | open interest | 0.0024 | 0.0020 | 0.35 | 0.294 |
+
+Every observed value sits inside its own permutation null — several are
+*below* the mean of 200 random shuffles. No detectable directional information
+flow from either source into price direction, on this data, at this sample
+size. (The self-referential control also showed nothing above null, consistent
+with Part I's near-zero return autocorrelation — there was no strong known
+signal available here to calibrate against, which is itself informative about
+how little structure exists in this series at 15-minute resolution.)
+
+## What this round adds to the picture
+
+None of the three is a retail indicator. All three are legitimate, named
+results from finance and information theory, computed correctly, tested with
+the same four gates as everything else, and none found anything that survives.
+
+That is now five structurally different attempts at the same question — price
+transforms (Part VI), microstructure impact, jump/diffusion decomposition,
+information-theoretic transfer, and (Part IV/V) the entry/exit/holding-period
+grid — agreeing from five different angles. It doesn't prove no equation could
+ever work. It does mean the ones a working researcher would reach for first
+have now been tried, correctly, and came back empty on the data actually
+available.
+
+The honest limits stand exactly as in Part VI: Kyle's lambda and transfer
+entropy are tied to the 30-day derivatives window and would deserve a real
+retest on years of open-interest/funding history; the jump/diffusion result is
+now well-powered and is a clean negative, not an inconclusive one.
