@@ -1756,3 +1756,217 @@ information at all, by the single most theory-agnostic measure available
 result to build from is still Part XIV's: a real, thin, BTC/ETH-specific,
 short-horizon momentum effect — and, so far, every attempt to make it more
 sophisticated has made it disappear rather than improve it.
+
+# Correction — a label-pooling bug in Parts XIV and XV, found while building Part XVI
+
+While building the next study (below), a real bug turned up in code shared
+by Part XIV (`cme-invariant-test.js`) and Part XV (`cme-x2-test.js`), and
+it needs disclosing before anything else.
+
+**The bug.** Every multi-coin training step built its labels like this:
+
+```js
+const trainY = new Map();
+for (const s of trainSymbols) {
+  const y = outcomesFor(s, horizon);
+  for (const r of rows[s]) if (y.has(r.i)) { trainRows.push(r); trainY.set(r.i, y.get(r.i)); }
+}
+```
+
+`r.i` is each coin's own 0..n-1 position in its aligned series — the same
+range for every coin, since all 6 are aligned to one common timeline.
+BTC's row `i=5000` and DOGE's row `i=5000` are different bars that happen
+to share that index. `trainY` is a single `Map` keyed only by `i`, so
+pooling multiple coins into it let whichever coin was processed last
+silently overwrite every earlier coin's label at every shared index. In
+practice this meant every multi-coin ridge fit trained most of its rows
+against the *last-processed coin's own outcome sequence*, applied to
+other coins' feature vectors at the same timestamps — not each row's
+actual outcome.
+
+**What it did and didn't affect.** Only steps that pool more than one
+coin into one fit: Part XIV's Experiments A and B, and Part XV's
+Universal Asset Tests A/B and leave-one-asset-out. Any single-coin fit
+(Part XIV's Experiment C, Part XV's Time Transfer Test) builds and uses
+its `trainY` within one coin's loop iteration — no collision possible,
+unaffected.
+
+**The fix.** Every row now carries its own `y` embedded (`{i, x, y}`)
+instead of being looked up afterward through a shared index-keyed map,
+which makes this class of bug structurally impossible rather than
+relying on remembering to key correctly. Applied to both files
+(`cme-invariant-test.js`, `cme-x2-test.js`) and to the new study below.
+
+**Re-verified: both studies' conclusions hold.** Every affected
+experiment was re-run. The numbers move by roughly the width of ordinary
+sampling noise, and every finding stands as reported:
+
+| | before | after |
+|---|---|---|
+| Part XIV, Experiment B, BTC h=2 | WR 61.1%, expR +0.143 | WR 62.6%, expR +0.172 |
+| Part XIV, Experiment A, DOGE h=2 | WR 54.3% | WR 54.8% |
+| Part XV, Universal A, DOGE h=2 long | WR 41.8% | WR 41.5% |
+| Part XV, FDR summary | 175/180 pass, 0 solid | 175/180 pass, 0 solid |
+
+The likely reason the bug didn't distort the results more: crypto coins
+share enough common market-wide structure (this project's own SYNC/
+synchronization measurements put pairwise correlation well above zero
+throughout) that training against "AVAX's real outcome, applied to DOGE's
+and LINK's feature vectors at the same timestamp" is not radically
+different from training against each coin's own outcome — the mislabeling
+is real but the substitute label is still a real, correlated momentum
+target, not noise. That is a fortunate accident, not something to rely on
+next time; the fix stands regardless.
+
+# Part XVI — CME-X3 (scoped): a real ML challenger, a persistence test, and the honest verdict
+
+A third specification, CME-X3, was uploaded next — 53 sections calling for
+a full research program (random forests, gradient boosting, neural nets,
+symbolic regression search, hierarchical clustering, conformal prediction,
+Pareto frontiers across model families). This environment has no
+sklearn/numpy/xgboost, pure Node.js only, and implementing the full
+document in one sitting would produce a shallow result across 53 sections
+rather than a trustworthy one on a focused few. With the user's explicit
+sign-off, this scoped to four things:
+
+1. **Close Part XV's open question.** Part XIV (symmetric barrier, flat
+   features) found a real BTC/ETH edge; Part XV (asymmetric barrier,
+   "Market Potential" interaction terms) found nothing on the same data.
+   A 2×2 — {symmetric, asymmetric} barrier × {flat, interaction} feature
+   structure — isolates which change was responsible.
+2. **A genuine nonlinear challenger.** Every prior study fit only linear
+   (ridge) blends. A from-scratch gradient-boosted shallow-tree model
+   (depth-2 trees, 40 rounds) can express conditional relationships
+   ("feature A matters only at high volatility") no linear blend can,
+   without needing symbolic-regression infrastructure this session
+   didn't have time to build correctly.
+3. **Signal-vs-persistence decomposition**, precisely as CME-X3's own
+   section 53.24 asks: signal alone, persistence alone, both together,
+   and persistence computed on a shuffled version of itself (a
+   placebo control with the identical marginal distribution but no real
+   temporal link to any given bar).
+4. **Leave-one-asset-out on all 6 coins, cost robustness, and threshold/
+   selectivity robustness**, ending in one of the document's own three
+   mandated verdicts (its section 53.36).
+
+Not implemented, and why: random forests and neural nets (redundant with
+the gradient-boosted-tree challenger for the question "can nonlinearity
+find what linear blends missed" — one genuine nonlinear model answers it);
+symbolic regression search, hierarchical/regime-conditional models, state
+clustering, distribution-shift detection, and conformal prediction (each
+a real sub-project, only worth building once something here survives the
+tests below).
+
+```bash
+node research/cme-x3-test.js --cost 4
+```
+
+## Part 1 — the 2×2, resolved
+
+Train DOGE+LINK+AVAX, test BTC+ETH+SOL, h=2 (30 min) — the exact cell
+Part XIV found strongest:
+
+| barrier | structure | fair baseline | BTC AUC | ETH AUC | SOL AUC |
+|---|---|---|---|---|---|
+| symmetric | flat | 50.0% | 0.523 | 0.534 | 0.527 |
+| symmetric | interact | 50.0% | 0.515 | 0.519 | 0.520 |
+| asymmetric | flat | 42.9% | 0.532 | 0.538 | 0.531 |
+| asymmetric | interact | 42.9% | 0.514 | 0.518 | 0.519 |
+
+Two things resolve here. First, **AUC barely moves between barriers** —
+0.52-0.54 whether symmetric or asymmetric, whether flat or interaction
+terms. What moved in Part XV wasn't the ranking ability, it was **whether
+the fair baseline eats the entire top-decile win rate**: under the
+asymmetric barrier every "lift" (topWR minus the 42.9% fair baseline) is
+tiny or negative even where AUC is highest, because the payout structure
+itself is harder to profit from, not because the signal vanished from a
+ranking point of view. Second, **flat consistently beats interact** at
+every barrier — the "Market Potential" interaction terms lose a little
+ranking power relative to the plain feature blend regardless of which
+barrier is used, confirming Part XV's second hypothesis (the interaction
+structure dilutes the signal) over its first (the barrier alone was
+responsible). Both changes hurt; the interaction-term structure is the
+larger of the two.
+
+## Part 2 — the model tournament: a small, real, worthless edge
+
+Leave-one-asset-out, h=2, the winning (asymmetric, flat) combination,
+mean AUC across all 6 held-out coins:
+
+| model | mean AUC |
+|---|---|
+| **gbm (gradient-boosted trees)** | **0.5334** |
+| ridgeFlat | 0.5316 |
+| ridgeInteract | 0.5162 |
+| momentum (raw D, unfit) | 0.5099 |
+| persistenceOnly | 0.5027 |
+| random | 0.5019 |
+| meanReversion | 0.4901 |
+
+The nonlinear model wins, barely — 0.5334 vs. ridge's 0.5316, a gap well
+inside noise. Nonlinearity was not hiding a stronger relationship a
+linear blend missed. **All 42 leave-one-out cells (7 models × 6 coins)
+are negative or worthless in expectancy after a 4bps cost, despite every
+one nominally "passing" FDR at p≈0.003** — the tightest p-value this
+bootstrap can report, because the effect is consistent enough in
+*direction* to be non-random while remaining too small to trade. Zero
+cells survive the combined cost-floor-plus-stable-split filter.
+
+## Part 3 — persistence contributes nothing
+
+| variant (BTC held out) | AUC | topWR | expR |
+|---|---|---|---|
+| signal only (persistence zeroed) | 0.533 | 41.5% | −0.086 |
+| persistence only | 0.499 | 38.9% | −0.145 |
+| both together | 0.533 | 41.4% | −0.087 |
+| **persistence replaced by a shuffled version of itself** | **0.533** | **41.4%** | **−0.088** |
+
+Signal-only, both-together, and the shuffled-persistence placebo are
+statistically identical (0.533 AUC all three ways); persistence alone is
+indistinguishable from random (0.499). Replacing real persistence with a
+placebo that has the same marginal distribution but zero genuine temporal
+relationship to any given bar changes **nothing** — proof that whatever
+this model captures comes entirely from the non-persistence features,
+and persistence itself (contra this project's own earlier suspicion in
+Part XII) is not doing any of the work here, for better or worse.
+
+## Part 4 — cost and selectivity robustness: it dies at the first bps
+
+Gradient-boosted model, BTC held out:
+
+| cost | win rate | expR |
+|---|---|---|
+| 0 bps | 43.1% | **+0.006** |
+| 2 bps | 43.1% | −0.020 |
+| 4 bps | 43.1% | −0.047 |
+| 8 bps | 43.1% | −0.100 |
+| 16 bps | 43.1% | −0.207 |
+
+The edge is barely positive at literally zero transaction cost and goes
+negative the moment any realistic cost is applied — 2bps is far below
+even the cheapest maker fee this project has ever modeled. The
+selectivity curve confirms this isn't a concentration-of-confidence
+problem either: win rate sits at 41-43% whether trading the top 1% of
+signals or all of them, which is what a diffuse, uniform, barely-there
+tilt looks like — a genuinely strong signal concentrates its edge in its
+most confident decile, and this one doesn't.
+
+## Final verdict
+
+> **NO ROBUST UNIVERSAL INVARIANT FOUND.**
+
+Per CME-X3's own decision rule (section 53.36): the tournament clears
+FDR almost everywhere (42/42) but zero cells clear the combined
+cost-and-stability bar, the best model (gradient boosting) beats a coin
+flip by 0.033 AUC — not the 0.55+ this project's other results call
+weak-but-real — and that entire edge evaporates before 2bps of cost. This
+is a more decisive, more cautious answer than Part XIV's "a real, thin,
+BTC/ETH-specific effect" — under a harder, more realistic (volatility-
+relative, asymmetric) target and with a genuine nonlinear challenger
+added specifically to rule out "a linear blend just isn't flexible
+enough," nothing here would survive contact with a live order book.
+
+Part XIV's original ±0.5%-fixed-barrier result still stands on its own
+terms (re-verified above, unaffected by the label-pooling bug). What Part
+XVI adds is the harder, more skeptical retest CME-X3 itself asked for —
+and on that retest, nothing survives.

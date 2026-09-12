@@ -368,12 +368,20 @@ function shortOutcome(bars, i, horizon, sigma) {
 // ═══════════════════════════════════════════════════════════════════════
 // RIDGE FIT (verbatim mechanism from Study 20 -- only the feature set differs)
 // ═══════════════════════════════════════════════════════════════════════
-function fitRidge(rows, yByIdx, lambda) {
+// CORRECTION (see research/README.md's correction note): rows must carry
+// their own `.y` embedded rather than being looked up via a shared
+// `Map<index, y>` keyed by `r.i` alone -- every coin's rows use the same
+// 0..n-1 index range into the aligned timeline, so pooling multiple coins
+// into one lookup map let the last-processed coin overwrite every earlier
+// coin's label at each shared index. Affected the Universal Asset Tests
+// and leave-one-asset-out (multi-coin training); not the Time Transfer
+// Test (single coin per fit, no collision possible).
+function fitRidge(rows, lambda) {
   const p = rows[0].x.length;
   const mu = new Array(p).fill(0), sigma = new Array(p).fill(1);
   for (let j = 0; j < p; j++) { const col = rows.map(r => r.x[j]); mu[j] = mean(col); sigma[j] = sd(col) || 1; }
   const X = rows.map(r => r.x.map((v, j) => (v - mu[j]) / sigma[j]));
-  const y = rows.map(r => yByIdx.get(r.i));
+  const y = rows.map(r => r.y);
   const XtX = Array.from({ length: p }, () => new Array(p).fill(0));
   const Xty = new Array(p).fill(0);
   for (let n = 0; n < X.length; n++) for (let a = 0; a < p; a++) { Xty[a] += X[n][a] * y[n]; for (let b = 0; b < p; b++) XtX[a][b] += X[n][a] * X[n][b]; }
@@ -520,10 +528,10 @@ function main() {
   function runOneDirection(dir, trainSymbols, testSymbols, label) {
     const results = [];
     for (const h of H_LIST) {
-      const trainY = new Map(); const trainRows = [];
-      for (const s of trainSymbols) { const y = outcomesFor(s, FIT_HORIZON, dir); for (const r of coreRows[s]) if (y.has(r.i)) { trainRows.push(r); trainY.set(r.i, y.get(r.i)); } }
+      const trainRows = [];
+      for (const s of trainSymbols) { const y = outcomesFor(s, FIT_HORIZON, dir); for (const r of coreRows[s]) if (y.has(r.i)) trainRows.push({ i: r.i, x: r.x, y: y.get(r.i) }); }
       if (trainRows.length < 500) continue;
-      const model = fitRidge(trainRows, trainY, RIDGE_LAMBDA);
+      const model = fitRidge(trainRows, RIDGE_LAMBDA);
       for (const s of testSymbols) {
         const scoreByIdx = predict(coreRows[s], model);
         const outcomeByIdx = outcomesFor(s, h, dir);
@@ -578,9 +586,9 @@ function main() {
     const testRows = rows.slice(cut2); // the 20% validation slice (cut1..cut2) is intentionally not used for anything
     for (const dir of ['long', 'short']) {
       const y = outcomesFor(s, FIT_HORIZON, dir);
-      const trainY = new Map(); const trainRowsF = trainRows.filter(r => { if (y.has(r.i)) { trainY.set(r.i, y.get(r.i)); return true; } return false; });
+      const trainRowsF = trainRows.filter(r => y.has(r.i)).map(r => ({ i: r.i, x: r.x, y: y.get(r.i) }));
       if (trainRowsF.length < 500) continue;
-      const model = fitRidge(trainRowsF, trainY, RIDGE_LAMBDA);
+      const model = fitRidge(trainRowsF, RIDGE_LAMBDA);
       const scoreByIdx = predict(testRows, model);
       for (const h of H_LIST) {
         const outcomeByIdx = outcomesFor(s, h, dir);
