@@ -263,6 +263,24 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       }
     }
 
+    // ── Max favourable / adverse excursion ──
+    // Recorded in R on every bar the trade is open, using the bar's extremes
+    // rather than its close, so it reflects what the trade actually offered.
+    // This is what separates "the entry was wrong" from "the entry was right
+    // and the exit gave it back": a loser whose MFE reached +1R was a winning
+    // trade that was managed into a loss, and no entry filter can fix that.
+    if (open) {
+      const t = open.trade;
+      const dir = t.side === 'Buy' ? 1 : -1;
+      const best = dir === 1 ? bar.high : bar.low;
+      const worst = dir === 1 ? bar.low : bar.high;
+      const rOf = px => (dir * (px - t.entryPrice)) / open.riskAmountPerUnit;
+      if (open.riskAmountPerUnit > 0) {
+        open.mfeR = Math.max(open.mfeR == null ? -Infinity : open.mfeR, rOf(best));
+        open.maeR = Math.min(open.maeR == null ? Infinity : open.maeR, rOf(worst));
+      }
+    }
+
     // ── Position manager decision at the bar close ──
     if (open) {
       const t = open.trade;
@@ -345,7 +363,8 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               panelConviction: state.panelConviction,
               patternScore: state.patternScore
             });
-            open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry) };
+            open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry),
+              riskAmountPerUnit: riskDist, mfeR: null, maeR: null };
           }
         }
       }
@@ -399,7 +418,9 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       symbol, side: t.side, setup: t.setupName, grade: t.grade, score: t.score,
       regime: t.regime, entry: +t.entryPrice.toFixed(6), exit: +exit.toFixed(6),
       r: t.finalR, reason, barsHeld: t.barsHeld, explain: pm.explain(t),
-      patternScore: t.patternScore, panelConviction: t.panelConviction
+      patternScore: t.patternScore, panelConviction: t.panelConviction,
+      mfeR: open.mfeR != null ? +open.mfeR.toFixed(3) : null,
+      maeR: open.maeR != null ? +open.maeR.toFixed(3) : null
     });
     pm.forget(t.symbol, t.side);
     open = null;
