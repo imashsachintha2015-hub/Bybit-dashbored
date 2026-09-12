@@ -13,7 +13,7 @@ import urllib.request
 
 COINGECKO_API_KEY = os.environ.get("COINGECKO_API_KEY")
 COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
-MARKET_OVERVIEW_TTL = int(os.environ.get("MARKET_OVERVIEW_TTL", "300"))
+MARKET_OVERVIEW_TTL = int(os.environ.get("MARKET_OVERVIEW_TTL") or "300")
 
 market_overview_cache = {
     "updated_at": 0,

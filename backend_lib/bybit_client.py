@@ -55,16 +55,21 @@ class BybitDemoClient:
         signature = hmac.new(self.secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
         url = f"{self.base_url}{path}" + (f"?{query_str}" if query_str else "")
-        req = urllib.request.Request(url, data=body_str.encode("utf-8") if body_str else None, method=method)
-        req.add_header("X-BAPI-API-KEY", self.key)
-        req.add_header("X-BAPI-TIMESTAMP", ts)
-        req.add_header("X-BAPI-SIGN", signature)
-        req.add_header("X-BAPI-RECV-WINDOW", recv_window)
-        req.add_header("User-Agent", "MASIS/3.0")
-        if body_str:
-            req.add_header("Content-Type", "application/json")
-
         try:
+            # Building the Request is not just bookkeeping: constructing it
+            # parses the URL and raises ValueError immediately for anything
+            # without a recognised scheme (e.g. a blank BYBIT_BASE_URL). That
+            # has to be inside the same try as the network call below, or a
+            # bad base_url crashes the whole request uncaught instead of
+            # coming back as a normal {retCode: -1, retMsg: ...} response.
+            req = urllib.request.Request(url, data=body_str.encode("utf-8") if body_str else None, method=method)
+            req.add_header("X-BAPI-API-KEY", self.key)
+            req.add_header("X-BAPI-TIMESTAMP", ts)
+            req.add_header("X-BAPI-SIGN", signature)
+            req.add_header("X-BAPI-RECV-WINDOW", recv_window)
+            req.add_header("User-Agent", "MASIS/3.0")
+            if body_str:
+                req.add_header("Content-Type", "application/json")
             with urllib.request.urlopen(req, timeout=10) as r:
                 return json.loads(r.read().decode())
         except urllib.error.HTTPError as e:
@@ -151,6 +156,10 @@ def get_client():
     secret = os.environ.get("BYBIT_API_SECRET")
     if not key or not secret:
         return None, "BYBIT_API_KEY / BYBIT_API_SECRET not set in the environment"
-    base_url = os.environ.get("BYBIT_BASE_URL", "https://api-demo.bybit.com")
+    # `.get(name, default)` only substitutes the default when the var is
+    # UNSET, not when it's set to an empty string -- an env var added in a
+    # host's dashboard with a blank value (BYBIT_BASE_URL="") would otherwise
+    # silently produce a schemeless URL. `or` treats both cases the same.
+    base_url = os.environ.get("BYBIT_BASE_URL") or "https://api-demo.bybit.com"
     _client = BybitDemoClient(key, secret, base_url)
     return _client, None

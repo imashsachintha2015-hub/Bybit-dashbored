@@ -17,8 +17,8 @@ from . import market as market_mod
 from . import news as news_mod
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
-DEEPSEEK_URL = os.environ.get("DEEPSEEK_URL", "https://api.deepseek.com/v1/chat/completions")
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_URL = os.environ.get("DEEPSEEK_URL") or "https://api.deepseek.com/v1/chat/completions"
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL") or "deepseek-chat"
 
 SUPERVISOR_SYSTEM = (
     "You are a risk supervisor reviewing ONE pre-screened trade candidate from a "

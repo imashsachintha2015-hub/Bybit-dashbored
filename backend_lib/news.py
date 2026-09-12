@@ -19,9 +19,9 @@ from . import llm_budget
 
 BENZINGA_API_KEY = os.environ.get("BENZINGA_API_KEY")
 BENZINGA_NEWS_URL = "https://api.benzinga.com/api/v2/news"
-NEWS_CACHE_TTL = int(os.environ.get("NEWS_CACHE_TTL", "300"))
+NEWS_CACHE_TTL = int(os.environ.get("NEWS_CACHE_TTL") or "300")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
-DEEPSEEK_URL = os.environ.get("DEEPSEEK_URL", "https://api.deepseek.com/v1/chat/completions")
+DEEPSEEK_URL = os.environ.get("DEEPSEEK_URL") or "https://api.deepseek.com/v1/chat/completions"
 
 NEWS_NEGATIVE_KEYWORDS = [
     "hack", "hacked", "exploit", "drain", "rug pull", "ban", "banned", "lawsuit", "sues", "sued",
