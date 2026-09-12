@@ -1970,3 +1970,185 @@ Part XIV's original ±0.5%-fixed-barrier result still stands on its own
 terms (re-verified above, unaffected by the label-pooling bug). What Part
 XVI adds is the harder, more skeptical retest CME-X3 itself asked for —
 and on that retest, nothing survives.
+
+# Part XVII — CME-X4 forensic recovery: the edge is real, and here is exactly where it lives
+
+Every prior part since Part XV asked "can we build something better." This
+one asks a different, better question, put directly by the user: *"What
+measurable market state causes the small predictive edge observed in
+CME-X, and under what conditions does that state cease to exist?"* Not
+another formula — a post-mortem on the one real result this project has
+produced (Part XIV's BTC/ETH edge), designed to find out whether it's
+genuine microstructure, an artifact of one coin, one regime, persistence,
+target construction, multiple-testing luck, or a leak.
+
+```bash
+node research/cme-x4-forensic.js --cost 4
+```
+
+## Method: freeze the original, perturb everything around it
+
+The exact Part XIV construction (`buildAssetSeries`, `buildCrossAsset`,
+`buildTemporal`, the 15-feature `FEATURE_NAMES` vector) was copied
+verbatim — not rebuilt, not adjusted — and fit exactly as Experiment B
+did (train DOGE+LINK+AVAX, horizon 4). Those weights were **frozen once**
+and reused, unmodified, for every branch below except the one explicitly
+marked as a refit. Baseline reproduces Part XIV's own number exactly
+(BTC AUC 0.557, WR 62.6%), confirming the frozen model is a faithful
+reconstruction before touching anything.
+
+| baseline (h=2, unmodified) | BTC | ETH | SOL |
+|---|---|---|---|
+| AUC | 0.557 | 0.547 | 0.521 |
+| win rate | 62.6% | 58.8% | 52.5% |
+| expectancy | +0.212R | +0.137R | +0.011R |
+
+## Removal: momentum matters, volatility and volume don't
+
+Each named feature's real-time value was neutralised (set to its training
+mean) at prediction time, frozen weights otherwise untouched:
+
+| removed | BTC AUC | BTC WR | verdict |
+|---|---|---|---|
+| momentum (M_COH → mean) | 0.557 → **0.535** | 62.6% → 58.6% | **matters most, but the edge survives its removal** |
+| volatility (TREND_GATE → mean) | 0.557 → 0.554 | 62.6% → 61.6% | contributes almost nothing |
+| volume (ABSD → mean) | 0.557 → 0.556 | 62.6% → 62.2% | contributes almost nothing |
+| nonlinear interaction (M_COH → raw M, dropping the ×coherence×regime modulation) | 0.557 → **0.566** | 62.6% → 61.5% | **plain linear momentum does at least as well as the "nonlinear" version** |
+
+That last row matters beyond this one study: it's the third independent
+confirmation (after Part XV's interaction terms and Part XVI's 2×2) that
+the multiplicative coherence/regime dressing around momentum never adds
+what it promises — a plain linear momentum term captures the same edge,
+sometimes slightly better by AUC.
+
+## Shuffle: a real surprise — breadth acceleration, not momentum, is the single biggest lever
+
+Each of the 15 features was shuffled across time independently (breaks
+temporal alignment, keeps the marginal distribution identical) — this
+asks a sharper question than removal: does *when* this feature said what
+it said matter, not just *what* it said on average.
+
+| shuffled feature | BTC AUC drop |
+|---|---|
+| **BA (breadth acceleration, cross-asset)** | 0.557 → **0.517** (−0.040) |
+| M_COH (momentum) | 0.557 → 0.531 (−0.026) |
+| everything else (12 features) | ≤ ±0.008 |
+
+**BA — how much the whole market's breadth has accelerated over the last
+16 bars — moves the frozen model more than momentum does**, despite
+momentum being the feature this whole formula family was named for. This
+lines up with the frozen weights themselves: `BA=0.014` is the single
+largest-magnitude weight in the fit, edging out `M_COH=0.006`. Every
+other cross-asset/entropy/synchronization term this project spent three
+studies building (Parts XIV–XVI) moves the needle by less than a
+percentage point of AUC when shuffled — consistent with everything found
+since Part XIV, except this one term.
+
+**Label shuffle (the placebo control):** AUC collapses to 0.49–0.50 on
+all three coins, exactly the coin-flip result a working evaluation
+harness should produce when the answer is scrambled. The methodology
+itself is sound.
+
+## Shift: a clean leakage sanity check, and it passes
+
+Features were re-evaluated from 2 bars before (stale) or 2 bars after
+(future) the real decision bar, scored against the same real outcome:
+
+| shift | BTC AUC | BTC WR |
+|---|---|---|
+| backward 2 bars (stale) | 0.542 | 57.7% |
+| **none (the actual result)** | **0.557** | **62.6%** |
+| forward 2 bars (future leak, deliberately contaminated) | **0.829** | **96.3%** |
+
+The forward-shift number is supposed to look absurd — feeding the model
+information computed 30 minutes after the fact makes it look almost
+perfectly predictive, because at that point the "feature" is measuring
+the very move being predicted. That is exactly the shape a genuine leak
+produces. **The real, unshifted result (0.557 / 62.6%) looks nothing
+like that** — if the original construction had an off-by-a-bar alignment
+bug of this kind, the baseline would already look like the forward-shift
+row, not sit at a modest 62.6%. This is a real, informative negative
+result: no leak of this shape is present.
+
+## Single-asset-only: BTC and ETH support it alone, with zero cross-asset pooling
+
+The identical formula, refit on each coin's own history alone (60/40
+split, no other coin's data involved at all):
+
+| coin | AUC | win rate | p |
+|---|---|---|---|
+| **BTC** | 0.588 | 57.2% | 0.076 |
+| **ETH** | 0.554 | 57.3% | **0.007** |
+| SOL | 0.521 | 52.4% | 0.279 |
+| DOGE | 0.511 | 49.2% | 0.787 |
+| LINK | 0.494 | 47.4% | 0.299 |
+| AVAX | 0.540 | 52.5% | 0.316 |
+
+This is the cleanest asset-specificity evidence in the whole project.
+BTC and ETH support the edge on **nothing but their own price history** —
+no cross-asset training, no pooling, no borrowed labels. DOGE/LINK/AVAX
+don't, whether trained alone (here) or pooled with everything else
+(Parts XIV–XVI). The phenomenon is not a training-setup artifact; it is
+intrinsic to BTC and ETH specifically.
+
+## Regime: the edge lives in positive momentum, and doesn't need high volatility
+
+Baseline scores, partitioned by regime (thresholds fixed from the
+training population only, never from the test data being split):
+
+| regime | BTC WR | BTC AUC |
+|---|---|---|
+| **positive momentum (M>0)** | **62.0%** | 0.551 |
+| negative momentum (M<0) | 47.8% (below breakeven) | 0.502 (no info) |
+| high volatility | 61.1% | 0.550 |
+| low volatility | **66.5%** | 0.571 |
+| high volume | **63.3%** | 0.567 |
+| low volume | 55.2% | 0.535 |
+
+**The edge is almost entirely one-sided**: it lives in positive-momentum
+states and is essentially absent (AUC ≈ 0.50, WR below the 50% breakeven)
+when momentum is negative — this formula finds continuation, not
+reversal, and only in one direction. It does **not** require high
+volatility to appear (if anything it's slightly stronger in low-vol
+conditions, the opposite of the "compression precedes opportunity"
+intuition several of the uploaded specs assumed) and is somewhat stronger
+with elevated volume, though present either way.
+
+## The forensic conclusion
+
+Applying the same standard the user proposed: *if the original edge
+survives untouched on BTC/ETH but nowhere else, the correct conclusion
+isn't "universal formula failed" — it's "CME-X discovered a BTC/ETH-
+specific short-horizon market effect."* That is exactly what happened
+here, now with a mechanism attached rather than just a number:
+
+> **A short-horizon, BTC/ETH-specific continuation effect, present
+> specifically when recent momentum is positive, driven mostly by (1) the
+> asset's own plain (not coherence/regime-modulated) momentum and (2) —
+> unexpectedly, and more strongly — market-wide breadth acceleration.
+> Volatility framing and volume framing, as encoded in this formula, are
+> not load-bearing. It shows no sign of the leakage shape a real leak
+> would produce, and it does not depend on cross-asset training data to
+> appear.**
+
+## What's now worth testing, precisely because this survived
+
+- **Breadth acceleration deserves its own follow-up.** It was one
+  ingredient among fifteen, added almost as an afterthought in Part XIV;
+  this study says it may be doing more work than momentum itself. A
+  dedicated study isolating BA (its own removal ablation, its own
+  horizon sweep, its own asset-normalized representation) is the
+  single highest-value next step this project hasn't done yet.
+- **The asset-normalized-representation question the user posed is now
+  the right one to ask.** Given the mechanism (own momentum + market
+  breadth acceleration, positive-momentum-only), is there a scaling or
+  normalization under which this stops being "a BTC/ETH fact" and
+  becomes "a large-cap / high-market-weight fact" that would apply to
+  whichever coins are large enough next cycle? That's testable (rank
+  coins by market weight instead of by name) and hasn't been tried.
+- **The positive-momentum-only asymmetry is itself a lead.** Every
+  study so far has scored a single symmetric "up before down" event.
+  A model that explicitly separates long and short setups — not
+  Part XV/XVI's failed attempt at that, but built around momentum sign
+  as a hard gate rather than a continuous feature — follows directly
+  from this result.
