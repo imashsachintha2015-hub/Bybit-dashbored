@@ -78,6 +78,14 @@ def record(body):
         "flow": body.get("flow"),
         "supervisor": body.get("supervisor"),
         "evidence": body.get("evidence"),
+        # Vetoes the analyst panel raised in observe mode without acting on
+        # them. Paired with this row's shadow verdict, this is what settles
+        # whether obeying them would have helped.
+        "observed_vetoes": body.get("observed_vetoes"),
+        # Which maker-offset arm this entry used, and what it actually filled
+        # at -- the live counterpart to the backtest's fill assumption.
+        "maker_offset_bps": body.get("maker_offset_bps"),
+        "fill_price": body.get("fill_price"),
     }
 
     # Update the newest row for this symbol when the candidate is unchanged,
@@ -102,7 +110,8 @@ def record(body):
                 # A verdict already settled on this suggestion must survive the
                 # fold, or a late re-evaluation would silently erase it.
                 for k in ("shadow_outcome", "shadow_exit", "shadow_resolved_at",
-                          "shadow_held_ms", "shadow_source"):
+                          "shadow_held_ms", "shadow_source",
+                          "maker_offset_bps", "fill_price", "observed_vetoes"):
                     if existing.get(k) is not None and row.get(k) is None:
                         row[k] = existing[k]
                 row["first_seen"] = existing.get("first_seen") or existing.get("recorded_at")
