@@ -2,11 +2,19 @@
   "name": "masis-trading-terminal",
   "private": true,
   "version": "3.0.0",
-  "description": "MASIS V3 — multi-timeframe confluence trading engine, risk governor and backtest harness for the Bybit live dashboard.",
+  "description": "MASIS V3 \u2014 multi-timeframe confluence trading engine, risk governor and backtest harness for the Bybit live dashboard.",
   "type": "commonjs",
   "scripts": {
     "serve": "python3 server.py",
     "backtest": "node backtest/run-backtest.js",
-    "fetch-data": "node backtest/fetch-klines.js"
+    "fetch-data": "node backtest/fetch-klines.js",
+    "live": "node --max-old-space-size=192 server/live-engine.js",
+    "start": "node --max-old-space-size=192 server/live-engine.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
