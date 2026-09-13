@@ -272,15 +272,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // occur roughly a third of the time by chance alone. Pausing an hour on that
   // is reacting to noise, not to evidence the system has stopped working.
   //
+  // Why 5 and not more: the stop-geometry result that justifies this build
+  // (Part XX: max drawdown 15.5% -> 5.2%) was measured with ONE position open at
+  // a time, because the backtest holds a single position by construction. No
+  // tested configuration covers many simultaneous correlated positions, so
+  // concurrency is set just high enough to stop refusing setups for having
+  // company -- 5 open positions is 2.5% of equity at risk at once -- rather than
+  // as high as the engine could technically run.
+  //
   // What is deliberately NOT lifted: maxDailyLossPct is the session circuit
   // breaker and the only limit here that bounds a bad day, and the no-pyramiding
-  // rule still prevents stacking size onto one symbol. Per-trade risk stays at
-  // 0.5%, so concurrency raises total exposure -- 12 open positions is 6% at
-  // risk at once, and crypto positions tend to lose together.
+  // rule still prevents stacking size onto one symbol.
   const riskGovernor = new MasisRiskGovernor.RiskGovernor({
     riskPerTradePct: 0.5,
-    maxConcurrentPositions: 12,
-    maxCorrelatedPositions: 6,
+    maxConcurrentPositions: 5,
+    maxCorrelatedPositions: 3,
     consecutiveLossLimit: 8,
     cooldownAfterLossMs: 5 * 60 * 1000,
     cooldownAfterWinMs: 0
