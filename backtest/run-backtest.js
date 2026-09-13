@@ -60,6 +60,12 @@ let EXEC_STYLE = 'taker';
 // has to prove it lifted expectancy through information rather than geometry.
 // If random directions under the SAME widened stops still return ~0R, the
 // signal is doing the work. If they turn positive, the geometry is.
+// Scales take-profit distances by the same logic as the stop. Widening the stop
+// alone cuts cost per unit of risk (cost/R = fee rate / stop%) but leaves targets
+// at absolute prices, which silently degrades reward:risk -- a 1.5:1 setup with a
+// 3x stop becomes 0.5:1. Scaling both preserves the ratio while keeping the cost
+// saving, which is the half of the fix Part XX missed.
+let TARGET_MULT = 1.0;
 let RANDOMIZE_DIRECTION = false;
 let STOP_MULT = 1.0;
 let INVAL_MULT = 1.0;
@@ -384,7 +390,12 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               entryPrice: entry,
               stopLoss: stop,
               invalidation,
-              targets: flipped ? (state.takeProfit || []).map(mirror) : state.takeProfit,
+              targets: (() => {
+                const base = flipped ? (state.takeProfit || []).map(mirror) : state.takeProfit;
+                if (TARGET_MULT === 1 || !base) return base;
+                // Scaled from the fill, matching how the stop is widened.
+                return base.map(t => t == null ? t : entry + (t - entry) * TARGET_MULT);
+              })(),
               riskDist,
               qty: sized.qty,
               setupName: state.setupType,
@@ -678,6 +689,7 @@ function main() {
   // distance, so a wider stop simply buys less. The cost is that targets are
   // absolute prices, so each win is worth proportionally fewer R -- which is
   // exactly the trade-off this sweep is meant to price.
+  if (a.targetMult != null) TARGET_MULT = parseFloat(a.targetMult);
   if (a.randomize) RANDOMIZE_DIRECTION = true;
   if (a.stopMult != null) STOP_MULT = parseFloat(a.stopMult);
   if (a.invalMult != null) INVAL_MULT = parseFloat(a.invalMult);
