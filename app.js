@@ -387,8 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // The fingerprint lets the server fold repeated evaluations of an unchanged
   // candidate into a single row: the engine re-evaluates every 5 seconds and a
   // setup that stands for an hour would otherwise write ~720 identical rows.
+  // Identity is symbol + setup + direction. Grade and decision are deliberately
+  // NOT part of it: a candidate re-scores constantly as price moves, and
+  // including them meant one setup watched for an hour became a dozen rows
+  // (INJ produced 24 rows across grades A-D for a handful of real setups). They
+  // are attributes that evolve on the same suggestion, not new suggestions.
   function signalFingerprint(sym, s) {
-    return [sym, s.setupType || '', s.direction || '', s.grade || '', s.decision || ''].join('|');
+    return [sym, s.setupType || '', s.direction || ''].join('|');
   }
 
   async function logSignal(sym, s, outcome, rejectReason) {

@@ -149,4 +149,24 @@ assert rows["CCCUSDT"]["shadow_outcome"] == "EXPIRED", rows["CCCUSDT"]
 assert rows["AAAUSDT"]["shadow_source"] == "server"
 print(f"  server settlement: {n} rows settled -> WIN / LOSS / EXPIRED as expected  OK")
 
+# 9) grade churn folds into one row, and a settled verdict survives the fold
+store.clear()
+def churn(grade):
+    return {"fingerprint": "DOTUSDT|BREAKOUT_RETEST|SHORT", "symbol": "DOTUSDT",
+            "direction": "SHORT", "setup_type": "BREAKOUT_RETEST", "grade": grade,
+            "outcome": "NOT_TRADED", "entry": 1.0, "stop": 1.01, "targets": [0.99]}
+for g in ["D", "C", "B", "A", "B", "C"]:
+    S.record(churn(g))
+rows = S.load()["signals"]
+assert len(rows) == 1, f"grade churn still splits rows: {len(rows)}"
+assert rows[0]["seen_count"] == 6, rows[0]["seen_count"]
+assert rows[0]["grade_best"] == "A" and rows[0]["grade_worst"] == "D", rows[0]
+print(f"  grade churn D-C-B-A-B-C -> 1 row, seen 6x, range A-D  OK")
+
+S.resolve({"fingerprint": "DOTUSDT|BREAKOUT_RETEST|SHORT", "symbol": "DOTUSDT",
+           "shadow_outcome": "WIN", "exit_price": 0.99})
+S.record(churn("C"))          # a later re-evaluation must not erase the verdict
+assert S.load()["signals"][0]["shadow_outcome"] == "WIN", S.load()["signals"][0]
+print("  settled verdict survives a later fold  OK")
+
 print("\nALL SIGNAL LOG TESTS PASSED")

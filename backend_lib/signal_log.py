@@ -90,6 +90,20 @@ def record(body):
                 row["recorded_at"] = existing.get("recorded_at", now_ms)
                 row["time"] = existing.get("time", row["time"])
                 row["id"] = existing.get("id", row["id"])
+                # Grade moves around while a setup is watched, so keep the range
+                # rather than only the latest read: "was C, peaked at A" says
+                # more about a candidate than whichever value it happened to
+                # hold when it was last evaluated.
+                grades = [g for g in [existing.get("grade_best"), existing.get("grade"), row.get("grade")] if g]
+                if grades:
+                    row["grade_best"] = sorted(grades)[0]      # A sorts before D
+                    row["grade_worst"] = sorted(grades)[-1]
+                # A verdict already settled on this suggestion must survive the
+                # fold, or a late re-evaluation would silently erase it.
+                for k in ("shadow_outcome", "shadow_exit", "shadow_resolved_at",
+                          "shadow_held_ms", "shadow_source"):
+                    if existing.get(k) is not None and row.get(k) is None:
+                        row[k] = existing[k]
                 row["first_seen"] = existing.get("first_seen") or existing.get("recorded_at")
                 row["last_seen"] = now_ms
                 row["seen_count"] = int(existing.get("seen_count") or 1) + 1

@@ -292,7 +292,8 @@
             <span class="sym">${esc((r.symbol || '').replace('USDT', ''))}</span>
             <span class="dir ${r.direction === 'LONG' ? 'long' : 'short'}">${esc(r.direction || '--')}</span>
             <span class="setup">${esc(r.setup_type || '--')}</span>
-            <span class="grade">${esc(r.grade || '--')}${r.score != null ? ' ' + esc(r.score) : ''}</span>
+            <span class="grade">${esc(r.grade || '--')}${r.score != null ? ' ' + esc(r.score) : ''}${
+              r.grade_best && r.grade_best !== r.grade_worst ? ` (${esc(r.grade_best)}–${esc(r.grade_worst)})` : ''}</span>
             <span class="sig-tag o-${esc(r.outcome || 'NOT_TRADED')}">${esc(r.outcome || '--')}</span>
             ${shBadge}
             <span style="margin-left:auto;opacity:.55;">${esc(r.time || '')}${repeat}</span>
