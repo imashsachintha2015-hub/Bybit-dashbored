@@ -1238,7 +1238,17 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (s.setupType && s.grade) {
         // A candidate formed but the engine declined to act on it. This is the
         // majority of what the system does and, until now, none of it was kept.
-        logSignal(sym, s, 'NOT_TRADED', s.blocks && s.blocks.length ? s.blocks[0] : 'engine declined — below decision threshold');
+        // The engine exports this as `blockers`; reading `s.blocks` silently
+        // yielded undefined on every row, so the log recorded a generic
+        // "below decision threshold" for every declined setup while the real
+        // reason sat in the state the dashboard was already rendering.
+        // All of them are kept, not just the first: a setup blocked for three
+        // separate reasons is a different thing from one blocked by a single
+        // marginal gate, and that distinction is the point of the log.
+        const why = (s.blockers || []).length
+          ? s.blockers.join(' | ')
+          : 'engine declined — no blocker reported (decision was not BUY/SELL)';
+        logSignal(sym, s, 'NOT_TRADED', why);
       }
 
       if (sym === state.symbol) focusedWhale = whaleSummary;
