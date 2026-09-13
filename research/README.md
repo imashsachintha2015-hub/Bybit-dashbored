@@ -2533,6 +2533,13 @@ formula-design one.
 
 # Part XX — Stop geometry: the losses were the stop distance, not the signal
 
+> **⚠ CORRECTED — read the correction at the end of this part before acting on
+> anything in it.** The improvement recorded below is real but is a COST effect,
+> not a signal effect: a coin-flip control gains just as much from it, and the
+> system's edge over random entries is +0.036R with a 95% interval of
+> [−0.163, +0.235] — indistinguishable from zero. The headline +0.104R is itself
+> not distinguishable from breakeven at this sample size.
+
 This part began from a live observation rather than a study. A UNI position was
 entered at 6.367, moved favourably, retraced, and was closed by the position
 manager before it resolved. That is not an anecdote — it is the modal failure of
@@ -2672,3 +2679,68 @@ Outstanding: the sample is 236 trades in one regime; live behaviour will differ
 from a backtest that assumes the widened stop fills where modelled; and the
 concurrency limits raised alongside this change are unvalidated, because the
 backtest holds one position at a time by construction.
+
+## Correction — the improvement is a cost effect, and the profitability claim does not survive its own error bars
+
+Part VI established that win rate can be manufactured outright: random coin-flip
+entries at a 0.25:1 target-to-stop ratio produce an 80% win rate with gross
+expectancy pinned at zero, and across its 2,448-configuration grid the
+correlation between win rate and expectancy is 0.036. A user reading this part
+pointed out that a result moving win rate 38.2% → 56.4% off a change to stop
+distance is exactly the shape that finding warns about, and that the defence
+offered above — expectancy moved too, and geometry cannot move expectancy — was
+asserted rather than tested.
+
+Tested, via `--randomize`, which replaces entry direction with a per-bar coin
+flip while holding timing, geometry, sizing, exits and costs identical (stops,
+invalidation and targets are mirrored about the entry reference, since an
+unmirrored flip would put the stop on the profitable side):
+
+| entries | baseline | 3.0× / 2.0× | gain |
+|---|---|---|---|
+| **coin flip** | −0.237R | **+0.071R** | **+0.308R** |
+| real signal | −0.195R | +0.108R | +0.303R |
+| *signal's margin over random* | *+0.042R* | *+0.037R* | *−0.005R* |
+
+**Random entries gain as much as the signal does.** The margin the engine's
+predictions buy over guessing was +0.042R before the change and +0.037R after —
+it did not improve. The explanation given above, that tight stops killed good
+signals before they could express themselves, is therefore wrong.
+
+The actual mechanism is cost, and it is arithmetic rather than fitted. Median
+stop distance was **0.086% of price** — 8.6 basis points, against a round trip
+costing roughly 6.5bps of fees plus 2bps of slippage. Because position size is
+derived from stop distance, that tiny stop bought a very large position, and
+**fees and slippage consumed roughly 0.76R per trade**. The system was risking
+about 1R to pay about 1R in costs, and no signal of any quality could overcome
+that. Widening the stop to 0.257% cut size roughly threefold and cost per unit
+of risk to roughly 0.25R. Saving ~0.5R per trade while giving back some of it in
+smaller R-per-win nets out to the ~+0.3R observed — for random and informed
+entries alike.
+
+**And the profitability claim does not survive its own error bars.** With
+per-trade R standard deviation near 1.12:
+
+| | n | mean | 95% CI |
+|---|---|---|---|
+| real signal | 236 | +0.108R | **[−0.035, +0.250]** |
+| coin flip | 249 | +0.071R | [−0.068, +0.210] |
+| difference | | +0.036R | **[−0.163, +0.235]**, t = 0.36 |
+
+Both intervals contain zero. Detecting a +0.036R edge at 95% confidence would
+take about **7,329 trades per arm**; this part has 236, which at this trade rate
+is on the order of decades of data.
+
+**What survives, and what does not.** The cost reduction is certain because it is
+a calculation — smaller position, proportionally smaller fees — and is worth
+keeping on that basis alone. What is *not* established is that this system is
+profitable, or that its predictions beat guessing; both sit inside the noise.
+The correct summary of this part is therefore: **a large and certain cost saving
+was found, and no predictive edge was demonstrated.**
+
+This also reframes Parts XIV–XIX. Five formula families did not fail because the
+formulas were poor — every one of them was fighting a 0.76R-per-trade cost that
+no signal could have overcome. And it sets a design constraint on future work: a
++0.04R effect is undetectable at any sample this project can realistically
+collect, so a candidate signal is only worth testing if it would be large enough
+to see.
