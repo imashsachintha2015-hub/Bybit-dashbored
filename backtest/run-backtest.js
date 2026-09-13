@@ -53,6 +53,14 @@ const SLIPPAGE = 0.0002;     // 2 bps assumed on market fills
  * this and hiding it would make the comparison meaningless.
  */
 let EXEC_STYLE = 'taker';
+// Randomises entry DIRECTION only, leaving timing, geometry, sizing, exits and
+// costs untouched. This is the control for the stop-geometry result: Part VI
+// showed that moving target relative to stop manufactures any win rate you like
+// while gross expectancy stays pinned at zero, so a change that lifts win rate
+// has to prove it lifted expectancy through information rather than geometry.
+// If random directions under the SAME widened stops still return ~0R, the
+// signal is doing the work. If they turn positive, the geometry is.
+let RANDOMIZE_DIRECTION = false;
 let STOP_MULT = 1.0;
 let INVAL_MULT = 1.0;
 let MAKER_ENTRY_TIMEOUT_BARS = 3;
@@ -318,7 +326,20 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       }
       if (gate.allowed) {
         const next = m5[i + 1];
-        const side = state.decision === 'BUY' ? 'Buy' : 'Sell';
+        const engineSide = state.decision === 'BUY' ? 'Buy' : 'Sell';
+        let side = engineSide;
+        if (RANDOMIZE_DIRECTION) {
+          // Deterministic per bar so the control is reproducible across runs.
+          const h = Math.sin(i * 12.9898 + symbol.length * 78.233) * 43758.5453;
+          side = (h - Math.floor(h)) < 0.5 ? 'Buy' : 'Sell';
+        }
+        // A flipped direction needs its geometry mirrored about the reference
+        // price, or the stop ends up on the profitable side and the targets
+        // behind the entry -- which would not be a control, it would be a
+        // different (and nonsensical) strategy.
+        const flipped = side !== engineSide;
+        const mirrorRef = state.entry || bar.close;
+        const mirror = v => (v == null ? v : 2 * mirrorRef - v);
 
         // Entry fill. In taker mode we cross the spread at the next open. In
         // maker mode we rest a limit at the signal price and only trade if the
@@ -341,14 +362,14 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
         }
 
         // Re-anchor the stop to the actual fill so risk stays exactly 0.5%.
-        const rawStop = state.stopLoss;
+        const rawStop = flipped ? mirror(state.stopLoss) : state.stopLoss;
         // Push the stop away from the fill by STOP_MULT. Anchored on the FILL,
         // not the signal price, so the widening is measured from where the trade
         // actually sits rather than from where it was proposed.
         const stop = (entry === null || STOP_MULT === 1)
           ? rawStop
           : entry - Math.sign(entry - rawStop) * Math.abs(entry - rawStop) * STOP_MULT;
-        const rawInval = state.invalidation;
+        const rawInval = flipped ? mirror(state.invalidation) : state.invalidation;
         const invalidation = (entry === null || INVAL_MULT === 1 || rawInval == null)
           ? rawInval
           : entry - Math.sign(entry - rawInval) * Math.abs(entry - rawInval) * INVAL_MULT;
@@ -363,7 +384,7 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               entryPrice: entry,
               stopLoss: stop,
               invalidation,
-              targets: state.takeProfit,
+              targets: flipped ? (state.takeProfit || []).map(mirror) : state.takeProfit,
               riskDist,
               qty: sized.qty,
               setupName: state.setupType,
@@ -657,6 +678,7 @@ function main() {
   // distance, so a wider stop simply buys less. The cost is that targets are
   // absolute prices, so each win is worth proportionally fewer R -- which is
   // exactly the trade-off this sweep is meant to price.
+  if (a.randomize) RANDOMIZE_DIRECTION = true;
   if (a.stopMult != null) STOP_MULT = parseFloat(a.stopMult);
   if (a.invalMult != null) INVAL_MULT = parseFloat(a.invalMult);
   if (a.quiet) { const noop = () => {}; global.__origLog = console.log; console.log = noop; }
