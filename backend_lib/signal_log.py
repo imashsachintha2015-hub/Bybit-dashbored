@@ -94,7 +94,8 @@ def record(body):
                 # rather than only the latest read: "was C, peaked at A" says
                 # more about a candidate than whichever value it happened to
                 # hold when it was last evaluated.
-                grades = [g for g in [existing.get("grade_best"), existing.get("grade"), row.get("grade")] if g]
+                grades = [g for g in (existing.get("grade_best"), existing.get("grade_worst"),
+                                      existing.get("grade"), row.get("grade")) if g]
                 if grades:
                     row["grade_best"] = sorted(grades)[0]      # A sorts before D
                     row["grade_worst"] = sorted(grades)[-1]
