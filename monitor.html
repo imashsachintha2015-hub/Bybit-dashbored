@@ -117,6 +117,7 @@
     <div id="sigSkipped" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
     <div id="sigArms" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
     <div id="sigDirection" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
+    <div id="sigGates" style="font-size:11px;opacity:.85;margin:2px 0 10px;"></div>
     <div class="sig-filters">
       <button class="sig-f active" data-outcome="">All</button>
       <button class="sig-f" data-outcome="TAKEN">Taken</button>
@@ -346,6 +347,19 @@
         + `(engine ${dir.real_win_rate}% vs mirrored ${dir.mirror_win_rate}% across ${dir.n} fully-settled). `
         + `<span style="opacity:.7">50% = the direction call is noise.</span>`
       : (dir.n ? `Direction test — ${dir.n} settled, none decisive yet.` : '');
+    // Per-gate scoring. A gate blocking winners at a HIGHER rate than the
+    // system's own win rate is refusing good trades, not filtering bad ones.
+    const gates = data.gates || {};
+    const ge = document.getElementById('sigGates');
+    const gk = Object.keys(gates).sort((a, b) => gates[b].blocked - gates[a].blocked);
+    if (ge) ge.innerHTML = gk.length
+      ? 'Gate scoring (of setups each gate blocked, share that would have won) — '
+        + gk.map(k => {
+            const g = gates[k];
+            const hot = g.win_rate_of_blocked != null && g.win_rate_of_blocked >= 55;
+            return `<b${hot ? ' style="color:var(--red)"' : ''}>${esc(k)}</b> ${g.win_rate_of_blocked}% of ${g.blocked}`;
+          }).join(' &nbsp;·&nbsp; ')
+      : '';
     const c = data.counts || {};
     document.getElementById('sigCounts').innerHTML = Object.keys(c).length
       ? Object.entries(c).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('')

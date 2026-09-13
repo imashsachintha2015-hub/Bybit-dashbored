@@ -223,4 +223,29 @@ st = S.direction_stats()
 assert st["decisive_real_win_rate"] == 50, st
 print("  even split reads as 50% -- the no-information case  OK")
 
+# 12) per-gate scoring: which gates block winners
+store.clear()
+def blocked(sym, gates, outcome):
+    r = S.record({"fingerprint": f"{sym}|X|LONG", "symbol": sym, "direction": "LONG",
+                  "setup_type": "X", "grade": "A", "outcome": "NOT_TRADED",
+                  "blocked_gates": gates, "entry": 1.0, "stop": 0.99, "targets": [1.01]})
+    r["shadow_outcome"] = outcome
+    S.save(S.load())
+# macroAligned blocks 4, of which 3 would have won -- a gate costing money
+for i in range(3): blocked(f"M{i}USDT", ["macroAligned"], "WIN")
+blocked("M9USDT", ["macroAligned"], "LOSS")
+# rewardViable blocks 4, of which 1 would have won -- a gate doing its job
+blocked("R0USDT", ["rewardViable"], "WIN")
+for i in range(3): blocked(f"R{i+1}USDT", ["rewardViable"], "LOSS")
+# an unsettled block must not be counted either way
+S.record({"fingerprint": "UUSDT|X|LONG", "symbol": "UUSDT", "direction": "LONG",
+          "setup_type": "X", "grade": "A", "outcome": "NOT_TRADED",
+          "blocked_gates": ["macroAligned"], "entry": 1.0, "stop": 0.99, "targets": [1.01]})
+g = S.gate_stats()
+assert g["macroAligned"]["blocked"] == 4, g["macroAligned"]
+assert g["macroAligned"]["win_rate_of_blocked"] == 75, g["macroAligned"]
+assert g["rewardViable"]["win_rate_of_blocked"] == 25, g["rewardViable"]
+print(f"  gate scoring: macroAligned blocked {g['macroAligned']['win_rate_of_blocked']}% winners, "
+      f"rewardViable {g['rewardViable']['win_rate_of_blocked']}% — unsettled excluded  OK")
+
 print("\nALL SIGNAL LOG TESTS PASSED")

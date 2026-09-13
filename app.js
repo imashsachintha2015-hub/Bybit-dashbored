@@ -423,6 +423,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // with the shadow verdict on the same row, this is what settles
         // whether the panel's hazard calls were worth obeying.
         observed_vetoes: s.observedVetoes || [],
+        // Which named gates were false, not just the prose. Paired with this
+        // row's shadow verdict, it makes each gate independently answerable:
+        // of the setups gate X blocked, how many would have won? A gate that
+        // blocks winners at the same rate it blocks losers is costing trades
+        // for nothing, and prose reasons cannot be grouped to find that out.
+        blocked_gates: Object.entries(s.gateChecks || {})
+          .filter(([, passed]) => passed === false)
+          .map(([name]) => name),
         // Which maker-offset arm this entry used, so fill rate per arm is
         // measurable from live fills rather than from a fill assumption.
         maker_offset_bps: extra && extra.offsetBps != null ? extra.offsetBps : null,

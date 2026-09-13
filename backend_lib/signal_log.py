@@ -82,6 +82,8 @@ def record(body):
         # them. Paired with this row's shadow verdict, this is what settles
         # whether obeying them would have helped.
         "observed_vetoes": body.get("observed_vetoes"),
+        # Named gates that were false, so each can be scored separately.
+        "blocked_gates": body.get("blocked_gates"),
         # Which maker-offset arm this entry used, and what it actually filled
         # at -- the live counterpart to the backtest's fill assumption.
         "maker_offset_bps": body.get("maker_offset_bps"),
@@ -112,7 +114,7 @@ def record(body):
                 for k in ("shadow_outcome", "shadow_exit", "shadow_resolved_at",
                           "shadow_held_ms", "shadow_source",
                           "maker_offset_bps", "fill_price", "observed_vetoes",
-                          "mirror_outcome"):
+                          "mirror_outcome", "blocked_gates"):
                     if existing.get(k) is not None and row.get(k) is None:
                         row[k] = existing[k]
                 row["first_seen"] = existing.get("first_seen") or existing.get("recorded_at")
@@ -245,6 +247,7 @@ def page(page_num=1, limit=25, symbol=None, outcome=None):
         "counts": _counts(load()["signals"]),
         "arms": _arm_stats(load()["signals"]),
         "direction": direction_stats(),
+        "gates": gate_stats(),
     }
 
 
@@ -274,6 +277,32 @@ def direction_stats(rows=None):
         "decisive_n": len(decisive),
         "decisive_real_win_rate": round(100 * dec_real / len(decisive)) if decisive else None,
     }
+
+
+def gate_stats(rows=None):
+    """Per gate: of the setups it blocked, how many would have won anyway.
+
+    A gate earns its place by blocking losers more often than winners. One that
+    blocks them at the same rate is refusing trades for nothing, and one that
+    blocks winners MORE often is actively costing money. Prose reject reasons
+    cannot be grouped, so this counts the named gates instead.
+
+    Only blocked rows whose shadow verdict has settled are counted -- an
+    unresolved block says nothing either way.
+    """
+    rows = load()["signals"] if rows is None else rows
+    out = {}
+    for r in rows:
+        if r.get("shadow_outcome") not in ("WIN", "LOSS"):
+            continue
+        for gate in (r.get("blocked_gates") or []):
+            g = out.setdefault(gate, {"blocked": 0, "would_have_won": 0})
+            g["blocked"] += 1
+            if r["shadow_outcome"] == "WIN":
+                g["would_have_won"] += 1
+    for g in out.values():
+        g["win_rate_of_blocked"] = round(100 * g["would_have_won"] / g["blocked"]) if g["blocked"] else None
+    return out
 
 
 def _arm_stats(rows):
