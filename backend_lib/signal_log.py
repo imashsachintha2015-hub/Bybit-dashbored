@@ -228,7 +228,34 @@ def page(page_num=1, limit=25, symbol=None, outcome=None):
         "total": total,
         "pages": max(1, (total + limit - 1) // limit),
         "counts": _counts(load()["signals"]),
+        "arms": _arm_stats(load()["signals"]),
     }
+
+
+def _arm_stats(rows):
+    """Fill rate per maker-offset arm, over the whole log rather than a page.
+
+    Only orders that actually reached the book count: an entry rejected by the
+    risk governor never tested the offset, and including it would dilute both
+    arms with outcomes the offset had no part in.
+    """
+    arms = {}
+    for r in rows:
+        bps = r.get("maker_offset_bps")
+        if bps is None or r.get("outcome") not in ("ORDER_PLACED", "TAKEN", "NO_FILL"):
+            continue
+        a = arms.setdefault(str(bps), {"placed": 0, "filled": 0, "missed": 0})
+        if r["outcome"] == "TAKEN":
+            a["filled"] += 1
+        elif r["outcome"] == "NO_FILL":
+            a["missed"] += 1
+        else:
+            a["placed"] += 1
+    for a in arms.values():
+        settled = a["filled"] + a["missed"]
+        a["fill_rate"] = round(100 * a["filled"] / settled) if settled else None
+        a["settled"] = settled
+    return arms
 
 
 def _counts(rows):

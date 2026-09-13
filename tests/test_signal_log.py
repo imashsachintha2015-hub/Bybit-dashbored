@@ -169,4 +169,23 @@ S.record(churn("C"))          # a later re-evaluation must not erase the verdict
 assert S.load()["signals"][0]["shadow_outcome"] == "WIN", S.load()["signals"][0]
 print("  settled verdict survives a later fold  OK")
 
+# 10) maker-offset arms: fill rate counts only orders that reached the book
+store.clear()
+def order(sym, bps, outcome):
+    return {"fingerprint": f"{sym}|X|LONG", "symbol": sym, "direction": "LONG",
+            "setup_type": "X", "grade": "A", "outcome": outcome,
+            "maker_offset_bps": bps, "entry": 1.0, "stop": 0.99, "targets": [1.01]}
+for i in range(3): S.record(order(f"F{i}USDT", 10, "TAKEN"))
+S.record(order("M0USDT", 10, "NO_FILL"))
+S.record(order("F9USDT", 20, "TAKEN"))
+for i in range(3): S.record(order(f"M{i+1}USDT", 20, "NO_FILL"))
+S.record(order("RESTUSDT", 20, "ORDER_PLACED"))
+# a risk rejection never tested the offset and must not dilute either arm
+S.record(order("RJUSDT", 20, "REJECTED_RISK"))
+arms = S.page(1, 5)["arms"]
+assert arms["10"]["fill_rate"] == 75 and arms["10"]["settled"] == 4, arms["10"]
+assert arms["20"]["fill_rate"] == 25 and arms["20"]["settled"] == 4, arms["20"]
+assert arms["20"]["placed"] == 1, arms["20"]
+print("  offset arms: 10bps 75% / 20bps 25% fill, resting counted apart, rejection excluded  OK")
+
 print("\nALL SIGNAL LOG TESTS PASSED")

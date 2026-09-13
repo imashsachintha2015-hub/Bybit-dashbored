@@ -115,6 +115,7 @@
     <h2 style="margin-top:22px;">All Suggestions <span style="font-weight:400;opacity:.6;font-size:11px;">— every candidate the engine formed, traded or not. Survives reload.</span></h2>
     <div id="sigCounts" class="sig-counts"></div>
     <div id="sigSkipped" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
+    <div id="sigArms" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
     <div class="sig-filters">
       <button class="sig-f active" data-outcome="">All</button>
       <button class="sig-f" data-outcome="TAKEN">Taken</button>
@@ -321,6 +322,18 @@
     const sc = document.getElementById('sigSkipped');
     if (sc) sc.innerHTML = un.length
       ? `Of ${un.length} resolved suggestions on this page that were NOT taken, <b style="color:var(--green,#3cc878)">${w} would have won</b> and <b style="color:var(--red,#e65050)">${un.length - w} would have lost</b> (${(100*w/un.length).toFixed(0)}% — compare against the win rate of trades actually taken).`
+      : '';
+    // Live A/B on maker offset: the fill rate is the number the backtest cannot
+    // produce, because its fill model assumes a touch is a fill.
+    const arms = data.arms || {};
+    const ae = document.getElementById('sigArms');
+    const keys = Object.keys(arms).sort((a, b) => Number(a) - Number(b));
+    if (ae) ae.innerHTML = keys.length
+      ? 'Maker offset test — ' + keys.map(k => {
+          const a = arms[k];
+          const rate = a.fill_rate == null ? 'no settled orders yet' : `${a.fill_rate}% filled`;
+          return `<b>${esc(k)}bps</b>: ${rate} (${a.filled}/${a.settled}${a.placed ? `, ${a.placed} resting` : ''})`;
+        }).join(' &nbsp;·&nbsp; ')
       : '';
     const c = data.counts || {};
     document.getElementById('sigCounts').innerHTML = Object.keys(c).length

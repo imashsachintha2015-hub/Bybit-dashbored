@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return [sym, s.setupType || '', s.direction || ''].join('|');
   }
 
-  async function logSignal(sym, s, outcome, rejectReason) {
+  async function logSignal(sym, s, outcome, rejectReason, extra) {
     try {
       await postJSON('/api/trades/record?_action=signal', {
         fingerprint: signalFingerprint(sym, s),
@@ -422,7 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Vetoes the panel raised in observe mode but did NOT act on. Paired
         // with the shadow verdict on the same row, this is what settles
         // whether the panel's hazard calls were worth obeying.
-        observed_vetoes: s.observedVetoes || []
+        observed_vetoes: s.observedVetoes || [],
+        // Which maker-offset arm this entry used, so fill rate per arm is
+        // measurable from live fills rather than from a fill assumption.
+        maker_offset_bps: extra && extra.offsetBps != null ? extra.offsetBps : null,
+        fill_price: extra && extra.fillPrice != null ? extra.fillPrice : null
       });
     } catch (e) {
       // Logging must never be able to interfere with trading.
@@ -492,7 +496,28 @@ document.addEventListener('DOMContentLoaded', () => {
   // is what turned the backtest from -0.137R (taker) to +0.155R..+0.288R
   // (maker, 20-30bps offset, 287-300 trades). 20bps is used here: solidly
   // inside the range actually measured, rather than the untested edge of it.
-  const MAKER_OFFSET_BPS = 20;
+  // A/B test on real demo fills, because the backtest cannot settle this.
+  //
+  // Its fill model assumes a resting order fills whenever price touches the
+  // limit -- no queue position, no adverse selection -- which systematically
+  // flatters wider offsets: it never charges for the fills you would miss, nor
+  // for the ones you would regret getting. Demo orders rest on the real book,
+  // so their fill rate is the genuine number.
+  //
+  // Each entry is assigned an offset deterministically from the symbol and the
+  // minute it fires. That keeps assignment independent of anything about the
+  // setup -- alternating by trade order would correlate the arm with market
+  // conditions, since setups cluster in time -- while staying reproducible.
+  // The chosen offset is recorded on the signal row, so fill rate and realised
+  // entry can later be compared per arm on live data rather than on a fill
+  // assumption.
+  const MAKER_OFFSET_ARMS = [10, 20];
+  function makerOffsetFor(sym) {
+    const bucket = Math.floor(Date.now() / 60000);
+    let h = bucket;
+    for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) | 0;
+    return MAKER_OFFSET_ARMS[Math.abs(h) % MAKER_OFFSET_ARMS.length];
+  }
   // Stop and invalidation distances, as multiples of what the playbook proposes.
   //
   // Measured cause: across 98 backtested trades the median bar spanned 1.39R
@@ -561,13 +586,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const wideInvalidation = s.invalidation != null
       ? ref - Math.sign(ref - s.invalidation) * Math.abs(ref - s.invalidation) * INVALIDATION_MULT
       : s.invalidation;
+    const offsetBps = makerOffsetFor(sym);
     // Priced BELOW market for a long, ABOVE market for a short -- it only
     // fills if price comes back to a better level than it's at right now,
     // which is what makes this a maker (rebate-side) fill instead of a
     // taker (fee-side) one.
     const rawLimit = side === 'Buy'
-      ? price * (1 - MAKER_OFFSET_BPS / 10000)
-      : price * (1 + MAKER_OFFSET_BPS / 10000);
+      ? price * (1 - offsetBps / 10000)
+      : price * (1 + offsetBps / 10000);
     const limitPrice = roundPrice(sym, rawLimit);
 
     const meta = COIN_META[sym] || {};
@@ -597,11 +623,11 @@ document.addEventListener('DOMContentLoaded', () => {
           stopLoss: wideStop, invalidation: wideInvalidation, targets: s.takeProfit,
           riskAmount: sized.riskAmount, setupName: s.setupType, grade: s.grade,
           score: s.score, regime: s.regime, narrative: s.narrative,
-          placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS
+          placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS, offsetBps
         };
-        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${wideStop} (${STOP_MULT}x) · invalidation ${wideInvalidation} (${INVALIDATION_MULT}x) | R:R ${s.riskReward}`);
+        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${offsetBps}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${wideStop} (${STOP_MULT}x) · invalidation ${wideInvalidation} (${INVALIDATION_MULT}x) | R:R ${s.riskReward}`);
         pendingEntries[sym].signalState = s;
-        logSignal(sym, s, 'ORDER_PLACED', '');
+        logSignal(sym, s, 'ORDER_PLACED', '', { offsetBps });
       } else {
         logEvent(`Order rejected for ${sym}: ${res.retMsg || 'unknown error'}`);
         logSignal(sym, s, 'REJECTED_EXCHANGE', res.retMsg || 'unknown error');
@@ -628,7 +654,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryPrice = parseFloat(filled.avgPrice || p.limitPrice);
         // The maker offset is only worth what it actually captures, so record
         // the realised improvement against the limit rather than assuming it.
-        if (p.signalState) logSignal(sym, p.signalState, 'TAKEN', `filled @ ${entryPrice}`);
+        if (p.signalState) logSignal(sym, p.signalState, 'TAKEN', `filled @ ${entryPrice}`,
+          { offsetBps: p.offsetBps, fillPrice: entryPrice });
         positionManager.open({
           symbol: sym, side: p.side, entryPrice,
           stopLoss: p.stopLoss, invalidation: p.invalidation, targets: p.targets,
@@ -648,7 +675,8 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           if (res.retCode === 0) {
             logEvent(`Limit entry for ${sym} ${p.side.toUpperCase()} unfilled after ${Math.round(MAKER_TIMEOUT_MS / 60000)}m at ${p.limitPrice.toLocaleString()} — cancelled, standing aside`);
-            if (p.signalState) logSignal(sym, p.signalState, 'NO_FILL', `limit ${p.limitPrice} never reached in ${Math.round(MAKER_TIMEOUT_MS / 60000)}m`);
+            if (p.signalState) logSignal(sym, p.signalState, 'NO_FILL', `limit ${p.limitPrice} never reached in ${Math.round(MAKER_TIMEOUT_MS / 60000)}m`,
+              { offsetBps: p.offsetBps });
             toDrop.push(sym);
           } else if (!p.cancelWarned) {
             // Cancel racing an actual fill is expected, not exceptional --
