@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 
 from . import llm_budget
+from . import track_record as track_record_mod
 from . import market as market_mod
 from . import news as news_mod
 
@@ -27,7 +28,16 @@ SUPERVISOR_SYSTEM = (
     "should NOT be taken right now that the local gates could have missed — a "
     "known event, a contradiction between the stated evidence, or an obviously "
     "poor location. Default to CONFIRM. Reserve VETO for a concrete, nameable "
-    "problem. Reply with JSON only, no prose, no code fences."
+    "problem. Reply with JSON only, no prose, no code fences.\n\n"
+    "When a TRACK RECORD section is present it is real measured history, not "
+    "suggestion. Use it as follows. Where it shows a setup type or symbol has "
+    "repeatedly failed in a specific way, that pattern is a concrete nameable "
+    "problem and is grounds to DOWNGRADE or VETO a candidate about to repeat "
+    "it. Where it shows your own confirmations have not outperformed your "
+    "doubts, lower your confidence accordingly — you are not calibrated on "
+    "this system yet. Never treat a small sample as proof: the record states "
+    "its own counts, and fewer than a handful of trades supports no conclusion "
+    "in either direction. Absence of history is not evidence against a trade."
 )
 
 
@@ -66,6 +76,14 @@ def run_supervisor_verdict(payload):
         }
 
     evidence_lines = "\n".join(f"- {e}" for e in evidence[:8]) or "- (none supplied)"
+    # What this system has actually done before, so the same mistake is not
+    # repeated indefinitely by a reviewer with no memory of making it.
+    try:
+        record = track_record_mod.build(symbol, setup)
+    except Exception as e:
+        print(f"[supervisor] track record unavailable: {e}")
+        record = ""
+    record_block = f"\n\nTRACK RECORD (measured, not hypothetical):\n{record}" if record else ""
     prompt = f"""Candidate: {direction} {symbol}
 Setup: {setup} | local quality score {score}/100 (grade {grade})
 Regime: {regime}, higher-timeframe bias {bias}
@@ -76,7 +94,7 @@ Local evidence:
 
 Context:
 - News sentiment: {news_state.get('sentiment_label')} ({news_state.get('sentiment_score')}); latest: "{news_state.get('headline')}"
-- Macro: BTC dominance {macro_state.get('btc_dominance')}%, total market cap 24h {macro_state.get('market_cap_change_24h_pct')}%, risk-off: {macro_state.get('risk_off')}
+- Macro: BTC dominance {macro_state.get('btc_dominance')}%, total market cap 24h {macro_state.get('market_cap_change_24h_pct')}%, risk-off: {macro_state.get('risk_off')}{record_block}
 
 Reply with exactly this JSON:
 {{"verdict":"CONFIRM|DOWNGRADE|VETO","confidence":0-100,"rationale":"one sentence, max 30 words","risk":"the single biggest risk to this trade, max 15 words"}}"""
