@@ -150,8 +150,20 @@
        * terms. Shipping the mode that measured worse because it sounds more
        * sophisticated would be the same mistake V2 made with its agent names.
        */
+      // 'off'      -- panel does not run at all
+      // 'observe'   -- panel runs and is reported, but changes NO decision
+      // 'advisory'  -- panel runs and its fatal hazard vetoes block entries
+      // 'gating'    -- advisory, plus direction agreement and score modulation
+      //
+      // 'observe' exists because the choice used to be between blindness and
+      // cost. Part IX measured advisory mode rejecting ~70% of setups through
+      // its fatal vetoes, taking total R from +46.5 to +17.8, so the panel was
+      // switched off and its reasoning went with it. Observe keeps the analysis
+      // visible and recorded while leaving execution untouched, so whether
+      // those vetoes were right becomes measurable instead of assumed.
       this.swarmMode = options.swarmMode || (options.swarmEnabled === false ? 'off' : 'advisory');
       this.swarmEnabled = this.swarmMode !== 'off';
+      this.swarmDecides = this.swarmMode === 'advisory' || this.swarmMode === 'gating';
     }
 
     // ─── Ingestion ───
@@ -452,14 +464,23 @@
       // rules, not opinions: they describe a specific reason this entry is
       // structurally bad, and none of them depends on the panel guessing
       // direction correctly.
+      let observedVetoes = [];
       if (best && this.swarmEnabled) {
         const fatal = (verdict.fatalVetoes || []).filter(f => {
           const target = Debate && Debate.vetoTarget ? Debate.vetoTarget(f.veto) : null;
           return !target || target === best.direction;
         });
-        gates.noFatalHazard = fatal.length === 0;
-        for (const f of fatal) blocks.push(`${f.source}: ${f.veto}`);
+        if (this.swarmDecides) {
+          gates.noFatalHazard = fatal.length === 0;
+          for (const f of fatal) blocks.push(`${f.source}: ${f.veto}`);
+        } else {
+          // Observe mode: record what the panel WOULD have blocked without
+          // acting on it, so the veto's value can be settled from outcomes
+          // rather than argued from priors.
+          observedVetoes = fatal.map(f => `${f.source}: ${f.veto}`);
+        }
       }
+      this.lastObservedVetoes = observedVetoes;
 
       const allPassed = Object.values(gates).every(v => v === true);
 
@@ -568,6 +589,9 @@
         patternScore: candidateScore,
         panelConviction: candidatePanelConviction,
         swarmMode: this.swarmMode,
+        // Present only in observe mode: vetoes the panel raised that were not
+        // acted on. Empty in advisory/gating, where they became blocks.
+        observedVetoes: this.lastObservedVetoes || [],
         analystWeights: this.metaLearner ? this.metaLearner.weights(regime ? regime.regime : 'UNKNOWN') : {},
         whale: Object.assign({}, this.whaleSignal),
         news: { label: this.newsSignal.sentimentLabel, score: this.newsSignal.sentimentScore, headline: this.newsSignal.headline },

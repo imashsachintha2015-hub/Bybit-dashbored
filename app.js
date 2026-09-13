@@ -257,19 +257,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // of the analyst and the regime, not of the ticker.
   const metaLearner = new SwarmMetaLearner.MetaLearner();
 
-  // swarmMode 'off' -- research/README.md Part IX ran this project's full
-  // 418-day/4-symbol backtest with the 7-analyst swarm's advisory gating
-  // both on and off. 'off' produced a smooth, monotonic, trustworthy
-  // expectancy curve (+0.155R to +0.288R over 287-300 trades); 'advisory'
-  // collapsed the sample to 76-94 trades and rode on analyst-reliability
+  // swarmMode 'observe' -- the panel runs and is reported, but decides nothing.
+  //
+  // Part IX ran the full 418-day/4-symbol backtest with the 7-analyst swarm's
+  // advisory gating both on and off. 'off' produced a smooth, monotonic
+  // expectancy curve over 287-300 trades; 'advisory' collapsed the sample to
+  // 76-94 trades -- its fatal hazard vetoes reject roughly 70% of setups --
+  // taking total R from +46.5 to +17.8, while riding on analyst-reliability
   // weights the meta-learner's own code considers statistically premature
-  // (most cells n=11-31, below its ~15-observation trust floor). This was
-  // running 'advisory' live, i.e. the mode the project's own research
-  // recommends against. The panel/debate code stays in place -- getState()
-  // still reports panel=[] and a null-thesis verdict so the UI can say
-  // truthfully that the swarm is off, not "warming up".
+  // (most cells n=11-31, below its ~15-observation trust floor).
+  //
+  // So the panel was switched off, and its reasoning went dark with it: the
+  // choice was between blindness and a measured cost. 'observe' is neither.
+  // The panel produces its reads, the UI shows them, and every veto it WOULD
+  // have applied is recorded without being applied -- so whether those vetoes
+  // were right becomes answerable from live outcomes in the signal log rather
+  // than from an 83-trade backtest built on premature weights.
   WATCHLIST.forEach(sym => {
-    engines[sym] = new MasisEngine({ symbol: sym, metaLearner, swarmMode: 'off' });
+    engines[sym] = new MasisEngine({ symbol: sym, metaLearner, swarmMode: 'observe' });
     whaleTrackers[sym] = typeof WhaleTracker !== 'undefined' ? new WhaleTracker({ symbol: sym }) : null;
   });
 
@@ -408,7 +413,11 @@ document.addEventListener('DOMContentLoaded', () => {
           verdict: s.llmVerdict.verdict, confidence: s.llmVerdict.confidence,
           rationale: s.llmVerdict.rationale, is_fallback: s.llmVerdict.is_fallback
         } : null,
-        evidence: (s.components || []).map(c => `${c.label}: ${c.detail}`)
+        evidence: (s.components || []).map(c => `${c.label}: ${c.detail}`),
+        // Vetoes the panel raised in observe mode but did NOT act on. Paired
+        // with the shadow verdict on the same row, this is what settles
+        // whether the panel's hazard calls were worth obeying.
+        observed_vetoes: s.observedVetoes || []
       });
     } catch (e) {
       // Logging must never be able to interfere with trading.
@@ -439,16 +448,23 @@ document.addEventListener('DOMContentLoaded', () => {
       llmGovernor.completeCall(gate.fingerprint, res);
       engines[sym].setLlmVerdict(Object.assign({}, res, { symbol: sym, direction: s.direction, at: Date.now() }));
       logEvent(`Supervisor on ${sym} ${s.direction} ${s.setupType}: ${res.verdict}${res.rationale ? ' — ' + res.rationale : ''}${res.is_fallback ? ' (local fallback)' : ''}`);
-      renderSupervisorPanel(sym, res);
+      renderSupervisorPanel(sym, res, { setup: s.setupType, direction: s.direction });
     } catch (e) {
       llmGovernor.failCall();
       logEvent(`Supervisor call failed for ${sym}: ${e.message} — local gates stand unmodified`);
     }
   }
 
-  function renderSupervisorPanel(sym, res) {
+  // The verdict is about ONE candidate on ONE symbol. This panel is a single
+  // global element sitting under the focused symbol's setup card, so painting
+  // it from whichever symbol was consulted most recently put a verdict about
+  // INJ's range-fade long underneath BTC's breakout-retest short. Render only
+  // when the verdict belongs to the symbol on screen, and say which setup and
+  // direction it judged so a stale one is recognisable rather than misleading.
+  function renderSupervisorPanel(sym, res, about) {
     const out = $('deepseekOutput'), meta = $('deepseekMeta');
     if (!out || !meta) return;
+    if (sym !== state.symbol) return;
     out.style.display = 'block';
     out.textContent = [
       `VERDICT: ${res.verdict}  (confidence ${res.confidence}/100)`,
@@ -457,7 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
       res.is_fallback ? `\n[Local fallback — ${res.fallback_reason}]\nThe verdict above did not come from the model. Local gates decide on their own; an unreachable supervisor never blocks a valid trade and never approves an invalid one.` : ''
     ].filter(Boolean).join('\n');
     const st = llmGovernor.status();
-    meta.textContent = `${sym} · ${new Date().toTimeString().split(' ')[0]} · ${res.is_fallback ? 'local' : 'model'} · ${st.callsToday}/${st.dailyBudget} calls today · ${st.totalSkipped} skipped`;
+    const subject = about && about.setup ? ` · on ${about.setup} ${about.direction || ''}`.trimEnd() : '';
+    meta.textContent = `${sym}${subject} · ${new Date().toTimeString().split(' ')[0]} · ${res.is_fallback ? 'local' : 'model'} · ${st.callsToday}/${st.dailyBudget} calls today · ${st.totalSkipped} skipped`;
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -1217,6 +1234,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!panel.length) {
       el.innerHTML = s.swarmMode === 'off'
         ? '<div class="analyst-empty">Analyst panel is disabled — research/README.md Part IX found its advisory gating adds no validated edge over trading without it, riding on analyst-reliability samples too small to trust.</div>'
+        : s.swarmMode === 'observe' && !panel.length
+        ? '<div class="analyst-empty">Analyst panel is warming up — it needs higher-timeframe history before it will offer a read.</div>'
         : '<div class="analyst-empty">Analyst panel is warming up — it needs higher-timeframe history before it will offer a read.</div>';
       return;
     }
