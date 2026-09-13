@@ -2625,6 +2625,13 @@ on 120,099 5m bars per symbol (2025-07-22 → 2026-09-12), Part IX's four symbol
 | profit factor | 0.76 | **1.28** |
 | max drawdown | **15.5%** | **5.6%** |
 
+A third width confirms the plateau survives the long window too: 3.0 × 2.0
+returns n=236, 56.4%, **+0.108R**, +25.38R, PF 1.34, max drawdown 5.2% — within
+noise of 2.5 × 2.0, and the two swap order between the 42-day and 418-day
+windows (2.5 wins the short one, 3.0 the long one by +0.004R). Nothing turns on
+the exact multiplier anywhere in the 2.0–3.0 band, which is the useful finding:
+there is no parameter here to tune or to overfit.
+
 The fix holds on 2.4× the sample and 10× the window, in the same direction and
 at similar magnitude. The drawdown result is arguably the more important half:
 15.5% → 5.6% at identical per-trade risk means the old geometry was not merely
