@@ -2023,6 +2023,17 @@ sometimes slightly better by AUC.
 
 ## Shuffle: a real surprise — breadth acceleration, not momentum, is the single biggest lever
 
+> **⚠ SUPERSEDED — see Part XVIII.** The conclusion in this section does not
+> survive. Refitting with BA removed (Part XVIII, Part A) shows the model is
+> *better* without it, at every differencing lag and under every composition of
+> the breadth average. The shuffle test below measures how much a feature moves
+> the frozen model's output, which is not the same as how much it contributes —
+> and BA is 0.56–0.58 correlated with momentum by construction, because BTC and
+> ETH are 89.5% of the dollar-volume weight in the breadth average it
+> differences. Ridge splits weight across a collinear pair, producing a large
+> shuffle effect with no removal cost. The rest of this part (the leak checks,
+> the single-asset refits, the regime split) is unaffected.
+
 Each of the 15 features was shuffled across time independently (breaks
 temporal alignment, keeps the marginal distribution identical) — this
 asks a sharper question than removal: does *when* this feature said what
@@ -2125,7 +2136,9 @@ here, now with a mechanism attached rather than just a number:
 > **A short-horizon, BTC/ETH-specific continuation effect, present
 > specifically when recent momentum is positive, driven mostly by (1) the
 > asset's own plain (not coherence/regime-modulated) momentum and (2) —
-> unexpectedly, and more strongly — market-wide breadth acceleration.
+> unexpectedly, and more strongly — market-wide breadth acceleration.**
+> *[Part XVIII retracts clause (2): BA contributes nothing. It also rewrites
+> "BTC/ETH-specific" as the top of a 16-coin liquidity gradient.]* **
 > Volatility framing and volume framing, as encoded in this formula, are
 > not load-bearing. It shows no sign of the leakage shape a real leak
 > would produce, and it does not depend on cross-asset training data to
@@ -2152,3 +2165,510 @@ here, now with a mechanism attached rather than just a number:
   Part XV/XVI's failed attempt at that, but built around momentum sign
   as a hard gate rather than a continuous feature — follows directly
   from this result.
+
+# Part XVIII — CME-X5: the breadth finding was an artifact, and the real result is a liquidity gradient
+
+Part XVII closed with two recommendations, and the user picked both: isolate
+breadth acceleration (BA), which the forensic study had flagged as a bigger
+lever than momentum itself, and test whether the BTC/ETH edge has an
+asset-normalized representation — is it a *BTC/ETH fact* or a *large-cap
+fact*? Those became Parts A and B below. Parts C and D were added mid-study
+when the first results made them necessary.
+
+```bash
+node research/cme-x5-normalization.js --cost 4          # Parts A-D
+node research/cme-x5-collinearity.js                    # the corr(M_COH, BA) diagnostic
+```
+
+Raw output is committed at `research/results/cme-x5-run-ABC.log` and
+`research/results/cme-x5-run-BD.log`.
+
+## Part A — breadth acceleration is not the engine. It is not even load-bearing.
+
+Refit the frozen Part XIV construction on DOGE+LINK+AVAX under seven feature
+subsets, test on BTC/ETH. 6 coins, 40,099 aligned bars (418 days), fit
+horizon 4, eval horizon 2, ±0.5% barrier, 4bps cost.
+
+| variant (refit each time) | BTC AUC | BTC WR | BTC expR | ETH AUC | ETH WR |
+|---|---|---|---|---|---|
+| full 15-feature (reference) | 0.557 | 62.6% | +0.212 | 0.547 | 58.8% |
+| minus BA | **0.563** | 61.1% | +0.181 | 0.547 | 58.2% |
+| minus momentum (M_COH) | 0.552 | 62.1% | +0.201 | 0.544 | 57.1% |
+| minus ALL cross-asset (8 terms) | **0.571** | 59.7% | +0.154 | 0.551 | 57.7% |
+| BA only (1 feature) | 0.554 | 54.5% | +0.050 | 0.547 | 54.2% |
+| **momentum only (1 feature)** | **0.574** | 60.8% | +0.176 | **0.558** | 56.7% |
+| momentum + BA (2 features) | 0.559 | 55.4% | +0.067 | 0.550 | 55.2% |
+
+**This reverses Part XVII's headline.** Removing BA does not hurt the model —
+it slightly improves it (0.557 → 0.563). A single momentum feature beats the
+full fifteen (0.574 vs 0.557), and dropping all eight cross-asset terms is the
+second-best variant. Adding BA *to* momentum actively destroys the signal:
+0.574/60.8%/+0.176 collapses to 0.559/55.4%/+0.067.
+
+BA-only deserves its own line. Its AUC (0.554) looks respectable, but its
+top-decile win rate is only 54.5% against momentum-only's 60.8%. BA's ranking
+information is diffuse — it does not concentrate in the high-conviction tail
+where trades are actually taken. AUC alone would have hidden that.
+
+The BA differencing-lag sweep (momentum+BA, 2 features) says the same thing
+from another direction:
+
+| BA lag | BTC AUC | BTC WR |
+|---|---|---|
+| 4 bars | 0.563 | 57.5% |
+| 8 bars | 0.569 | 60.0% |
+| **16 bars — the lag Parts XIV–XVII all used** | **0.559** | **55.4%** |
+| 32 bars | 0.570 | 59.9% |
+| 64 bars | 0.574 | 60.5% |
+| *momentum only, BA absent entirely* | *0.574* | *60.8%* |
+
+There is no monotone structure — the spread is noise around a flat line, which
+is what a feature carrying no signal looks like. Two details stand out. The
+16-bar window every prior part was built on happens to be the **worst** of the
+five tested. And performance peaks at lag 64 at exactly the momentum-only
+numbers: at that window BA is slow enough that ridge shrinks it out, and the
+2-feature model converges on the 1-feature model. The best the BA model can do
+is stop using BA.
+
+## Why Part XVII got this wrong — measured, not assumed
+
+Part XVII's BA claim rested on a **shuffle** test against **frozen** weights:
+shuffle each feature across time, see which one moves the output most. BA moved
+it most (−0.040 AUC vs momentum's −0.026) and carried the largest fitted
+weight, so it was reported as the biggest lever. BA was never removal-tested
+there; the removal table covered only momentum, volatility, volume, and the
+nonlinear interaction. Part A is the first test that actually asks whether BA
+*helps*, and it answers the opposite way.
+
+Part C explains the mechanism. `BA` differences `BREADTH_M`, a
+**dollar-volume-weighted** average of every coin's momentum — and in the 6-coin
+universe **BTC and ETH are 89.5% of that weight**. "Market-wide breadth" was
+mega-cap momentum wearing a different name. Six recompositions of the breadth
+average, each refit and tested on BTC/ETH:
+
+| breadth composition | BTC AUC | BTC WR | ETH AUC | ETH WR |
+|---|---|---|---|---|
+| dollar-vol wtd, all coins (reference) | 0.559 | 55.4% | 0.550 | 55.2% |
+| dollar-vol wtd, excluding the test coin | 0.557 | 54.5% | 0.546 | 55.3% |
+| equal wtd, all coins | 0.555 | 54.1% | 0.549 | 54.3% |
+| equal wtd, excluding the test coin | 0.554 | 55.1% | 0.548 | 54.9% |
+| BTC+ETH only (pure mega-cap momentum) | 0.559 | 56.9% | 0.550 | 55.1% |
+| alts only (BTC+ETH removed entirely) | 0.554 | 57.6% | 0.547 | 56.3% |
+
+Every composition lands in AUC 0.554–0.559, and every one is worse than
+dropping BA altogether (0.574). Note that **BTC+ETH-only breadth reproduces the
+reference exactly** (0.559 both), which is what an 89.5% weight share predicts.
+BA's composition is irrelevant because BA is inert.
+
+`research/cme-x5-collinearity.js` measures the cause directly —
+corr(M_COH, BA) per coin over 39,755 rows each:
+
+| ETH | BTC | SOL | LINK | DOGE | AVAX |
+|---|---|---|---|---|---|
+| 0.577 | 0.560 | 0.515 | 0.511 | 0.495 | 0.470 |
+
+BA is most collinear with own-momentum **precisely for the two coins that
+dominate the breadth average** — as the weight share predicts. Ridge splits
+weight across a collinear pair, which makes the output highly sensitive to each
+of them individually while neither carries information the other lacks. That
+produces exactly what was observed: a large shuffle effect alongside zero
+removal cost.
+
+> **Standing methodological rule for this project, from here on.** Shuffle
+> sensitivity against frozen weights measures *leverage on the output*, not
+> *contribution to accuracy*. The two come apart whenever features are
+> collinear — which, in a hand-built feature set full of overlapping market
+> aggregates, is the normal case rather than the exception. No feature-importance
+> claim stands without a refit-and-remove test behind it.
+
+## Part B — the edge is a liquidity gradient, not a BTC/ETH identity
+
+The confound in every prior part: with 6 coins, BTC and ETH are *always* the
+two most liquid, so "coin identity" and "liquidity rank" are perfectly
+collinear and cannot be told apart. This widens the universe to 16 coins,
+ranks them by median dollar volume per bar, and runs leave-one-asset-out —
+train on the other 15, test on the held-out coin. 20,089 aligned bars
+(2026-02-15 → 2026-09-12); the inner join is bounded by the shortest series,
+so absolute numbers are **not** comparable to Part A's 418-day window.
+
+Momentum-only (Part A's best model):
+
+| rank | coin | AUC | WR | expR | p |
+|---|---|---|---|---|---|
+| 1 | ETH | 0.562 | 57.6% | +0.112 | 0.003 |
+| 2 | BTC | 0.585 | 61.7% | +0.194 | 0.003 |
+| 3 | SOL | 0.544 | 54.4% | +0.048 | 0.043 |
+| 4 | DOGE | 0.542 | 52.4% | +0.008 | 0.292 |
+| 5 | XRP | 0.538 | 53.7% | +0.034 | 0.136 |
+| 6 | ADA | 0.528 | 53.1% | +0.023 | 0.066 |
+| 7 | LINK | 0.530 | 55.0% | +0.059 | 0.023 |
+| 8 | NEAR | 0.503 | 50.9% | −0.021 | 0.601 |
+| 9 | BCH | 0.514 | 47.9% | −0.081 | 0.306 |
+| 10 | AVAX | 0.536 | 55.1% | +0.062 | 0.013 |
+| 11 | LTC | 0.525 | 52.2% | +0.003 | 0.462 |
+| 12 | DOT | 0.518 | 53.1% | +0.021 | 0.150 |
+| 13 | ARB | 0.515 | 50.1% | −0.037 | 0.934 |
+| 14 | OP | 0.520 | 53.5% | +0.030 | 0.013 |
+| 15 | APT | 0.513 | 50.1% | −0.037 | 0.904 |
+| 16 | ATOM | 0.505 | 50.2% | −0.036 | 0.927 |
+
+**Spearman(liquidity rank, AUC) = −0.815** (momentum-only), −0.762 under
+momentum+BA. Rank-vs-win-rate −0.644. Top-2 mean AUC 0.5733 against 0.5237 for
+the other fourteen; top-5 0.5541 against bottom-5 0.5142. With n=16 the p=0.001
+critical value is ≈0.72, so this clears it comfortably, and it is *stronger*
+under the better model rather than weaker.
+
+Read plainly: **BTC and ETH are the top of a smooth gradient, not outliers off
+it.** SOL, DOGE, XRP, LINK and AVAX all sit above chance in the middle; the
+bottom of the ranking sits at 0.505–0.520. That is the shape of a large-cap
+effect with an asset-normalized representation, not a two-coin curiosity.
+
+## Part D — how much of that gradient is the barrier, not the market?
+
+Part B's `topN` column undercuts a naive reading. Every coin is scored against
+the **same absolute ±0.5%** barrier over 2 bars, but illiquid coins are more
+volatile and resolve that race far more often — BTC produced 368 resolved
+top-decile bars against OP's 1,342. For BTC the label therefore only exists
+when a ≥0.5% move happened inside 30 minutes: a heavily selected, trending
+subset that a momentum feature is naturally good at calling. For OP almost
+everything resolves and the problem is near-unconditional.
+
+Measured, the three are collinear: Spearman(liquidity rank, volatility) =
+**+0.638**, Spearman(liquidity rank, resolution rate) = **+0.626**. So the
+gradient could be measuring how selective an absolute target is on a
+low-volatility asset rather than anything about large-cap markets.
+
+Part D equalizes label difficulty: each coin gets its own barrier, found by
+bisection so all coins resolve at the same rate (39.9%, the median under the
+fixed barrier, so labels are re-scaled rather than made uniformly harder),
+calibrated on the **first 30% of bars only** and then held fixed, so the
+barrier never sees the evaluation window. BTC's barrier tightens to ±0.382%
+and its resolution rate rises 18.0% → 28.9%; OP's widens to ±0.750% and falls
+60.3% → 36.6%.
+
+| | momentum only | momentum + BA |
+|---|---|---|
+| Spearman(rank, AUC), fixed ±0.5% barrier | −0.815 | −0.762 |
+| **Spearman(rank, AUC), equalized labels** | **−0.665** | **−0.650** |
+| top-2 vs rest AUC gap, fixed barrier | 0.0496 | 0.0505 |
+| **top-2 vs rest AUC gap, equalized** | **0.0332** | **0.0341** |
+
+**The gradient attenuates but survives.** Roughly a third of the top-2-vs-rest
+gap was barrier scaling; the rest is not. BTC's AUC falls 0.585 → 0.561 once
+its labels stop being so heavily selected, while ETH is nearly unchanged
+(0.562 → 0.563) — so the single most impressive number in Part B was partly an
+artifact, and the effect is real but smaller than first measured.
+
+A partial rank correlation nets volatility out entirely:
+
+- Spearman(rank, AUC) = −0.665
+- Spearman(rank, volatility) = +0.638
+- Spearman(volatility, AUC) = −0.359
+- **partial Spearman(rank, AUC | volatility) = −0.606**
+
+Liquidity still predicts edge strength after volatility is removed, and does so
+better than volatility predicts it directly. The gradient is a liquidity
+gradient, not a volatility gradient wearing liquidity's clothes.
+
+**Honest limit on the equalization.** Bisection compressed the resolution-rate
+*spread* from 42.8pp (18.0–60.8%) to 17.3pp (28.9–46.1%), but did not change
+the rank *ordering* — Spearman(rank, resolution rate) is +0.626 before and
++0.626 after. Because the calibration window is the first 30% and the barrier
+is then frozen, out-of-window drift keeps a monotone residual. So Part D
+removes most of the magnitude of the confound but not all of its ordering, and
+−0.665 should be read as an upper bound on the surviving gradient rather than a
+fully cleaned estimate.
+
+## Conclusion
+
+Three things changed in this study, and only one of them is good news.
+
+1. **Part XVII's breadth-acceleration finding does not survive.** BA is nowhere
+   near the dominant lever it was reported to be. The finding was an artifact of
+   reading shuffle sensitivity as importance on a feature that is 0.56–0.58
+   collinear with momentum by construction.
+   *Precision about how far this goes:* in Part A's setting (6 coins, 418 days,
+   fixed ±0.5% barrier) BA is actively harmful — momentum-only beats momentum+BA
+   0.574/60.8% to 0.559/55.4%. In Part D's setting (16 coins, equalized labels)
+   the two are near-identical, with BA marginally *ahead* (top-2 AUC 0.5642 vs
+   0.5619; 10 of 16 coins clear breakeven vs 9). So "BA is not the engine" is
+   robust everywhere; "BA actively hurts" holds in Part A's window and not in
+   Part D's, and should not be stated unconditionally.
+2. **The whole cross-asset apparatus built across Parts XIV–XVII is
+   net-negative.** One plain momentum feature outperforms all fifteen. Fourteen
+   features of breadth, synchronization, entropy, liquidity and dispersion
+   subtract from a model that a single momentum term carries.
+3. **The BTC/ETH-specificity from Part XVII is better described as a liquidity
+   gradient.** Across 16 coins, edge strength is a strong monotone function of
+   liquidity rank (−0.815 raw, −0.665 with label difficulty equalized, −0.606
+   net of volatility). BTC and ETH are the top of that gradient, not outliers
+   off it.
+
+The user's standing instruction — *do not force universality* — is what makes
+(3) reportable. The honest label is not "a universal formula" and no longer
+"a BTC/ETH-specific effect" either: it is **a short-horizon momentum
+continuation effect whose strength scales with venue liquidity, strongest in
+the two most liquid assets and decaying smoothly to nothing by the bottom of a
+16-coin liquidity ranking.** That *is* an asset-normalized representation — the
+production rule it implies is "trade the top-k by liquidity," which survives
+the universe changing next cycle, rather than "trade BTC and ETH because they
+are BTC and ETH."
+
+What it does not imply is that the thing is large. Under equalized labels at
+4bps, only the top three coins clear +0.05R on top-decile selections, and most
+of the ranking sits at or below zero expectancy. Part XVI's verdict still
+stands where it applies: nothing here survives contact with a materially worse
+cost assumption.
+
+## What follows from this
+
+- **Any future model built from this research track should start at momentum
+  and justify every addition against it.** Every result in this part points the
+  same way: one plain momentum feature is the baseline that fourteen hand-built
+  market aggregates failed to beat.
+  *(To be explicit about scope: this implies no change to the live engine. The
+  CME-X feature set was never wired into it — `app.js` and `masis-engine.js`
+  contain no breadth, coherence, synchronization or entropy terms. Parts
+  XIV–XVIII are an offline research track, and nothing in them has yet earned
+  a place in live trading.)*
+- **Re-audit Parts XIV–XVI for the same shuffle/collinearity error.** Part XV's
+  interaction terms and Part XVI's 2×2 both leaned on importance arguments that
+  were never refit-and-remove tested. The label-pooling bug already showed this
+  project's studies share failure modes across parts.
+- **Test the liquidity gradient forward, not just cross-sectionally.** Rank is
+  measured over the same window the edge is measured in. The rule "trade the
+  top-k by liquidity" is only useful if rank measured in one period predicts
+  edge in the *next* — that is a different and harder test than the one run here.
+- **The positive-momentum-only asymmetry from Part XVII is still untested** and
+  is now the most interesting surviving lead, since momentum is the only feature
+  left standing.
+
+# Part XIX — CME-X6: can the rate be raised without inventing another formula?
+
+The user asked whether the win rate could be raised by inventing more formulas
+rather than depending on one. Parts XIV–XVIII answer the formula half: no —
+five successive formula families, and fifteen hand-built features lost to one.
+This part tests the other half, the two levers that need no new formula at all,
+on the momentum-only model Part XVIII left standing. 16 coins, leave-one-asset-
+out, 4bps, symmetric ±0.5% barrier, **breakeven 52.0%**.
+
+```bash
+node research/cme-x6-selectivity.js
+```
+
+## Lever 1 — selectivity: a real but small and quickly-exhausted gain
+
+Every number in Parts XIV–XVIII came from the top **decile** of scored bars.
+Nothing forces that choice.
+
+| top % | BTC WR (n) | ETH WR (n) | top-5 coins WR | top-5 expR | all-16 WR | #>breakeven |
+|---|---|---|---|---|---|---|
+| 10% | 61.7% (368) | 57.6% (618) | 56.0% | +0.079 | 53.2% | 11/16 |
+| **5%** | 61.2% (183) | 60.2% (299) | **57.3%** | **+0.106** | 53.6% | 11/16 |
+| 2% | 53.4% (73) | 62.7% (118) | 57.3% | +0.105 | 54.6% | 11/16 |
+| 1% | 38.1% (42) | 71.2% (66) | 55.7% | +0.075 | 54.5% | 9/16 |
+
+Tightening from the top decile to the top 5% raises top-5 expectancy from
++0.079R to **+0.106R**, a ~34% gain for free. Past that it flattens and then
+declines.
+
+The per-coin columns show why the tail of the table cannot be taken at face
+value. BTC falls to 38.1% while ETH rises to 71.2% — at n=42 and n=66 over
+seven months. With n≈42 the standard error on a win rate is ≈7.7pp, so neither
+number is distinguishable from the other, let alone from chance. That is the
+threshold selecting noise, exactly the failure mode the sweep was built to
+expose. **The usable finding is 10% → 5%, and no further.**
+
+## Lever 2 — the positive-momentum gate: no gain, and the reason matters
+
+Part XVII found the edge lives entirely in positive-momentum states (BTC 62.0%
+WR, against 47.8% and AUC 0.502 when momentum is negative) and recommended
+building around a hard momentum-sign gate. That had never been applied. Applied
+here at both training and decision time:
+
+| top % | top-5 WR | top-5 expR | all-16 WR | #>breakeven | vs ungated |
+|---|---|---|---|---|---|
+| 10% | 56.0% | +0.079 | 52.6% | 9/16 | identical expR, **fewer coins clear** |
+| 5% | 55.7% | +0.075 | 52.5% | 9/16 | worse (+0.075 vs +0.106) |
+| 2% | 52.8% | +0.017 | 51.4% | 7/16 | much worse |
+| 1% | 55.4% | +0.068 | 50.8% | 3/11 | much worse |
+
+**The gate does nothing at best and hurts everywhere else**, while halving the
+trade count (BTC 368 → 178 at the top decile).
+
+The reason is the useful part. **You cannot gate on the variable you are already
+ranking by.** The model is momentum-only; its score *is* momentum. High scores
+are already positive-momentum states, so the gate removes rows the ranking was
+never going to select anyway, then refits on a truncated range of the one
+variable carrying the signal. Part XVII's regime split was not describing an
+independent filter — it was describing what the score already does.
+
+This is the same lesson as Part XVIII's BA result in different clothing. There,
+a feature 0.56–0.58 collinear with momentum looked important under a shuffle
+test and contributed nothing. Here, a gate perfectly redundant with the ranking
+looked like a free filter and contributed nothing. **Both are cases of adding
+machinery that carries no information the model did not already have.**
+
+## Conclusion — the answer to "more formulas?"
+
+No, and this part explains why in a way the formula studies alone could not.
+The binding constraint is not the number of equations, it is the amount of
+independent information available to them. Every formula in Parts XIV–XIX reads
+the same input — 15m OHLCV on the same coins over the same window — so each new
+one is largely a restatement of the last. That is why fifteen features lost to
+one, why a 0.57-collinear feature added nothing, and why a redundant gate added
+nothing. More formulas over one data source multiply the multiple-testing
+burden without adding information, and `lib-stats.js`'s FDR machinery exists to
+punish exactly that, not to enable it.
+
+What actually moved the number in this part was **spending the existing signal
+better** (10% → 5% selectivity, +34% expectancy) — and that lever is now spent.
+
+The next real gain has to come from **new information, not new arithmetic**:
+order-book depth and imbalance, funding rates, open interest, taker aggressor
+side, cross-venue basis. Short-horizon crypto edge is a microstructure
+phenomenon, and this project has never fed its models a single microstructure
+input. That is the gap, and it is a data-acquisition problem rather than a
+formula-design one.
+
+# Part XX — Stop geometry: the losses were the stop distance, not the signal
+
+This part began from a live observation rather than a study. A UNI position was
+entered at 6.367, moved favourably, retraced, and was closed by the position
+manager before it resolved. That is not an anecdote — it is the modal failure of
+this system, and instrumenting for it turned up the largest validated
+improvement the project has produced.
+
+```bash
+node backtest/run-backtest.js --symbols ... --exec maker --makerOffset 20 \
+  --makerTimeout 20 --stopMult 2.5 --invalMult 2.0
+node backtest/loss-forensics.js
+```
+
+## The measurement that was missing
+
+Every prior part reported how trades ended and none reported what they offered
+along the way, which makes the central question about a loss unanswerable: was
+the entry wrong, or was the entry right and the exit gave it back? Those have
+opposite fixes. Max favourable and adverse excursion now land on every trade
+record, along with the average bar range in R while the position is open.
+
+On 98 trades across 12 symbols, the deployed configuration:
+
+| | value |
+|---|---|
+| dead on arrival (never reached +0.25R) | 29.9% of losses |
+| **reached +0.5R, then lost** | **67.2% of losses** |
+| winners that ever traded to −0.5R | 6.5% |
+| **median bar range while in trade** | **1.39R** |
+| typical bar exceeds 1R | 54 of 82 trades |
+
+**One ordinary bar reached the stop.** A trade had to go right immediately or
+die, however good the signal was. Two thirds of losses were trades already in
+profit, and only 6.5% of winners ever survived an adverse move — winners were
+not trades that endured drawdown, they were trades that never faced any. That
+is not an edge surviving noise; it is a coin flip on the next bar.
+
+The same geometry broke the position manager. Its structural exit closed at the
+invalidation level, but at that stop distance a routine retrace *is* a
+structural break: the guardian won 9.1% of the time with nine of its ten losses
+already in profit — the worst exit path in the system, and the one that closed
+the UNI trade.
+
+## The fix, and why it is risk-neutral
+
+Stops and invalidation levels are set at multiples of what the playbook
+proposes. This costs nothing in risk because position size is derived from the
+stop distance: a wider stop simply buys less, and every trade still risks 0.5%
+of equity. What it costs is that targets are absolute prices, so each win is
+worth proportionally fewer R — which is exactly the trade-off the sweep prices.
+
+98 trades, 12 symbols, 42 days:
+
+| stop × inval | WR | expR | total R | maxDD | P(loss < −2R) |
+|---|---|---|---|---|---|
+| 1.0 × 1.0 | 31.6% | −0.179 | −17.55 | 5.5% | 8.2% |
+| 1.0 × 2.0 | 38.8% | −0.034 | −3.29 | 5.5% | 7.1% |
+| 1.5 × 1.0 | 45.9% | −0.034 | −3.29 | 4.3% | 3.1% |
+| 1.5 × 2.0 | 49.0% | +0.032 | +3.15 | 4.5% | 2.0% |
+| 2.0 × 2.0 | 51.0% | +0.028 | +2.70 | 3.9% | 2.0% |
+| **2.5 × 2.0** | **53.1%** | **+0.063** | **+6.21** | **3.4%** | **2.0%** |
+| 3.0 × 2.0 | 54.1% | +0.055 | +5.38 | 3.4% | 2.0% |
+
+Neither lever worked alone at first — stop-only and invalidation-only both
+landed on exactly −0.034R, because widening one simply handed the trade to the
+other. They were two doors on the same trap.
+
+**Risk improved alongside returns rather than against them**, which is unusual
+enough to deserve suspicion. Max drawdown fell, average loss shrank from −1.109R
+to −0.763R, trades losing more than 2R fell from 8.2% to 2.0%, and the worst
+single trade held near −2.5R at every width, so the tail never grew. The
+mechanism is plain: with a stop inside the noise every gap and guardian exit
+overshoots into a large fraction of R. The tight stop was not only causing more
+losses, it was causing bigger ones.
+
+2.5× is a plateau, not a peak — 2.0× through 3.0× land within noise of one
+another — so nothing here is finely tuned.
+
+## Validation on 418 days, and a failure to reproduce Part IX
+
+The sweep above sits on one 42-day window whose baseline was losing, so it
+could not distinguish "fixes bad geometry" from "rescues one bad window". Re-run
+on 120,099 5m bars per symbol (2025-07-22 → 2026-09-12), Part IX's four symbols:
+
+| | baseline | **2.5 × 2.0** |
+|---|---|---|
+| n | 233 | 236 |
+| win rate | 38.2% | **55.5%** |
+| expectancy | −0.195R | **+0.104R** |
+| total R | −45.38R | **+24.55R** |
+| profit factor | 0.76 | **1.28** |
+| max drawdown | **15.5%** | **5.6%** |
+
+A third width confirms the plateau survives the long window too: 3.0 × 2.0
+returns n=236, 56.4%, **+0.108R**, +25.38R, PF 1.34, max drawdown 5.2% — within
+noise of 2.5 × 2.0, and the two swap order between the 42-day and 418-day
+windows (2.5 wins the short one, 3.0 the long one by +0.004R). Nothing turns on
+the exact multiplier anywhere in the 2.0–3.0 band, which is the useful finding:
+there is no parameter here to tune or to overfit.
+
+The fix holds on 2.4× the sample and 10× the window, in the same direction and
+at similar magnitude. The drawdown result is arguably the more important half:
+15.5% → 5.6% at identical per-trade risk means the old geometry was not merely
+unprofitable, its losses clustered.
+
+**Part IX does not reproduce, and that has to be recorded rather than left
+standing.** Its documented result for this exact configuration — swarm off,
+20bps maker, four symbols, 418 days — is n=300, 47.7% win rate, +0.155R, +46.5R,
+PF 1.38. The run above, same configuration and window length, returns n=233,
+38.2%, −0.195R, −45.38R, PF 0.76: the opposite sign.
+
+The new stop code is not the cause (at `stopMult 1.0` it takes an identity
+branch). The differing trade count points at genuinely different data: Part IX
+ran earlier, so its 418 days ended earlier and covered a different regime, and
+OKX is now the source after the Bybit geo-block. Part IX also used `--seed 1`,
+though that seeds analyst weights and should not affect swarm-off rows.
+
+Until that is explained, **Part IX's +0.155R and +0.288R should not be used as a
+baseline or quoted as this project's ceiling**, and the recommendation derived
+from it — raise the maker offset to 30bps — is withdrawn pending a reproduction
+on current data. It may well still be correct; it is simply no longer supported.
+
+## Where this leaves the project
+
+**+0.104R at 55.5% over 236 trades and 418 days, PF 1.28, max drawdown 5.6%, is
+the best reproducible result this project has**, and it comes from stop
+placement rather than from any signal, formula, model or gate. Parts XIV–XIX
+searched for a better prediction across five formula families, sixteen coins,
+per-coin selection, LLM gating and an analyst swarm, and none of it moved
+expectancy the way changing one distance did.
+
+The standing lesson, consistent with Part V's execution finding: on this system,
+**how a trade is entered and exited has repeatedly mattered more than what it
+predicts.** Two of the three largest effects ever measured here — patient maker
+entry and stop geometry — are mechanical rather than predictive.
+
+Outstanding: the sample is 236 trades in one regime; live behaviour will differ
+from a backtest that assumes the widened stop fills where modelled; and the
+concurrency limits raised alongside this change are unvalidated, because the
+backtest holds one position at a time by construction.

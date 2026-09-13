@@ -9,6 +9,7 @@ file below subclasses JsonApiHandler and only implements do_GET/do_POST.
 import json
 import math
 from http.server import BaseHTTPRequestHandler
+from urllib.parse import parse_qs, urlparse
 
 
 def sanitize_for_json(obj):
@@ -42,6 +43,11 @@ class JsonApiHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
         self.wfile.write(body)
+
+    # Query params as {name: [values]}. Routes that dispatch on ?_action= share
+    # this rather than each re-deriving it from self.path.
+    def _query(self):
+        return parse_qs(urlparse(self.path).query)
 
     def _read_json_body(self):
         content_len = int(self.headers.get("Content-Length", 0) or 0)

@@ -14,3 +14,4 @@ __pycache__/
 # Research data: regenerable from the fetchers, and the live collector's output
 # grows without bound.
 research/data/
+backtest/data-15m-research/

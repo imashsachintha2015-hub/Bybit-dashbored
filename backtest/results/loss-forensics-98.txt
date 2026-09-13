@@ -1,0 +1,110 @@
+RUN_DONE
+
+────────────────────────────────────────────────────────────────────────────────────────────
+  LOSS FORENSICS — 98 trades, ADAUSDT/ATOMUSDT/AVAXUSDT/BCHUSDT/BTCUSDT/DOGEUSDT/DOTUSDT/ETHUSDT/LINKUSDT/LTCUSDT/SOLUSDT/XRPUSDT
+────────────────────────────────────────────────────────────────────────────────────────────
+  win rate 31.6%   avg win 1.831R   avg loss -1.109R
+  total -17.5R   expectancy -0.179R
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  WHAT KIND OF LOSS? (67 losing trades)
+  ────────────────────────────────────────────────────────────────────────────────────────
+  dead on arrival (never reached +0.25R)     20    29.9%  avg -0.833R  — entry was wrong
+  reached +0.25R then lost             47    70.1%  avg -1.226R  — gave back up to 101.8R
+  reached +0.50R then lost             45    67.2%  avg -1.232R  — gave back up to 98.8R
+  reached +0.75R then lost             41    61.2%  avg -1.257R  — gave back up to 92.6R
+  reached +1.00R then lost             41    61.2%  avg -1.257R  — gave back up to 92.6R
+  reached +1.50R then lost             37    55.2%  avg -1.312R  — gave back up to 85.5R
+
+  => 67.2% of losses were trades that had ALREADY reached +0.5R.
+     Those are exit-management losses, not entry losses. Entry filtering cannot recover them.
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  ARE STOPS TOO TIGHT? (MAE on trades that still WON)
+  ────────────────────────────────────────────────────────────────────────────────────────
+  winners that first went to −0.5R or worse     2     6.5%
+  median MAE across all winners              0.000R
+  A large share here means the stop sits inside normal noise: the same distance
+  that stopped the losers was survived by these winners only by luck.
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  IS THE STOP INSIDE THE NOISE?
+  ────────────────────────────────────────────────────────────────────────────────────────
+  median bar range while in trade   1.39R per bar
+  trades where a typical bar spans >1R  54/82
+  A single bar covering 1.39R means the stop is well inside ordinary bar
+  movement. Both the giveback and the stop-out rate are then explained by stop
+  GEOMETRY rather than by the entry being wrong, and widening the stop (with size
+  reduced to hold risk constant) is the change that follows -- not a better signal.
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  LOSSES BY EXIT REASON
+  ────────────────────────────────────────────────────────────────────────────────────────
+  EXIT REASON                 n      WR   totalR  surrendered/losses
+  STOP                       73   30.1%    -37.1               31/51
+  STRUCTURE_BROKEN           11    9.1%    -11.3                9/10
+  TIME_STOP                   7   14.3%     -2.6                 5/6
+  TARGET                      7  100.0%     33.5                 0/0
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  LOSSES BY SETUP
+  ────────────────────────────────────────────────────────────────────────────────────────
+  SETUP                       n      WR   totalR  surrendered/losses
+  RANGE_FADE                 62   25.8%    -19.5               31/46
+  BREAKOUT_RETEST            36   41.7%      2.0               14/21
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  LOSSES BY REGIME
+  ────────────────────────────────────────────────────────────────────────────────────────
+  REGIME                      n      WR   totalR  surrendered/losses
+  RANGE                      62   25.8%    -19.5               31/46
+  TREND                      36   41.7%      2.0               14/21
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  LOSSES BY GRADE
+  ────────────────────────────────────────────────────────────────────────────────────────
+  GRADE                       n      WR   totalR  surrendered/losses
+  A                          71   31.0%    -12.5               34/49
+  A+                         27   33.3%     -5.0               11/18
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  THE CEILING ON BETTER EXITS
+  ────────────────────────────────────────────────────────────────────────────────────────
+  hard exit at +0.30R once reached:  6.5R vs actual -17.5R  (+24.0R)
+  hard exit at +0.50R once reached:  18.7R vs actual -17.5R  (+36.2R)
+  hard exit at +0.75R once reached:  30.5R vs actual -17.5R  (+48.1R)
+
+  This is an UPPER BOUND, not a strategy: it assumes every level that was touched
+  would have filled without slippage, and it caps winners as well as saving losers.
+  If capping winners at +0.5R still beats the actual result, the exits are leaving
+  money on the table. If it does not, the current exits are already close to right.
+
+
+────────────────────────────────────────────────────────────────────────────
+ADDENDUM — the Part IX "contradiction" is mostly a universe change, not a
+result that failed to reproduce.
+
+The -0.179R headline pools twelve symbols. Split by whether a symbol was in
+Part IX's universe at all:
+
+  Part IX core 4 (BTC/ETH/SOL/DOGE)   n=19   totalR  +1.0   expR +0.051
+  8 symbols added for this run        n=79   totalR -18.5   expR -0.234
+
+Part IX's own four symbols stay POSITIVE on this window. The loss comes from
+symbols Part IX never traded, which were added here only to reach a ~100-trade
+sample. Reporting "the deployed configuration loses money" without that split
+overstated the case: the configuration was not retested, the universe was.
+
+What this does NOT establish is that Part IX reproduces -- n=19 is far too
+small to confirm +0.155R, and +0.051R is well below it.
+
+Nor is it a clean liquidity story, despite Part XVIII's gradient. Within the
+added eight, the two BEST performers are BCH (+9.5R, n=5) and ATOM (+7.4R,
+n=19), both low liquidity; excluding just those two drops the remaining six to
+-0.644R expectancy. An aggregate that swings that far on two symbols of five
+to nineteen trades is not evidence about liquidity or about anything else.
+
+Unaffected by all of the above: the stop-geometry finding. Median bar range of
+1.39R while in trade is measured across 82 trades and is a property of the
+stop distance versus volatility, not a win/loss statistic, so it does not move
+with universe choice.

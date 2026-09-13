@@ -1,0 +1,130 @@
+"""Every suggestion the engine raised -- taken, rejected, or vetoed.
+
+The trade log (trade_stats.py) only ever held CLOSED POSITIONS, which makes
+the most useful question about the system unanswerable: of everything it
+wanted to do, what did it actually do, and was skipping the rest correct?
+A gate that rejects good setups and a gate that rejects bad ones look
+identical when only the survivors are recorded.
+
+So this records the candidate at the moment of decision -- its geometry, the
+regime it fired in, the order-flow state, the supervisor's verdict if one was
+sought -- together with what happened to it. Rejections are first-class rows
+here, not absences.
+
+Two things keep this from growing without bound or drowning in duplicates:
+
+  1. A hard cap on retained rows. Serverless KV is not a data warehouse; this
+     is a rolling window, and the paging API reads from it.
+
+  2. Caller-side de-duplication via `fingerprint`. A live engine re-evaluates
+     the same symbol every few seconds and would otherwise write the same
+     unchanged candidate hundreds of times. A row whose fingerprint matches
+     the newest row for that symbol updates it in place instead of appending,
+     so a candidate that persists for an hour stays one row and keeps its
+     first-seen timestamp.
+"""
+import time
+
+from .kv import kv_get_json, kv_set_json
+
+SIGNALS_KEY = "signal_log"
+MAX_ROWS = 500
+
+
+def load():
+    data = kv_get_json(SIGNALS_KEY, None)
+    if not data or not isinstance(data, dict):
+        return {"signals": []}
+    data.setdefault("signals", [])
+    return data
+
+
+def save(data):
+    kv_set_json(SIGNALS_KEY, data)
+
+
+def record(body):
+    """Append a suggestion, or update the newest matching one in place."""
+    data = load()
+    rows = data["signals"]
+    now_ms = int(time.time() * 1000)
+    fingerprint = body.get("fingerprint") or ""
+    symbol = body.get("symbol", "")
+
+    row = {
+        "id": body.get("id") or f"SIG-{now_ms % 10000000}",
+        "recorded_at": now_ms,
+        "time": time.strftime("%Y-%m-%d %H:%M", time.localtime()),
+        "fingerprint": fingerprint,
+        "symbol": symbol,
+        "direction": body.get("direction", ""),
+        "setup_type": body.get("setup_type", ""),
+        "grade": body.get("grade", ""),
+        "score": body.get("score"),
+        "regime": body.get("regime", ""),
+        "bias": body.get("bias", ""),
+        "entry": body.get("entry"),
+        "stop": body.get("stop"),
+        "targets": body.get("targets"),
+        "risk_reward": body.get("risk_reward"),
+        # TAKEN | REJECTED | VETOED | NO_FILL | CANCELLED
+        "outcome": body.get("outcome", ""),
+        "reject_reason": body.get("reject_reason", ""),
+        "flow": body.get("flow"),
+        "supervisor": body.get("supervisor"),
+        "evidence": body.get("evidence"),
+    }
+
+    # Update the newest row for this symbol when the candidate is unchanged,
+    # so a long-lived suggestion does not become hundreds of identical rows.
+    if fingerprint:
+        for i, existing in enumerate(rows):
+            if existing.get("symbol") != symbol:
+                continue
+            if existing.get("fingerprint") == fingerprint:
+                row["recorded_at"] = existing.get("recorded_at", now_ms)
+                row["time"] = existing.get("time", row["time"])
+                row["id"] = existing.get("id", row["id"])
+                row["first_seen"] = existing.get("first_seen") or existing.get("recorded_at")
+                row["last_seen"] = now_ms
+                row["seen_count"] = int(existing.get("seen_count") or 1) + 1
+                rows[i] = row
+                save(data)
+                return row
+            break  # only compare against the newest row for this symbol
+
+    row["first_seen"] = now_ms
+    row["last_seen"] = now_ms
+    row["seen_count"] = 1
+    rows.insert(0, row)
+    del rows[MAX_ROWS:]
+    save(data)
+    return row
+
+
+def page(page_num=1, limit=25, symbol=None, outcome=None):
+    rows = load()["signals"]
+    if symbol:
+        rows = [r for r in rows if r.get("symbol") == symbol]
+    if outcome:
+        rows = [r for r in rows if r.get("outcome") == outcome]
+    total = len(rows)
+    limit = max(1, min(int(limit or 25), 100))
+    page_num = max(1, int(page_num or 1))
+    start = (page_num - 1) * limit
+    return {
+        "items": rows[start:start + limit],
+        "page": page_num,
+        "limit": limit,
+        "total": total,
+        "pages": max(1, (total + limit - 1) // limit),
+        "counts": _counts(load()["signals"]),
+    }
+
+
+def _counts(rows):
+    out = {}
+    for r in rows:
+        k = r.get("outcome") or "UNKNOWN"
+        out[k] = out.get(k, 0) + 1
+    return out

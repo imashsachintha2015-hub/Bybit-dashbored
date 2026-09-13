@@ -1,0 +1,154 @@
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  STUDY 24 — CME-X5: IS BA THE ENGINE, AND IS THIS A LARGE-CAP EFFECT?
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PART A — IS BREADTH ACCELERATION REALLY THE ENGINE? (6 coins, full history)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  6 coins, 40099 aligned bars, rows/coin ~39755
+
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PART B — "BTC/ETH FACT" OR "LARGE-CAP FACT"? (wide universe, leave-one-asset-out)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  16 coins, 20089 aligned bars (2026-02-15 -> 2026-09-12)
+  NOTE: shorter window than Part A -- absolute numbers are not comparable across parts.
+
+  Liquidity ranking (median dollar volume per 15m bar, causal descriptive):
+     1. ETHUSDT     $46,633,843
+     2. BTCUSDT     $39,555,684
+     3. SOLUSDT     $5,297,660
+     4. DOGEUSDT    $2,378,923
+     5. XRPUSDT     $1,524,385
+     6. ADAUSDT     $375,624
+     7. LINKUSDT    $240,573
+     8. NEARUSDT    $234,454
+     9. BCHUSDT     $224,055
+    10. AVAXUSDT    $174,025
+    11. LTCUSDT     $169,668
+    12. DOTUSDT     $137,995
+    13. ARBUSDT     $85,168
+    14. OPUSDT      $76,041
+    15. APTUSDT     $75,263
+    16. ATOMUSDT    $28,245
+
+  Leave-one-asset-out (train on all others, test on held-out) — momentum only (Part A's best):
+  rank  coin            AUC   topN      WR     expR       p
+     1  ETHUSDT       0.562    618   57.6%    0.112   0.003
+     2  BTCUSDT       0.585    368   61.7%    0.194   0.003
+     3  SOLUSDT       0.544    730   54.4%    0.048   0.043
+     4  DOGEUSDT      0.542    670   52.4%    0.008   0.292
+     5  XRPUSDT       0.538    648   53.7%    0.034   0.136
+     6  ADAUSDT       0.528    986   53.1%    0.023   0.066
+     7  LINKUSDT      0.530    786   55.0%    0.059   0.023
+     8  NEARUSDT      0.503   1072   50.9%   -0.021   0.601
+     9  BCHUSDT       0.514    751   47.9%   -0.081   0.306
+    10  AVAXUSDT      0.536    717   55.1%    0.062   0.013
+    11  LTCUSDT       0.525    531   52.2%    0.003   0.462
+    12  DOTUSDT       0.518   1014   53.1%    0.021   0.150
+    13  ARBUSDT       0.515   1133   50.1%   -0.037   0.934
+    14  OPUSDT        0.520   1342   53.5%    0.030   0.013
+    15  APTUSDT       0.513   1111   50.1%   -0.037   0.904
+    16  ATOMUSDT      0.505    920   50.2%   -0.036   0.927
+    Spearman(liquidity rank, AUC) = -0.815   (negative = more liquid -> higher AUC)
+    Spearman(liquidity rank, win rate) = -0.644
+    Mean AUC — top 2 (ETH/BTC): 0.5733   all others: 0.5237   top 5: 0.5541   bottom 5: 0.5142
+
+  Leave-one-asset-out (train on all others, test on held-out) — momentum + BA (original plan):
+  rank  coin            AUC   topN      WR     expR       p
+     1  ETHUSDT       0.565    591   57.4%    0.107   0.003
+     2  BTCUSDT       0.587    379   60.4%    0.168   0.003
+     3  SOLUSDT       0.539    725   54.1%    0.041   0.040
+     4  DOGEUSDT      0.547    702   51.1%   -0.017   0.615
+     5  XRPUSDT       0.541    629   54.4%    0.047   0.083
+     6  ADAUSDT       0.526    950   53.2%    0.023   0.090
+     7  LINKUSDT      0.533    794   56.3%    0.086   0.003
+     8  NEARUSDT      0.503   1111   48.5%   -0.070   0.243
+     9  BCHUSDT       0.518    728   47.3%   -0.095   0.176
+    10  AVAXUSDT      0.543    724   55.8%    0.076   0.007
+    11  LTCUSDT       0.533    493   53.1%    0.023   0.276
+    12  DOTUSDT       0.521   1037   53.4%    0.028   0.053
+    13  ARBUSDT       0.518   1084   52.0%    0.001   0.262
+    14  OPUSDT        0.520   1299   52.4%    0.008   0.126
+    15  APTUSDT       0.515   1120   49.8%   -0.044   0.927
+    16  ATOMUSDT      0.505    909   50.7%   -0.026   0.704
+    Spearman(liquidity rank, AUC) = -0.762   (negative = more liquid -> higher AUC)
+    Spearman(liquidity rank, win rate) = -0.576
+    Mean AUC — top 2 (ETH/BTC): 0.5762   all others: 0.5257   top 5: 0.5557   bottom 5: 0.5156
+
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PART D — IS THE LIQUIDITY GRADIENT REAL, OR A BARRIER-SCALING ARTIFACT?
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Target resolution rate (median across coins under the fixed ±0.5% barrier): 39.9%
+  rank  coin         medVol/bar  resolved@0.5%  calib barrier  resolved@calib
+     1  ETHUSDT          0.119%          29.5%        ±0.503%           29.2%
+     2  BTCUSDT          0.095%          18.0%        ±0.382%           28.9%
+     3  SOLUSDT          0.142%          35.8%        ±0.538%           32.0%
+     4  DOGEUSDT         0.146%          36.1%        ±0.522%           33.8%
+     5  XRPUSDT          0.139%          30.8%        ±0.455%           35.3%
+     6  ADAUSDT          0.182%          47.7%        ±0.582%           39.3%
+     7  LINKUSDT         0.156%          37.7%        ±0.521%           35.4%
+     8  NEARUSDT         0.242%          60.8%        ±0.675%           46.1%
+     9  BCHUSDT          0.141%          34.9%        ±0.423%           43.2%
+    10  AVAXUSDT         0.159%          39.9%        ±0.538%           35.6%
+    11  LTCUSDT          0.127%          26.2%        ±0.405%           37.1%
+    12  DOTUSDT          0.179%          48.7%        ±0.658%           32.3%
+    13  ARBUSDT          0.216%          57.9%        ±0.696%           39.3%
+    14  OPUSDT           0.231%          60.3%        ±0.750%           36.6%
+    15  APTUSDT          0.212%          55.7%        ±0.693%           37.4%
+    16  ATOMUSDT         0.169%          41.5%        ±0.500%           41.5%
+
+  Collinearity check (this is what makes Part B ambiguous):
+    Spearman(liquidity rank, volatility)      = 0.638
+    Spearman(liquidity rank, resolution rate) = 0.626
+
+  Leave-one-asset-out under the CALIBRATED per-coin barrier — momentum only:
+  rank  coin            AUC   topN      WR     expR       p
+     1  ETHUSDT       0.563    620   57.6%    0.112   0.003
+     2  BTCUSDT       0.561    629   58.5%    0.130   0.003
+     3  SOLUSDT       0.550    661   54.5%    0.049   0.053
+     4  DOGEUSDT      0.544    633   52.1%    0.003   0.412
+     5  XRPUSDT       0.532    721   51.3%   -0.014   0.535
+     6  ADAUSDT       0.540    827   54.8%    0.056   0.017
+     7  LINKUSDT      0.532    742   56.2%    0.084   0.010
+     8  NEARUSDT      0.507    761   51.6%   -0.007   0.508
+     9  BCHUSDT       0.505    915   46.4%   -0.111   0.050
+    10  AVAXUSDT      0.543    648   55.2%    0.065   0.030
+    11  LTCUSDT       0.514    759   49.5%   -0.049   0.847
+    12  DOTUSDT       0.539    637   56.0%    0.081   0.017
+    13  ARBUSDT       0.523    719   51.0%   -0.019   0.591
+    14  OPUSDT        0.541    819   54.7%    0.054   0.013
+    15  APTUSDT       0.527    712   51.5%   -0.009   0.522
+    16  ATOMUSDT      0.505    922   50.2%   -0.036   0.937
+    Spearman(liquidity rank, AUC) under equalised labels = -0.665
+    Mean AUC — top 2: 0.5619   all others: 0.5287
+
+  Leave-one-asset-out under the CALIBRATED per-coin barrier — momentum + BA:
+  rank  coin            AUC   topN      WR     expR       p
+     1  ETHUSDT       0.567    598   58.5%    0.131   0.003
+     2  BTCUSDT       0.562    626   58.6%    0.133   0.003
+     3  SOLUSDT       0.547    645   55.2%    0.064   0.017
+     4  DOGEUSDT      0.548    660   52.7%    0.015   0.282
+     5  XRPUSDT       0.535    693   52.2%    0.005   0.346
+     6  ADAUSDT       0.539    806   54.2%    0.044   0.040
+     7  LINKUSDT      0.535    761   57.4%    0.108   0.003
+     8  NEARUSDT      0.508    798   51.0%   -0.020   0.681
+     9  BCHUSDT       0.509    913   45.6%   -0.129   0.017
+    10  AVAXUSDT      0.548    651   56.7%    0.094   0.003
+    11  LTCUSDT       0.516    704   50.0%   -0.040   1.000
+    12  DOTUSDT       0.541    642   56.4%    0.088   0.003
+    13  ARBUSDT       0.527    681   51.2%   -0.015   0.585
+    14  OPUSDT        0.537    807   53.5%    0.031   0.066
+    15  APTUSDT       0.528    698   51.6%   -0.008   0.462
+    16  ATOMUSDT      0.505    919   51.3%   -0.015   0.442
+    Spearman(liquidity rank, AUC) under equalised labels = -0.650
+    Mean AUC — top 2: 0.5642   all others: 0.5301
+
+  Read: if the -0.762 gradient from Part B survives here, the fixed barrier was not
+  driving it and the large-cap reading stands. If it collapses toward 0, Part B was
+  measuring how selective an absolute ±0.5% target is on a low-volatility asset.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+

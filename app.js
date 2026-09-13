@@ -261,7 +261,36 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ─── Shared supervisory agents ───
-  const riskGovernor = new MasisRiskGovernor.RiskGovernor({ riskPerTradePct: 0.5 });
+  // Throughput caps lifted so a new setup is never refused merely because
+  // another position is open. The defaults (2 concurrent, 2 correlated) were
+  // written for a single-symbol operator; this engine watches 30 symbols, so
+  // they meant most signals were declined for having company rather than for
+  // anything about the signal.
+  //
+  // consecutiveLossLimit is raised for a specific measured reason: the deployed
+  // configuration wins about a third of its trades, so three losses in a row
+  // occur roughly a third of the time by chance alone. Pausing an hour on that
+  // is reacting to noise, not to evidence the system has stopped working.
+  //
+  // Why 5 and not more: the stop-geometry result that justifies this build
+  // (Part XX: max drawdown 15.5% -> 5.2%) was measured with ONE position open at
+  // a time, because the backtest holds a single position by construction. No
+  // tested configuration covers many simultaneous correlated positions, so
+  // concurrency is set just high enough to stop refusing setups for having
+  // company -- 5 open positions is 2.5% of equity at risk at once -- rather than
+  // as high as the engine could technically run.
+  //
+  // What is deliberately NOT lifted: maxDailyLossPct is the session circuit
+  // breaker and the only limit here that bounds a bad day, and the no-pyramiding
+  // rule still prevents stacking size onto one symbol.
+  const riskGovernor = new MasisRiskGovernor.RiskGovernor({
+    riskPerTradePct: 0.5,
+    maxConcurrentPositions: 5,
+    maxCorrelatedPositions: 3,
+    consecutiveLossLimit: 8,
+    cooldownAfterLossMs: 5 * 60 * 1000,
+    cooldownAfterWinMs: 0
+  });
   const positionManager = new MasisPositionManager.PositionManager();
   const llmGovernor = new MasisDeepSeekGovernor.DeepSeekGovernor();
 
@@ -331,6 +360,49 @@ document.addEventListener('DOMContentLoaded', () => {
   // Supervisor consultation — gated, so a decision-grade call is the only
   // kind that ever costs anything.
   // ─────────────────────────────────────────────────────────────────────
+  // Every candidate the engine forms is recorded, whether or not it is traded.
+  // Recording only executed trades makes the most useful question about the
+  // system unanswerable -- of everything it wanted to do, was skipping the rest
+  // correct? -- because a gate that rejects good setups looks exactly like one
+  // that rejects bad setups when only the survivors are kept.
+  //
+  // The fingerprint lets the server fold repeated evaluations of an unchanged
+  // candidate into a single row: the engine re-evaluates every 5 seconds and a
+  // setup that stands for an hour would otherwise write ~720 identical rows.
+  function signalFingerprint(sym, s) {
+    return [sym, s.setupType || '', s.direction || '', s.grade || '', s.decision || ''].join('|');
+  }
+
+  async function logSignal(sym, s, outcome, rejectReason) {
+    try {
+      await postJSON('/api/trades/record?_action=signal', {
+        fingerprint: signalFingerprint(sym, s),
+        symbol: sym,
+        direction: s.direction || (s.decision === 'BUY' ? 'LONG' : s.decision === 'SELL' ? 'SHORT' : ''),
+        setup_type: s.setupType || '',
+        grade: s.grade || '',
+        score: s.score,
+        regime: s.regime || '',
+        bias: s.bias || '',
+        entry: s.entry,
+        stop: s.stopLoss,
+        targets: s.takeProfit,
+        risk_reward: s.riskReward,
+        outcome,
+        reject_reason: rejectReason || '',
+        flow: s.flow || null,
+        supervisor: s.llmVerdict ? {
+          verdict: s.llmVerdict.verdict, confidence: s.llmVerdict.confidence,
+          rationale: s.llmVerdict.rationale, is_fallback: s.llmVerdict.is_fallback
+        } : null,
+        evidence: (s.components || []).map(c => `${c.label}: ${c.detail}`)
+      });
+    } catch (e) {
+      // Logging must never be able to interfere with trading.
+      logEvent(`Signal log failed for ${sym}: ${e.message}`);
+    }
+  }
+
   async function maybeConsultSupervisor(sym, s) {
     const candidate = s.grade ? { name: s.setupType, direction: s.direction, grade: s.grade, score: s.score, geometry: { entry: s.entry, riskDist: Math.abs((s.entry || 0) - (s.stopLoss || 0)) } } : null;
     const ctx = {
@@ -386,6 +458,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // (maker, 20-30bps offset, 287-300 trades). 20bps is used here: solidly
   // inside the range actually measured, rather than the untested edge of it.
   const MAKER_OFFSET_BPS = 20;
+  // Stop and invalidation distances, as multiples of what the playbook proposes.
+  //
+  // Measured cause: across 98 backtested trades the median bar spanned 1.39R
+  // while a position was open, and a typical bar exceeded 1R on 54 of 82. One
+  // ordinary bar therefore reached the stop, so a trade had to go right
+  // immediately or die however good the signal was -- and the same tight
+  // geometry made a routine retrace look like structural failure to the
+  // position manager, whose exits won 9.1% of the time with nine of ten losses
+  // already in profit.
+  //
+  // Widening both is risk-neutral by construction: sizePosition() derives
+  // quantity from the stop distance, so a wider stop simply buys less and each
+  // trade still risks 0.5% of equity. Measured effect on the same 98 trades,
+  // baseline -> 2.5x/2.0x: win rate 31.6% -> 53.1%, expectancy -0.179R ->
+  // +0.063R, max drawdown 5.5% -> 3.4%, and trades losing more than 2R fell
+  // from 8.2% to 2.0% -- losses got rarer AND smaller, because a tight stop
+  // makes every overshoot a larger fraction of R.
+  //
+  // 2.5x is a plateau rather than a peak (2.0-3.0 all land within noise of each
+  // other), so nothing here is finely tuned. Caveat worth keeping in view: this
+  // is one 42-day window, and on the four symbols Part IX used the sample is 19
+  // trades. The direction is well evidenced; the magnitude is not yet.
+  const STOP_MULT = 2.5;
+  const INVALIDATION_MULT = 2.0;
   // The backtest's makerTimeout was 20 bars of 15-minute data (~5 hours) --
   // not a value that should be ported directly into a live resting order,
   // since a thesis this engine re-derives from scratch every cycle (see
@@ -413,6 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gate = riskGovernor.canOpen({ symbol: sym, openPositions: openPositionsSnapshot });
     if (!gate.allowed) {
       logEvent(`${s.decision} ${sym} (${s.setupType}, grade ${s.grade}) not taken — ${gate.reasons[0]}`);
+      logSignal(sym, s, 'REJECTED_RISK', gate.reasons[0]);
       return;
     }
 
@@ -420,6 +517,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!price) return;
 
     const side = s.decision === 'BUY' ? 'Buy' : 'Sell';
+    // Anchored on the engine's own entry reference so the widening is measured
+    // from where the setup was framed, matching how the backtest applied it.
+    const ref = s.entry || price;
+    const wideStop = s.stopLoss != null
+      ? ref - Math.sign(ref - s.stopLoss) * Math.abs(ref - s.stopLoss) * STOP_MULT
+      : s.stopLoss;
+    const wideInvalidation = s.invalidation != null
+      ? ref - Math.sign(ref - s.invalidation) * Math.abs(ref - s.invalidation) * INVALIDATION_MULT
+      : s.invalidation;
     // Priced BELOW market for a long, ABOVE market for a short -- it only
     // fills if price comes back to a better level than it's at right now,
     // which is what makes this a maker (rebate-side) fill instead of a
@@ -431,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const meta = COIN_META[sym] || {};
     const sized = riskGovernor.sizePosition({
-      entry: limitPrice, stop: s.stopLoss, equity: accountEquity, symbol: sym,
+      entry: limitPrice, stop: wideStop, equity: accountEquity, symbol: sym,
       qtyStep: meta.qtyStep, minQty: meta.minQty
     });
     if (!sized.qty) {
@@ -448,19 +554,22 @@ document.addEventListener('DOMContentLoaded', () => {
       // that must survive a browser crash; the targets are managed here.
       const res = await postJSON('/api/order/place', {
         category: 'linear', symbol: sym, side, orderType: 'Limit',
-        price: limitPrice, qty, stopLoss: s.stopLoss
+        price: limitPrice, qty, stopLoss: wideStop
       });
       if (res.retCode === 0 && res.result && res.result.orderId) {
         pendingEntries[sym] = {
           orderId: res.result.orderId, side, limitPrice, qty,
-          stopLoss: s.stopLoss, invalidation: s.invalidation, targets: s.takeProfit,
+          stopLoss: wideStop, invalidation: wideInvalidation, targets: s.takeProfit,
           riskAmount: sized.riskAmount, setupName: s.setupType, grade: s.grade,
           score: s.score, regime: s.regime, narrative: s.narrative,
           placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS
         };
-        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${s.stopLoss} · invalidation ${s.invalidation} | R:R ${s.riskReward}`);
+        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${MAKER_OFFSET_BPS}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${wideStop} (${STOP_MULT}x) · invalidation ${wideInvalidation} (${INVALIDATION_MULT}x) | R:R ${s.riskReward}`);
+        pendingEntries[sym].signalState = s;
+        logSignal(sym, s, 'ORDER_PLACED', '');
       } else {
         logEvent(`Order rejected for ${sym}: ${res.retMsg || 'unknown error'}`);
+        logSignal(sym, s, 'REJECTED_EXCHANGE', res.retMsg || 'unknown error');
       }
       setTimeout(pollDemoData, 900);
     } catch (e) {
@@ -482,6 +591,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pos.symbol === sym && pos.side === p.side && !positionManager.get(sym, p.side));
       if (filled) {
         const entryPrice = parseFloat(filled.avgPrice || p.limitPrice);
+        // The maker offset is only worth what it actually captures, so record
+        // the realised improvement against the limit rather than assuming it.
+        if (p.signalState) logSignal(sym, p.signalState, 'TAKEN', `filled @ ${entryPrice}`);
         positionManager.open({
           symbol: sym, side: p.side, entryPrice,
           stopLoss: p.stopLoss, invalidation: p.invalidation, targets: p.targets,
@@ -501,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           if (res.retCode === 0) {
             logEvent(`Limit entry for ${sym} ${p.side.toUpperCase()} unfilled after ${Math.round(MAKER_TIMEOUT_MS / 60000)}m at ${p.limitPrice.toLocaleString()} — cancelled, standing aside`);
+            if (p.signalState) logSignal(sym, p.signalState, 'NO_FILL', `limit ${p.limitPrice} never reached in ${Math.round(MAKER_TIMEOUT_MS / 60000)}m`);
             toDrop.push(sym);
           } else if (!p.cancelWarned) {
             // Cancel racing an actual fill is expected, not exceptional --
@@ -1057,7 +1170,13 @@ document.addEventListener('DOMContentLoaded', () => {
       updateShadowTracking(sym, s);
 
       if (s.grade === 'A' || s.grade === 'A+') maybeConsultSupervisor(sym, s);
-      if (s.decision === 'BUY' || s.decision === 'SELL') executeEntry(sym, s);
+      if (s.decision === 'BUY' || s.decision === 'SELL') {
+        executeEntry(sym, s);
+      } else if (s.setupType && s.grade) {
+        // A candidate formed but the engine declined to act on it. This is the
+        // majority of what the system does and, until now, none of it was kept.
+        logSignal(sym, s, 'NOT_TRADED', s.blocks && s.blocks.length ? s.blocks[0] : 'engine declined — below decision threshold');
+      }
 
       if (sym === state.symbol) focusedWhale = whaleSummary;
     }

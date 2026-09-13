@@ -53,6 +53,8 @@ const SLIPPAGE = 0.0002;     // 2 bps assumed on market fills
  * this and hiding it would make the comparison meaningless.
  */
 let EXEC_STYLE = 'taker';
+let STOP_MULT = 1.0;
+let INVAL_MULT = 1.0;
 let MAKER_ENTRY_TIMEOUT_BARS = 3;
 /**
  * How far BETTER than the signal price the resting limit is placed, in bps.
@@ -263,6 +265,27 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       }
     }
 
+    // ── Max favourable / adverse excursion ──
+    // Recorded in R on every bar the trade is open, using the bar's extremes
+    // rather than its close, so it reflects what the trade actually offered.
+    // This is what separates "the entry was wrong" from "the entry was right
+    // and the exit gave it back": a loser whose MFE reached +1R was a winning
+    // trade that was managed into a loss, and no entry filter can fix that.
+    if (open) {
+      const t = open.trade;
+      const dir = t.side === 'Buy' ? 1 : -1;
+      const best = dir === 1 ? bar.high : bar.low;
+      const worst = dir === 1 ? bar.low : bar.high;
+      const rOf = px => (dir * (px - t.entryPrice)) / open.riskAmountPerUnit;
+      if (open.riskAmountPerUnit > 0) {
+        open.mfeR = Math.max(open.mfeR, rOf(best));
+        open.maeR = Math.min(open.maeR, rOf(worst));
+        const barR = (bar.high - bar.low) / open.riskAmountPerUnit;
+        open.barRSum = (open.barRSum || 0) + barR;
+        open.barRCount = (open.barRCount || 0) + 1;
+      }
+    }
+
     // ── Position manager decision at the bar close ──
     if (open) {
       const t = open.trade;
@@ -318,7 +341,17 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
         }
 
         // Re-anchor the stop to the actual fill so risk stays exactly 0.5%.
-        const stop = state.stopLoss;
+        const rawStop = state.stopLoss;
+        // Push the stop away from the fill by STOP_MULT. Anchored on the FILL,
+        // not the signal price, so the widening is measured from where the trade
+        // actually sits rather than from where it was proposed.
+        const stop = (entry === null || STOP_MULT === 1)
+          ? rawStop
+          : entry - Math.sign(entry - rawStop) * Math.abs(entry - rawStop) * STOP_MULT;
+        const rawInval = state.invalidation;
+        const invalidation = (entry === null || INVAL_MULT === 1 || rawInval == null)
+          ? rawInval
+          : entry - Math.sign(entry - rawInval) * Math.abs(entry - rawInval) * INVAL_MULT;
         const riskDist = entry === null ? 0 : Math.abs(entry - stop);
         if (entry !== null && riskDist > 0) {
           const sized = gov.sizePosition({ entry, stop, equity, symbol, qtyStep: 0.0001, minQty: 0.0001 });
@@ -329,7 +362,7 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               symbol, side,
               entryPrice: entry,
               stopLoss: stop,
-              invalidation: state.invalidation,
+              invalidation,
               targets: state.takeProfit,
               riskDist,
               qty: sized.qty,
@@ -345,7 +378,13 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
               panelConviction: state.panelConviction,
               patternScore: state.patternScore
             });
-            open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry) };
+            open = { trade: t, qty: sized.qty, riskAmount: sized.riskAmount, remainingQty: sized.qty, netMoney: -feeOn(sized.qty * entry),
+              riskAmountPerUnit: riskDist, mfeR: 0, maeR: 0,
+              // Stop distance relative to a typical bar. If one bar routinely
+              // spans more than 1R the stop sits inside normal noise, and both
+              // the giveback and the stop-out rate are explained by geometry
+              // rather than by the signal being wrong.
+              stopVsBar: null };
           }
         }
       }
@@ -399,7 +438,10 @@ function runV3(symbol, bundle, startEquity, mode, opts = {}) {
       symbol, side: t.side, setup: t.setupName, grade: t.grade, score: t.score,
       regime: t.regime, entry: +t.entryPrice.toFixed(6), exit: +exit.toFixed(6),
       r: t.finalR, reason, barsHeld: t.barsHeld, explain: pm.explain(t),
-      patternScore: t.patternScore, panelConviction: t.panelConviction
+      patternScore: t.patternScore, panelConviction: t.panelConviction,
+      mfeR: open.mfeR != null ? +open.mfeR.toFixed(3) : null,
+      maeR: open.maeR != null ? +open.maeR.toFixed(3) : null,
+      avgBarR: open.barRCount ? +(open.barRSum / open.barRCount).toFixed(3) : null
     });
     pm.forget(t.symbol, t.side);
     open = null;
@@ -607,6 +649,16 @@ function main() {
   if (a.exec === 'maker' || a.exec === 'taker') EXEC_STYLE = a.exec;
   if (a.makerOffset != null) MAKER_OFFSET_BPS = parseFloat(a.makerOffset);
   if (a.makerTimeout != null) MAKER_ENTRY_TIMEOUT_BARS = parseInt(a.makerTimeout, 10);
+  // Stop and invalidation distances, as multiples of what the playbook proposed.
+  // The 98-trade forensics measured a median bar range of 1.39R while in trade,
+  // meaning one ordinary bar reaches the stop: the trade must go right
+  // immediately or die. Widening both moves them outside routine noise. Risk per
+  // trade is unchanged because sizePosition() derives quantity from the stop
+  // distance, so a wider stop simply buys less. The cost is that targets are
+  // absolute prices, so each win is worth proportionally fewer R -- which is
+  // exactly the trade-off this sweep is meant to price.
+  if (a.stopMult != null) STOP_MULT = parseFloat(a.stopMult);
+  if (a.invalMult != null) INVAL_MULT = parseFloat(a.invalMult);
   if (a.quiet) { const noop = () => {}; global.__origLog = console.log; console.log = noop; }
   const startEquity = parseFloat(a.equity || '1000');
   // Optional: analyst weights seeded from the offline predictive-value study.
