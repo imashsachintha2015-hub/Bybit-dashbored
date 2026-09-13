@@ -86,4 +86,22 @@ assert S.resolve({"fingerprint": "nope", "symbol": "BTCUSDT", "shadow_outcome": 
 assert btc["shadow_outcome"] == "WIN", "a non-matching fingerprint overwrote a verdict"
 print("  shadow resolve: verdict on the right row, no leak, no match -> None  OK")
 
+# 7) fingerprint drift: a candidate logged at one grade resolves after the row
+#    has moved on to another, and must still find a home.
+store.clear()
+S.record(sig("SOLUSDT", "RANGE_FADE", "D", "NOT_TRADED"))   # logged at grade D
+S.record(sig("SOLUSDT", "RANGE_FADE", "B", "NOT_TRADED"))   # later, grade B -> new row
+row = S.resolve({"fingerprint": "SOLUSDT|RANGE_FADE|LONG|D|BUY", "symbol": "SOLUSDT",
+                 "shadow_outcome": "LOSS"})
+assert row and row["shadow_outcome"] == "LOSS", row
+assert row["grade"] == "D", f"resolved the wrong row: grade {row['grade']}"
+# and a fingerprint matching nothing still lands on the newest unresolved untaken row
+row2 = S.resolve({"fingerprint": "totally-unknown", "symbol": "SOLUSDT", "shadow_outcome": "WIN"})
+assert row2 and row2["grade"] == "B", row2
+# a taken row is never claimed by the fallback
+store.clear()
+S.record(sig("XRPUSDT", "RANGE_FADE", "A", "TAKEN"))
+assert S.resolve({"fingerprint": "nope", "symbol": "XRPUSDT", "shadow_outcome": "WIN"}) is None
+print("  fingerprint drift: exact match wins, fallback finds newest untaken, TAKEN untouched  OK")
+
 print("\nALL SIGNAL LOG TESTS PASSED")

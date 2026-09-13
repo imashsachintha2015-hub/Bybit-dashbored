@@ -14,6 +14,7 @@
     --green: #16C784;
     --green-dim: rgba(22,199,132,0.14);
     --red: #EA3943;
+    --amber: #F5A524;
     --red-dim: rgba(234,57,67,0.14);
     --gold: #F59E0B;
     --gold-dim: rgba(245,158,11,0.14);
@@ -128,7 +129,9 @@
       <button id="sigPrev">&larr; Prev</button>
       <span id="sigPageInfo">--</span>
       <button id="sigNext">Next &rarr;</button>
+      <button id="sigRefresh">Refresh now</button>
       <span id="sigStatus" style="opacity:.6;margin-left:10px;"></span>
+      <span id="sigFresh" style="opacity:.5;margin-left:auto;"></span>
     </div>
   </main>
 
@@ -145,12 +148,17 @@
            font-size:11px; background:rgba(255,255,255,.03); border-left:3px solid transparent; }
   /* What the setup DID after the engine declined it. Green means standing aside
      cost us the trade; red means declining was right. */
-  .sh-WIN  { border-left-color:var(--green,#3cc878); background:rgba(60,200,120,.07); }
-  .sh-LOSS { border-left-color:var(--red,#e65050);  background:rgba(230,80,80,.07); }
+  .sh-WIN     { border-left-color:var(--green); background:rgba(22,199,132,.08); }
+  .sh-LOSS    { border-left-color:var(--red);   background:rgba(234,57,67,.08); }
+  /* Amber = the setup has not resolved yet: it has neither reached its target
+     nor its stop, so there is no verdict to show. Distinguishing this from a
+     resolved outcome matters -- an uncoloured row reads as "nothing happened"
+     when the truth is "still running". */
+  .sh-PENDING { border-left-color:var(--amber); background:rgba(245,165,36,.06); }
   .sh-badge { padding:1px 7px; border-radius:9px; font-size:10px; font-weight:700; }
-  .sh-badge.WIN  { background:rgba(60,200,120,.3); }
-  .sh-badge.LOSS { background:rgba(230,80,80,.3); }
-  .sh-badge.PENDING { background:rgba(255,255,255,.10); font-weight:400; opacity:.7; }
+  .sh-badge.WIN     { background:rgba(22,199,132,.30); color:var(--green); }
+  .sh-badge.LOSS    { background:rgba(234,57,67,.30);  color:var(--red); }
+  .sh-badge.PENDING { background:rgba(245,165,36,.22); color:var(--amber); font-weight:400; }
   .sig-head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .sig-head .sym { font-weight:700; min-width:52px; }
   .sig-tag { padding:1px 7px; border-radius:9px; font-size:10px; letter-spacing:.3px; }
@@ -245,7 +253,7 @@
   // This section reads the server-side log instead, so the full record of what
   // the engine proposed -- including everything it declined to trade -- is
   // there regardless of which tabs are open.
-  let sigPage = 1, sigOutcome = '', sigSymbol = '', sigPages = 1;
+  let sigPage = 1, sigOutcome = '', sigSymbol = '', sigPages = 1, lastLoadAt = 0;
 
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -269,9 +277,9 @@
         // actually executed the real outcome is the trade record, not a shadow.
         const untaken = ['NOT_TRADED', 'REJECTED_RISK', 'REJECTED_EXCHANGE', 'NO_FILL'].includes(r.outcome);
         const shBadge = untaken
-          ? `<span class="sh-badge ${sh || 'PENDING'}">${sh ? `would have ${sh === 'WIN' ? 'WON' : 'LOST'}${held}` : 'unresolved'}</span>`
+          ? `<span class="sh-badge ${sh || 'PENDING'}">${sh ? `would have ${sh === 'WIN' ? 'WON' : 'LOST'}${held}` : 'still running'}</span>`
           : '';
-        return `<div class="sig-row ${untaken && sh ? 'sh-' + sh : ''}">
+        return `<div class="sig-row ${untaken ? 'sh-' + (sh || 'PENDING') : ''}">
           <div class="sig-head">
             <span class="sym">${esc((r.symbol || '').replace('USDT', ''))}</span>
             <span class="dir ${r.direction === 'LONG' ? 'long' : 'short'}">${esc(r.direction || '--')}</span>
@@ -320,6 +328,7 @@
       const res = await fetch(`/api/trades/record?${qs.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       renderSignals(await res.json());
+      lastLoadAt = Date.now();
       st.textContent = '';
     } catch (e) {
       st.textContent = `failed: ${e.message}`;
@@ -340,8 +349,17 @@
     clearTimeout(symTimer);
     symTimer = setTimeout(() => { sigSymbol = e.target.value.trim().toUpperCase(); sigPage = 1; loadSignals(); }, 350);
   };
+  document.getElementById('sigRefresh').onclick = () => loadSignals();
   loadSignals();
-  setInterval(() => { if (sigPage === 1) loadSignals(); }, 20000);
+  // Refresh on every page, not just the first -- a verdict can land on a row
+  // that has already scrolled back, and paging away should not freeze the view.
+  setInterval(loadSignals, 10000);
+  // Freshness counter, so a stalled fetch is visible instead of looking like
+  // "nothing is happening".
+  setInterval(() => {
+    const el = document.getElementById('sigFresh');
+    if (el && lastLoadAt) el.textContent = `updated ${Math.round((Date.now() - lastLoadAt) / 1000)}s ago`;
+  }, 1000);
 
   // No message within 5s of opening usually means the main dashboard tab
   // isn't open in this browser at all -- same-origin BroadcastChannel only

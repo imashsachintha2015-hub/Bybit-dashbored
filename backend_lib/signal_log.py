@@ -118,11 +118,25 @@ def resolve(body):
     rows = data["signals"]
     fingerprint = body.get("fingerprint") or ""
     symbol = body.get("symbol", "")
+    # The fingerprint carries grade and decision, both of which drift while a
+    # candidate is being watched: a setup logged at grade D may be at grade B by
+    # the time it resolves, and the log will have opened a new row for it. So
+    # match the fingerprint first, then fall back to the newest unresolved
+    # untaken row for the symbol, which is the one the shadow was following.
+    UNTAKEN = ("NOT_TRADED", "REJECTED_RISK", "REJECTED_EXCHANGE", "NO_FILL")
+    target = None
     for row in rows:
-        if row.get("symbol") != symbol:
-            continue
-        if fingerprint and row.get("fingerprint") != fingerprint:
-            continue
+        if row.get("symbol") == symbol and fingerprint and row.get("fingerprint") == fingerprint:
+            target = row
+            break
+    if target is None:
+        for row in rows:
+            if (row.get("symbol") == symbol
+                    and not row.get("shadow_outcome")
+                    and row.get("outcome") in UNTAKEN):
+                target = row
+                break
+    for row in ([target] if target else []):
         row["shadow_outcome"] = body.get("shadow_outcome", "")
         row["shadow_exit"] = body.get("exit_price")
         row["shadow_resolved_at"] = int(time.time() * 1000)
