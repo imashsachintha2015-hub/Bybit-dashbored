@@ -67,6 +67,13 @@ class handler(JsonApiHandler):
     def do_POST(self):
         body = self._read_json_body()
         q = self._query()
+        if (q.get("_action") or [""])[0] == "signal_resolve":
+            try:
+                self._send_json(200, {"success": True, "row": signal_log_mod.resolve(body)})
+            except Exception as e:
+                print(f"[POST /api/trades/record?_action=signal_resolve] error: {e}")
+                self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+            return
         if (q.get("_action") or [""])[0] == "signal":
             try:
                 self._send_json(200, {"success": True, "row": signal_log_mod.record(body)})

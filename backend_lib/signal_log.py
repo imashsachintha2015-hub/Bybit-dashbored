@@ -102,6 +102,36 @@ def record(body):
     return row
 
 
+def resolve(body):
+    """Attach the shadow outcome to a suggestion that was never traded.
+
+    The point of recording declined suggestions is to find out whether
+    declining them was right, and that is only answerable once the setup has
+    played out. The engine already tracks each candidate's original entry,
+    stop and target until one of them is reached; this stores that verdict on
+    the row so it survives a reload and can be read back later.
+
+    Matched on the newest row for the symbol carrying the fingerprint, since
+    that is the row the live candidate folded into.
+    """
+    data = load()
+    rows = data["signals"]
+    fingerprint = body.get("fingerprint") or ""
+    symbol = body.get("symbol", "")
+    for row in rows:
+        if row.get("symbol") != symbol:
+            continue
+        if fingerprint and row.get("fingerprint") != fingerprint:
+            continue
+        row["shadow_outcome"] = body.get("shadow_outcome", "")
+        row["shadow_exit"] = body.get("exit_price")
+        row["shadow_resolved_at"] = int(time.time() * 1000)
+        row["shadow_held_ms"] = body.get("held_ms")
+        save(data)
+        return row
+    return None
+
+
 def page(page_num=1, limit=25, symbol=None, outcome=None):
     rows = load()["signals"]
     if symbol:

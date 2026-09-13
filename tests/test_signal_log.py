@@ -69,4 +69,21 @@ for i in range(600):
 n = len(S.load()["signals"])
 assert n == S.MAX_ROWS, n
 print(f"  retention cap: after 600 more -> {n} rows (MAX_ROWS)  OK")
+# 6) shadow resolution attaches the verdict to the right row
+store.clear()
+S.record(sig("BTCUSDT", "RANGE_FADE", "A", "NOT_TRADED"))
+S.record(sig("ETHUSDT", "RANGE_FADE", "A", "NOT_TRADED"))
+fp = "BTCUSDT|RANGE_FADE|LONG|A|BUY"
+row = S.resolve({"fingerprint": fp, "symbol": "BTCUSDT", "shadow_outcome": "WIN",
+                 "exit_price": 101.0, "held_ms": 900000})
+assert row and row["shadow_outcome"] == "WIN", row
+rows = S.load()["signals"]
+btc = [r for r in rows if r["symbol"] == "BTCUSDT"][0]
+eth = [r for r in rows if r["symbol"] == "ETHUSDT"][0]
+assert btc["shadow_outcome"] == "WIN" and btc["shadow_held_ms"] == 900000
+assert not eth.get("shadow_outcome"), "resolution leaked onto another symbol"
+assert S.resolve({"fingerprint": "nope", "symbol": "BTCUSDT", "shadow_outcome": "LOSS"}) is None
+assert btc["shadow_outcome"] == "WIN", "a non-matching fingerprint overwrote a verdict"
+print("  shadow resolve: verdict on the right row, no leak, no match -> None  OK")
+
 print("\nALL SIGNAL LOG TESTS PASSED")

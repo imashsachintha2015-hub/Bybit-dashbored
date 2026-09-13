@@ -206,7 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
         target: s.takeProfit[0],
         startedAt: Date.now(),
         gatesPassed: (s.blockers || []).length === 0,
-        decision: s.decision
+        decision: s.decision,
+        // Carried so the eventual WIN/LOSS can be written back onto the
+        // suggestion row this candidate folded into.
+        fingerprint: signalFingerprint(sym, s)
       };
     }
 
@@ -218,12 +221,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const hitTarget = active.direction === 'LONG' ? price >= active.target : price <= active.target;
     const hitStop = active.direction === 'LONG' ? price <= active.stop : price >= active.stop;
     if (hitTarget || hitStop) {
+      const status = hitTarget ? 'WIN' : 'LOSS';
       shadowTracker.history.unshift({
         ...active,
-        status: hitTarget ? 'WIN' : 'LOSS',
+        status,
         resolvedAt: Date.now(),
         exitPrice: price
       });
+      // Persist the verdict onto the suggestion row. This is what makes a
+      // declined setup answerable: the log stops being a list of things the
+      // engine chose not to do and becomes a record of whether not doing them
+      // was right. Fire-and-forget -- this must never disturb trading.
+      postJSON('/api/trades/record?_action=signal_resolve', {
+        fingerprint: active.fingerprint, symbol: sym,
+        shadow_outcome: status, exit_price: price,
+        held_ms: Date.now() - active.startedAt
+      }).catch(() => {});
       delete shadowTracker.active[sym];
     }
   }

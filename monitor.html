@@ -113,6 +113,7 @@
 
     <h2 style="margin-top:22px;">All Suggestions <span style="font-weight:400;opacity:.6;font-size:11px;">— every candidate the engine formed, traded or not. Survives reload.</span></h2>
     <div id="sigCounts" class="sig-counts"></div>
+    <div id="sigSkipped" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
     <div class="sig-filters">
       <button class="sig-f active" data-outcome="">All</button>
       <button class="sig-f" data-outcome="TAKEN">Taken</button>
@@ -141,7 +142,15 @@
   .sig-filters input { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
            color:inherit; padding:4px 8px; border-radius:6px; font-size:11px; min-width:170px; }
   .sig-row { border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:8px 10px; margin-bottom:6px;
-           font-size:11px; background:rgba(255,255,255,.03); }
+           font-size:11px; background:rgba(255,255,255,.03); border-left:3px solid transparent; }
+  /* What the setup DID after the engine declined it. Green means standing aside
+     cost us the trade; red means declining was right. */
+  .sh-WIN  { border-left-color:var(--green,#3cc878); background:rgba(60,200,120,.07); }
+  .sh-LOSS { border-left-color:var(--red,#e65050);  background:rgba(230,80,80,.07); }
+  .sh-badge { padding:1px 7px; border-radius:9px; font-size:10px; font-weight:700; }
+  .sh-badge.WIN  { background:rgba(60,200,120,.3); }
+  .sh-badge.LOSS { background:rgba(230,80,80,.3); }
+  .sh-badge.PENDING { background:rgba(255,255,255,.10); font-weight:400; opacity:.7; }
   .sig-head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .sig-head .sym { font-weight:700; min-width:52px; }
   .sig-tag { padding:1px 7px; border-radius:9px; font-size:10px; letter-spacing:.3px; }
@@ -254,13 +263,22 @@
         const sup = r.supervisor || {};
         const tgts = Array.isArray(r.targets) ? r.targets.map(t => fmtPrice(t)).join(' / ') : '--';
         const repeat = r.seen_count > 1 ? ` &middot; seen ${r.seen_count}x` : '';
-        return `<div class="sig-row">
+        const sh = r.shadow_outcome || '';
+        const held = r.shadow_held_ms ? ` after ${Math.round(r.shadow_held_ms / 60000)}m` : '';
+        // Only meaningful for setups that were NOT taken -- for a trade that was
+        // actually executed the real outcome is the trade record, not a shadow.
+        const untaken = ['NOT_TRADED', 'REJECTED_RISK', 'REJECTED_EXCHANGE', 'NO_FILL'].includes(r.outcome);
+        const shBadge = untaken
+          ? `<span class="sh-badge ${sh || 'PENDING'}">${sh ? `would have ${sh === 'WIN' ? 'WON' : 'LOST'}${held}` : 'unresolved'}</span>`
+          : '';
+        return `<div class="sig-row ${untaken && sh ? 'sh-' + sh : ''}">
           <div class="sig-head">
             <span class="sym">${esc((r.symbol || '').replace('USDT', ''))}</span>
             <span class="dir ${r.direction === 'LONG' ? 'long' : 'short'}">${esc(r.direction || '--')}</span>
             <span class="setup">${esc(r.setup_type || '--')}</span>
             <span class="grade">${esc(r.grade || '--')}${r.score != null ? ' ' + esc(r.score) : ''}</span>
             <span class="sig-tag o-${esc(r.outcome || 'NOT_TRADED')}">${esc(r.outcome || '--')}</span>
+            ${shBadge}
             <span style="margin-left:auto;opacity:.55;">${esc(r.time || '')}${repeat}</span>
           </div>
           <div class="sig-meta">
@@ -279,6 +297,13 @@
     document.getElementById('sigPageInfo').textContent = `Page ${data.page || 1} of ${sigPages} (${data.total || 0} suggestions)`;
     document.getElementById('sigPrev').disabled = (data.page || 1) <= 1;
     document.getElementById('sigNext').disabled = (data.page || 1) >= sigPages;
+    // Headline the question this view exists to answer.
+    const un = items.filter(r => ['NOT_TRADED','REJECTED_RISK','REJECTED_EXCHANGE','NO_FILL'].includes(r.outcome) && r.shadow_outcome);
+    const w = un.filter(r => r.shadow_outcome === 'WIN').length;
+    const sc = document.getElementById('sigSkipped');
+    if (sc) sc.innerHTML = un.length
+      ? `Of ${un.length} resolved suggestions on this page that were NOT taken, <b style="color:var(--green,#3cc878)">${w} would have won</b> and <b style="color:var(--red,#e65050)">${un.length - w} would have lost</b> (${(100*w/un.length).toFixed(0)}% — compare against the win rate of trades actually taken).`
+      : '';
     const c = data.counts || {};
     document.getElementById('sigCounts').innerHTML = Object.keys(c).length
       ? Object.entries(c).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('')
