@@ -25,9 +25,14 @@ Two things keep this from growing without bound or drowning in duplicates:
 """
 import time
 
+from . import klines as klines_mod
 from .kv import kv_get_json, kv_set_json
 
 SIGNALS_KEY = "signal_log"
+# Outcomes where the engine did NOT end up in the trade, and where a shadow
+# verdict is therefore meaningful. For a TAKEN row the trade record is the
+# outcome and a shadow beside it would be noise.
+UNTAKEN = ("NOT_TRADED", "REJECTED_RISK", "REJECTED_EXCHANGE", "NO_FILL")
 MAX_ROWS = 500
 
 
@@ -123,7 +128,6 @@ def resolve(body):
     # the time it resolves, and the log will have opened a new row for it. So
     # match the fingerprint first, then fall back to the newest unresolved
     # untaken row for the symbol, which is the one the shadow was following.
-    UNTAKEN = ("NOT_TRADED", "REJECTED_RISK", "REJECTED_EXCHANGE", "NO_FILL")
     target = None
     for row in rows:
         if row.get("symbol") == symbol and fingerprint and row.get("fingerprint") == fingerprint:
@@ -144,6 +148,52 @@ def resolve(body):
         save(data)
         return row
     return None
+
+
+EXPIRE_AFTER_MS = 12 * 60 * 60 * 1000
+
+
+def settle_pending(max_rows=4):
+    """Settle a few outstanding suggestions from candles, browser-free.
+
+    Bounded per call because this runs inside a page load: each row costs one
+    upstream request, so a handful at a time keeps the monitor responsive while
+    the backlog still drains over successive refreshes. Oldest first, so nothing
+    is starved.
+
+    Anything still unresolved after EXPIRE_AFTER_MS is marked EXPIRED rather
+    than retried forever -- a setup that has reached neither its target nor its
+    stop in twelve hours has no verdict worth waiting for.
+    """
+    data = load()
+    rows = data["signals"]
+    now_ms = int(time.time() * 1000)
+    pending = [r for r in rows
+               if r.get("outcome") in UNTAKEN and not r.get("shadow_outcome")
+               and r.get("entry") and r.get("stop") and r.get("targets")]
+    pending.sort(key=lambda r: r.get("recorded_at") or 0)
+
+    changed = 0
+    for row in pending[:max_rows]:
+        verdict = None
+        try:
+            verdict = klines_mod.settle(row, now_ms=now_ms)
+        except Exception:
+            verdict = None
+        if verdict is None:
+            if now_ms - (row.get("recorded_at") or now_ms) > EXPIRE_AFTER_MS:
+                row["shadow_outcome"] = "EXPIRED"
+                row["shadow_resolved_at"] = now_ms
+                changed += 1
+            continue
+        row["shadow_outcome"] = verdict
+        row["shadow_resolved_at"] = now_ms
+        row["shadow_held_ms"] = now_ms - (row.get("recorded_at") or now_ms)
+        row["shadow_source"] = "server"
+        changed += 1
+    if changed:
+        save(data)
+    return changed
 
 
 def page(page_num=1, limit=25, symbol=None, outcome=None):

@@ -155,10 +155,14 @@
      resolved outcome matters -- an uncoloured row reads as "nothing happened"
      when the truth is "still running". */
   .sh-PENDING { border-left-color:var(--amber); background:rgba(245,165,36,.06); }
+  /* Reached neither target nor stop within the settlement window: there is no
+     verdict to be had, which is different from one we are still waiting for. */
+  .sh-EXPIRED { border-left-color:rgba(255,255,255,.25); }
   .sh-badge { padding:1px 7px; border-radius:9px; font-size:10px; font-weight:700; }
   .sh-badge.WIN     { background:rgba(22,199,132,.30); color:var(--green); }
   .sh-badge.LOSS    { background:rgba(234,57,67,.30);  color:var(--red); }
   .sh-badge.PENDING { background:rgba(245,165,36,.22); color:var(--amber); font-weight:400; }
+  .sh-badge.EXPIRED { background:rgba(255,255,255,.10); font-weight:400; opacity:.65; }
   .sig-head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .sig-head .sym { font-weight:700; min-width:52px; }
   .sig-tag { padding:1px 7px; border-radius:9px; font-size:10px; letter-spacing:.3px; }
@@ -277,7 +281,11 @@
         // actually executed the real outcome is the trade record, not a shadow.
         const untaken = ['NOT_TRADED', 'REJECTED_RISK', 'REJECTED_EXCHANGE', 'NO_FILL'].includes(r.outcome);
         const shBadge = untaken
-          ? `<span class="sh-badge ${sh || 'PENDING'}">${sh ? `would have ${sh === 'WIN' ? 'WON' : 'LOST'}${held}` : 'still running'}</span>`
+          ? `<span class="sh-badge ${sh || 'PENDING'}">${
+              sh === 'WIN' ? `would have WON${held}`
+              : sh === 'LOSS' ? `would have LOST${held}`
+              : sh === 'EXPIRED' ? 'never resolved'
+              : 'still running'}</span>`
           : '';
         return `<div class="sig-row ${untaken ? 'sh-' + (sh || 'PENDING') : ''}">
           <div class="sig-head">
@@ -306,7 +314,8 @@
     document.getElementById('sigPrev').disabled = (data.page || 1) <= 1;
     document.getElementById('sigNext').disabled = (data.page || 1) >= sigPages;
     // Headline the question this view exists to answer.
-    const un = items.filter(r => ['NOT_TRADED','REJECTED_RISK','REJECTED_EXCHANGE','NO_FILL'].includes(r.outcome) && r.shadow_outcome);
+    const un = items.filter(r => ['NOT_TRADED','REJECTED_RISK','REJECTED_EXCHANGE','NO_FILL'].includes(r.outcome)
+      && (r.shadow_outcome === 'WIN' || r.shadow_outcome === 'LOSS'));
     const w = un.filter(r => r.shadow_outcome === 'WIN').length;
     const sc = document.getElementById('sigSkipped');
     if (sc) sc.innerHTML = un.length

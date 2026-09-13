@@ -104,4 +104,49 @@ S.record(sig("XRPUSDT", "RANGE_FADE", "A", "TAKEN"))
 assert S.resolve({"fingerprint": "nope", "symbol": "XRPUSDT", "shadow_outcome": "WIN"}) is None
 print("  fingerprint drift: exact match wins, fallback finds newest untaken, TAKEN untouched  OK")
 
+# 8) server-side settlement, with candles stubbed so the test needs no network
+store.clear()
+import time as _t
+now = int(_t.time() * 1000)
+def mk(sym, entry, stop, tgt, age_ms):
+    r = {"fingerprint": f"{sym}|X|LONG|A|BUY", "symbol": sym, "direction": "LONG",
+         "setup_type": "X", "grade": "A", "outcome": "NOT_TRADED",
+         "entry": entry, "stop": stop, "targets": [tgt]}
+    row = S.record(r)
+    row["recorded_at"] = now - age_ms
+    S.save(S.load())
+    return row
+mk("AAAUSDT", 100.0, 99.0, 101.0, 10 * 60 * 1000)   # should WIN
+mk("BBBUSDT", 100.0, 99.0, 101.0, 10 * 60 * 1000)   # should LOSS
+mk("CCCUSDT", 100.0, 99.0, 101.0, 13 * 60 * 60 * 1000)  # stale -> EXPIRED
+
+def fake_fetch(symbol, start_ms, limit=300):
+    if symbol == "AAAUSDT":   # runs up to the target, never near the stop
+        return [{"start": start_ms, "high": 101.5, "low": 99.8, "close": 101.2}]
+    if symbol == "BBBUSDT":   # drops through the stop first
+        return [{"start": start_ms, "high": 100.2, "low": 98.5, "close": 98.7}]
+    return []                  # CCC: no data -> stays unresolved -> expires on age
+klines_stub = type(S.klines_mod)("klines")
+klines_stub.fetch_1m = fake_fetch
+klines_stub.settle = S.klines_mod.settle.__get__(None, object) if False else None
+import types
+def settle(row, now_ms=None):
+    bars = fake_fetch(row["symbol"], row["recorded_at"])
+    if not bars: return None
+    t, st = row["targets"][0], row["stop"]
+    for b in bars:
+        if b["low"] <= st: return "LOSS"
+        if b["high"] >= t: return "WIN"
+    return None
+klines_stub.settle = settle
+S.klines_mod = klines_stub
+
+n = S.settle_pending(max_rows=10)
+rows = {r["symbol"]: r for r in S.load()["signals"]}
+assert rows["AAAUSDT"]["shadow_outcome"] == "WIN", rows["AAAUSDT"]
+assert rows["BBBUSDT"]["shadow_outcome"] == "LOSS", rows["BBBUSDT"]
+assert rows["CCCUSDT"]["shadow_outcome"] == "EXPIRED", rows["CCCUSDT"]
+assert rows["AAAUSDT"]["shadow_source"] == "server"
+print(f"  server settlement: {n} rows settled -> WIN / LOSS / EXPIRED as expected  OK")
+
 print("\nALL SIGNAL LOG TESTS PASSED")

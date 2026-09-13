@@ -28,6 +28,15 @@ class handler(JsonApiHandler):
         action = (q.get("_action") or [""])[0]
 
         if action == "signals":
+            # Settle a few outstanding suggestions before rendering. The
+            # browser-side watcher only runs while a dashboard tab is awake,
+            # which on a phone is almost never -- background tabs are suspended,
+            # so setups resolved while the screen was off would stay pending
+            # forever. Doing it here means opening the monitor is enough.
+            try:
+                signal_log_mod.settle_pending(max_rows=4)
+            except Exception as e:
+                print(f"[signals] settle_pending failed: {e}")
             self._send_json(200, signal_log_mod.page(
                 page_num=(q.get("page") or ["1"])[0],
                 limit=(q.get("limit") or ["25"])[0],
