@@ -2744,3 +2744,77 @@ no signal could have overcome. And it sets a design constraint on future work: a
 +0.04R effect is undetectable at any sample this project can realistically
 collect, so a candidate signal is only worth testing if it would be large enough
 to see.
+
+# Part XXI — The maker-offset ladder measures the fill model, not the market
+
+Part V and Part IX disagree about execution offset: Part V puts a 25bps maker
+limit at −0.075R, Part IX puts 30bps at +0.288R. A live no-fill prompted
+re-measuring it under the current stop geometry, and the result explains the
+disagreement — and disqualifies the backtest from settling it.
+
+```bash
+node backtest/run-backtest.js --symbols BTCUSDT,ETHUSDT,SOLUSDT,DOGEUSDT \
+  --exec maker --makerOffset <0|5|10|20|30> --makerTimeout 20 \
+  --stopMult 3.0 --invalMult 2.0
+```
+
+418 days, four symbols, deployed geometry, offset swept:
+
+| offset | n | win rate | expectancy | total R | missed | % of signals missed |
+|---|---|---|---|---|---|---|
+| 0 | 323 | 48.0% | −0.082 | −26.4 | 3 | 1% |
+| 5 | 294 | 49.3% | −0.115 | −33.9 | 32 | 10% |
+| 10 | 271 | 49.1% | −0.140 | −37.9 | 54 | 16% |
+| 20 | 236 | 56.4% | +0.108 | +25.4 | 96 | 28% |
+| **30** | 197 | **67.5%** | **+0.413** | **+81.3** | 146 | **42%** |
+
+## Why this is not a finding
+
+Expectancy rises monotonically while 42% of signals go untraded, and it
+*accelerates* rather than flattening. A cost effect cannot do that. Cost per
+unit of risk is the fee rate divided by stop distance, which decays
+hyperbolically — each widening buys strictly less than the last, exactly as the
+stop-width sweep in Part XX showed (+0.056, then +0.014, then +0.016). A curve
+that steepens as it skips more trades is not saving money; it is selecting.
+
+The selection is free only because the fill model makes it so. A resting order
+is treated as filled whenever price touches its level. Under that rule a wide
+offset cherry-picks setups that retraced before running, handing over both the
+better entry and the confirming pullback at no charge. On a real book that
+order sits at the back of a queue, and the touches that fill it are
+disproportionately those where genuine size came through — someone informed
+trading against it. Part I's own note says as much: *a resting bid does not fill
+at random, it fills when someone wants to sell into it.*
+
+So the model grants the entire upside of selection and none of its price, and
+the ladder climbs precisely along the axis of its own bias. **The number is a
+property of the assumption, not of the market.**
+
+That also resolves the Part V / Part IX contradiction without either being
+"right": Part IX and this sweep share the optimistic fill assumption and both
+conclude wider is better without limit. Two results agreeing because they share
+a bias is not corroboration.
+
+## What this does and does not contaminate
+
+**Contaminated: any comparison that changes which trades fill.** Offset ladders
+are the clear case, and Part IX's +0.288R at 30bps should not be quoted.
+
+**Not contaminated: comparisons holding execution fixed.** Part XX's stop-width
+sweep ran at a constant 20bps throughout, so the fill assumption is identical in
+every row and cancels out of the comparison. Its cost mechanism is also
+arithmetic — a wider stop buys a smaller position, which pays proportionally
+less in fees — rather than dependent on which orders fill.
+
+## The measurement that would settle it
+
+Fill rate is the one quantity the backtest cannot produce and a live book can.
+The engine now assigns each entry a maker offset from two arms, 10bps and
+20bps, keyed on symbol and minute rather than trade order (setups cluster in
+time, so alternating would correlate the arm with market conditions). The arm
+and the realised fill price land on the signal row, and the monitor reports
+fill rate per arm over orders that actually reached the book.
+
+Until that has a sample, 20bps stands — not because this sweep endorses it, but
+because moving on evidence whose mechanism is the model's blind spot is the
+error this part exists to document.
