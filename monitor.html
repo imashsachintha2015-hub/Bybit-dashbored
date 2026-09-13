@@ -116,6 +116,7 @@
     <div id="sigCounts" class="sig-counts"></div>
     <div id="sigSkipped" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
     <div id="sigArms" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
+    <div id="sigDirection" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
     <div class="sig-filters">
       <button class="sig-f active" data-outcome="">All</button>
       <button class="sig-f" data-outcome="TAKEN">Taken</button>
@@ -335,6 +336,16 @@
           return `<b>${esc(k)}bps</b>: ${rate} (${a.filled}/${a.settled}${a.placed ? `, ${a.placed} resting` : ''})`;
         }).join(' &nbsp;·&nbsp; ')
       : '';
+    // The direction test: the same setup taken the other way, settled from the
+    // same candles. A 50% split means the direction call carries no information.
+    const dir = data.direction || {};
+    const de = document.getElementById('sigDirection');
+    if (de) de.innerHTML = dir.decisive_n
+      ? `Direction test — on <b>${dir.decisive_n}</b> setups where one side won and the other lost, `
+        + `the engine's direction was right <b>${dir.decisive_real_win_rate}%</b> of the time `
+        + `(engine ${dir.real_win_rate}% vs mirrored ${dir.mirror_win_rate}% across ${dir.n} fully-settled). `
+        + `<span style="opacity:.7">50% = the direction call is noise.</span>`
+      : (dir.n ? `Direction test — ${dir.n} settled, none decisive yet.` : '');
     const c = data.counts || {};
     document.getElementById('sigCounts').innerHTML = Object.keys(c).length
       ? Object.entries(c).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('')

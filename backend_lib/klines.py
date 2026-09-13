@@ -65,6 +65,62 @@ def fetch_1m(symbol, start_ms, limit=200):
     return []
 
 
+def settle_both(row, now_ms=None):
+    """Settle the suggestion AND its mirror image, from one candle fetch.
+
+    The mirror is the same setup taken the other way: identical entry, with the
+    stop and target reflected about it. Whether the engine's chosen direction
+    beats its own mirror is the sharpest available test of whether the
+    direction call carries information at all — sharper than comparing against
+    random entries, because the setup, the timing and the geometry are held
+    identical and only the direction differs.
+
+    If both sides win at about the same rate the direction is noise, and
+    whatever edge exists lives in which setups get selected rather than in
+    which way they point.
+
+    Returns (real, mirror), either of which may be None if unresolved.
+    """
+    entry, stop = row.get("entry"), row.get("stop")
+    targets = row.get("targets") or []
+    started = row.get("recorded_at")
+    if not (entry and stop and targets and started):
+        return None, None
+    target = targets[0]
+    if target is None:
+        return None, None
+    is_long = str(row.get("direction", "")).upper().startswith("L")
+    now_ms = now_ms or int(time.time() * 1000)
+    if now_ms - started < 120000:
+        return None, None
+
+    bars = fetch_1m(row.get("symbol", ""), started, limit=300)
+    if not bars:
+        return None, None
+
+    # Reflect both levels about the entry to build the opposite trade.
+    m_stop, m_target = 2 * entry - stop, 2 * entry - target
+    return (_walk(bars, target, stop, is_long),
+            _walk(bars, m_target, m_stop, not is_long))
+
+
+def _walk(bars, target, stop, is_long):
+    """First level reached wins. A bar touching both counts as a LOSS.
+
+    Order within a 1m candle is unknowable, and taking the pessimistic reading
+    keeps an ambiguous bar from flattering either side -- which matters
+    especially here, where the two sides are compared against each other.
+    """
+    for b in bars:
+        hit_t = b["high"] >= target if is_long else b["low"] <= target
+        hit_s = b["low"] <= stop if is_long else b["high"] >= stop
+        if hit_s:
+            return "LOSS"
+        if hit_t:
+            return "WIN"
+    return None
+
+
 def settle(row, now_ms=None):
     """WIN / LOSS / None for a suggestion, by replaying candles since it fired.
 

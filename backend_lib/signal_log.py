@@ -111,7 +111,8 @@ def record(body):
                 # fold, or a late re-evaluation would silently erase it.
                 for k in ("shadow_outcome", "shadow_exit", "shadow_resolved_at",
                           "shadow_held_ms", "shadow_source",
-                          "maker_offset_bps", "fill_price", "observed_vetoes"):
+                          "maker_offset_bps", "fill_price", "observed_vetoes",
+                          "mirror_outcome"):
                     if existing.get(k) is not None and row.get(k) is None:
                         row[k] = existing[k]
                 row["first_seen"] = existing.get("first_seen") or existing.get("recorded_at")
@@ -199,11 +200,16 @@ def settle_pending(max_rows=4):
 
     changed = 0
     for row in pending[:max_rows]:
-        verdict = None
+        verdict = mirror = None
         try:
-            verdict = klines_mod.settle(row, now_ms=now_ms)
+            verdict, mirror = klines_mod.settle_both(row, now_ms=now_ms)
         except Exception:
-            verdict = None
+            verdict = mirror = None
+        if mirror:
+            # What the SAME setup taken the other way would have done. Comparing
+            # the two is the direct test of whether the direction call carries
+            # information, with setup, timing and geometry held identical.
+            row["mirror_outcome"] = mirror
         if verdict is None:
             if now_ms - (row.get("recorded_at") or now_ms) > EXPIRE_AFTER_MS:
                 row["shadow_outcome"] = "EXPIRED"
@@ -238,6 +244,35 @@ def page(page_num=1, limit=25, symbol=None, outcome=None):
         "pages": max(1, (total + limit - 1) // limit),
         "counts": _counts(load()["signals"]),
         "arms": _arm_stats(load()["signals"]),
+        "direction": direction_stats(),
+    }
+
+
+def direction_stats(rows=None):
+    """How often the engine's direction beat its own mirror.
+
+    Only rows where BOTH sides settled are counted: a comparison needs two
+    results, and including half-resolved rows would bias toward whichever side
+    happens to resolve faster -- which is systematically the losing one, since
+    stops sit closer than targets.
+    """
+    rows = load()["signals"] if rows is None else rows
+    both = [r for r in rows
+            if r.get("shadow_outcome") in ("WIN", "LOSS")
+            and r.get("mirror_outcome") in ("WIN", "LOSS")]
+    if not both:
+        return {"n": 0}
+    real_wins = sum(1 for r in both if r["shadow_outcome"] == "WIN")
+    mirror_wins = sum(1 for r in both if r["mirror_outcome"] == "WIN")
+    # Rows where exactly one side won -- the cases the direction call decided.
+    decisive = [r for r in both if (r["shadow_outcome"] == "WIN") != (r["mirror_outcome"] == "WIN")]
+    dec_real = sum(1 for r in decisive if r["shadow_outcome"] == "WIN")
+    return {
+        "n": len(both),
+        "real_win_rate": round(100 * real_wins / len(both)),
+        "mirror_win_rate": round(100 * mirror_wins / len(both)),
+        "decisive_n": len(decisive),
+        "decisive_real_win_rate": round(100 * dec_real / len(decisive)) if decisive else None,
     }
 
 

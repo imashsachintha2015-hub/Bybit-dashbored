@@ -128,17 +128,21 @@ def fake_fetch(symbol, start_ms, limit=300):
     return []                  # CCC: no data -> stays unresolved -> expires on age
 klines_stub = type(S.klines_mod)("klines")
 klines_stub.fetch_1m = fake_fetch
-klines_stub.settle = S.klines_mod.settle.__get__(None, object) if False else None
 import types
-def settle(row, now_ms=None):
-    bars = fake_fetch(row["symbol"], row["recorded_at"])
-    if not bars: return None
-    t, st = row["targets"][0], row["stop"]
+def _walk(bars, target, stop, is_long):
     for b in bars:
-        if b["low"] <= st: return "LOSS"
-        if b["high"] >= t: return "WIN"
+        hit_t = b["high"] >= target if is_long else b["low"] <= target
+        hit_s = b["low"] <= stop if is_long else b["high"] >= stop
+        if hit_s: return "LOSS"
+        if hit_t: return "WIN"
     return None
-klines_stub.settle = settle
+def settle_both(row, now_ms=None):
+    bars = fake_fetch(row["symbol"], row["recorded_at"])
+    if not bars: return None, None
+    e, st, t = row["entry"], row["stop"], row["targets"][0]
+    return (_walk(bars, t, st, True),
+            _walk(bars, 2 * e - t, 2 * e - st, False))
+klines_stub.settle_both = settle_both
 S.klines_mod = klines_stub
 
 n = S.settle_pending(max_rows=10)
@@ -187,5 +191,36 @@ assert arms["10"]["fill_rate"] == 75 and arms["10"]["settled"] == 4, arms["10"]
 assert arms["20"]["fill_rate"] == 25 and arms["20"]["settled"] == 4, arms["20"]
 assert arms["20"]["placed"] == 1, arms["20"]
 print("  offset arms: 10bps 75% / 20bps 25% fill, resting counted apart, rejection excluded  OK")
+
+# 11) direction test: engine's call vs its own mirror
+store.clear()
+def settled(sym, real, mirror):
+    r = S.record({"fingerprint": f"{sym}|X|LONG", "symbol": sym, "direction": "LONG",
+                  "setup_type": "X", "grade": "A", "outcome": "NOT_TRADED",
+                  "entry": 1.0, "stop": 0.99, "targets": [1.01]})
+    r["shadow_outcome"] = real
+    if mirror: r["mirror_outcome"] = mirror
+    S.save(S.load())
+    return r
+# 4 decisive rows: engine right 3 times, wrong once
+settled("A1USDT", "WIN", "LOSS"); settled("A2USDT", "WIN", "LOSS")
+settled("A3USDT", "WIN", "LOSS"); settled("A4USDT", "LOSS", "WIN")
+# both sides losing -- not decisive, counts in n but not in the decisive split
+settled("A5USDT", "LOSS", "LOSS")
+# half-resolved rows must be excluded entirely
+settled("A6USDT", "WIN", None)
+st = S.direction_stats()
+assert st["n"] == 5, st
+assert st["decisive_n"] == 4, st
+assert st["decisive_real_win_rate"] == 75, st
+assert st["real_win_rate"] == 60 and st["mirror_win_rate"] == 20, st
+print(f"  direction test: n=5, decisive 4, engine right {st['decisive_real_win_rate']}% of decisive  OK")
+
+# a 50/50 split is what "direction is noise" looks like
+store.clear()
+settled("B1USDT", "WIN", "LOSS"); settled("B2USDT", "LOSS", "WIN")
+st = S.direction_stats()
+assert st["decisive_real_win_rate"] == 50, st
+print("  even split reads as 50% -- the no-information case  OK")
 
 print("\nALL SIGNAL LOG TESTS PASSED")
