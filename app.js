@@ -368,14 +368,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function resolveApiUrl(url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (window.location.protocol === 'file:') {
+      return 'http://localhost:8080' + (url.startsWith('/') ? '' : '/') + url;
+    }
+    return url;
+  }
+
   async function fetchJSON(url) {
-    try { const r = await fetch(url); return await readJSONResponse(r, url); }
-    catch (e) { console.warn('API fetch error:', url, e.message); return null; }
+    const fullUrl = resolveApiUrl(url);
+    try { const r = await fetch(fullUrl); return await readJSONResponse(r, fullUrl); }
+    catch (e) { console.warn('API fetch error:', fullUrl, e.message); return null; }
   }
 
   async function postJSON(url, body) {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    return readJSONResponse(r, url);
+    const fullUrl = resolveApiUrl(url);
+    const r = await fetch(fullUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return readJSONResponse(r, fullUrl);
   }
 
   // ─────────────────────────────────────────────────────────────────────
