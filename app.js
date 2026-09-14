@@ -219,9 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!price) return;
 
     const hitTarget = active.direction === 'LONG' ? price >= active.target : price <= active.target;
-    const hitStop = active.direction === 'LONG' ? price <= active.stop : price >= active.stop;
-    if (hitTarget || hitStop) {
-      const status = hitTarget ? 'WIN' : 'LOSS';
+    const hitStop   = active.direction === 'LONG' ? price <= active.stop   : price >= active.stop;
+    // SL takes priority over TP: if both are touched in the same tick (e.g. a
+    // wide candle that sweeps through both levels), the conservative reading is
+    // LOSS -- identical to the server-side _walk() rule in klines.py.
+    // A trade only counts as WIN if TP is reached WITHOUT the stop being hit.
+    if (hitStop || hitTarget) {
+      const status = hitStop ? 'LOSS' : 'WIN';
       shadowTracker.history.unshift({
         ...active,
         status,
