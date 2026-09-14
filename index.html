@@ -35,6 +35,7 @@
         <a href="#newsWhaleSection" class="nav-item" data-target="newsWhaleSection"><i class="fa-solid fa-newspaper"></i> News &amp; Whales</a>
         <a href="#positionsSection" class="nav-item" data-target="positionsSection"><i class="fa-solid fa-briefcase"></i> Positions</a>
         <a href="#intelSection" class="nav-item" data-target="intelSection"><i class="fa-solid fa-brain"></i> AI Intelligence</a>
+        <a href="#tradingControlsSection" class="nav-item" data-target="tradingControlsSection"><i class="fa-solid fa-sliders"></i> Trading Settings</a>
       </nav>
 
       <div class="sidebar-footer">
@@ -311,33 +312,81 @@
               <div class="deepseek-output font-mono" id="deepseekOutput" style="display:none;"></div>
             </section>
 
-            <!-- AUTONOMOUS EXECUTION & POSITION GUARDIAN -->
-            <section class="card trading-controls accent-green">
+            <!-- AUTONOMOUS EXECUTION & TRADING SETTINGS -->
+            <section class="card trading-controls accent-green" id="tradingControlsSection">
               <div class="card-header">
-                <span class="card-title"><i class="fa-solid fa-robot"></i> Autonomous Execution</span>
+                <span class="card-title"><i class="fa-solid fa-sliders"></i> Trading Settings &amp; Execution</span>
                 <span class="arm-status stopped" id="armStatus">STOPPED</span>
               </div>
               <div class="trading-controls-body">
+                <!-- MARGIN MODE -->
+                <div class="control-row margin-mode-row">
+                  <label class="control-label" title="Cross margin shares balance across positions. Isolated confines risk to individual trades.">Margin Mode</label>
+                  <div class="mode-toggle-group">
+                    <button type="button" class="mode-toggle-btn active" id="marginModeCrossBtn" data-mode="cross">Cross</button>
+                    <button type="button" class="mode-toggle-btn" id="marginModeIsolatedBtn" data-mode="isolated">Isolated</button>
+                  </div>
+                </div>
+
+                <!-- LEVERAGE SETTING -->
+                <div class="control-row leverage-row">
+                  <div class="control-label-wrap">
+                    <label class="control-label" for="leverageInput" title="Set leverage multiplier for linear perpetual contracts (1x - 100x). Default is 10x.">Leverage</label>
+                    <span class="leverage-badge font-mono" id="leverageDisplay">10x</span>
+                  </div>
+                  <div class="leverage-control-group">
+                    <div class="input-with-unit lev-input-wrap">
+                      <input type="number" id="leverageInput" class="control-input font-mono" value="10" min="1" max="100" step="1">
+                      <span class="unit-tag">x</span>
+                    </div>
+                    <div class="leverage-presets">
+                      <button type="button" class="lev-preset-btn" data-lev="5">5x</button>
+                      <button type="button" class="lev-preset-btn active" data-lev="10">10x</button>
+                      <button type="button" class="lev-preset-btn" data-lev="20">20x</button>
+                      <button type="button" class="lev-preset-btn" data-lev="50">50x</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- POSITION SIZING MODE -->
                 <div class="control-row sizing-mode-row">
-                  <label class="control-label">Position Sizing</label>
+                  <label class="control-label" title="Risk % calculates quantity based on Stop Loss distance. USDT Size opens fixed dollar notional.">Position Sizing</label>
                   <div class="sizing-mode-toggle">
                     <button type="button" class="sizing-mode-btn active" id="sizeModeRiskBtn" data-mode="risk">Risk %</button>
                     <button type="button" class="sizing-mode-btn" id="sizeModeUsdtBtn" data-mode="usdt">USDT Size</button>
                   </div>
                 </div>
+
+                <!-- SIZING INPUTS -->
                 <div class="control-row" id="riskSizeRow">
-                  <label class="control-label" for="marginInput" title="Position size is derived from this and the distance to the stop, so every trade risks the same amount regardless of how wide its stop is.">Risk / Trade (% of equity)</label>
-                  <input type="number" id="marginInput" class="control-input" value="0.5" min="0.1" max="5" step="0.1">
+                  <label class="control-label" for="marginInput" title="Position size is derived from this and the distance to the stop, so every trade risks the same amount regardless of how wide its stop is.">Risk / Trade (% equity)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="marginInput" class="control-input font-mono" value="0.5" min="0.1" max="5" step="0.1">
+                    <span class="unit-tag">%</span>
+                  </div>
                 </div>
                 <div class="control-row" id="usdtSizeRow" style="display:none;">
-                  <label class="control-label" for="usdtSizeInput" title="Every trade opens at exactly this notional size (quantity = size / entry price), regardless of stop distance -- unlike Risk %, wider stops then risk more of your equity than tighter ones.">Position Size (USDT)</label>
-                  <input type="number" id="usdtSizeInput" class="control-input" value="100" min="1" step="1">
+                  <label class="control-label" for="usdtSizeInput" title="Every trade opens at exactly this notional size (quantity = size / entry price), regardless of stop distance.">Fixed Size (USDT)</label>
+                  <div class="input-with-unit">
+                    <span class="unit-tag-prefix">$</span>
+                    <input type="number" id="usdtSizeInput" class="control-input font-mono" value="100" min="1" step="1">
+                    <span class="unit-tag">USDT</span>
+                  </div>
                 </div>
+
+                <!-- LIVE SETTINGS SUMMARY -->
+                <div class="trade-settings-summary" id="tradeSettingsSummary">
+                  <div class="settings-chip font-mono" id="chipLeverage"><i class="fa-solid fa-gauge-high"></i> <span>10x Leverage</span></div>
+                  <div class="settings-chip font-mono" id="chipMargin"><i class="fa-solid fa-cube"></i> <span>Cross Margin</span></div>
+                  <div class="settings-chip font-mono" id="chipSizing"><i class="fa-solid fa-coins"></i> <span>0.5% Risk</span></div>
+                </div>
+
+                <!-- CONTROL BUTTONS -->
                 <div class="control-buttons">
                   <button class="start-btn" id="startBtn"><i class="fa-solid fa-play"></i> Start</button>
                   <button class="stop-btn" id="stopBtn" disabled><i class="fa-solid fa-stop"></i> Stop</button>
                 </div>
-                <p class="control-hint">Armed = the system will auto-place a market order (with the stop-loss/take-profit shown above) the instant a signal clears every gate. Stopped = monitoring only, no new entries.</p>
+                <p class="control-hint">Armed = auto-place limit orders with stop-loss/take-profit according to settings. Duplicate guard blocks multiple trades on the same coin.</p>
 
                 <div class="guardian-block">
                   <div class="guardian-title"><i class="fa-solid fa-shield-heart"></i> Position Guardian</div>

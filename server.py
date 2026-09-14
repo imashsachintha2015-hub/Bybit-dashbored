@@ -892,6 +892,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, res)
             return
 
+        # 7. API: Autonomous execution settings & arm state
+        if self.path == "/api/auto-trade/state":
+            try:
+                from backend_lib import auto_trade_state
+                self._send_json(200, auto_trade_state.load())
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
         # Default: Serve static files
         super().do_GET()
 
@@ -1059,6 +1068,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     trade_stats["trade_history"].pop()
                 save_trade_stats()
             self._send_json(200, {"success": True})
+            return
+
+        # 5. API: Autonomous execution settings & arm state
+        if self.path == "/api/auto-trade/state":
+            try:
+                from backend_lib import auto_trade_state
+                state = auto_trade_state.save(
+                    body.get("armed", False),
+                    body.get("riskPerTradePct"),
+                    body.get("sizingMode"),
+                    body.get("fixedUsdtSize"),
+                    body.get("leverage"),
+                    body.get("marginMode"),
+                )
+                self._send_json(200, state)
+            except Exception as e:
+                self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
             return
 
         self._send_json(404, {"error": "Not Found"})

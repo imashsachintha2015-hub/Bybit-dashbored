@@ -611,7 +611,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const meta = COIN_META[sym] || {};
     const sized = riskGovernor.sizePosition({
       entry: limitPrice, stop: wideStop, equity: accountEquity, symbol: sym,
-      qtyStep: meta.qtyStep, minQty: meta.minQty
+      qtyStep: meta.qtyStep, minQty: meta.minQty,
+      maxLeverage: riskGovernor.config.leverage || 10
     });
     if (!sized.qty) {
       logEvent(`${sym} entry skipped — ${sized.rejected}`);
@@ -627,7 +628,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // that must survive a browser crash; the targets are managed here.
       const res = await postJSON('/api/order/place', {
         category: 'linear', symbol: sym, side, orderType: 'Limit',
-        price: limitPrice, qty, stopLoss: wideStop
+        price: limitPrice, qty, stopLoss: wideStop,
+        leverage: riskGovernor.config.leverage || 10,
+        marginMode: riskGovernor.config.marginMode || 'cross'
       });
       if (res.retCode === 0 && res.result && res.result.orderId) {
         pendingEntries[sym] = {
@@ -1599,6 +1602,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // stopping two tabs from both firing on the same signal in the same
   // cycle. Only drive trades from one device at a time -- the others are
   // fine for read-only monitoring, armed or not.
+  function updateSettingsSummary() {
+    const lev = riskGovernor.config.leverage || 10;
+    const mode = riskGovernor.config.marginMode || 'cross';
+    const isRisk = riskGovernor.config.sizingMode === 'risk';
+    const sizingTxt = isRisk ? `${riskGovernor.config.riskPerTradePct}% Risk` : `$${riskGovernor.config.fixedUsdtSize} USDT`;
+
+    const levDisp = $('leverageDisplay');
+    if (levDisp) levDisp.textContent = `${lev}x`;
+    const chipLev = $('chipLeverage');
+    if (chipLev) chipLev.querySelector('span').textContent = `${lev}x Leverage`;
+    const chipMargin = $('chipMargin');
+    if (chipMargin) chipMargin.querySelector('span').textContent = `${mode === 'cross' ? 'Cross' : 'Isolated'} Margin`;
+    const chipSizing = $('chipSizing');
+    if (chipSizing) chipSizing.querySelector('span').textContent = sizingTxt;
+  }
+
   function applyArmedUI(armed) {
     autoTradingArmed = armed;
     $('armStatus').textContent = armed ? 'ARMED' : 'STOPPED';
@@ -1609,6 +1628,33 @@ document.addEventListener('DOMContentLoaded', () => {
     $('usdtSizeInput').disabled = armed;
     $('sizeModeRiskBtn').disabled = armed;
     $('sizeModeUsdtBtn').disabled = armed;
+    const levInp = $('leverageInput');
+    if (levInp) levInp.disabled = armed;
+    document.querySelectorAll('.lev-preset-btn').forEach(btn => btn.disabled = armed);
+    const mmCross = $('marginModeCrossBtn');
+    const mmIso = $('marginModeIsolatedBtn');
+    if (mmCross) mmCross.disabled = armed;
+    if (mmIso) mmIso.disabled = armed;
+  }
+
+  function applyMarginModeUI(mode) {
+    riskGovernor.config.marginMode = mode === 'isolated' ? 'isolated' : 'cross';
+    const crossBtn = $('marginModeCrossBtn');
+    const isoBtn = $('marginModeIsolatedBtn');
+    if (crossBtn) crossBtn.classList.toggle('active', riskGovernor.config.marginMode === 'cross');
+    if (isoBtn) isoBtn.classList.toggle('active', riskGovernor.config.marginMode === 'isolated');
+    updateSettingsSummary();
+  }
+
+  function applyLeverageUI(lev) {
+    const parsed = Math.max(1, Math.min(100, parseInt(lev, 10) || 10));
+    riskGovernor.config.leverage = parsed;
+    const inp = $('leverageInput');
+    if (inp && inp.value != parsed) inp.value = parsed;
+    document.querySelectorAll('.lev-preset-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.lev, 10) === parsed);
+    });
+    updateSettingsSummary();
   }
 
   function applySizingModeUI(mode) {
@@ -1617,10 +1663,41 @@ document.addEventListener('DOMContentLoaded', () => {
     $('sizeModeUsdtBtn').classList.toggle('active', mode === 'usdt');
     $('riskSizeRow').style.display = mode === 'risk' ? '' : 'none';
     $('usdtSizeRow').style.display = mode === 'usdt' ? '' : 'none';
+    updateSettingsSummary();
   }
+
+  const mmCrossBtn = $('marginModeCrossBtn');
+  if (mmCrossBtn) mmCrossBtn.addEventListener('click', () => applyMarginModeUI('cross'));
+  const mmIsoBtn = $('marginModeIsolatedBtn');
+  if (mmIsoBtn) mmIsoBtn.addEventListener('click', () => applyMarginModeUI('isolated'));
+
+  const levInputEl = $('leverageInput');
+  if (levInputEl) {
+    levInputEl.addEventListener('input', (e) => applyLeverageUI(e.target.value));
+    levInputEl.addEventListener('change', (e) => applyLeverageUI(e.target.value));
+  }
+  document.querySelectorAll('.lev-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyLeverageUI(btn.dataset.lev));
+  });
 
   $('sizeModeRiskBtn').addEventListener('click', () => applySizingModeUI('risk'));
   $('sizeModeUsdtBtn').addEventListener('click', () => applySizingModeUI('usdt'));
+
+  $('marginInput').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    if (v > 0) {
+      riskGovernor.config.riskPerTradePct = v;
+      updateSettingsSummary();
+    }
+  });
+
+  $('usdtSizeInput').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    if (v > 0) {
+      riskGovernor.config.fixedUsdtSize = v;
+      updateSettingsSummary();
+    }
+  });
 
   async function setArmed(armed) {
     if (armed) {
@@ -1628,13 +1705,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (riskPct > 0 && riskPct <= 5) riskGovernor.config.riskPerTradePct = riskPct;
       const usdtSize = parseFloat($('usdtSizeInput').value);
       if (usdtSize > 0) riskGovernor.config.fixedUsdtSize = usdtSize;
+      const levVal = parseInt($('leverageInput') ? $('leverageInput').value : 10, 10);
+      if (levVal > 0) riskGovernor.config.leverage = Math.max(1, Math.min(100, levVal));
     }
     applyArmedUI(armed);
+    updateSettingsSummary();
+
     if (armed) {
       const sizingDesc = riskGovernor.config.sizingMode === 'usdt'
         ? `a fixed $${riskGovernor.config.fixedUsdtSize} notional per trade`
         : `risking ${riskGovernor.config.riskPerTradePct}% of equity per trade`;
-      logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — ${sizingDesc}, max ${riskGovernor.config.maxConcurrentPositions} concurrent, daily loss limit ${riskGovernor.config.maxDailyLossPct}%`);
+      logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — ${sizingDesc} | ${riskGovernor.config.leverage}x leverage | ${riskGovernor.config.marginMode.toUpperCase()} margin | duplicate guard active`);
     } else {
       logEvent('Autonomous execution STOPPED — monitoring only. Open positions keep their broker-side stops but will not be managed further.');
     }
@@ -1643,7 +1724,9 @@ document.addEventListener('DOMContentLoaded', () => {
         armed,
         riskPerTradePct: riskGovernor.config.riskPerTradePct,
         sizingMode: riskGovernor.config.sizingMode,
-        fixedUsdtSize: riskGovernor.config.fixedUsdtSize
+        fixedUsdtSize: riskGovernor.config.fixedUsdtSize,
+        leverage: riskGovernor.config.leverage,
+        marginMode: riskGovernor.config.marginMode
       });
     } catch (e) {
       logEvent(`Could not sync arm state to the server (${e.message}) — other devices won't see this change until it succeeds`);
@@ -1653,15 +1736,16 @@ document.addEventListener('DOMContentLoaded', () => {
   $('startBtn').addEventListener('click', () => setArmed(true));
   $('stopBtn').addEventListener('click', () => setArmed(false));
 
-  // Cross-device re-sync: if the server's arm state differs from ours --
-  // because another device changed it, or (on first load) because we
-  // haven't adopted it yet -- follow it. Called from pollDemoData()'s very
-  // first tick (1s after load) as well as every cycle after, so a page
-  // load picks up whatever's currently armed instead of always starting
-  // STOPPED, with no separate startup fetch needed.
+  // Cross-device re-sync: mirrors arm state, margin mode, leverage, and sizing mode
   async function resyncArmedState() {
     const saved = await fetchJSON('/api/auto-trade/state');
     if (!saved) return;
+    if (saved.marginMode && saved.marginMode !== riskGovernor.config.marginMode) {
+      applyMarginModeUI(saved.marginMode);
+    }
+    if (saved.leverage && saved.leverage !== riskGovernor.config.leverage) {
+      applyLeverageUI(saved.leverage);
+    }
     if (saved.sizingMode && saved.sizingMode !== riskGovernor.config.sizingMode) {
       applySizingModeUI(saved.sizingMode);
     }
@@ -1669,9 +1753,13 @@ document.addEventListener('DOMContentLoaded', () => {
       riskGovernor.config.fixedUsdtSize = saved.fixedUsdtSize;
       $('usdtSizeInput').value = saved.fixedUsdtSize;
     }
+    if (saved.riskPerTradePct && saved.riskPerTradePct !== riskGovernor.config.riskPerTradePct) {
+      riskGovernor.config.riskPerTradePct = saved.riskPerTradePct;
+      $('marginInput').value = saved.riskPerTradePct;
+    }
+    updateSettingsSummary();
+
     if (saved.armed === autoTradingArmed) return;
-    if (saved.armed) riskGovernor.config.riskPerTradePct = saved.riskPerTradePct || riskGovernor.config.riskPerTradePct;
-    $('marginInput').value = riskGovernor.config.riskPerTradePct;
     applyArmedUI(saved.armed);
     logEvent(`Auto-trading was ${saved.armed ? 'ARMED' : 'STOPPED'} from another device — following that here.`);
   }

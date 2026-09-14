@@ -22,7 +22,14 @@ from .kv import kv_get_json, kv_set_json
 
 STATE_KEY = "auto_trade_state"
 
-DEFAULT_STATE = {"armed": False, "riskPerTradePct": 0.5, "sizingMode": "risk", "fixedUsdtSize": 100}
+DEFAULT_STATE = {
+    "armed": False,
+    "riskPerTradePct": 0.5,
+    "sizingMode": "risk",
+    "fixedUsdtSize": 100,
+    "leverage": 10,
+    "marginMode": "cross",
+}
 
 
 def load():
@@ -32,12 +39,15 @@ def load():
     return {**DEFAULT_STATE, **state}
 
 
-def save(armed, risk_per_trade_pct, sizing_mode=None, fixed_usdt_size=None):
+def save(armed, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=None, leverage=None, margin_mode=None):
+    current = load()
     state = {
         "armed": bool(armed),
-        "riskPerTradePct": float(risk_per_trade_pct) if risk_per_trade_pct is not None else DEFAULT_STATE["riskPerTradePct"],
-        "sizingMode": sizing_mode if sizing_mode in ("risk", "usdt") else DEFAULT_STATE["sizingMode"],
-        "fixedUsdtSize": float(fixed_usdt_size) if fixed_usdt_size else DEFAULT_STATE["fixedUsdtSize"],
+        "riskPerTradePct": float(risk_per_trade_pct) if risk_per_trade_pct is not None else current.get("riskPerTradePct", 0.5),
+        "sizingMode": sizing_mode if sizing_mode in ("risk", "usdt") else current.get("sizingMode", "risk"),
+        "fixedUsdtSize": float(fixed_usdt_size) if fixed_usdt_size else current.get("fixedUsdtSize", 100),
+        "leverage": int(leverage) if leverage and int(leverage) > 0 else current.get("leverage", 10),
+        "marginMode": str(margin_mode).lower() if str(margin_mode).lower() in ("cross", "isolated") else current.get("marginMode", "cross"),
     }
     kv_set_json(STATE_KEY, state)
     return state

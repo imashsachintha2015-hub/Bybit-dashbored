@@ -167,7 +167,8 @@
       let qty = usdtMode ? this.config.fixedUsdtSize / entry : riskAmount / riskDist;
 
       // Never let sizing push notional past the leverage ceiling.
-      const maxNotional = eq * maxLeverage;
+      const effLev = Math.max(1, this.config.leverage || maxLeverage);
+      const maxNotional = eq * effLev;
       if (qty * entry > maxNotional) {
         qty = maxNotional / entry;
       }
