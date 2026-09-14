@@ -115,8 +115,8 @@ Reply with exactly this JSON:
             "Content-Type": "application/json",
             "User-Agent": "MASIS/3.0",
         })
-        with urllib.request.urlopen(req, timeout=12) as r:
-            res = json.loads(r.read().decode())
+        with urllib.request.urlopen(req, timeout=25) as r:
+            res = json.loads(r.read().decode("utf-8", errors="replace"))
             text = res["choices"][0]["message"]["content"]
             match = re.search(r"\{.*\}", text, re.DOTALL)
             parsed = json.loads(match.group(0) if match else text)
@@ -135,11 +135,13 @@ Reply with exactly this JSON:
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
             }
     except urllib.error.HTTPError as e:
-        detail = e.read().decode()[:200]
+        detail = e.read().decode("utf-8", errors="replace")[:200]
         reason = ("DeepSeek HTTP 402 — account has no credit balance."
                   if e.code == 402 else f"DeepSeek HTTP {e.code}: {detail}")
+        print(f"[supervisor] HTTP error: {reason}")
     except Exception as e:
         reason = f"DeepSeek unreachable: {e}"
+        print(f"[supervisor] Exception: {reason}")
 
     # A supervisor that cannot be reached must never block a locally-valid
     # trade, and must never wave through a locally-invalid one. It abstains.
