@@ -230,8 +230,76 @@
       return none;
     }
 
+    /**
+     * Fair Value Gap (FVG) detection — from the masterclass.
+     *
+     * An FVG is a 3-candle pattern where the middle candle displaced so
+     * violently that its body/range created an untraded zone:
+     *   - Bullish FVG: candle[i-1].high < candle[i+1].low  →  gap between
+     *     the first candle's high and the third candle's low.
+     *   - Bearish FVG: candle[i-1].low  > candle[i+1].high →  gap between
+     *     the first candle's low and the third candle's high.
+     *
+     * Price tends to return to these gaps to "mitigate" them — they are
+     * structurally meaningful pullback entry zones, replacing the arbitrary
+     * entry offset that was used before.
+     *
+     * Returns the most recent unmitigated FVG within `lookback` bars.
+     */
+    detectFVG(confirmedCandles, currentPrice, lookback = 20) {
+      const none = { detected: false, side: 'NONE', gapHigh: 0, gapLow: 0, midpoint: 0 };
+      if (!confirmedCandles || confirmedCandles.length < 4) return none;
+
+      const start = Math.max(0, confirmedCandles.length - lookback);
+      const candles = confirmedCandles.slice(start);
+
+      // Scan backwards (most recent first) for the nearest unmitigated FVG
+      for (let i = candles.length - 1; i >= 2; i--) {
+        const c1 = candles[i - 2];  // first candle
+        const c3 = candles[i];      // third candle
+
+        // Bullish FVG: c1.high < c3.low — a gap below the current range
+        if (c1.high < c3.low) {
+          const gapHigh = c3.low;
+          const gapLow = c1.high;
+          const mid = (gapHigh + gapLow) / 2;
+          // Unmitigated = price hasn't yet returned into the gap
+          if (currentPrice > gapHigh) {
+            return {
+              detected: true,
+              side: 'BULLISH',
+              gapHigh,
+              gapLow,
+              midpoint: mid,
+              evidence: [`Bullish FVG at ${gapLow.toFixed(2)}–${gapHigh.toFixed(2)} (midpoint ${mid.toFixed(2)}) — unmitigated pullback entry zone`]
+            };
+          }
+        }
+
+        // Bearish FVG: c1.low > c3.high — a gap above the current range
+        if (c1.low > c3.high) {
+          const gapHigh = c1.low;
+          const gapLow = c3.high;
+          const mid = (gapHigh + gapLow) / 2;
+          // Unmitigated = price hasn't yet returned into the gap
+          if (currentPrice < gapLow) {
+            return {
+              detected: true,
+              side: 'BEARISH',
+              gapHigh,
+              gapLow,
+              midpoint: mid,
+              evidence: [`Bearish FVG at ${gapLow.toFixed(2)}–${gapHigh.toFixed(2)} (midpoint ${mid.toFixed(2)}) — unmitigated pullback entry zone`]
+            };
+          }
+        }
+      }
+
+      return none;
+    }
+
     /** Everything a decision needs, in one call. */
-    snapshot(lastConfirmedCandle, atrValue, confirmedCandles) {
+    snapshot(lastConfirmedCandle, atrValue, confirmedCandles, currentPrice) {
       const flow1m = this.windowFlow(60000);
       const flow5m = this.windowFlow(300000);
       return {
@@ -243,6 +311,7 @@
         burst: this.detectFlowBurst(),
         spoof: this.detectSpoof(),
         divergence: this.detectDeltaDivergence(confirmedCandles),
+        fvg: this.detectFVG(confirmedCandles, currentPrice),
         cumDelta: this.cumDelta
       };
     }

@@ -60,6 +60,51 @@ class handler(JsonApiHandler):
                 price = body.get("price")
                 tp = body.get("takeProfit")
                 sl = body.get("stopLoss")
+                leverage = body.get("leverage")
+                margin_mode = body.get("marginMode")
+
+                # ── Same-coin duplicate guard ──
+                try:
+                    pos_res = client.get_positions(symbol)
+                    positions = pos_res.get("result", {}).get("list", [])
+                    live = [p for p in positions if float(p.get("size", 0)) > 0]
+                    if live:
+                        self._send_json(200, {
+                            "retCode": -1,
+                            "retMsg": f"Already holding a live {symbol} position — duplicate blocked"
+                        })
+                        return
+
+                    orders_res = client.get_open_orders(symbol)
+                    pending = orders_res.get("result", {}).get("list", [])
+                    if pending:
+                        self._send_json(200, {
+                            "retCode": -1,
+                            "retMsg": f"A limit order for {symbol} is already resting — duplicate blocked"
+                        })
+                        return
+                except Exception as e:
+                    print(f"[duplicate-guard] Check failed (proceeding): {e}")
+
+                # ── Apply leverage and margin mode ──
+                if margin_mode:
+                    try:
+                        mm_res = client.switch_margin_mode(symbol, margin_mode, leverage or 10)
+                        rc = mm_res.get("retCode", 0)
+                        if rc not in (0, 110026):
+                            print(f"[margin-mode] {symbol}: retCode={rc} {mm_res.get('retMsg','')}")
+                    except Exception as e:
+                        print(f"[margin-mode] {symbol} switch failed: {e}")
+
+                if leverage:
+                    try:
+                        lev_res = client.set_leverage(symbol, leverage)
+                        rc = lev_res.get("retCode", 0)
+                        if rc not in (0, 110043):
+                            print(f"[leverage] {symbol}: retCode={rc} {lev_res.get('retMsg','')}")
+                    except Exception as e:
+                        print(f"[leverage] {symbol} set failed: {e}")
+
                 res = client.place_order(category, symbol, side, order_type, qty, price, tp, sl)
 
             self._send_json(200, res)

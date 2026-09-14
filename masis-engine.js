@@ -401,7 +401,7 @@
 
       const regime = Regime.classify({ htf, mtf, ltf }, { atrPctHistory: this.atrPctHistory });
       const atrMtf = I.atr(mtf, 14);
-      const flowSnapshot = this.flow.snapshot(mtf[mtf.length - 1], atrMtf, mtf);
+      const flowSnapshot = this.flow.snapshot(mtf[mtf.length - 1], atrMtf, mtf, this.price);
 
       // ─── The swarm reads the market, then argues about it ───
       // The panel runs first and independently of any setup. This ordering is
@@ -566,7 +566,15 @@
           absorption: flowSnapshot.absorption.side,
           burst: flowSnapshot.burst.detected ? flowSnapshot.burst.side : 'NONE',
           spread: flowSnapshot.book.available ? +flowSnapshot.book.spreadPct.toFixed(4) : null,
-          imbalance: flowSnapshot.book.available ? +flowSnapshot.book.imbalance.toFixed(3) : null
+          imbalance: flowSnapshot.book.available ? +flowSnapshot.book.imbalance.toFixed(3) : null,
+          spoof: flowSnapshot.spoof.detected ? flowSnapshot.spoof.side : null,
+          fvg: flowSnapshot.fvg && flowSnapshot.fvg.detected ? {
+            side: flowSnapshot.fvg.side,
+            gapHigh: flowSnapshot.fvg.gapHigh,
+            gapLow: flowSnapshot.fvg.gapLow,
+            midpoint: flowSnapshot.fvg.midpoint,
+            evidence: flowSnapshot.fvg.evidence
+          } : null
         } : null,
 
         panel: (this.lastPanel || []).map(p => ({

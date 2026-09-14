@@ -18,44 +18,26 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 
   const DEFAULTS = {
-    riskPerTradePct: 0.5,        // % of equity risked between entry and stop
-    // 'risk' (default): size so entry-to-stop always equals riskPerTradePct
-    // of equity, per the note above. 'usdt': size to a fixed notional
-    // instead -- the operator's explicit choice to trade the older, simpler
-    // way, understanding a wide stop then risks more of that fixed notional
-    // than a tight one does.
-    sizingMode: 'risk',
-    fixedUsdtSize: 100,
-    maxDailyLossPct: 3.0,        // hard stop for the session
-    maxConcurrentPositions: 2,
-    maxCorrelatedPositions: 2,   // BTC/ETH/SOL move together — they are one bet, not three
-    consecutiveLossLimit: 3,     // pause after this many losses in a row
-    cooldownAfterLossMs: 20 * 60 * 1000,
-    cooldownAfterWinMs: 5 * 60 * 1000,
-    pauseDurationMs: 60 * 60 * 1000,
-    minEquity: 50
-  };
+    // ── Trading Settings ──
+    leverage: 10,                    // Bybit leverage (1–100)
+    marginMode: 'cross',             // 'cross' or 'isolated'
+    sizingMode: 'usdt',              // 'risk' = ATR-based, 'usdt' = fixed notional
+    fixedUsdtSize: 100,              // USDT per trade when sizingMode='usdt'
+    riskPerTradePct: 0.5,            // % of equity risked when sizingMode='risk'
 
-  // Everything in this bucket is effectively one directional bet on crypto beta.
-  const CORRELATION_GROUPS = {
-    MAJORS: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT']
+    // ── Safety ──
+    maxDailyLossPct: 3.0,            // hard daily loss limit (% of session start equity)
+    minEquity: 50                    // minimum account balance to trade
   };
 
   class RiskGovernor {
     constructor(options = {}) {
       this.config = Object.assign({}, DEFAULTS, options);
-      // Injectable clock — cooldowns, pauses and the daily roll must all be
-      // measured on the same clock the rest of the system runs on, which under
-      // replay is simulated time, not wall time.
       this.now = options.now || (() => Date.now());
       this.sessionStartEquity = 0;
       this.currentEquity = 0;
       this.dayKey = this._dayKey();
       this.realisedPnlToday = 0;
-      this.consecutiveLosses = 0;
-      this.pausedUntil = 0;
-      this.pauseReason = null;
-      this.symbolCooldownUntil = {};   // symbol -> timestamp
       this.tradesToday = 0;
       this.rMultiples = [];            // realised R per closed trade, for expectancy
     }
@@ -95,29 +77,6 @@
       this.tradesToday++;
       if (typeof rMultiple === 'number' && isFinite(rMultiple)) this.rMultiples.push(rMultiple);
       if (this.rMultiples.length > 200) this.rMultiples.shift();
-
-      const now = this.now();
-      if (pnl < 0) {
-        this.consecutiveLosses++;
-        this.symbolCooldownUntil[symbol] = now + this.config.cooldownAfterLossMs;
-        if (this.consecutiveLosses >= this.config.consecutiveLossLimit) {
-          this.pausedUntil = now + this.config.pauseDurationMs;
-          this.pauseReason = 'CONSECUTIVE_LOSSES';
-        }
-      } else {
-        this.consecutiveLosses = 0;
-        this.symbolCooldownUntil[symbol] = now + this.config.cooldownAfterWinMs;
-      }
-
-      // Daily loss limit measured against equity at the start of the day.
-      const base = this.sessionStartEquity || this.currentEquity;
-      if (base > 0 && this.realisedPnlToday < 0) {
-        const lossPct = Math.abs(this.realisedPnlToday) / base * 100;
-        if (lossPct >= this.config.maxDailyLossPct) {
-          this.pausedUntil = Math.max(this.pausedUntil, this._endOfDayTs());
-          this.pauseReason = 'DAILY_LOSS_LIMIT';
-        }
-      }
     }
 
     _endOfDayTs() {
@@ -147,44 +106,35 @@
     /**
      * The gate. Returns { allowed, reasons[] } — every refusal names itself so
      * the operator can see exactly why the system stood down.
+     *
+     * Only restriction: cannot open a second position on the SAME coin when one
+     * is already live or a limit order is resting.  Everything else is removed
+     * — no concurrent-position cap, no correlation-group cap, no cooldowns.
      */
-    canOpen({ symbol, openPositions = [] }) {
+    canOpen({ symbol, openPositions = [], pendingOrders = [] }) {
       this._rollDayIfNeeded();
-      const now = this.now();
       const reasons = [];
 
-      if (this.pausedUntil > now) {
-        const mins = Math.ceil((this.pausedUntil - now) / 60000);
-        reasons.push(`Trading paused (${this.pauseReason}) for another ${mins} min`);
-      }
+      // 1. Minimum equity
       if (this.currentEquity > 0 && this.currentEquity < this.config.minEquity) {
         reasons.push(`Equity ${this.currentEquity.toFixed(2)} is below the ${this.config.minEquity} minimum`);
       }
-      const cd = this.symbolCooldownUntil[symbol] || 0;
-      if (cd > now) {
-        reasons.push(`${symbol} is in cooldown for another ${Math.ceil((cd - now) / 60000)} min after its last trade`);
-      }
-      if (openPositions.length >= this.config.maxConcurrentPositions) {
-        reasons.push(`Already holding ${openPositions.length} positions (limit ${this.config.maxConcurrentPositions})`);
-      }
-      if (openPositions.some(p => p.symbol === symbol)) {
-        reasons.push(`Already holding ${symbol} — no pyramiding`);
-      }
 
-      const group = Object.values(CORRELATION_GROUPS).find(g => g.includes(symbol));
-      if (group) {
-        const inGroup = openPositions.filter(p => group.includes(p.symbol)).length;
-        if (inGroup >= this.config.maxCorrelatedPositions) {
-          reasons.push(`${inGroup} correlated majors already open — these move together, so that is one bet, not ${inGroup}`);
-        }
-      }
-
+      // 2. Daily loss limit
       const base = this.sessionStartEquity || this.currentEquity;
       if (base > 0 && this.realisedPnlToday < 0) {
         const lossPct = Math.abs(this.realisedPnlToday) / base * 100;
         if (lossPct >= this.config.maxDailyLossPct) {
           reasons.push(`Daily loss limit reached (${lossPct.toFixed(2)}% of starting equity)`);
         }
+      }
+
+      // 3. Same-coin duplicate guard (live positions OR resting limit orders)
+      if (openPositions.some(p => p.symbol === symbol)) {
+        reasons.push(`Already holding a live ${symbol} position`);
+      }
+      if (pendingOrders.some(o => o.symbol === symbol)) {
+        reasons.push(`A limit order for ${symbol} is already resting`);
       }
 
       return { allowed: reasons.length === 0, reasons };
@@ -247,22 +197,21 @@
     }
 
     status() {
-      const now = this.now();
       const base = this.sessionStartEquity || this.currentEquity;
       return {
-        paused: this.pausedUntil > now,
-        pauseReason: this.pauseReason,
-        pausedForMin: this.pausedUntil > now ? Math.ceil((this.pausedUntil - now) / 60000) : 0,
-        consecutiveLosses: this.consecutiveLosses,
+        leverage: this.config.leverage,
+        marginMode: this.config.marginMode,
+        sizingMode: this.config.sizingMode,
+        fixedUsdtSize: this.config.fixedUsdtSize,
+        riskPerTradePct: this.config.riskPerTradePct,
         realisedPnlToday: +this.realisedPnlToday.toFixed(2),
         dailyLossPct: base > 0 ? +((Math.abs(Math.min(this.realisedPnlToday, 0)) / base) * 100).toFixed(2) : 0,
         maxDailyLossPct: this.config.maxDailyLossPct,
         tradesToday: this.tradesToday,
-        riskPerTradePct: this.config.riskPerTradePct,
         expectancy: this.expectancy()
       };
     }
   }
 
-  return { RiskGovernor, DEFAULTS, CORRELATION_GROUPS };
+  return { RiskGovernor, DEFAULTS };
 });

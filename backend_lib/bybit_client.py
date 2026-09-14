@@ -108,6 +108,46 @@ class BybitDemoClient:
     def get_closed_pnl(self, limit=50):
         return self.signed_request("GET", "/v5/position/closed-pnl", {"category": "linear", "limit": str(limit)})
 
+    def get_open_orders(self, symbol=None):
+        """Returns resting (unfilled/partially filled) orders. Used by the
+        same-coin duplicate guard to prevent opening a second limit order
+        on a symbol that already has one resting."""
+        params = {"category": "linear", "settleCoin": "USDT"}
+        if symbol:
+            params["symbol"] = symbol
+        return self.signed_request("GET", "/v5/order/realtime", params)
+
+    def set_leverage(self, symbol, leverage):
+        """Sets buy and sell leverage for a linear perp symbol.
+
+        Bybit returns retCode 110043 ('Set leverage not modified') if the
+        requested leverage already matches — that is harmless and callers
+        should treat it as success."""
+        body = {
+            "category": "linear",
+            "symbol": symbol,
+            "buyLeverage": str(leverage),
+            "sellLeverage": str(leverage)
+        }
+        return self.signed_request("POST", "/v5/position/set-leverage", body=body)
+
+    def switch_margin_mode(self, symbol, mode, leverage=10):
+        """Switches between cross (tradeMode=0) and isolated (tradeMode=1)
+        margin for a linear perp symbol.  Leverage must be supplied because
+        the Bybit endpoint requires it on every call.
+
+        Returns retCode 110026 ('Position mode is not modified') if already
+        set — harmless, callers should treat as success."""
+        trade_mode = 0 if str(mode).lower() == "cross" else 1
+        body = {
+            "category": "linear",
+            "symbol": symbol,
+            "tradeMode": trade_mode,
+            "buyLeverage": str(leverage),
+            "sellLeverage": str(leverage)
+        }
+        return self.signed_request("POST", "/v5/position/switch-isolated", body=body)
+
     def place_order(self, category, symbol, side, order_type, qty, price=None, tp=None, sl=None):
         body = {
             "category": category,

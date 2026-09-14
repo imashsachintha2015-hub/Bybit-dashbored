@@ -43,6 +43,24 @@ DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 # See .env.example. The server starts without the optional keys and degrades
 # the corresponding feature explicitly rather than failing silently.
 # ─────────────────────────────────────────────────────────────────────────
+def _load_env_file():
+    env_file = os.path.join(DIRECTORY, ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("\"'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception as e:
+            sys.stderr.write(f"[WARN] Failed to parse .env: {e}\n")
+
+_load_env_file()
+
 def _env(name, default=None, required=False):
     val = os.environ.get(name, default)
     if required and not val:
@@ -910,10 +928,58 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             price = body.get("price")
             tp = body.get("takeProfit")
             sl = body.get("stopLoss")
+            leverage = body.get("leverage")
+            margin_mode = body.get("marginMode")
+
+            # ── Same-coin duplicate guard ──
+            # Prevent opening a second position or limit order on the same coin
+            try:
+                pos_res = bybit_client.get_positions(symbol)
+                positions = pos_res.get("result", {}).get("list", [])
+                live = [p for p in positions if float(p.get("size", 0)) > 0]
+                if live:
+                    self._send_json(200, {
+                        "retCode": -1,
+                        "retMsg": f"Already holding a live {symbol} position — duplicate blocked"
+                    })
+                    return
+
+                orders_res = bybit_client.get_open_orders(symbol)
+                pending = orders_res.get("result", {}).get("list", [])
+                if pending:
+                    self._send_json(200, {
+                        "retCode": -1,
+                        "retMsg": f"A limit order for {symbol} is already resting — duplicate blocked"
+                    })
+                    return
+            except Exception as e:
+                print(f"[duplicate-guard] Check failed (proceeding): {e}")
+
+            # ── Apply leverage and margin mode before placing the order ──
+            if margin_mode:
+                try:
+                    mm_res = bybit_client.switch_margin_mode(symbol, margin_mode, leverage or 10)
+                    rc = mm_res.get("retCode", 0)
+                    # 110026 = 'Position mode is not modified' — already set, harmless
+                    if rc not in (0, 110026):
+                        print(f"[margin-mode] {symbol} switch to {margin_mode}: retCode={rc} {mm_res.get('retMsg','')}")
+                except Exception as e:
+                    print(f"[margin-mode] {symbol} switch failed (proceeding): {e}")
+
+            if leverage:
+                try:
+                    lev_res = bybit_client.set_leverage(symbol, leverage)
+                    rc = lev_res.get("retCode", 0)
+                    # 110043 = 'Set leverage not modified' — already set, harmless
+                    if rc not in (0, 110043):
+                        print(f"[leverage] {symbol} set to {leverage}x: retCode={rc} {lev_res.get('retMsg','')}")
+                except Exception as e:
+                    print(f"[leverage] {symbol} set failed (proceeding): {e}")
 
             res = bybit_client.place_order(category, symbol, side, order_type, qty, price, tp, sl)
             self._send_json(200, res)
             return
+
 
         # 2. API: Close Position
         if self.path == "/api/order/close":
