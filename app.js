@@ -1653,8 +1653,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateSettingsSummary() {
     const lev = riskGovernor.config.leverage || 10;
     const mode = riskGovernor.config.marginMode || 'cross';
+    const isMin = riskGovernor.config.sizingMode === 'min';
     const isRisk = riskGovernor.config.sizingMode === 'risk';
-    const sizingTxt = isRisk ? `${riskGovernor.config.riskPerTradePct}% Risk` : `$${riskGovernor.config.fixedUsdtSize} USDT`;
+    const sizingTxt = isMin
+      ? 'Min Size (~$5-$65)'
+      : (isRisk ? `${riskGovernor.config.riskPerTradePct}% Risk` : `$${riskGovernor.config.fixedUsdtSize} USDT`);
 
     const levDisp = $('leverageDisplay');
     if (levDisp) levDisp.textContent = `${lev}x`;
@@ -1674,6 +1677,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('stopBtn').disabled = !armed;
     $('marginInput').disabled = armed;
     $('usdtSizeInput').disabled = armed;
+    if ($('sizeModeMinBtn')) $('sizeModeMinBtn').disabled = armed;
     $('sizeModeRiskBtn').disabled = armed;
     $('sizeModeUsdtBtn').disabled = armed;
     const levInp = $('leverageInput');
@@ -1707,10 +1711,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applySizingModeUI(mode) {
     riskGovernor.config.sizingMode = mode;
-    $('sizeModeRiskBtn').classList.toggle('active', mode === 'risk');
+    if ($('sizeModeMinBtn')) $('sizeModeMinBtn').classList.toggle('active', mode === 'min');
     $('sizeModeUsdtBtn').classList.toggle('active', mode === 'usdt');
-    $('riskSizeRow').style.display = mode === 'risk' ? '' : 'none';
+    $('sizeModeRiskBtn').classList.toggle('active', mode === 'risk');
+    if ($('minSizeRow')) $('minSizeRow').style.display = mode === 'min' ? '' : 'none';
     $('usdtSizeRow').style.display = mode === 'usdt' ? '' : 'none';
+    $('riskSizeRow').style.display = mode === 'risk' ? '' : 'none';
     updateSettingsSummary();
   }
 
@@ -1728,6 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => applyLeverageUI(btn.dataset.lev));
   });
 
+  if ($('sizeModeMinBtn')) $('sizeModeMinBtn').addEventListener('click', () => applySizingModeUI('min'));
   $('sizeModeRiskBtn').addEventListener('click', () => applySizingModeUI('risk'));
   $('sizeModeUsdtBtn').addEventListener('click', () => applySizingModeUI('usdt'));
 
@@ -1760,9 +1767,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSettingsSummary();
 
     if (armed) {
-      const sizingDesc = riskGovernor.config.sizingMode === 'usdt'
-        ? `a fixed $${riskGovernor.config.fixedUsdtSize} notional per trade`
-        : `risking ${riskGovernor.config.riskPerTradePct}% of equity per trade`;
+      const sizingDesc = riskGovernor.config.sizingMode === 'min'
+        ? 'smallest possible legal size per coin on Bybit (~$5 alts, 0.001 BTC)'
+        : (riskGovernor.config.sizingMode === 'usdt'
+          ? `a fixed $${riskGovernor.config.fixedUsdtSize} notional per trade`
+          : `risking ${riskGovernor.config.riskPerTradePct}% of equity per trade`);
       logEvent(`Autonomous execution ARMED across ${WATCHLIST.length} symbols — ${sizingDesc} | ${riskGovernor.config.leverage}x leverage | ${riskGovernor.config.marginMode.toUpperCase()} margin | duplicate guard active`);
     } else {
       logEvent('Autonomous execution STOPPED — monitoring only. Open positions keep their broker-side stops but will not be managed further.');

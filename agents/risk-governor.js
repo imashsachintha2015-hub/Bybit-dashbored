@@ -21,8 +21,8 @@
     // ── Trading Settings ──
     leverage: 10,                    // Bybit leverage (1–100)
     marginMode: 'cross',             // 'cross' or 'isolated'
-    sizingMode: 'usdt',              // 'risk' = ATR-based, 'usdt' = fixed notional
-    fixedUsdtSize: 100,              // USDT per trade when sizingMode='usdt'
+    sizingMode: 'min',               // 'min' = smallest possible exchange size, 'usdt' = fixed notional, 'risk' = % equity
+    fixedUsdtSize: 10,               // USDT per trade when sizingMode='usdt'
     riskPerTradePct: 0.5,            // % of equity risked when sizingMode='risk'
 
     // ── Safety ──
@@ -162,6 +162,23 @@
         return { qty: 0, rejected: 'Missing equity, entry or stop' };
       }
 
+      const step = qtyStep || 0.001;
+      const minQ = minQty || step;
+      const minNotional = 5.0; // Bybit linear contract minimum order notional is 5 USDT
+
+      // 1. MIN SIZING MODE: Absolute smallest valid legal order for this coin on Bybit
+      if (this.config.sizingMode === 'min') {
+        let q = Math.max(minQ, Math.ceil(minNotional / entry / step) * step);
+        q = Math.floor(q / step) * step;
+        q = +q.toFixed(8);
+        return {
+          qty: q,
+          riskAmount: +(riskDist * q).toFixed(2),
+          notional: +(q * entry).toFixed(2),
+          effectiveLeverage: +((q * entry) / eq).toFixed(2)
+        };
+      }
+
       const usdtMode = this.config.sizingMode === 'usdt';
       const riskAmount = usdtMode ? +(riskDist * (this.config.fixedUsdtSize / entry)).toFixed(2) : eq * (this.config.riskPerTradePct / 100);
       let qty = usdtMode ? this.config.fixedUsdtSize / entry : riskAmount / riskDist;
@@ -173,17 +190,27 @@
         qty = maxNotional / entry;
       }
 
-      const step = qtyStep || 0.001;
       qty = Math.floor(qty / step) * step;
       qty = +qty.toFixed(8);
 
+      // Ensure minimum 5 USDT notional on Bybit linear contracts
+      if (qty * entry < minNotional) {
+        qty = Math.ceil(minNotional / entry / step) * step;
+        qty = +qty.toFixed(8);
+      }
+
       if (minQty && qty < minQty) {
-        return {
-          qty: 0,
-          rejected: usdtMode
-            ? `Size at $${this.config.fixedUsdtSize} notional (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raise the USDT size to trade this symbol.`
-            : `Risk-based size (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raising size would mean risking more than ${this.config.riskPerTradePct}% of equity on this trade, so the trade is skipped instead.`
-        };
+        // If the user configured a small USDT size, clamp to minQty rather than rejecting
+        if (usdtMode && this.config.fixedUsdtSize <= 50) {
+          qty = minQty;
+        } else {
+          return {
+            qty: 0,
+            rejected: usdtMode
+              ? `Size at $${this.config.fixedUsdtSize} notional (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raise the USDT size to trade this symbol.`
+              : `Risk-based size (${qty}) is below ${symbol}'s minimum order size (${minQty}). Raising size would mean risking more than ${this.config.riskPerTradePct}% of equity on this trade, so the trade is skipped instead.`
+          };
+        }
       }
       if (qty <= 0) {
         return { qty: 0, rejected: `${usdtMode ? 'Fixed-USDT' : 'Risk-based'} size rounds to zero at ${symbol}'s step size` };

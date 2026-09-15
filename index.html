@@ -350,15 +350,21 @@
 
                 <!-- POSITION SIZING MODE -->
                 <div class="control-row sizing-mode-row">
-                  <label class="control-label" title="Risk % calculates quantity based on Stop Loss distance. USDT Size opens fixed dollar notional.">Position Sizing</label>
+                  <label class="control-label" title="Min Size opens the smallest allowed order on Bybit for each coin. USDT Size opens fixed dollar notional. Risk % scales with Stop Loss distance.">Position Sizing</label>
                   <div class="sizing-mode-toggle">
-                    <button type="button" class="sizing-mode-btn active" id="sizeModeRiskBtn" data-mode="risk">Risk %</button>
+                    <button type="button" class="sizing-mode-btn active" id="sizeModeMinBtn" data-mode="min" title="Smallest possible legal size on Bybit for each coin (~$5-$65 notional)"><i class="fa-solid fa-compress"></i> Min Size</button>
                     <button type="button" class="sizing-mode-btn" id="sizeModeUsdtBtn" data-mode="usdt">USDT Size</button>
+                    <button type="button" class="sizing-mode-btn" id="sizeModeRiskBtn" data-mode="risk">Risk %</button>
                   </div>
                 </div>
 
                 <!-- SIZING INPUTS -->
-                <div class="control-row" id="riskSizeRow">
+                <div class="control-row" id="minSizeRow">
+                  <p class="control-hint" style="margin:0; font-size:11px; color:var(--text-muted); line-height:1.4;">
+                    <i class="fa-solid fa-shield-halved" style="color:var(--green);"></i> <b>Smallest Possible Size</b>: Automatically opens Bybit's minimum contract size (e.g. 0.001 BTC, 0.01 ETH, ~5 USDT alts). Margin required: ~$0.50–$6.50.
+                  </p>
+                </div>
+                <div class="control-row" id="riskSizeRow" style="display:none;">
                   <label class="control-label" for="marginInput" title="Position size is derived from this and the distance to the stop, so every trade risks the same amount regardless of how wide its stop is.">Risk / Trade (% equity)</label>
                   <div class="input-with-unit">
                     <input type="number" id="marginInput" class="control-input font-mono" value="0.5" min="0.1" max="5" step="0.1">
@@ -369,7 +375,7 @@
                   <label class="control-label" for="usdtSizeInput" title="Every trade opens at exactly this notional size (quantity = size / entry price), regardless of stop distance.">Fixed Size (USDT)</label>
                   <div class="input-with-unit">
                     <span class="unit-tag-prefix">$</span>
-                    <input type="number" id="usdtSizeInput" class="control-input font-mono" value="100" min="1" step="1">
+                    <input type="number" id="usdtSizeInput" class="control-input font-mono" value="10" min="1" step="1">
                     <span class="unit-tag">USDT</span>
                   </div>
                 </div>
