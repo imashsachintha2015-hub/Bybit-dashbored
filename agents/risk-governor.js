@@ -24,6 +24,7 @@
     sizingMode: 'min',               // 'min' = smallest possible exchange size, 'usdt' = fixed notional, 'risk' = % equity
     fixedUsdtSize: 10,               // USDT per trade when sizingMode='usdt'
     riskPerTradePct: 0.5,            // % of equity risked when sizingMode='risk'
+    maxConcurrentPositions: 5,       // max open positions allowed simultaneously
 
     // ── Safety ──
     maxDailyLossPct: 3.0,            // hard daily loss limit (% of session start equity)
@@ -135,6 +136,11 @@
       }
       if (pendingOrders.some(o => o.symbol === symbol)) {
         reasons.push(`A limit order for ${symbol} is already resting`);
+      }
+
+      // 4. Maximum concurrent positions
+      if (this.config.maxConcurrentPositions && openPositions.length >= this.config.maxConcurrentPositions) {
+        reasons.push(`Maximum concurrent positions reached (${openPositions.length}/${this.config.maxConcurrentPositions})`);
       }
 
       return { allowed: reasons.length === 0, reasons };

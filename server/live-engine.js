@@ -35,6 +35,7 @@
 const WebSocket = require('ws');
 const https = require('https');
 const { MasisEngine } = require('../masis-engine.js');
+const { PositionManager, EXIT } = require('../agents/position-manager.js');
 
 const API_BASE = process.env.API_BASE || 'https://bybit-dashbored.vercel.app';
 const SYMBOLS = (process.env.SYMBOLS ||
@@ -47,6 +48,7 @@ const ENABLE_TRADING = process.env.ENABLE_TRADING === 'true';
 
 const engines = {};
 for (const s of SYMBOLS) engines[s] = new MasisEngine({ symbol: s, swarmMode: 'observe' });
+const positionManager = new PositionManager();
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
@@ -183,6 +185,116 @@ async function syncAutoTradeState() {
   } catch (e) {}
 }
 
+// ── Position Guardian & TP/SL Automation ──────────────────────────────────
+async function manageOpenPositions() {
+  if (!currentAutoState.armed || !openPositionsCache.length) return;
+  const now = Date.now();
+  for (const pos of openPositionsCache) {
+    const sym = pos.symbol;
+    const side = pos.side;
+    const key = `${sym}-${side}`;
+    let trade = (currentAutoState.theses && currentAutoState.theses[key]) || positionManager.trades[key];
+    const mark = parseFloat(pos.markPrice || pos.avgPrice);
+    const entry = parseFloat(pos.avgPrice);
+    const stop = parseFloat(pos.stopLoss);
+    const size = parseFloat(pos.size);
+
+    if (!trade) {
+      const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+      const isLong = side.toLowerCase() === 'buy';
+      const tp1 = isLong ? +(entry + riskDist * 1.5).toFixed(6) : +(entry - riskDist * 1.5).toFixed(6);
+      const tp2 = isLong ? +(entry + riskDist * 3.0).toFixed(6) : +(entry - riskDist * 3.0).toFixed(6);
+      trade = {
+        symbol: sym,
+        side,
+        entryPrice: entry,
+        stopLoss: stop,
+        invalidation: stop,
+        targets: [tp1, tp2],
+        riskDist,
+        qty: size,
+        originalQty: size,
+        setupName: 'BYBIT_LIVE',
+        grade: 'A',
+        openedAt: parseInt(pos.createdTime || now),
+        tpFilled: [false, false],
+        stopMovedToBreakEven: false
+      };
+      if (!currentAutoState.theses) currentAutoState.theses = {};
+      currentAutoState.theses[key] = trade;
+      positionManager.trades[key] = trade;
+    } else {
+      positionManager.trades[key] = trade;
+    }
+
+    const eng = engines[sym];
+    let market = { price: mark, mark, confirmedCandle: null };
+    if (eng) {
+      try {
+        const st = eng.getState();
+        if (st) {
+          market.atr = st.atr;
+          market.confirmedCandle = st.lastConfirmedCandle;
+          market.opposingSignal = st.decision && st.decision !== (side.toUpperCase() === 'BUY' ? 'BUY' : 'SELL') ? st : null;
+        }
+      } catch (e) {}
+    }
+
+    const action = positionManager.evaluate(trade, market);
+    if (!action) continue;
+
+    if (action.action === 'SCALE_OUT') {
+      const fraction = action.fraction || 0.5;
+      const sliceQty = +(trade.originalQty * fraction).toFixed(6);
+      log(`[POSITION GUARDIAN] ${sym} TP${action.tpIndex + 1} reached! Banking ${fraction * 100}% slice (${sliceQty})...`);
+      positionManager.markTpFilled(trade, action.tpIndex, mark);
+
+      // 1. Partial close on Bybit
+      await postJSON('/api/order/close', {
+        category: 'linear',
+        symbol: sym,
+        side,
+        qty: sliceQty
+      });
+
+      // 2. Immediately move Stop to Break-Even (entry price) upon TP1
+      if (action.tpIndex === 0 && !trade.stopMovedToBreakEven) {
+        log(`[POSITION GUARDIAN] TP1 banked for ${sym} -> Moving Stop Loss to Entry Point (${trade.entryPrice})`);
+        await postJSON('/api/position/stop', {
+          category: 'linear',
+          symbol: sym,
+          stopLoss: trade.entryPrice
+        });
+        positionManager.markStopMoved(trade, trade.entryPrice, 'BREAK_EVEN');
+      }
+
+      // Sync updated thesis to server
+      await postJSON('/api/auto-trade/state', {
+        theses: { [key]: trade }
+      });
+    } else if (action.action === 'MOVE_STOP') {
+      log(`[POSITION GUARDIAN] Moving stop for ${sym} to ${action.newStop} (${action.reason})`);
+      positionManager.markStopMoved(trade, action.newStop, action.reason);
+      await postJSON('/api/position/stop', {
+        category: 'linear',
+        symbol: sym,
+        stopLoss: action.newStop
+      });
+      await postJSON('/api/auto-trade/state', {
+        theses: { [key]: trade }
+      });
+    } else if (action.action === 'CLOSE_ALL') {
+      log(`[POSITION GUARDIAN] Closing entire ${sym} position: ${action.reason} — ${action.detail}`);
+      await postJSON('/api/order/close', {
+        category: 'linear',
+        symbol: sym,
+        side,
+        qty: size
+      });
+    }
+  }
+}
+
 // ── Seed history, so the engine is not blind until enough live bars arrive ──
 const OKX_BAR = { '5': '5m', '15': '15m', '60': '1H' };
 
@@ -291,6 +403,7 @@ const lastRecordedTime = {};
 
 async function tick() {
   await syncAutoTradeState();
+  await manageOpenPositions();
   const now = Date.now();
   for (const sym of SYMBOLS) {
     let s;
@@ -336,6 +449,14 @@ async function tick() {
       const isArmed = currentAutoState.armed;
 
       if (isArmed && isGradeA) {
+        // Max concurrent orders / positions check
+        const maxOrders = Number(process.env.MAX_CONCURRENT_POSITIONS || currentAutoState.maxConcurrentPositions || 5);
+        const activeCount = openPositionsCache.length + Object.keys(activeOrders).filter(k => now - activeOrders[k].placedAt < 600000).length;
+        if (activeCount >= maxOrders) {
+          log(`[ORDER SKIPPED] Maximum concurrent order/position limit reached (${activeCount}/${maxOrders}).`);
+          continue;
+        }
+
         // 1 trade per coin rule:
         const hasOpenPos = openPositionsCache.some((p) => p.symbol === sym);
         const lastOrd = activeOrders[sym];
