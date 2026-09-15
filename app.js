@@ -1725,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
             <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
             <td>${t.exit ? t.exit.toLocaleString() : '--'}</td>
-            <td class="${pnlClass}">${t.pnl >= 0 ? '+' : ''}$${Math.abs(t.pnl).toFixed(2)}</td>
+            <td class="${pnlClass}">${t.pnl >= 0 ? '+$' : '-$'}${Math.abs(t.pnl).toFixed(2)}</td>
             <td class="${pnlClass}">${rTxt}</td>
             <td class="font-mono" style="font-size:9px;">${t.setup_type || '--'}${t.grade ? ' ' + t.grade : ''}</td>
             <td style="font-size:9px;" title="${reasonFull}">${t.exit_reason || '--'}</td>
