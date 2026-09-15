@@ -6,13 +6,16 @@ any good. It could repeat the same mistake indefinitely and never know.
 
 This assembles the record it was missing, from data the system already keeps:
 closed trades (trade_stats) and the suggestion log with its settled shadow
-outcomes (signal_log). Three things go in, in descending order of usefulness:
+outcomes (signal_log). Five things go in, in descending order of usefulness:
 
  1. The supervisor's OWN calibration -- did trades it confirmed do better than
     trades it downgraded? If they did not, its verdicts carry no information
     and it should know that about itself.
  2. How this specific setup type has actually performed.
  3. The most recent losses on this symbol, as concrete cases rather than rates.
+ 4. Actual dollar P&L per verdict type -- the money consequence of each decision.
+ 5. Position manager forced exits (THESIS_FLIP, TIME_STOP, STRUCTURE_BROKEN)
+    counted explicitly as losses, with their reasons.
 
 Everything is capped and rounded: this rides in a prompt on every call, so it
 has to stay small, and precision beyond whole percents would be false anyway at
@@ -87,4 +90,39 @@ def build(symbol, setup):
         )
         lines.append(f"Recent losses on {symbol}: {desc}")
 
+    # 4. ACTUAL dollar P&L by exit reason — the money consequence of each decision.
+    # Position manager forced exits (THESIS_FLIP, TIME_STOP, STRUCTURE_BROKEN)
+    # with negative PnL are LOSSES, even if the position manager closed them
+    # "to protect" — the user's money still decreased.
+    pm_exits = [t for t in history if t.get("exit_reason") in
+                ("THESIS_FLIP", "TIME_STOP", "STRUCTURE_BROKEN", "EMERGENCY")]
+    if pm_exits:
+        pm_losses = [t for t in pm_exits if (t.get("pnl") or 0) < 0]
+        pm_wins = [t for t in pm_exits if (t.get("pnl") or 0) > 0]
+        pm_loss_total = sum(abs(t.get("pnl") or 0) for t in pm_losses)
+        reasons = {}
+        for t in pm_exits:
+            r = t.get("exit_reason", "?")
+            reasons.setdefault(r, {"count": 0, "pnl": 0.0})
+            reasons[r]["count"] += 1
+            reasons[r]["pnl"] += (t.get("pnl") or 0)
+        reason_parts = [f"{k}: {v['count']}x, ${v['pnl']:.2f}" for k, v in reasons.items()]
+        lines.append(f"Position manager exits: {len(pm_exits)} total ({len(pm_losses)} at a loss "
+                     f"= -${pm_loss_total:.2f}, {len(pm_wins)} in profit). "
+                     f"By reason: {', '.join(reason_parts)}")
+
+    # 5. MISTAKE PATTERNS — if the same setup+symbol combo keeps losing, name it.
+    combo_losses = {}
+    for t in history:
+        if (t.get("r_multiple") or 0) <= 0 or (t.get("pnl") or 0) < 0:
+            key = f"{t.get('setup_type', '?')} on {t.get('symbol', '?')}"
+            combo_losses.setdefault(key, 0)
+            combo_losses[key] += 1
+    repeat_fails = {k: v for k, v in combo_losses.items() if v >= 3}
+    if repeat_fails:
+        top = sorted(repeat_fails.items(), key=lambda x: -x[1])[:3]
+        lines.append("REPEATED FAILURES (do NOT repeat these): " +
+                     "; ".join(f"{k}: lost {v} times" for k, v in top))
+
     return "\n".join(f"- {l}" for l in lines)
+

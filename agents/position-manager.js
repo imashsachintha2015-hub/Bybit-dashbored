@@ -60,7 +60,10 @@
     breakEvenAfterTp: 1,              // move stop to entry once TP1 is banked
     trailAfterTp: 2,                  // start trailing once TP2 is banked
     trailAtrMultiple: 2.0,
-    scaleOutFractions: [0.30, 0.35, 0.35],
+    // Research §8.4: 50/50 Scaled Liquidity Exit Protocol.
+    // TP1: 50% of position at first structural shelf (min 2:1 R:R), stop to BE.
+    // TP2: remaining 50% trails along HTF swing levels for macro trend capture.
+    scaleOutFractions: [0.50, 0.50],
     // Whether a confirmed close beyond the invalidation level closes the trade
     // ahead of the stop. Sounds obviously right; measured below.
     useStructuralExit: true
@@ -97,7 +100,7 @@
         openedAt: this.now(),
         barsHeld: 0,
         lastBarSeen: null,
-        tpFilled: [false, false, false],
+        tpFilled: [false, false],
         stopMovedToBreakEven: false,
         trailingStop: null,
         flipStreak: 0,

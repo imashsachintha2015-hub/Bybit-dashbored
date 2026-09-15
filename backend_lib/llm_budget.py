@@ -22,7 +22,7 @@ DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 # `.get(name, default)` only falls back when the var is UNSET, not when it's
 # set to "" -- an env var added with a blank value would otherwise crash
 # int() at import time and take the whole function down. `or` catches both.
-DAILY_BUDGET = int(os.environ.get("DEEPSEEK_DAILY_CALL_BUDGET") or "120")
+DAILY_BUDGET = int(os.environ.get("DEEPSEEK_DAILY_CALL_BUDGET") or "500")
 
 BUDGET_KEY = "llm_budget"
 

@@ -98,23 +98,25 @@ def settle_both(row, now_ms=None):
     if not bars:
         return None, None
 
-    # Reflect both levels about the entry to build the opposite trade.
+    # Reflect levels about the entry to build the opposite trade.
     m_stop, m_target = 2 * entry - stop, 2 * entry - target
-    return (_walk(bars, target, stop, is_long),
-            _walk(bars, m_target, m_stop, not is_long))
+    inv = row.get("invalidation")
+    m_inv = 2 * entry - inv if inv is not None else None
+    return (_walk(bars, target, stop, is_long, invalidation=inv),
+            _walk(bars, m_target, m_stop, not is_long, invalidation=m_inv))
 
 
-def _walk(bars, target, stop, is_long):
+def _walk(bars, target, stop, is_long, invalidation=None):
     """First level reached wins. A bar touching both counts as a LOSS.
-
-    Order within a 1m candle is unknowable, and taking the pessimistic reading
-    keeps an ambiguous bar from flattering either side -- which matters
-    especially here, where the two sides are compared against each other.
+    Also counts as LOSS if price hits invalidation before target.
     """
     for b in bars:
         hit_t = b["high"] >= target if is_long else b["low"] <= target
         hit_s = b["low"] <= stop if is_long else b["high"] >= stop
-        if hit_s:
+        hit_inv = False
+        if invalidation is not None:
+            hit_inv = b["low"] <= invalidation if is_long else b["high"] >= invalidation
+        if hit_s or hit_inv:
             return "LOSS"
         if hit_t:
             return "WIN"
@@ -125,9 +127,7 @@ def settle(row, now_ms=None):
     """WIN / LOSS / None for a suggestion, by replaying candles since it fired.
 
     Ordering within a candle is unknowable at 1m resolution, so a bar touching
-    both levels is counted as a LOSS. That is the conservative reading and it
-    avoids flattering the result -- the alternative would let every ambiguous
-    bar score as a win.
+    both levels is counted as a LOSS. Also checks invalidation.
     """
     entry, stop = row.get("entry"), row.get("stop")
     targets = row.get("targets") or []
@@ -145,11 +145,4 @@ def settle(row, now_ms=None):
     bars = fetch_1m(row.get("symbol", ""), started, limit=300)
     if not bars:
         return None
-    for b in bars:
-        hit_t = b["high"] >= target if is_long else b["low"] <= target
-        hit_s = b["low"] <= stop if is_long else b["high"] >= stop
-        if hit_s:
-            return "LOSS"
-        if hit_t:
-            return "WIN"
-    return None
+    return _walk(bars, target, stop, is_long, invalidation=row.get("invalidation"))

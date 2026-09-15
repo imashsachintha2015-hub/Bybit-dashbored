@@ -298,6 +298,89 @@
       return none;
     }
 
+    /**
+     * Order Block (OB) detection — from the research §6.3.
+     *
+     * An Order Block is the final opposing candle prior to an impulsive
+     * expansion that causes a Break of Structure. Institutional limit orders
+     * defending this zone provide high-probability entry targets on retests.
+     *
+     *   - Bullish OB: the last bearish candle before a strong bullish move
+     *     that breaks structure upward. Entry zone is the candle's body.
+     *   - Bearish OB: the last bullish candle before a strong bearish move
+     *     that breaks structure downward. Entry zone is the candle's body.
+     *
+     * Returns the most recent unmitigated OB within `lookback` bars.
+     */
+    detectOrderBlock(confirmedCandles, currentPrice, atrValue, lookback = 30) {
+      const none = { detected: false, side: 'NONE', high: 0, low: 0, midpoint: 0 };
+      if (!confirmedCandles || confirmedCandles.length < 10 || !atrValue) return none;
+
+      const start = Math.max(0, confirmedCandles.length - lookback);
+      const candles = confirmedCandles.slice(start);
+
+      // We need to find Break of Structure first, then look back for the
+      // last opposing candle before it.
+      // BOS Up: a candle closes above the highest high of the last N candles
+      // BOS Down: a candle closes below the lowest low of the last N candles
+
+      for (let i = candles.length - 1; i >= 5; i--) {
+        const c = candles[i];
+        const priorHigh = Math.max(...candles.slice(Math.max(0, i - 8), i).map(x => x.high));
+        const priorLow = Math.min(...candles.slice(Math.max(0, i - 8), i).map(x => x.low));
+        const bodySize = Math.abs(c.close - c.open);
+        const isImpulsive = bodySize > atrValue * 0.6;
+
+        // Bullish BOS: impulsive close above prior highs
+        if (c.close > priorHigh && isImpulsive && c.close > c.open) {
+          // Walk backwards to find the last bearish candle before this move
+          for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
+            const ob = candles[j];
+            if (ob.close < ob.open) { // bearish candle = the order block
+              const obHigh = Math.max(ob.open, ob.close);
+              const obLow = Math.min(ob.open, ob.close);
+              const mid = (obHigh + obLow) / 2;
+              // Unmitigated: price hasn't yet returned into the OB body
+              if (currentPrice > obHigh) {
+                return {
+                  detected: true,
+                  side: 'BULLISH',
+                  high: obHigh,
+                  low: obLow,
+                  midpoint: mid,
+                  evidence: [`Bullish Order Block at ${obLow.toFixed(2)}–${obHigh.toFixed(2)} — the last bearish candle before BOS upward. Institutional bids defend this zone on retests.`]
+                };
+              }
+            }
+          }
+        }
+
+        // Bearish BOS: impulsive close below prior lows
+        if (c.close < priorLow && isImpulsive && c.close < c.open) {
+          for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
+            const ob = candles[j];
+            if (ob.close > ob.open) { // bullish candle = the order block
+              const obHigh = Math.max(ob.open, ob.close);
+              const obLow = Math.min(ob.open, ob.close);
+              const mid = (obHigh + obLow) / 2;
+              if (currentPrice < obLow) {
+                return {
+                  detected: true,
+                  side: 'BEARISH',
+                  high: obHigh,
+                  low: obLow,
+                  midpoint: mid,
+                  evidence: [`Bearish Order Block at ${obLow.toFixed(2)}–${obHigh.toFixed(2)} — the last bullish candle before BOS downward. Institutional offers defend this zone on retests.`]
+                };
+              }
+            }
+          }
+        }
+      }
+
+      return none;
+    }
+
     /** Everything a decision needs, in one call. */
     snapshot(lastConfirmedCandle, atrValue, confirmedCandles, currentPrice) {
       const flow1m = this.windowFlow(60000);
@@ -312,6 +395,7 @@
         spoof: this.detectSpoof(),
         divergence: this.detectDeltaDivergence(confirmedCandles),
         fvg: this.detectFVG(confirmedCandles, currentPrice),
+        orderBlock: this.detectOrderBlock(confirmedCandles, currentPrice, atrValue),
         cumDelta: this.cumDelta
       };
     }

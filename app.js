@@ -195,6 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (hasCandidate && !shadowTracker.active[sym]) {
+      const riskDist = Math.abs((s.entry || 0) - (s.stopLoss || 0)) || 1;
+      const nominalRisk = 50; // $50 standard 1R risk baseline
+      const nominalQty = +(nominalRisk / riskDist).toFixed(4);
       shadowTracker.active[sym] = {
         id: `${sym}-${Date.now()}`,
         symbol: sym,
@@ -203,12 +206,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setupType: s.setupType,
         entry: s.entry,
         stop: s.stopLoss,
+        invalidation: s.invalidation,
         target: s.takeProfit[0],
+        nominalRisk,
+        nominalQty,
         startedAt: Date.now(),
         gatesPassed: (s.blockers || []).length === 0,
         decision: s.decision,
-        // Carried so the eventual WIN/LOSS can be written back onto the
-        // suggestion row this candidate folded into.
         fingerprint: signalFingerprint(sym, s)
       };
     }
@@ -220,25 +224,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const hitTarget = active.direction === 'LONG' ? price >= active.target : price <= active.target;
     const hitStop   = active.direction === 'LONG' ? price <= active.stop   : price >= active.stop;
-    // SL takes priority over TP: if both are touched in the same tick (e.g. a
-    // wide candle that sweeps through both levels), the conservative reading is
-    // LOSS -- identical to the server-side _walk() rule in klines.py.
-    // A trade only counts as WIN if TP is reached WITHOUT the stop being hit.
-    if (hitStop || hitTarget) {
-      const status = hitStop ? 'LOSS' : 'WIN';
+    const hitInvalidation = active.invalidation != null
+      ? (active.direction === 'LONG' ? price <= active.invalidation : price >= active.invalidation)
+      : false;
+
+    // A trade only counts as WIN if TP is reached WITHOUT hitting invalidation or Stop Loss.
+    // If either stop or invalidation is reached, it is an actual LOSS.
+    if (hitStop || hitInvalidation || hitTarget) {
+      const isLoss = hitStop || hitInvalidation;
+      const status = isLoss ? 'LOSS' : 'WIN';
+      const exitReason = hitStop ? 'STOP_LOSS' : (hitInvalidation ? 'INVALIDATION' : 'TAKE_PROFIT');
+      const exitPrice = hitStop ? active.stop : (hitInvalidation ? active.invalidation : (hitTarget ? active.target : price));
+      const rawPnl = active.direction === 'LONG'
+        ? (exitPrice - active.entry) * active.nominalQty
+        : (active.entry - exitPrice) * active.nominalQty;
+      const pnl = +rawPnl.toFixed(2);
+
       shadowTracker.history.unshift({
         ...active,
         status,
-        resolvedAt: Date.now(),
-        exitPrice: price
+        exitReason,
+        pnl,
+        exitPrice,
+        resolvedAt: Date.now()
       });
-      // Persist the verdict onto the suggestion row. This is what makes a
-      // declined setup answerable: the log stops being a list of things the
-      // engine chose not to do and becomes a record of whether not doing them
-      // was right. Fire-and-forget -- this must never disturb trading.
       postJSON('/api/trades/record?_action=signal_resolve', {
         fingerprint: active.fingerprint, symbol: sym,
-        shadow_outcome: status, exit_price: price,
+        shadow_outcome: status, exit_price: exitPrice,
+        pnl, exit_reason: exitReason,
         held_ms: Date.now() - active.startedAt
       }).catch(() => {});
       delete shadowTracker.active[sym];
@@ -423,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bias: s.bias || '',
         entry: s.entry,
         stop: s.stopLoss,
+        invalidation: s.invalidation,
         targets: s.takeProfit,
         risk_reward: s.riskReward,
         outcome,
@@ -762,6 +776,24 @@ document.addEventListener('DOMContentLoaded', () => {
           positionManager.finalise(trade, exitPrice, reason);
           await recordOutcome(trade, exitPrice, reason, closing, slicePnl);
           positionManager.forget(pos.symbol, pos.side);
+          // Push real executed trade outcome to shadowTracker history so monitor immediately shows it
+          shadowTracker.history.unshift({
+            id: `REAL-${pos.symbol}-${Date.now()}`,
+            symbol: pos.symbol,
+            direction: pos.side === 'Buy' ? 'LONG' : 'SHORT',
+            grade: trade.grade,
+            setupType: trade.setupName,
+            entry: trade.entryPrice,
+            stop: trade.stopLoss,
+            target: (trade.targets && trade.targets[0]) || null,
+            exitPrice,
+            pnl: +slicePnl.toFixed(2),
+            status: slicePnl > 0 ? 'WIN' : 'LOSS',
+            exitReason: reason,
+            resolvedAt: Date.now(),
+            isReal: true
+          });
+          broadcastShadowSnapshot();
         }
       } else {
         logEvent(`Close rejected for ${pos.symbol}: ${res.retMsg || 'unknown error'}`);
@@ -1257,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
       latestStates[sym] = s;
       updateShadowTracking(sym, s);
 
-      if (s.grade === 'A' || s.grade === 'A+') maybeConsultSupervisor(sym, s);
+      if (s.grade && s.grade !== 'C' && s.grade !== 'D') maybeConsultSupervisor(sym, s);
       if (s.decision === 'BUY' || s.decision === 'SELL') {
         executeEntry(sym, s);
       } else if (s.setupType && s.grade) {

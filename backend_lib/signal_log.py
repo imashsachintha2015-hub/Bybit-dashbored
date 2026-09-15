@@ -70,6 +70,7 @@ def record(body):
         "bias": body.get("bias", ""),
         "entry": body.get("entry"),
         "stop": body.get("stop"),
+        "invalidation": body.get("invalidation"),
         "targets": body.get("targets"),
         "risk_reward": body.get("risk_reward"),
         # TAKEN | REJECTED | VETOED | NO_FILL | CANCELLED
@@ -88,6 +89,12 @@ def record(body):
         # at -- the live counterpart to the backtest's fill assumption.
         "maker_offset_bps": body.get("maker_offset_bps"),
         "fill_price": body.get("fill_price"),
+        # Actual P&L and exit reason for TAKEN trades. Position manager
+        # forced exits (THESIS_FLIP, TIME_STOP, STRUCTURE_BROKEN) with
+        # negative PnL are LOSSES — the user's money decreased.
+        "trade_pnl": body.get("trade_pnl"),
+        "trade_exit_reason": body.get("trade_exit_reason"),
+        "shadow_pnl": body.get("shadow_pnl") or body.get("pnl"),
     }
 
     # Update the newest row for this symbol when the candidate is unchanged,
@@ -112,9 +119,10 @@ def record(body):
                 # A verdict already settled on this suggestion must survive the
                 # fold, or a late re-evaluation would silently erase it.
                 for k in ("shadow_outcome", "shadow_exit", "shadow_resolved_at",
-                          "shadow_held_ms", "shadow_source",
+                          "shadow_held_ms", "shadow_source", "shadow_pnl",
                           "maker_offset_bps", "fill_price", "observed_vetoes",
-                          "mirror_outcome", "blocked_gates"):
+                          "mirror_outcome", "blocked_gates", "invalidation",
+                          "trade_pnl", "trade_exit_reason"):
                     if existing.get(k) is not None and row.get(k) is None:
                         row[k] = existing[k]
                 row["first_seen"] = existing.get("first_seen") or existing.get("recorded_at")
@@ -172,8 +180,56 @@ def resolve(body):
         row["shadow_exit"] = body.get("exit_price")
         row["shadow_resolved_at"] = int(time.time() * 1000)
         row["shadow_held_ms"] = body.get("held_ms")
+        pnl = body.get("pnl")
+        if pnl is not None:
+            try:
+                row["shadow_pnl"] = round(float(pnl), 2)
+            except (ValueError, TypeError):
+                pass
+        elif row.get("entry") and body.get("exit_price"):
+            try:
+                entry = float(row.get("entry"))
+                exit_p = float(body.get("exit_price"))
+                stop = float(row.get("stop") or entry)
+                r_dist = abs(entry - stop) or 1.0
+                nom_qty = 50.0 / r_dist
+                is_l = str(row.get("direction", "")).upper().startswith("L")
+                row["shadow_pnl"] = round((exit_p - entry if is_l else entry - exit_p) * nom_qty, 2)
+            except Exception:
+                pass
         save(data)
         return row
+    return None
+
+
+def record_trade_outcome(trade_dict):
+    """Updates the corresponding TAKEN row in signals with actual trade PnL and exit reason."""
+    symbol = trade_dict.get("symbol")
+    if not symbol:
+        return None
+    data = load()
+    rows = data["signals"]
+    target = None
+    for row in rows:
+        if row.get("symbol") == symbol and row.get("outcome") in ("TAKEN", "ORDER_PLACED"):
+            if row.get("trade_pnl") is None:
+                target = row
+                break
+    if target:
+        target["outcome"] = "TAKEN"
+        try:
+            target["trade_pnl"] = float(trade_dict.get("pnl", 0))
+        except (TypeError, ValueError):
+            target["trade_pnl"] = 0.0
+        target["trade_exit_reason"] = trade_dict.get("exit_reason", "")
+        if trade_dict.get("exit"):
+            try:
+                target["fill_price"] = float(trade_dict.get("entry") or target.get("fill_price") or 0)
+                target["trade_exit_price"] = float(trade_dict.get("exit"))
+            except (TypeError, ValueError):
+                pass
+        save(data)
+        return target
     return None
 
 
@@ -222,6 +278,19 @@ def settle_pending(max_rows=4):
         row["shadow_resolved_at"] = now_ms
         row["shadow_held_ms"] = now_ms - (row.get("recorded_at") or now_ms)
         row["shadow_source"] = "server"
+        try:
+            entry = float(row.get("entry") or 0)
+            stop = float(row.get("stop") or entry)
+            targets = row.get("targets") or [entry]
+            target_p = float(targets[0])
+            r_dist = abs(entry - stop) or 1.0
+            nom_qty = 50.0 / r_dist
+            is_l = str(row.get("direction", "")).upper().startswith("L")
+            exit_p = target_p if verdict == "WIN" else stop
+            row["shadow_exit"] = exit_p
+            row["shadow_pnl"] = round((exit_p - entry if is_l else entry - exit_p) * nom_qty, 2)
+        except Exception:
+            pass
         changed += 1
     if changed:
         save(data)

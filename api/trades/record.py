@@ -117,6 +117,10 @@ class handler(JsonApiHandler):
             if len(stats["trade_history"]) > 200:
                 stats["trade_history"].pop()
             trade_stats_mod.save(stats)
+            try:
+                signal_log_mod.record_trade_outcome(body)
+            except Exception as e:
+                print(f"[trades/record] signal_log update failed: {e}")
             self._send_json(200, {"success": True})
         except Exception as e:
             print(f"[POST /api/trades/record] Unhandled error: {e}")

@@ -38,10 +38,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 
   const DEFAULTS = {
-    dailyBudget: 120,               // was effectively unbounded (~2,400+/day)
-    perSymbolCooldownMs: 10 * 60 * 1000,
-    minGradeRank: 2,                // A or better (A+ = 3, A = 2, B = 1)
-    cacheTtlMs: 15 * 60 * 1000,
+    dailyBudget: 500,               // increased from 120 so DeepSeek provides active supervision
+    perSymbolCooldownMs: 2 * 60 * 1000,  // 2 minutes cooldown instead of 10 minutes
+    minGradeRank: 1,                // Grade B or better (A+ = 3, A = 2, B = 1)
+    cacheTtlMs: 3 * 60 * 1000,      // 3 minutes cache instead of 15 minutes
     reserveForOpenPositions: 20     // budget held back so open trades can always ask
   };
 

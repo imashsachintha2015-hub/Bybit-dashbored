@@ -103,6 +103,10 @@
     <div class="stat"><div class="n" id="statWins" style="color:var(--green)">0</div><div class="l">Wins</div></div>
     <div class="stat"><div class="n" id="statLosses" style="color:var(--red)">0</div><div class="l">Losses</div></div>
     <div class="stat"><div class="n" id="statWinRate">--</div><div class="l">Win Rate</div></div>
+    <div class="stat"><div class="n" id="statProfit" style="color:var(--green)">$0</div><div class="l">Profit</div></div>
+    <div class="stat"><div class="n" id="statLoss" style="color:var(--red)">$0</div><div class="l">Loss</div></div>
+    <div class="stat"><div class="n" id="statNet">$0</div><div class="l">Net P&L</div></div>
+    <div class="stat"><div class="n" id="statPmExits" style="color:var(--amber)">0</div><div class="l">PM Exits</div></div>
   </div>
 
   <main>
@@ -217,30 +221,77 @@
     const el = document.getElementById('historyList');
     if (!history.length) { el.innerHTML = '<div class="empty">Nothing has resolved yet</div>'; return; }
     el.innerHTML = history.slice(0, 100).map(h => {
-      const cls = h.status.toLowerCase();
+      // Determine win/loss based on ACTUAL P&L, not TP/SL hits.
+      // Position manager cancelling at negative profit = LOSS.
+      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
+      const actualStatus = pnl > 0 ? 'WIN' : pnl < 0 ? 'LOSS' : (h.status || 'LOSS');
+      const cls = actualStatus.toLowerCase();
+      const pnlStr = pnl !== 0 ? (pnl > 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`) : '';
+      const pnlColor = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text-dim)';
+      const exitReason = h.exitReason || h.exit_reason || '';
+      const pmExit = ['THESIS_FLIP', 'TIME_STOP', 'STRUCTURE_BROKEN', 'EMERGENCY'].includes(exitReason);
+      const exitTag = pmExit ? ` <span style="font-size:9px;color:var(--red,#e65050);font-weight:700;">[PM Exit: ${exitReason}]</span>` : '';
+      const isLong = h.direction === 'LONG' || h.side === 'BUY' || h.side === 'Buy';
+      const dirText = isLong ? 'LONG' : 'SHORT';
+      const dirCls = isLong ? 'long' : 'short';
+      const setupName = h.setupType || h.setup_type || '--';
+      const exitPrice = h.exitPrice != null ? h.exitPrice : (h.exit != null ? h.exit : null);
+      const isReal = h.isReal || !!h.side;
+      const tag = isReal ? ' <span style="font-size:9px;color:var(--blue,#50a0ff);font-weight:700;">[REAL]</span>' : ' <span style="font-size:9px;opacity:.5;">[SHADOW]</span>';
       return `<div class="row ${cls}">
-        <span class="sym">${h.symbol.replace('USDT', '')}</span>
-        <span class="dir ${h.direction === 'LONG' ? 'long' : 'short'}">${h.direction === 'LONG' ? 'LONG' : 'SHORT'}</span>
-        <span class="setup" title="${h.setupType}">${h.setupType} &middot; entry ${fmtPrice(h.entry)}${h.exitPrice != null ? ' &rarr; ' + fmtPrice(h.exitPrice) : ''}</span>
-        <span class="grade">${h.grade}</span>
-        <span class="status ${cls}">${h.status}</span>
+        <span class="sym">${(h.symbol || '').replace('USDT', '')}</span>
+        <span class="dir ${dirCls}">${dirText}</span>
+        <span class="setup" title="${setupName}">${setupName} &middot; entry ${fmtPrice(h.entry)}${exitPrice != null ? ' &rarr; ' + fmtPrice(exitPrice) : ''} <span style="color:${pnlColor};font-weight:700;">${pnlStr}</span>${tag}${exitTag}</span>
+        <span class="grade">${h.grade || '--'}</span>
+        <span class="status ${cls}">${actualStatus}</span>
       </div>`;
     }).join('');
   }
 
   function renderStats(active, history) {
-    const wins = history.filter(h => h.status === 'WIN').length;
-    const losses = history.filter(h => h.status === 'LOSS').length;
-    const total = wins + losses;
+    // Win/loss based on ACTUAL P&L, not TP/SL status.
+    // Position manager exits with negative PnL = LOSS.
+    let totalProfit = 0, totalLoss = 0, pmExits = 0;
+    const resolved = history.filter(h => {
+      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
+      if (pnl !== 0 || h.status === 'WIN' || h.status === 'LOSS') return true;
+      return false;
+    });
+    const wins = resolved.filter(h => {
+      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
+      return pnl > 0;
+    });
+    const losses = resolved.filter(h => {
+      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
+      return pnl < 0 || (pnl === 0 && h.status === 'LOSS');
+    });
+    history.forEach(h => {
+      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
+      if (pnl > 0) totalProfit += pnl;
+      if (pnl < 0) totalLoss += Math.abs(pnl);
+      const er = h.exitReason || h.exit_reason || '';
+      if (['THESIS_FLIP', 'TIME_STOP', 'STRUCTURE_BROKEN', 'EMERGENCY'].includes(er)) pmExits++;
+    });
+    const total = wins.length + losses.length;
+    const net = totalProfit - totalLoss;
+
     document.getElementById('statPending').textContent = active.length;
-    document.getElementById('statWins').textContent = wins;
-    document.getElementById('statLosses').textContent = losses;
-    document.getElementById('statWinRate').textContent = total ? `${(wins / total * 100).toFixed(1)}%` : '--';
+    document.getElementById('statWins').textContent = wins.length;
+    document.getElementById('statLosses').textContent = losses.length;
+    document.getElementById('statWinRate').textContent = total ? `${(wins.length / total * 100).toFixed(1)}%` : '--';
+    document.getElementById('statProfit').textContent = `$${totalProfit.toFixed(2)}`;
+    document.getElementById('statLoss').textContent = `-$${totalLoss.toFixed(2)}`;
+    const netEl = document.getElementById('statNet');
+    netEl.textContent = `${net >= 0 ? '+' : ''}$${net.toFixed(2)}`;
+    netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('statPmExits').textContent = pmExits;
   }
 
+  let hasLiveSnapshot = false;
   channel.onmessage = (ev) => {
     const msg = ev.data;
     if (!msg || msg.type !== 'snapshot') return;
+    hasLiveSnapshot = true;
     connState.textContent = 'LIVE';
     connState.classList.add('live');
     clearTimeout(staleTimer);
@@ -255,11 +306,6 @@
   };
 
   // ── Persisted suggestion history ──────────────────────────────────────
-  // The BroadcastChannel feed above is live-only and in-memory: it shows
-  // nothing if the dashboard tab is closed and loses everything on reload.
-  // This section reads the server-side log instead, so the full record of what
-  // the engine proposed -- including everything it declined to trade -- is
-  // there regardless of which tabs are open.
   let sigPage = 1, sigOutcome = '', sigSymbol = '', sigPages = 1, lastLoadAt = 0;
 
   function esc(v) {
@@ -280,15 +326,27 @@
         const repeat = r.seen_count > 1 ? ` &middot; seen ${r.seen_count}x` : '';
         const sh = r.shadow_outcome || '';
         const held = r.shadow_held_ms ? ` after ${Math.round(r.shadow_held_ms / 60000)}m` : '';
-        // Only meaningful for setups that were NOT taken -- for a trade that was
-        // actually executed the real outcome is the trade record, not a shadow.
+        // Untaken setups (declined / rejected / not traded)
         const untaken = ['NOT_TRADED', 'REJECTED_RISK', 'REJECTED_EXCHANGE', 'NO_FILL'].includes(r.outcome);
+        const shPnl = typeof r.shadow_pnl === 'number' ? r.shadow_pnl : null;
+        const shPnlStr = shPnl != null ? (shPnl > 0 ? ` +$${shPnl.toFixed(2)}` : ` -$${Math.abs(shPnl).toFixed(2)}`) : '';
         const shBadge = untaken
           ? `<span class="sh-badge ${sh || 'PENDING'}">${
-              sh === 'WIN' ? `would have WON${held}`
-              : sh === 'LOSS' ? `would have LOST${held}`
+              sh === 'WIN' ? `would have WON${shPnlStr}${held}`
+              : sh === 'LOSS' ? `would have LOST${shPnlStr}${held}`
               : sh === 'EXPIRED' ? 'never resolved'
               : 'still running'}</span>`
+          : '';
+        // For TAKEN trades, show the actual P&L result and PM forced exit reason
+        const takenPnl = r.outcome === 'TAKEN' && typeof r.trade_pnl === 'number' ? r.trade_pnl : null;
+        const tradeExitReason = r.trade_exit_reason || '';
+        const pmExit = ['THESIS_FLIP', 'TIME_STOP', 'STRUCTURE_BROKEN', 'EMERGENCY'].includes(tradeExitReason);
+        const takenBadge = r.outcome === 'TAKEN'
+          ? `<span class="sh-badge ${takenPnl != null ? (takenPnl > 0 ? 'WIN' : 'LOSS') : 'PENDING'}">${
+              takenPnl != null
+                ? (takenPnl > 0 ? `+$${takenPnl.toFixed(2)} WIN` : `-$${Math.abs(takenPnl).toFixed(2)} LOSS`)
+                : 'running'
+            }${pmExit ? ` [PM Exit: ${tradeExitReason}]` : ''}</span>`
           : '';
         return `<div class="sig-row ${untaken ? 'sh-' + (sh || 'PENDING') : ''}">
           <div class="sig-head">
@@ -298,7 +356,7 @@
             <span class="grade">${esc(r.grade || '--')}${r.score != null ? ' ' + esc(r.score) : ''}${
               r.grade_best && r.grade_best !== r.grade_worst ? ` (${esc(r.grade_best)}–${esc(r.grade_worst)})` : ''}</span>
             <span class="sig-tag o-${esc(r.outcome || 'NOT_TRADED')}">${esc(r.outcome || '--')}</span>
-            ${shBadge}
+            ${shBadge}${takenBadge}
             <span style="margin-left:auto;opacity:.55;">${esc(r.time || '')}${repeat}</span>
           </div>
           <div class="sig-meta">
@@ -397,7 +455,23 @@
     clearTimeout(symTimer);
     symTimer = setTimeout(() => { sigSymbol = e.target.value.trim().toUpperCase(); sigPage = 1; loadSignals(); }, 350);
   };
-  document.getElementById('sigRefresh').onclick = () => loadSignals();
+  async function loadServerTrades() {
+    if (hasLiveSnapshot) return;
+    try {
+      const res = await fetch('/api/trades/record?_action=trades&limit=50');
+      if (!res.ok) return;
+      const data = await res.json();
+      const trades = data.items || [];
+      if (trades.length && !hasLiveSnapshot) {
+        renderHistory(trades);
+        renderStats([], trades);
+      }
+    } catch (e) {}
+  }
+  loadServerTrades();
+  setInterval(loadServerTrades, 15000);
+
+  document.getElementById('sigRefresh').onclick = () => { loadSignals(); loadServerTrades(); };
   loadSignals();
   // Refresh on every page, not just the first -- a verdict can land on a row
   // that has already scrolled back, and paging away should not freeze the view.

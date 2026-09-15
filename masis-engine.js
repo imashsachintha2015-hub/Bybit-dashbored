@@ -125,6 +125,17 @@
       // UNAVAILABLE rather than pretending the reading is neutral.
       this.derivs = [];
 
+      // ── Per-coin position tracking (Research: one trade per coin at a time) ──
+      // Multiple coins can have simultaneous trades, but the SAME coin cannot.
+      // This is the engine-side guard; the server has its own Bybit-API-level
+      // guard as a second layer.
+      this.activePositions = new Set();
+
+      // ── BTC dominance trend (Research §7.1: rotation hierarchy) ──
+      // Rolling window to detect whether BTC.D is rising. When it is, altcoin
+      // longs are blocked — capital is flowing TO Bitcoin, not away from it.
+      this.btcDominanceHistory = [];
+
       // The swarm. The meta-learner persists across trades so analyst weights
       // reflect measured reliability rather than assumption.
       this.metaLearner = options.metaLearner ||
@@ -207,7 +218,15 @@
     processOrderBook(b) { this.flow.ingestBook(b); }
 
     setWhaleSignal(s) { if (s) this.whaleSignal = Object.assign({}, this.whaleSignal, s); }
-    setMacroSignal(s) { if (s) this.macroSignal = Object.assign({}, this.macroSignal, s); }
+    setMacroSignal(s) {
+      if (!s) return;
+      this.macroSignal = Object.assign({}, this.macroSignal, s);
+      // Track BTC dominance trend for the rotation gate (Research §7.1)
+      if (typeof s.btcDominance === 'number' && s.btcDominance > 0) {
+        this.btcDominanceHistory.push(s.btcDominance);
+        if (this.btcDominanceHistory.length > 48) this.btcDominanceHistory.shift(); // ~2 days of hourly samples
+      }
+    }
     setNewsSignal(s) {
       if (!s) return;
       this.newsSignal = Object.assign({}, this.newsSignal, s);
@@ -217,6 +236,11 @@
     }
     setSetupPerformance(p) { if (p) this.setupPerformance = p; }
     setDerivatives(rows) { if (Array.isArray(rows)) this.derivs = rows; }
+
+    // ── Per-coin position tracking API (Research: one trade per coin) ──
+    markPositionOpen(symbol) { this.activePositions.add(symbol); }
+    markPositionClosed(symbol) { this.activePositions.delete(symbol); }
+    hasActivePosition(symbol) { return this.activePositions.has(symbol || this.symbol); }
     setLlmVerdict(v) { this.llmVerdict = v; }
 
     reset() {
@@ -335,6 +359,62 @@
       gates.macroAligned = !(this.macroSignal.riskOff && candidate.direction === 'LONG');
       if (!gates.macroAligned) {
         blocks.push(`Macro risk-off (total market cap ${this.macroSignal.marketCapChange24hPct}% in 24h) — not taking longs into a broad bleed`);
+      }
+
+      // ── Research §9.2: Do Not Fight Extreme Funding ──
+      // Holding long leverage during extreme positive funding (>0.05%/period)
+      // introduces severe negative carry drag. The derivatives analyst already
+      // detects crowded positioning; this promotes it from a concern to a hard
+      // gate. Crowded long + direction LONG → blocked. Crowded short + SHORT → blocked.
+      const derivsPanel = (this.lastPanel || []).find(p => p.id === 'derivatives');
+      const derivsFacts = derivsPanel && derivsPanel.facts ? derivsPanel.facts : {};
+      const fundingBlocksLong = derivsFacts.crowdedLong === true && candidate.direction === 'LONG';
+      const fundingBlocksShort = derivsFacts.crowdedShort === true && candidate.direction === 'SHORT';
+      gates.fundingNotExtreme = !fundingBlocksLong && !fundingBlocksShort;
+      if (fundingBlocksLong) {
+        blocks.push(`Extreme funding: longs are crowded and paying to hold (funding z ${derivsFacts.fundingZ || '?'}, LS ratio z ${derivsFacts.lsZ || '?'}) — research §9.2: do not fight extreme positive funding, wait for a margin flush`);
+      }
+      if (fundingBlocksShort) {
+        blocks.push(`Extreme funding: shorts are crowded and paying to hold (funding z ${derivsFacts.fundingZ || '?'}, LS ratio z ${derivsFacts.lsZ || '?'}) — joining a crowded short is standing in front of a squeeze`);
+      }
+
+      // ── Research §7.1 & §9.4: BTC Dominance Rotation Hierarchy ──
+      // "Do not trade high-beta altcoins while Bitcoin is breaking out with
+      // rising dominance." When BTC.D is trending up, capital is concentrating
+      // in BTC and altcoins bleed on native pairs. Block alt longs.
+      const isAltcoin = this.symbol !== 'BTCUSDT';
+      let btcDomRising = false;
+      if (this.btcDominanceHistory.length >= 3) {
+        const recent = this.btcDominanceHistory.slice(-5);
+        const first = recent[0];
+        const last = recent[recent.length - 1];
+        btcDomRising = last > first && (last - first) > 0.3; // 0.3pp rise = meaningful
+      }
+      gates.rotationAligned = !(isAltcoin && btcDomRising && candidate.direction === 'LONG');
+      if (!gates.rotationAligned) {
+        blocks.push(`BTC dominance is rising (${this.btcDominanceHistory.slice(-1)[0]?.toFixed(1) || '?'}%) — research §7.1: capital is concentrating in BTC, altcoin longs are blocked until dominance stabilises`);
+      }
+
+      // ── Research §2.1: Liquidation Cascade Detection ──
+      // When OI was at highs with extreme funding and is now dropping fast,
+      // a Hawkes-style cascade may be in progress. Block ALL entries until
+      // the cascade completes (OI resets and funding normalises).
+      let cascadeActive = false;
+      if (derivsFacts.available) {
+        const oiDropping = derivsFacts.oiChange6h != null && derivsFacts.oiChange6h < -3.0;
+        const wasCrowded = derivsFacts.crowdedLong || derivsFacts.crowdedShort;
+        cascadeActive = oiDropping && wasCrowded;
+      }
+      gates.noCascade = !cascadeActive;
+      if (cascadeActive) {
+        blocks.push(`Liquidation cascade detected: OI dropping ${derivsFacts.oiChange6h}% with previously crowded positioning — Hawkes self-exciting process may not have completed. Wait for absorption (OI reset, funding flat/negative)`);
+      }
+
+      // ── Per-coin position guard ──
+      // Only one trade per coin at a time. Multiple coins can trade simultaneously.
+      gates.noDuplicatePosition = !this.activePositions.has(this.symbol);
+      if (!gates.noDuplicatePosition) {
+        blocks.push(`Already holding a live ${this.symbol} position — one trade per coin at a time, no spamming`);
       }
 
       // Whale flow: only a *confirmed* opposing flow blocks. A single large
@@ -574,6 +654,13 @@
             gapLow: flowSnapshot.fvg.gapLow,
             midpoint: flowSnapshot.fvg.midpoint,
             evidence: flowSnapshot.fvg.evidence
+          } : null,
+          orderBlock: flowSnapshot.orderBlock && flowSnapshot.orderBlock.detected ? {
+            side: flowSnapshot.orderBlock.side,
+            high: flowSnapshot.orderBlock.high,
+            low: flowSnapshot.orderBlock.low,
+            midpoint: flowSnapshot.orderBlock.midpoint,
+            evidence: flowSnapshot.orderBlock.evidence
           } : null
         } : null,
 

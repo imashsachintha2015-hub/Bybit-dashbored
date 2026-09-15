@@ -61,7 +61,11 @@
    * were taken out by ordinary noise before the idea had a chance to work.
    */
   function buildRiskGeometry(direction, entry, invalidationLevel, atrValue, structure) {
-    const buffer = atrValue * 0.35;
+    // Research §8.4: ATR volatility buffer k ∈ [1.0, 1.5] provides empirical
+    // protection against intraday noise and wick hunts. The previous 0.35
+    // multiplier was inside the noise band and got stopped out by normal
+    // retrace before ideas had time to work.
+    const buffer = atrValue * 1.0;
     const stop = direction === 'LONG'
       ? invalidationLevel - buffer
       : invalidationLevel + buffer;
@@ -69,9 +73,11 @@
     const riskDist = Math.abs(entry - stop);
     if (riskDist <= 0) return null;
 
-    const tp1 = direction === 'LONG' ? entry + riskDist * 1.0 : entry - riskDist * 1.0;
-    let tp2 = direction === 'LONG' ? entry + riskDist * 2.0 : entry - riskDist * 2.0;
-    const tp3 = direction === 'LONG' ? entry + riskDist * 3.5 : entry - riskDist * 3.5;
+    // Research §8.4: 50/50 Scaled Liquidity Exit Protocol.
+    // TP1 at 2.0R: bank 50%, move stop to break-even (minimum 2:1 R:R).
+    // TP2 at 3.5R: trailing runner for macro trend capture.
+    const tp1 = direction === 'LONG' ? entry + riskDist * 2.0 : entry - riskDist * 2.0;
+    let tp2 = direction === 'LONG' ? entry + riskDist * 3.5 : entry - riskDist * 3.5;
 
     // Headroom: how far can price travel before it runs into the structure that
     // is most likely to stop it? Measured in R, because that is the unit the
@@ -88,18 +94,18 @@
     // the previous cap-to-the-level rule conflated the two and rejected roughly
     // seven out of eight otherwise-valid setups.
     let cappedByStructure = false;
-    if (headroomR < 1.0) {
+    if (headroomR < 2.0) {
       return {
         entry: +entry.toFixed(6), stop: +stop.toFixed(6), invalidation: +invalidationLevel.toFixed(6),
-        targets: [+tp1.toFixed(6), +tp2.toFixed(6), +tp3.toFixed(6)],
+        targets: [+tp1.toFixed(6), +tp2.toFixed(6)],
         riskDist, rrToTp2: +headroomR.toFixed(2), headroomR: +headroomR.toFixed(2),
         riskPct: +((riskDist / entry) * 100).toFixed(3), cappedByStructure: true, viable: false,
-        rejectReason: `Only ${headroomR.toFixed(2)}R of headroom before the next opposing level at ${opposing.toFixed(4)} — the trade has nowhere to go`
+        rejectReason: `Only ${headroomR.toFixed(2)}R of headroom before the next opposing level at ${opposing.toFixed(4)} — need at least 2.0R for the 50/50 protocol's first exit`
       };
     }
-    if (opposing != null && headroomR < 2.0) {
-      // Park TP2 just short of the level rather than at it, so the fill happens
-      // before the resting orders there do the stopping.
+    if (opposing != null && headroomR < 3.5) {
+      // Park TP2 just short of the opposing level rather than at the full 3.5R,
+      // so the fill happens before the resting orders there do the stopping.
       const shy = atrValue * 0.15;
       tp2 = direction === 'LONG' ? opposing - shy : opposing + shy;
       cappedByStructure = true;
@@ -112,7 +118,7 @@
       entry: +entry.toFixed(6),
       stop: +stop.toFixed(6),
       invalidation: +invalidationLevel.toFixed(6),
-      targets: [+tp1.toFixed(6), +tp2.toFixed(6), +tp3.toFixed(6)],
+      targets: [+tp1.toFixed(6), +tp2.toFixed(6)],
       riskDist,
       rrToTp2: +rrToTp2.toFixed(2),
       headroomR: isFinite(headroomR) ? +headroomR.toFixed(2) : null,

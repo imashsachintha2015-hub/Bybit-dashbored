@@ -83,7 +83,7 @@ DEEPSEEK_MODEL = _env("DEEPSEEK_MODEL", "deepseek-chat")
 # Hard ceiling on model spend. Reaching it is not an error state: the engine is
 # designed to make every decision locally, with the model acting only as an
 # optional second opinion on setups that already passed every local gate.
-DEEPSEEK_DAILY_CALL_BUDGET = int(_env("DEEPSEEK_DAILY_CALL_BUDGET", "120"))
+DEEPSEEK_DAILY_CALL_BUDGET = int(_env("DEEPSEEK_DAILY_CALL_BUDGET", "500"))
 
 BENZINGA_API_KEY = _env("BENZINGA_API_KEY")
 BENZINGA_NEWS_URL = "https://api.benzinga.com/api/v2/news"
@@ -197,6 +197,46 @@ class BybitDemoClient:
         if take_profit is not None:
             body["takeProfit"] = str(take_profit)
         return self.signed_request("POST", "/v5/position/trading-stop", body=body)
+
+    def get_open_orders(self, symbol=None):
+        """Returns resting (unfilled/partially filled) orders. Used by the
+        same-coin duplicate guard to prevent opening a second limit order
+        on a symbol that already has one resting."""
+        params = {"category": "linear", "settleCoin": "USDT"}
+        if symbol:
+            params["symbol"] = symbol
+        return self.signed_request("GET", "/v5/order/realtime", params)
+
+    def set_leverage(self, symbol, leverage):
+        """Sets buy and sell leverage for a linear perp symbol.
+
+        Bybit returns retCode 110043 ('Set leverage not modified') if the
+        requested leverage already matches — that is harmless and callers
+        should treat it as success."""
+        body = {
+            "category": "linear",
+            "symbol": symbol,
+            "buyLeverage": str(leverage),
+            "sellLeverage": str(leverage)
+        }
+        return self.signed_request("POST", "/v5/position/set-leverage", body=body)
+
+    def switch_margin_mode(self, symbol, mode, leverage=10):
+        """Switches between cross (tradeMode=0) and isolated (tradeMode=1)
+        margin for a linear perp symbol.  Leverage must be supplied because
+        the Bybit endpoint requires it on every call.
+
+        Returns retCode 110026 ('Position mode is not modified') if already
+        set — harmless, callers should treat as success."""
+        trade_mode = 0 if str(mode).lower() == "cross" else 1
+        body = {
+            "category": "linear",
+            "symbol": symbol,
+            "tradeMode": trade_mode,
+            "buyLeverage": str(leverage),
+            "sellLeverage": str(leverage)
+        }
+        return self.signed_request("POST", "/v5/position/switch-isolated", body=body)
 
     def close_position(self, category, symbol, side, qty):
         # To close a position, place an opposing reduceOnly market order
@@ -601,119 +641,15 @@ def get_market_overview_state(force=False):
 # decision depended on. Same information in, roughly a fifth of the tokens, and
 # now it is actually wired to the gate.
 # ─────────────────────────────────────────────────────────────────────────
-SUPERVISOR_SYSTEM = (
-    "You are a risk supervisor reviewing ONE pre-screened trade candidate from a "
-    "quantitative crypto system. The technical work is already done and is not "
-    "yours to redo. Your job is narrow: identify a reason this specific trade "
-    "should NOT be taken right now that the local gates could have missed — a "
-    "known event, a contradiction between the stated evidence, or an obviously "
-    "poor location. Default to CONFIRM. Reserve VETO for a concrete, nameable "
-    "problem. Reply with JSON only, no prose, no code fences."
-)
+from backend_lib import supervisor as supervisor_mod
+from backend_lib import signal_log as signal_log_mod
+
+SUPERVISOR_SYSTEM = supervisor_mod.SUPERVISOR_SYSTEM
 
 
 def run_supervisor_verdict(payload):
-    """Returns {verdict, confidence, rationale, is_fallback, ...}."""
-    symbol = payload.get("symbol", "BTCUSDT")
-    direction = payload.get("direction", "LONG")
-    setup = payload.get("setup", "UNKNOWN")
-    score = payload.get("score", 0)
-    grade = payload.get("grade", "B")
-    regime = payload.get("regime", "UNKNOWN")
-    bias = payload.get("bias", "NEUTRAL")
-    entry = payload.get("entry")
-    stop = payload.get("stop")
-    targets = payload.get("targets", [])
-    rr = payload.get("riskReward")
-    evidence = payload.get("evidence", [])
-
-    news_state = get_news_state()
-    macro_state = get_market_overview_state()
-
-    if not DEEPSEEK_API_KEY:
-        return {
-            "verdict": "CONFIRM", "confidence": 0, "is_fallback": True,
-            "fallback_reason": "No DEEPSEEK_API_KEY configured — running on local gates only, which is a supported mode",
-            "rationale": "No supervisor model configured; the local gate result stands unmodified.",
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-        }
-
-    if not llm_budget_take("supervisor-verdict"):
-        return {
-            "verdict": "CONFIRM", "confidence": 0, "is_fallback": True,
-            "fallback_reason": f"Daily model budget spent ({DEEPSEEK_DAILY_CALL_BUDGET} calls) — local gates stand on their own",
-            "rationale": "Budget exhausted; the local gate result stands unmodified. This is the designed fallback, not a degradation.",
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-        }
-
-    evidence_lines = "\n".join(f"- {e}" for e in evidence[:8]) or "- (none supplied)"
-    prompt = f"""Candidate: {direction} {symbol}
-Setup: {setup} | local quality score {score}/100 (grade {grade})
-Regime: {regime}, higher-timeframe bias {bias}
-Entry {entry} | stop {stop} | targets {targets} | reward:risk to TP2 {rr}
-
-Local evidence:
-{evidence_lines}
-
-Context:
-- News sentiment: {news_state.get('sentiment_label')} ({news_state.get('sentiment_score')}); latest: "{news_state.get('headline')}"
-- Macro: BTC dominance {macro_state.get('btc_dominance')}%, total market cap 24h {macro_state.get('market_cap_change_24h_pct')}%, risk-off: {macro_state.get('risk_off')}
-
-Reply with exactly this JSON:
-{{"verdict":"CONFIRM|DOWNGRADE|VETO","confidence":0-100,"rationale":"one sentence, max 30 words","risk":"the single biggest risk to this trade, max 15 words"}}"""
-
-    try:
-        body = json.dumps({
-            "model": DEEPSEEK_MODEL,
-            "messages": [
-                {"role": "system", "content": SUPERVISOR_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-            "max_tokens": 150,
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-        }).encode("utf-8")
-        req = urllib.request.Request(DEEPSEEK_URL, data=body, headers={
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            "Content-Type": "application/json",
-            "User-Agent": "MASIS/3.0",
-        })
-        with urllib.request.urlopen(req, timeout=25) as r:
-            res = json.loads(r.read().decode("utf-8", errors="replace"))
-            text = res["choices"][0]["message"]["content"]
-            match = re.search(r"\{.*\}", text, re.DOTALL)
-            parsed = json.loads(match.group(0) if match else text)
-            verdict = str(parsed.get("verdict", "CONFIRM")).upper()
-            if verdict not in ("CONFIRM", "DOWNGRADE", "VETO"):
-                verdict = "CONFIRM"
-            usage = res.get("usage", {})
-            return {
-                "verdict": verdict,
-                "confidence": int(parsed.get("confidence", 50)),
-                "rationale": str(parsed.get("rationale", ""))[:240],
-                "risk": str(parsed.get("risk", ""))[:160],
-                "is_fallback": False,
-                "model": DEEPSEEK_MODEL,
-                "tokens": usage.get("total_tokens"),
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-            }
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")[:200]
-        reason = ("DeepSeek HTTP 402 — account has no credit balance."
-                  if e.code == 402 else f"DeepSeek HTTP {e.code}: {detail}")
-        print(f"[supervisor] HTTP error: {reason}")
-    except Exception as e:
-        reason = f"DeepSeek unreachable: {e}"
-        print(f"[supervisor] Exception: {reason}")
-
-    # A supervisor that cannot be reached must never block a locally-valid
-    # trade, and must never wave through a locally-invalid one. It abstains.
-    return {
-        "verdict": "CONFIRM", "confidence": 0, "is_fallback": True,
-        "fallback_reason": reason,
-        "rationale": "Supervisor unavailable; abstaining. The local gate result stands unmodified.",
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-    }
+    """Returns {verdict, confidence, rationale, is_fallback, ...} with full track record."""
+    return supervisor_mod.run_supervisor_verdict(payload)
 
 
 def _sanitize_for_json(obj):
@@ -894,6 +830,51 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, res)
             return
 
+        # 6b. API: Trades and suggestions record (matches Vercel api/trades/record)
+        if self.path.startswith("/api/trades/record"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed_url.query)
+            action = (q.get("_action") or [""])[0]
+
+            if action == "signals":
+                try:
+                    signal_log_mod.settle_pending(max_rows=4)
+                except Exception as e:
+                    print(f"[signals] settle_pending failed: {e}")
+                self._send_json(200, signal_log_mod.page(
+                    page_num=(q.get("page") or ["1"])[0],
+                    limit=(q.get("limit") or ["25"])[0],
+                    symbol=(q.get("symbol") or [None])[0],
+                    outcome=(q.get("outcome") or [None])[0],
+                ))
+                return
+
+            if action == "trades":
+                with trade_stats_lock:
+                    history = list(trade_stats["trade_history"])
+                try:
+                    limit = max(1, min(int((q.get("limit") or ["25"])[0]), 100))
+                    page_num = max(1, int((q.get("page") or ["1"])[0]))
+                except (TypeError, ValueError):
+                    limit, page_num = 25, 1
+                start = (page_num - 1) * limit
+                self._send_json(200, {
+                    "items": history[start:start + limit],
+                    "page": page_num, "limit": limit, "total": len(history),
+                    "pages": max(1, (len(history) + limit - 1) // limit),
+                })
+                return
+
+            with trade_stats_lock:
+                history = list(trade_stats["trade_history"])
+            self._send_json(200, {
+                "kv_configured": True,
+                "trade_count": len(history),
+                "signal_count": len(signal_log_mod.load().get("signals", [])),
+                "most_recent": history[0] if history else None
+            })
+            return
+
         # 7. API: Autonomous execution settings & arm state
         if self.path == "/api/auto-trade/state":
             try:
@@ -1037,13 +1018,28 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             })
             return
 
-        # 4. API: record the reasoning behind a close.
-        #
-        # This no longer maintains its own win/loss/profit tallies — those came
-        # from here AND from Bybit, which is what double-counted every trade.
-        # What it stores is the part Bybit has no way to know: which setup fired,
-        # what grade it scored, why the position was exited, and the realised R.
-        if self.path == "/api/trades/record":
+        # 4. API: record the reasoning behind a close or candidate signal.
+        if self.path.startswith("/api/trades/record"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed_url.query)
+            action = (q.get("_action") or [""])[0]
+
+            if action == "signal_resolve":
+                try:
+                    self._send_json(200, {"success": True, "row": signal_log_mod.resolve(body)})
+                except Exception as e:
+                    print(f"[POST /api/trades/record?_action=signal_resolve] error: {e}")
+                    self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+                return
+
+            if action == "signal":
+                try:
+                    self._send_json(200, {"success": True, "row": signal_log_mod.record(body)})
+                except Exception as e:
+                    print(f"[POST /api/trades/record?_action=signal] error: {e}")
+                    self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+                return
+
             try:
                 pnl = float(body.get("pnl", 0))
             except (TypeError, ValueError):
@@ -1069,6 +1065,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 if len(trade_stats["trade_history"]) > 200:
                     trade_stats["trade_history"].pop()
                 save_trade_stats()
+            try:
+                signal_log_mod.record_trade_outcome(body)
+            except Exception as e:
+                print(f"[trades/record] signal_log update failed: {e}")
             self._send_json(200, {"success": True})
             return
 
