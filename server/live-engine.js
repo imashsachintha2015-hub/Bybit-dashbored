@@ -216,7 +216,7 @@ async function syncAutoTradeState() {
 
 // ── Position Guardian & TP/SL Automation ──────────────────────────────────
 async function manageOpenPositions() {
-  if (!currentAutoState.armed || !openPositionsCache.length) return;
+  if (!openPositionsCache.length) return;
   const now = Date.now();
   for (const pos of openPositionsCache) {
     const sym = pos.symbol;
@@ -252,6 +252,8 @@ async function manageOpenPositions() {
       if (!currentAutoState.theses) currentAutoState.theses = {};
       currentAutoState.theses[key] = trade;
       positionManager.trades[key] = trade;
+      await postJSON('/api/auto-trade/state', { theses: { [key]: trade } });
+      log(`[POSITION GUARDIAN] Adopted and synced ${sym} ${side.toUpperCase()} thesis to server.`);
     } else {
       positionManager.trades[key] = trade;
     }
@@ -278,23 +280,25 @@ async function manageOpenPositions() {
       log(`[POSITION GUARDIAN] ${sym} TP${action.tpIndex + 1} reached! Banking ${fraction * 100}% slice (${sliceQty})...`);
       positionManager.markTpFilled(trade, action.tpIndex, mark);
 
-      // 1. Partial close on Bybit
-      await postJSON('/api/order/close', {
-        category: 'linear',
-        symbol: sym,
-        side,
-        qty: sliceQty
-      });
-
-      // 2. Immediately move Stop to Break-Even (entry price) upon TP1
-      if (action.tpIndex === 0 && !trade.stopMovedToBreakEven) {
-        log(`[POSITION GUARDIAN] TP1 banked for ${sym} -> Moving Stop Loss to Entry Point (${trade.entryPrice})`);
-        await postJSON('/api/position/stop', {
+      if (currentAutoState.armed) {
+        // 1. Partial close on Bybit
+        await postJSON('/api/order/close', {
           category: 'linear',
           symbol: sym,
-          stopLoss: trade.entryPrice
+          side,
+          qty: sliceQty
         });
-        positionManager.markStopMoved(trade, trade.entryPrice, 'BREAK_EVEN');
+
+        // 2. Immediately move Stop to Break-Even (entry price) upon TP1
+        if (action.tpIndex === 0 && !trade.stopMovedToBreakEven) {
+          log(`[POSITION GUARDIAN] TP1 banked for ${sym} -> Moving Stop Loss to Entry Point (${trade.entryPrice})`);
+          await postJSON('/api/position/stop', {
+            category: 'linear',
+            symbol: sym,
+            stopLoss: trade.entryPrice
+          });
+          positionManager.markStopMoved(trade, trade.entryPrice, 'BREAK_EVEN');
+        }
       }
 
       // Sync updated thesis to server
@@ -304,22 +308,26 @@ async function manageOpenPositions() {
     } else if (action.action === 'MOVE_STOP') {
       log(`[POSITION GUARDIAN] Moving stop for ${sym} to ${action.newStop} (${action.reason})`);
       positionManager.markStopMoved(trade, action.newStop, action.reason);
-      await postJSON('/api/position/stop', {
-        category: 'linear',
-        symbol: sym,
-        stopLoss: action.newStop
-      });
+      if (currentAutoState.armed) {
+        await postJSON('/api/position/stop', {
+          category: 'linear',
+          symbol: sym,
+          stopLoss: action.newStop
+        });
+      }
       await postJSON('/api/auto-trade/state', {
         theses: { [key]: trade }
       });
     } else if (action.action === 'CLOSE_ALL') {
       log(`[POSITION GUARDIAN] Closing entire ${sym} position: ${action.reason} — ${action.detail}`);
-      await postJSON('/api/order/close', {
-        category: 'linear',
-        symbol: sym,
-        side,
-        qty: size
-      });
+      if (currentAutoState.armed) {
+        await postJSON('/api/order/close', {
+          category: 'linear',
+          symbol: sym,
+          side,
+          qty: size
+        });
+      }
     }
   }
 }
