@@ -23,7 +23,7 @@ import sys
 import threading
 import xml.etree.ElementTree as ET
 
-PORT = 8080
+PORT = int(os.environ.get("PORT", 8080))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 # ─────────────────────────────────────────────────────────────────────────
