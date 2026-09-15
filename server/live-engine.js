@@ -37,9 +37,15 @@ const https = require('https');
 const { MasisEngine } = require('../masis-engine.js');
 const { PositionManager, EXIT } = require('../agents/position-manager.js');
 
+const ALL_30_COINS = [
+  'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT',
+  'DOTUSDT', 'LTCUSDT', 'BCHUSDT', 'ATOMUSDT', 'NEARUSDT', 'APTUSDT', 'ARBUSDT', 'OPUSDT',
+  'SUIUSDT', 'TONUSDT', 'TRXUSDT', 'SHIB1000USDT', 'UNIUSDT', 'FILUSDT', 'ETCUSDT', 'XLMUSDT',
+  'ICPUSDT', 'HBARUSDT', 'INJUSDT', 'SEIUSDT', 'AAVEUSDT', 'ALGOUSDT'
+];
+
 const API_BASE = process.env.API_BASE || 'https://bybit-dashbored.vercel.app';
-const SYMBOLS = (process.env.SYMBOLS ||
-  'BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT').split(',');
+const SYMBOLS = (process.env.SYMBOLS ? process.env.SYMBOLS.split(',') : ALL_30_COINS);
 const WS_URL = 'wss://stream.bybit.com/v5/public/linear';
 const ANALYSIS_INTERVALS = ['5', '15', '60'];
 const TF_OF = { '5': 'ltf', '15': 'mtf', '60': 'htf' };
@@ -99,7 +105,7 @@ function getJSON(url) {
   });
 }
 
-// ── Bybit Lot Specifications & Min Sizing ──────────────────────────────────
+// ── Bybit Lot Specifications & Min Sizing (Full 30-Coin Specs) ─────────────
 const COIN_SPECS = {
   BTCUSDT: { qtyStep: 0.001, minQty: 0.001, minNotional: 5.0 },
   ETHUSDT: { qtyStep: 0.01, minQty: 0.01, minNotional: 5.0 },
@@ -107,8 +113,30 @@ const COIN_SPECS = {
   XRPUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
   DOGEUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
   ADAUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
-  LINKUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
   AVAXUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  LINKUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  DOTUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  LTCUSDT: { qtyStep: 0.01, minQty: 0.01, minNotional: 5.0 },
+  BCHUSDT: { qtyStep: 0.01, minQty: 0.01, minNotional: 5.0 },
+  ATOMUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  NEARUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  APTUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  ARBUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  OPUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  SUIUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  TONUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  TRXUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  SHIB1000USDT: { qtyStep: 1000, minQty: 1000, minNotional: 5.0 },
+  UNIUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  FILUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  ETCUSDT: { qtyStep: 0.01, minQty: 0.01, minNotional: 5.0 },
+  XLMUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  ICPUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  HBARUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  INJUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  SEIUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  AAVEUSDT: { qtyStep: 0.01, minQty: 0.01, minNotional: 5.0 },
+  ALGOUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 }
 };
 
 function calculateOrderQty(sym, price, autoState) {
@@ -137,7 +165,8 @@ let currentAutoState = {
   sizingMode: 'min',
   fixedUsdtSize: 10,
   leverage: 10,
-  marginMode: 'cross'
+  marginMode: 'cross',
+  maxConcurrentPositions: 5
 };
 let openPositionsCache = [];
 let lastStateSync = 0;
