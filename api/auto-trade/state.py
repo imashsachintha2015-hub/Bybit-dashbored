@@ -15,12 +15,13 @@ class handler(JsonApiHandler):
         body = self._read_json_body()
         try:
             state = auto_trade_state.save(
-                body.get("armed", False),
+                body.get("armed"),
                 body.get("riskPerTradePct"),
                 body.get("sizingMode"),
                 body.get("fixedUsdtSize"),
                 body.get("leverage"),
                 body.get("marginMode"),
+                theses=body.get("theses"),
             )
             self._send_json(200, state)
         except Exception as e:

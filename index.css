@@ -823,6 +823,55 @@ body {
 }
 .settings-chip i { color: var(--accent); font-size: 9px; }
 
+/* 24/7 Cloud Runner Banner */
+.cloud-runner-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.cloud-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.cloud-status-dot.armed {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(22,199,132,0.6);
+  animation: evalPulse 2s infinite;
+}
+.cloud-status-dot.stopped {
+  background: var(--amber, #F59E0B);
+  box-shadow: 0 0 6px rgba(245,158,11,0.4);
+}
+.cloud-status-text {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2px;
+}
+.guardian-sync-tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--cyan);
+  background: rgba(6,182,212,0.12);
+  border: 1px solid rgba(6,182,212,0.25);
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .control-buttons { display: flex; gap: 8px; }
 .start-btn, .stop-btn {
   flex: 1;

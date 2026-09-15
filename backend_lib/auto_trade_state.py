@@ -29,6 +29,7 @@ DEFAULT_STATE = {
     "fixedUsdtSize": 10,
     "leverage": 10,
     "marginMode": "cross",
+    "theses": {},
 }
 
 
@@ -39,15 +40,24 @@ def load():
     return {**DEFAULT_STATE, **state}
 
 
-def save(armed, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=None, leverage=None, margin_mode=None):
+def save(armed=None, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=None, leverage=None, margin_mode=None, theses=None):
     current = load()
+    merged_theses = dict(current.get("theses", {}) or {})
+    if isinstance(theses, dict):
+        for k, v in theses.items():
+            if v is None:
+                merged_theses.pop(k, None)
+            else:
+                merged_theses[k] = v
+
     state = {
-        "armed": bool(armed),
+        "armed": bool(armed) if armed is not None else current.get("armed", False),
         "riskPerTradePct": float(risk_per_trade_pct) if risk_per_trade_pct is not None else current.get("riskPerTradePct", 0.5),
         "sizingMode": sizing_mode if sizing_mode in ("risk", "usdt", "min") else current.get("sizingMode", "min"),
-        "fixedUsdtSize": float(fixed_usdt_size) if fixed_usdt_size else current.get("fixedUsdtSize", 10),
+        "fixedUsdtSize": float(fixed_usdt_size) if fixed_usdt_size is not None else current.get("fixedUsdtSize", 10),
         "leverage": int(leverage) if leverage and int(leverage) > 0 else current.get("leverage", 10),
         "marginMode": str(margin_mode).lower() if str(margin_mode).lower() in ("cross", "isolated") else current.get("marginMode", "cross"),
+        "theses": merged_theses,
     }
     kv_set_json(STATE_KEY, state)
     return state

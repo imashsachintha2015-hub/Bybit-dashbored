@@ -365,6 +365,119 @@ document.addEventListener('DOMContentLoaded', () => {
     return +(Math.round(price / tick) * tick).toFixed(decimals);
   }
 
+  // ─── Position Guardian Persistence Across Sessions & Refreshes ───
+  const THESES_STORAGE_KEY = 'masis_active_theses';
+
+  function saveThesesLocally() {
+    try {
+      const map = {};
+      for (const t of positionManager.all()) {
+        map[`${t.symbol}-${t.side}`] = t;
+      }
+      localStorage.setItem(THESES_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {}
+  }
+
+  function loadThesesLocally() {
+    try {
+      const raw = localStorage.getItem(THESES_STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        for (const [key, t] of Object.entries(data)) {
+          if (t && t.symbol && t.side && !positionManager.get(t.symbol, t.side)) {
+            t.tpFilled = t.tpFilled || [false, false];
+            t.exitLog = t.exitLog || [];
+            t.flipStreak = t.flipStreak || 0;
+            t.realisedR = t.realisedR || 0;
+            t.remainingFraction = typeof t.remainingFraction === 'number' ? t.remainingFraction : 1;
+            positionManager.trades[key] = t;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function syncThesisToServer(trade) {
+    if (!trade || !trade.symbol || !trade.side) return;
+    const key = `${trade.symbol}-${trade.side}`;
+    try {
+      await postJSON('/api/auto-trade/state', {
+        theses: { [key]: trade }
+      });
+    } catch (e) {
+      console.warn('Could not sync thesis to server:', e.message);
+    }
+  }
+
+  async function removeThesisFromServer(symbol, side) {
+    const key = `${symbol}-${side}`;
+    try {
+      await postJSON('/api/auto-trade/state', {
+        theses: { [key]: null }
+      });
+    } catch (e) {
+      console.warn('Could not remove thesis from server:', e.message);
+    }
+  }
+
+  function adoptPosition(pos, s) {
+    const sym = pos.symbol;
+    const side = pos.side;
+    const entryPrice = parseFloat(pos.avgPrice || pos.entryPrice || pos.markPrice || 0);
+    const size = parseFloat(pos.size || 0);
+    const bybitSL = parseFloat(pos.stopLoss || 0);
+
+    let stopLoss = bybitSL;
+    if (!stopLoss || stopLoss <= 0) {
+      const atr = s && s.regimeMetrics ? s.regimeMetrics.htfAtr : null;
+      if (atr && atr > 0) {
+        stopLoss = side === 'Buy' ? entryPrice - (2 * atr) : entryPrice + (2 * atr);
+      } else {
+        stopLoss = side === 'Buy' ? entryPrice * 0.985 : entryPrice * 1.015;
+      }
+      stopLoss = roundPrice(sym, stopLoss);
+    }
+
+    const riskDist = Math.abs(entryPrice - stopLoss) || (entryPrice * 0.01);
+    const invalidation = stopLoss;
+    const isBuy = side === 'Buy';
+    const targets = [
+      roundPrice(sym, isBuy ? entryPrice + 1.5 * riskDist : entryPrice - 1.5 * riskDist),
+      roundPrice(sym, isBuy ? entryPrice + 3.0 * riskDist : entryPrice - 3.0 * riskDist)
+    ];
+
+    const setupName = (s && s.setupType) ? s.setupType : 'Live Setup';
+    const grade = (s && s.grade) || 'A';
+    const score = (s && s.score) || 85;
+    const regime = (s && s.regime) || 'TRENDING';
+
+    const trade = positionManager.open({
+      symbol: sym,
+      side: side,
+      entryPrice,
+      stopLoss,
+      invalidation,
+      targets,
+      riskDist,
+      qty: size,
+      originalQty: size,
+      riskAmount: riskDist * size,
+      setupName,
+      grade,
+      score,
+      regime,
+      narrative: 'Auto-adopted by Position Guardian across sessions/refresh'
+    });
+
+    saveThesesLocally();
+    syncThesisToServer(trade);
+    logEvent(`Guardian adopted active position ${sym} ${side.toUpperCase()} @ ${entryPrice.toLocaleString()} (SL: ${stopLoss}, TP: ${targets.join('/')}) — now fully managed.`);
+    return trade;
+  }
+
+  loadThesesLocally();
+
   /** Reads a fetch Response as JSON, but never lets a non-JSON body (an HTML
    * error/block page, an empty response, a proxy's error page -- anything
    * that isn't valid JSON) surface as the cryptic default
@@ -695,7 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // the realised improvement against the limit rather than assuming it.
         if (p.signalState) logSignal(sym, p.signalState, 'TAKEN', `filled @ ${entryPrice}`,
           { offsetBps: p.offsetBps, fillPrice: entryPrice });
-        positionManager.open({
+        const trade = positionManager.open({
           symbol: sym, side: p.side, entryPrice,
           stopLoss: p.stopLoss, invalidation: p.invalidation, targets: p.targets,
           riskDist: Math.abs(entryPrice - p.stopLoss),
@@ -703,6 +816,8 @@ document.addEventListener('DOMContentLoaded', () => {
           setupName: p.setupName, grade: p.grade, score: p.score,
           regime: p.regime, narrative: p.narrative
         });
+        saveThesesLocally();
+        syncThesisToServer(trade);
         logEvent(`FILLED ${p.side.toUpperCase()} ${sym} qty=${p.qty} @ ~${entryPrice.toLocaleString()} (limit placed ${Math.round((Date.now() - p.placedAt) / 1000)}s earlier at ${p.limitPrice.toLocaleString()}) | ${p.setupName} grade ${p.grade}`);
         toDrop.push(sym);
         continue;
@@ -776,6 +891,8 @@ document.addEventListener('DOMContentLoaded', () => {
           positionManager.finalise(trade, exitPrice, reason);
           await recordOutcome(trade, exitPrice, reason, closing, slicePnl);
           positionManager.forget(pos.symbol, pos.side);
+          saveThesesLocally();
+          removeThesisFromServer(pos.symbol, pos.side);
           // Push real executed trade outcome to shadowTracker history so monitor immediately shows it
           shadowTracker.history.unshift({
             id: `REAL-${pos.symbol}-${Date.now()}`,
@@ -794,6 +911,9 @@ document.addEventListener('DOMContentLoaded', () => {
             isReal: true
           });
           broadcastShadowSnapshot();
+        } else {
+          saveThesesLocally();
+          syncThesisToServer(trade);
         }
       } else {
         logEvent(`Close rejected for ${pos.symbol}: ${res.retMsg || 'unknown error'}`);
@@ -821,15 +941,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cards = [];
     for (const pos of openPositionsSnapshot) {
-      const trade = positionManager.get(pos.symbol, pos.side);
       const s = latestStates[pos.symbol];
+      let trade = positionManager.get(pos.symbol, pos.side);
 
       if (!trade) {
-        cards.push(`<div class="guardian-position">
-          <span class="guardian-pill safe">${pos.symbol} ${pos.side.toUpperCase()} — UNMANAGED</span>
-          <ul class="guardian-reasons"><li>Opened outside this session, so there is no entry thesis or invalidation level to manage against. Monitoring only; it will not be auto-closed.</li></ul>
-        </div>`);
-        continue;
+        trade = adoptPosition(pos, s);
       }
 
       const mark = parseFloat(pos.markPrice || 0);
@@ -857,6 +973,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (autoTradingArmed) {
           const sliceQty = trade.originalQty * action.fraction;
           positionManager.markTpFilled(trade, action.tpIndex, mark);
+          saveThesesLocally();
+          syncThesisToServer(trade);
           await closePositionSlice(pos, trade, sliceQty, `TP${action.tpIndex + 1}`, action.detail);
         }
       } else if (action.action === 'MOVE_STOP') {
@@ -864,6 +982,8 @@ document.addEventListener('DOMContentLoaded', () => {
         reasons.push(action.detail);
         if (autoTradingArmed) {
           positionManager.markStopMoved(trade, action.newStop, action.reason);
+          saveThesesLocally();
+          syncThesisToServer(trade);
           try {
             await postJSON('/api/position/stop', { category: 'linear', symbol: pos.symbol, stopLoss: action.newStop });
             logEvent(`${pos.symbol} ${action.detail}`);
@@ -1497,6 +1617,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pos && pos.result && pos.result.list) {
       openPositionsSnapshot = pos.result.list.filter(p => parseFloat(p.size) > 0);
       await checkPendingEntries();
+
+      // Ensure every open position on Bybit has a thesis in positionManager (auto-adopt if opened outside/reloaded)
+      for (const p of openPositionsSnapshot) {
+        if (!positionManager.get(p.symbol, p.side)) {
+          adoptPosition(p, latestStates[p.symbol]);
+        }
+      }
+
       const openKeys = new Set(openPositionsSnapshot.map(p => `${p.symbol}-${p.side}`));
 
       // A tracked trade that is no longer open was closed by the broker — in
@@ -1510,6 +1638,8 @@ document.addEventListener('DOMContentLoaded', () => {
           await recordOutcome(t, exit, 'STOP', t.originalQty, pnl);
           logEvent(`STOP hit on ${t.symbol} ${t.side.toUpperCase()} — ${positionManager.explain(t)}`);
           positionManager.forget(t.symbol, t.side);
+          saveThesesLocally();
+          removeThesisFromServer(t.symbol, t.side);
         }
       }
 
@@ -1627,6 +1757,8 @@ document.addEventListener('DOMContentLoaded', () => {
           await recordOutcome(trade, exitPrice, 'MANUAL', parseFloat(qty), pnl);
           positionManager.forget(symbol, side);
         }
+        saveThesesLocally();
+        removeThesisFromServer(symbol, side);
         logEvent(`Manually closed ${symbol} ${side.toUpperCase()}`);
         setTimeout(pollDemoData, 600);
       }
@@ -1675,6 +1807,14 @@ document.addEventListener('DOMContentLoaded', () => {
     $('armStatus').className = armed ? 'arm-status armed' : 'arm-status stopped';
     $('startBtn').disabled = armed;
     $('stopBtn').disabled = !armed;
+    const dot = $('cloudStatusDot');
+    const txt = $('cloudStatusText');
+    if (dot && txt) {
+      dot.className = armed ? 'cloud-status-dot armed' : 'cloud-status-dot stopped';
+      txt.textContent = armed
+        ? 'Railway 24/7 Engine: ARMED · Auto-Execution Active'
+        : 'Railway 24/7 Engine: STANDBY · Monitoring Only (Execution Stopped)';
+    }
     $('marginInput').disabled = armed;
     $('usdtSizeInput').disabled = armed;
     if ($('sizeModeMinBtn')) $('sizeModeMinBtn').disabled = armed;
@@ -1814,11 +1954,28 @@ document.addEventListener('DOMContentLoaded', () => {
       riskGovernor.config.riskPerTradePct = saved.riskPerTradePct;
       $('marginInput').value = saved.riskPerTradePct;
     }
+    if (saved.theses && typeof saved.theses === 'object') {
+      let imported = 0;
+      for (const [key, t] of Object.entries(saved.theses)) {
+        if (t && t.symbol && t.side && !positionManager.get(t.symbol, t.side)) {
+          t.tpFilled = t.tpFilled || [false, false];
+          t.exitLog = t.exitLog || [];
+          t.flipStreak = t.flipStreak || 0;
+          t.realisedR = t.realisedR || 0;
+          t.remainingFraction = typeof t.remainingFraction === 'number' ? t.remainingFraction : 1;
+          positionManager.trades[key] = t;
+          imported++;
+        }
+      }
+      if (imported > 0) {
+        saveThesesLocally();
+      }
+    }
     updateSettingsSummary();
 
     if (saved.armed === autoTradingArmed) return;
     applyArmedUI(saved.armed);
-    logEvent(`Auto-trading was ${saved.armed ? 'ARMED' : 'STOPPED'} from another device — following that here.`);
+    logEvent(`Auto-trading was ${saved.armed ? 'ARMED' : 'STOPPED'} from another device/runner — following that here.`);
   }
 
   // Overwrite the placeholder qtyStep/minQty above with Bybit's real lot-size
@@ -1840,6 +1997,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bootstrapEngines();
   wsClient.connect();
+  resyncArmedState();
 
   console.log('%c MASIS V3 — Multi-Timeframe Confluence Engine ', 'background:#0B1120;color:#38BDF8;font-size:14px;font-weight:700;padding:8px 16px;border-radius:6px;border:1px solid rgba(56,189,248,0.3);');
 });

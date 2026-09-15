@@ -66,6 +66,27 @@ function post(path, body) {
   });
 }
 
+function postJSON(path, body) {
+  return new Promise((resolve) => {
+    const data = JSON.stringify(body);
+    const req = https.request(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      timeout: 10000,
+    }, (res) => {
+      let b = '';
+      res.on('data', (c) => { b += c; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, data: JSON.parse(b) }); }
+        catch { resolve({ status: res.statusCode, data: null }); }
+      });
+    });
+    req.on('error', (e) => { log('postJSON failed', path, e.message); resolve({ status: 500, data: null }); });
+    req.on('timeout', () => { req.destroy(); resolve({ status: 408, data: null }); });
+    req.write(data); req.end();
+  });
+}
+
 function getJSON(url) {
   return new Promise((resolve) => {
     https.get(url, { timeout: 15000 }, (res) => {
@@ -74,6 +95,92 @@ function getJSON(url) {
       res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
     }).on('error', () => resolve(null)).on('timeout', function () { this.destroy(); resolve(null); });
   });
+}
+
+// ── Bybit Lot Specifications & Min Sizing ──────────────────────────────────
+const COIN_SPECS = {
+  BTCUSDT: { qtyStep: 0.001, minQty: 0.001, minNotional: 5.0 },
+  ETHUSDT: { qtyStep: 0.01, minQty: 0.01, minNotional: 5.0 },
+  SOLUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  XRPUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  DOGEUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  ADAUSDT: { qtyStep: 1, minQty: 1, minNotional: 5.0 },
+  LINKUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+  AVAXUSDT: { qtyStep: 0.1, minQty: 0.1, minNotional: 5.0 },
+};
+
+function calculateOrderQty(sym, price, autoState) {
+  const spec = COIN_SPECS[sym] || { qtyStep: 0.001, minQty: 0.001, minNotional: 5.0 };
+  const step = spec.qtyStep;
+  const minQ = spec.minQty || step;
+  const minNotional = spec.minNotional || 5.0;
+
+  if (autoState && autoState.sizingMode === 'usdt' && autoState.fixedUsdtSize > 0) {
+    let q = autoState.fixedUsdtSize / price;
+    q = Math.floor(q / step) * step;
+    if (q * price < minNotional) q = Math.ceil(minNotional / price / step) * step;
+    if (q < minQ) q = minQ;
+    return +q.toFixed(8);
+  }
+
+  // Default: 'min' sizing mode (smallest valid legal order on Bybit)
+  let q = Math.max(minQ, Math.ceil(minNotional / price / step) * step);
+  q = Math.floor(q / step) * step;
+  return +q.toFixed(8);
+}
+
+// ── Cross-Device Arm State & Open Positions Cache ─────────────────────────
+let currentAutoState = {
+  armed: false,
+  sizingMode: 'min',
+  fixedUsdtSize: 10,
+  leverage: 10,
+  marginMode: 'cross'
+};
+let openPositionsCache = [];
+let lastStateSync = 0;
+const activeOrders = {}; // sym -> { orderId, placedAt, side, price, qty }
+
+async function syncAutoTradeState() {
+  const now = Date.now();
+  if (now - lastStateSync < 12000) return;
+  lastStateSync = now;
+
+  try {
+    const st = await getJSON(`${API_BASE}/api/auto-trade/state`);
+    if (st && typeof st.armed === 'boolean') {
+      if (st.armed !== currentAutoState.armed) {
+        log(`[STATE SYNC] 24/7 cloud execution ${st.armed ? 'ARMED' : 'STOPPED'} via dashboard.`);
+      }
+      currentAutoState = Object.assign(currentAutoState, st);
+    }
+  } catch (e) {}
+
+  try {
+    const pos = await getJSON(`${API_BASE}/api/positions`);
+    if (pos && pos.result && Array.isArray(pos.result.list)) {
+      openPositionsCache = pos.result.list.filter(p => parseFloat(p.size || 0) > 0);
+      if (currentAutoState && currentAutoState.theses) {
+        const openKeys = new Set(openPositionsCache.map(p => `${p.symbol}-${p.side}`));
+        const toPrune = {};
+        let pruneCount = 0;
+        for (const [k, th] of Object.entries(currentAutoState.theses)) {
+          if (!th) continue;
+          const age = now - (th.openedAt || 0);
+          const hasActiveOrder = activeOrders[th.symbol] && (now - activeOrders[th.symbol].placedAt < 600000);
+          if (age > 120000 && !openKeys.has(k) && !hasActiveOrder) {
+            toPrune[k] = null;
+            delete currentAutoState.theses[k];
+            pruneCount++;
+          }
+        }
+        if (pruneCount > 0) {
+          await postJSON('/api/auto-trade/state', { theses: toPrune });
+          log(`[STATE SYNC] Pruned ${pruneCount} closed trade thesis(es) from server.`);
+        }
+      }
+    }
+  } catch (e) {}
 }
 
 // ── Seed history, so the engine is not blind until enough live bars arrive ──
@@ -183,6 +290,7 @@ const lastRecordedState = {};
 const lastRecordedTime = {};
 
 async function tick() {
+  await syncAutoTradeState();
   const now = Date.now();
   for (const sym of SYMBOLS) {
     let s;
@@ -223,25 +331,96 @@ async function tick() {
 
     if (decided && lastFingerprint[sym] !== fp) {
       lastFingerprint[sym] = fp;
-      log('SIGNAL', sym, s.decision, s.setupType, `grade ${s.grade}`,
-        ENABLE_TRADING ? '(trading enabled — not yet wired)' : '(recording only)');
+
+      const isGradeA = s.grade === 'A' || s.grade === 'A+';
+      const isArmed = currentAutoState.armed;
+
+      if (isArmed && isGradeA) {
+        // 1 trade per coin rule:
+        const hasOpenPos = openPositionsCache.some((p) => p.symbol === sym);
+        const lastOrd = activeOrders[sym];
+        const hasRecentOrder = lastOrd && (now - lastOrd.placedAt < 600000); // 10m
+
+        if (hasOpenPos) {
+          log(`[ORDER SKIPPED] ${sym} already has an open position on Bybit (1 trade per coin rule).`);
+        } else if (hasRecentOrder) {
+          log(`[ORDER SKIPPED] ${sym} already has an active order placed recently.`);
+        } else {
+          const qty = calculateOrderQty(sym, s.entry, currentAutoState);
+          const side = s.decision === 'BUY' ? 'Buy' : 'Sell';
+          log(`[24/7 CLOUD EXECUTION] Placing ${side.toUpperCase()} ${sym} qty=${qty} @ ${s.entry} (SL: ${s.stopLoss}, sizing: ${currentAutoState.sizingMode})...`);
+
+          try {
+            const ordRes = await postJSON('/api/order/place', {
+              category: 'linear',
+              symbol: sym,
+              side,
+              orderType: 'Limit',
+              price: s.entry,
+              qty,
+              stopLoss: s.stopLoss,
+              leverage: currentAutoState.leverage || 10,
+              marginMode: currentAutoState.marginMode || 'cross'
+            });
+
+            if (ordRes && ordRes.data && ordRes.data.retCode === 0 && ordRes.data.result) {
+              const orderId = ordRes.data.result.orderId;
+              activeOrders[sym] = { orderId, placedAt: now, side, price: s.entry, qty };
+              log(`[24/7 CLOUD SUCCESS] ${sym} limit order placed on Bybit! Order ID: ${orderId}`);
+
+              // Persist thesis to auto_trade_state so Position Guardian displays it everywhere!
+              const thesisKey = `${sym}-${side}`;
+              const newThesis = {
+                symbol: sym, side, entryPrice: s.entry,
+                stopLoss: s.stopLoss, invalidation: s.invalidation || s.stopLoss,
+                targets: s.takeProfit || [], riskDist: Math.abs(s.entry - s.stopLoss),
+                qty, originalQty: qty, setupName: s.setupType, grade: s.grade,
+                score: s.score, regime: s.regime, narrative: s.narrative || '',
+                openedAt: now
+              };
+              currentAutoState.theses = currentAutoState.theses || {};
+              currentAutoState.theses[thesisKey] = newThesis;
+              await postJSON('/api/auto-trade/state', {
+                armed: true,
+                theses: { [thesisKey]: newThesis }
+              });
+
+              // Record signal
+              await post('/api/trades/record?_action=signal', {
+                fingerprint: fp, symbol: sym,
+                direction: s.direction || (s.decision === 'BUY' ? 'LONG' : 'SHORT'),
+                setup_type: s.setupType, grade: s.grade, score: s.score,
+                regime: s.regime, bias: s.bias,
+                entry: s.entry, stop: s.stopLoss, targets: s.takeProfit, risk_reward: s.riskReward,
+                outcome: 'ORDER_PLACED',
+                reject_reason: '',
+                flow: s.flow || null,
+                evidence: (s.components || []).map((c) => `${c.label}: ${c.detail}`)
+              });
+            } else {
+              log(`[24/7 ORDER REJECTED] ${sym}: ${ordRes && ordRes.data ? ordRes.data.retMsg : 'unknown'}`);
+            }
+          } catch (err) {
+            log(`[24/7 ORDER ERROR] ${sym}: ${err.message}`);
+          }
+        }
+      } else {
+        log('SIGNAL', sym, s.decision, s.setupType, `grade ${s.grade}`,
+          isArmed ? '(grade below A threshold)' : '(monitoring only — auto-trading STOPPED in dashboard)');
+      }
     }
   }
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 (async () => {
-  log('starting:', SYMBOLS.length, 'symbols, decision every', DECISION_MS, 'ms,',
-    'trading', ENABLE_TRADING ? 'ENABLED' : 'disabled');
+  log('starting:', SYMBOLS.length, 'symbols, decision every', DECISION_MS, 'ms');
   await seed();
+  await syncAutoTradeState();
   connect();
   setInterval(() => { tick().catch((e) => log('tick error', e.message)); }, DECISION_MS);
   setInterval(() => {
     const mb = Math.round(process.memoryUsage().rss / 1048576);
-    // Engine readiness, not just liveness. "No setup present" is the normal
-    // state, so a quiet log is indistinguishable from a broken engine unless
-    // the heartbeat says whether the engines actually have data and are
-    // forming candidates.
     let ready = 0, graded = 0, statusCounts = {};
     for (const sym of SYMBOLS) {
       let st; try { st = engines[sym].getState(); } catch { continue; }
@@ -250,6 +429,6 @@ async function tick() {
       if (st.dataStatus && st.dataStatus !== 'INVALID') ready++;
       if (st.grade) graded++;
     }
-    log(`heartbeat rss=${mb}MB ready=${ready}/${SYMBOLS.length} withCandidate=${graded} data=${JSON.stringify(statusCounts)}`);
+    log(`heartbeat rss=${mb}MB ready=${ready}/${SYMBOLS.length} withCandidate=${graded} armed=${currentAutoState.armed} data=${JSON.stringify(statusCounts)}`);
   }, Number(process.env.HEARTBEAT_MS || 300000));
 })();

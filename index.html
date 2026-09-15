@@ -387,15 +387,24 @@
                   <div class="settings-chip font-mono" id="chipSizing"><i class="fa-solid fa-coins"></i> <span>0.5% Risk</span></div>
                 </div>
 
+                <!-- 24/7 CLOUD RUNNER STATUS -->
+                <div class="cloud-runner-status-bar" id="cloudRunnerBar">
+                  <span class="cloud-status-dot stopped" id="cloudStatusDot"></span>
+                  <span class="cloud-status-text" id="cloudStatusText">Railway 24/7 Engine: STANDBY · Monitoring Only</span>
+                </div>
+
                 <!-- CONTROL BUTTONS -->
                 <div class="control-buttons">
                   <button class="start-btn" id="startBtn"><i class="fa-solid fa-play"></i> Start</button>
                   <button class="stop-btn" id="stopBtn" disabled><i class="fa-solid fa-stop"></i> Stop</button>
                 </div>
-                <p class="control-hint">Armed = auto-place limit orders with stop-loss/take-profit according to settings. Duplicate guard blocks multiple trades on the same coin.</p>
+                <p class="control-hint">Armed = 24/7 cloud runner & dashboard place auto limit orders with stop-loss/take-profit according to settings. Duplicate guard blocks multiple trades on the same coin.</p>
 
                 <div class="guardian-block">
-                  <div class="guardian-title"><i class="fa-solid fa-shield-heart"></i> Position Guardian</div>
+                  <div class="guardian-title">
+                    <i class="fa-solid fa-shield-heart"></i> Position Guardian
+                    <span class="guardian-sync-tag" id="guardianSyncTag" title="Synced across browser refreshes, sessions and Railway 24/7 runner"><i class="fa-solid fa-arrows-rotate"></i> Synced</span>
+                  </div>
                   <div id="guardianStatus"><span class="guardian-pill safe">No open position</span></div>
                 </div>
                 <div class="guardian-log" id="guardianLog"></div>
