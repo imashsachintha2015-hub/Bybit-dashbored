@@ -179,8 +179,11 @@ function schedule() {
 
 // ── Decision loop ──────────────────────────────────────────────────────────
 const lastFingerprint = {};
+const lastRecordedState = {};
+const lastRecordedTime = {};
 
 async function tick() {
+  const now = Date.now();
   for (const sym of SYMBOLS) {
     let s;
     try { s = engines[sym].getState(); } catch (e) { continue; }
@@ -188,6 +191,17 @@ async function tick() {
 
     const fp = [sym, s.setupType, s.direction || ''].join('|');
     const decided = s.decision === 'BUY' || s.decision === 'SELL';
+    const stateKey = `${fp}|${decided}|${s.grade}`;
+
+    // De-duplicate: only post to Vercel when state changes or after 10m keepalive.
+    // This reduces Vercel Serverless Function invocations and KV writes by >99%.
+    const isNew = lastRecordedState[sym] !== stateKey;
+    const isStale = (now - (lastRecordedTime[sym] || 0)) > 600000;
+    if (!isNew && !isStale) continue;
+
+    lastRecordedState[sym] = stateKey;
+    lastRecordedTime[sym] = now;
+
     const why = (s.blockers || []).length
       ? s.blockers.join(' | ')
       : 'engine declined — no blocker reported (decision was not BUY/SELL)';

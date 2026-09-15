@@ -1606,7 +1606,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   setTimeout(pollDemoData, 1000);
-  setInterval(pollDemoData, 5000);
+  setInterval(() => {
+    if (document.hidden) return; // Save Vercel serverless function invocations when tab is hidden
+    pollDemoData();
+  }, 10000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollDemoData();
+  });
 
   window.closePosition = async function (symbol, side, qty) {
     const posEntry = openPositionsSnapshot.find(p => p.symbol === symbol && p.side === side);

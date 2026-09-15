@@ -1,0 +1,20 @@
+# Vercel deployment ignore file
+# Exclude heavy assets, historical data, and server scripts from Serverless Function bundles
+
+backtest/
+research/
+node_modules/
+tests/
+server/
+server.log
+server.py
+trade_stats.json
+.git/
+.github/
+.vscode/
+*.md
+*.pdf
+Dockerfile
+.dockerignore
+nixpacks.toml
+Procfile

@@ -33,7 +33,7 @@ SIGNALS_KEY = "signal_log"
 # verdict is therefore meaningful. For a TAKEN row the trade record is the
 # outcome and a shadow beside it would be noise.
 UNTAKEN = ("NOT_TRADED", "REJECTED_RISK", "REJECTED_EXCHANGE", "NO_FILL")
-MAX_ROWS = 500
+MAX_ROWS = 100
 
 
 def load():

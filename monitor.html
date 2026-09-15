@@ -469,13 +469,16 @@
     } catch (e) {}
   }
   loadServerTrades();
-  setInterval(loadServerTrades, 15000);
+  setInterval(() => { if (!document.hidden) loadServerTrades(); }, 20000);
 
   document.getElementById('sigRefresh').onclick = () => { loadSignals(); loadServerTrades(); };
   loadSignals();
   // Refresh on every page, not just the first -- a verdict can land on a row
   // that has already scrolled back, and paging away should not freeze the view.
-  setInterval(loadSignals, 10000);
+  setInterval(() => { if (!document.hidden) loadSignals(); }, 15000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { loadSignals(); loadServerTrades(); }
+  });
   // Freshness counter, so a stalled fetch is visible instead of looking like
   // "nothing is happening".
   setInterval(() => {
