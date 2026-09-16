@@ -69,7 +69,8 @@ def run_supervisor_verdict(payload):
     news_state = news_mod.get_news_state()
     macro_state = market_mod.get_market_overview_state()
 
-    if not DEEPSEEK_API_KEY:
+    api_key = os.environ.get("DEEPSEEK_API_KEY") or DEEPSEEK_API_KEY
+    if not api_key:
         return {
             "verdict": "CONFIRM", "confidence": 0, "is_fallback": True,
             "fallback_reason": "No DEEPSEEK_API_KEY configured — running on local gates only, which is a supported mode",
@@ -78,9 +79,10 @@ def run_supervisor_verdict(payload):
         }
 
     if not llm_budget.take("supervisor-verdict"):
+        daily_b = int(os.environ.get("DEEPSEEK_DAILY_CALL_BUDGET") or "2000")
         return {
             "verdict": "CONFIRM", "confidence": 0, "is_fallback": True,
-            "fallback_reason": f"Daily model budget spent ({llm_budget.DAILY_BUDGET} calls) — local gates stand on their own",
+            "fallback_reason": f"Daily model budget spent ({daily_b} calls) — local gates stand on their own",
             "rationale": "Budget exhausted; the local gate result stands unmodified. This is the designed fallback, not a degradation.",
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
         }
@@ -110,8 +112,10 @@ Reply with exactly this JSON:
 {{"verdict":"CONFIRM|DOWNGRADE|VETO","confidence":0-100,"rationale":"one sentence, max 30 words","risk":"the single biggest risk to this trade, max 15 words"}}"""
 
     try:
+        model = os.environ.get("DEEPSEEK_MODEL") or DEEPSEEK_MODEL
+        url = os.environ.get("DEEPSEEK_URL") or DEEPSEEK_URL
         body = json.dumps({
-            "model": DEEPSEEK_MODEL,
+            "model": model,
             "messages": [
                 {"role": "system", "content": SUPERVISOR_SYSTEM},
                 {"role": "user", "content": prompt},
@@ -120,8 +124,8 @@ Reply with exactly this JSON:
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
         }).encode("utf-8")
-        req = urllib.request.Request(DEEPSEEK_URL, data=body, headers={
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        req = urllib.request.Request(url, data=body, headers={
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "User-Agent": "MASIS/3.0",
         })

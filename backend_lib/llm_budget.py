@@ -38,12 +38,21 @@ def _load():
     return state
 
 
+def _api_key():
+    return os.environ.get("DEEPSEEK_API_KEY")
+
+
+def _daily_budget():
+    return int(os.environ.get("DEEPSEEK_DAILY_CALL_BUDGET") or "2000")
+
+
 def take(caller):
     """Reserves one call against today's budget. False means do not call."""
-    if not DEEPSEEK_API_KEY:
+    if not _api_key():
         return False
+    b = _daily_budget()
     state = _load()
-    if DAILY_BUDGET > 0 and state["calls"] >= DAILY_BUDGET:
+    if b > 0 and state["calls"] >= b:
         state["refused"] += 1
         kv_set_json(BUDGET_KEY, state)
         return False
@@ -59,15 +68,22 @@ def note_cache_hit():
     kv_set_json(BUDGET_KEY, state)
 
 
+def reset():
+    state = {"day": _today(), "calls": 0, "by_caller": {}, "refused": 0, "cache_hits": 0}
+    kv_set_json(BUDGET_KEY, state)
+    return state
+
+
 def status():
     state = _load()
+    b = _daily_budget()
     return {
         "day": state["day"],
         "calls_today": state["calls"],
-        "daily_budget": DAILY_BUDGET,
-        "remaining": max(0, DAILY_BUDGET - state["calls"]),
+        "daily_budget": b,
+        "remaining": max(0, b - state["calls"]) if b > 0 else 999999,
         "by_caller": dict(state["by_caller"]),
         "refused": state["refused"],
         "cache_hits": state["cache_hits"],
-        "configured": bool(DEEPSEEK_API_KEY),
+        "configured": bool(_api_key()),
     }
