@@ -442,10 +442,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const riskDist = Math.abs(entryPrice - stopLoss) || (entryPrice * 0.01);
     const invalidation = stopLoss;
     const isBuy = side === 'Buy';
-    const targets = [
-      roundPrice(sym, isBuy ? entryPrice + 1.5 * riskDist : entryPrice - 1.5 * riskDist),
-      roundPrice(sym, isBuy ? entryPrice + 3.0 * riskDist : entryPrice - 3.0 * riskDist)
-    ];
+
+    let tp1 = null, tp2 = null;
+    let nextRes = (s && s.nextResistance) || null;
+    let nextSup = (s && s.nextSupport) || null;
+    const atr = (s && s.atr) || (s && s.regimeMetrics ? s.regimeMetrics.htfAtr : null) || (entryPrice * 0.01);
+    const shy = atr * 0.15;
+
+    if (isBuy && nextRes && nextRes > entryPrice + atr * 0.5) {
+      tp1 = roundPrice(sym, nextRes - shy);
+      tp2 = roundPrice(sym, entryPrice + 3.0 * riskDist);
+    } else if (!isBuy && nextSup && nextSup < entryPrice - atr * 0.5) {
+      tp1 = roundPrice(sym, nextSup + shy);
+      tp2 = roundPrice(sym, entryPrice - 3.0 * riskDist);
+    } else {
+      tp1 = roundPrice(sym, isBuy ? entryPrice + 1.5 * riskDist : entryPrice - 1.5 * riskDist);
+      tp2 = roundPrice(sym, isBuy ? entryPrice + 3.0 * riskDist : entryPrice - 3.0 * riskDist);
+    }
+    const targets = [tp1, tp2];
 
     const setupName = (s && s.setupType) ? s.setupType : 'Live Setup';
     const grade = (s && s.grade) || 'A';
@@ -463,6 +477,8 @@ document.addEventListener('DOMContentLoaded', () => {
       qty: size,
       originalQty: size,
       riskAmount: riskDist * size,
+      nextResistance: nextRes,
+      nextSupport: nextSup,
       setupName,
       grade,
       score,
@@ -472,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     saveThesesLocally();
     syncThesisToServer(trade);
-    logEvent(`Guardian adopted active position ${sym} ${side.toUpperCase()} @ ${entryPrice.toLocaleString()} (SL: ${stopLoss}, TP: ${targets.join('/')}) — now fully managed.`);
+    logEvent(`Guardian adopted active position ${sym} ${side.toUpperCase()} @ ${entryPrice.toLocaleString()} (SL: ${stopLoss}, TP1: ${tp1}, S/R: ${nextRes || nextSup || 'n/a'}) — now fully managed.`);
     return trade;
   }
 
@@ -953,7 +969,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const action = positionManager.evaluate(trade, {
         price: mark,
         confirmedCandle: confirmed.length ? confirmed[confirmed.length - 1] : null,
-        atr: s && s.regimeMetrics ? s.regimeMetrics.htfAtr : null,
+        atr: (s && s.atr) || (s && s.regimeMetrics ? s.regimeMetrics.htfAtr : null),
+        nextResistance: (s && s.nextResistance) || trade.nextResistance,
+        nextSupport: (s && s.nextSupport) || trade.nextSupport,
         spreadPct: s && s.flow ? s.flow.spread : null,
         dataValid: !s || s.dataStatus !== 'INVALID',
         opposingSignal: s && s.grade && s.direction ? { direction: s.direction, grade: s.grade, score: s.score } : null
@@ -968,14 +986,26 @@ document.addEventListener('DOMContentLoaded', () => {
         reasons.push(action.detail);
         if (autoTradingArmed) await closePositionSlice(pos, trade, parseFloat(pos.size), action.reason, action.detail);
       } else if (action.action === 'SCALE_OUT') {
-        verdict = `TAKING TP${action.tpIndex + 1}`;
+        const isSrBank = action.reason === 'SR_COLLISION';
+        verdict = isSrBank ? 'S/R PROFIT COVERAGE' : `TAKING TP${action.tpIndex + 1}`;
         reasons.push(action.detail);
         if (autoTradingArmed) {
           const sliceQty = trade.originalQty * action.fraction;
           positionManager.markTpFilled(trade, action.tpIndex, mark);
           saveThesesLocally();
           syncThesisToServer(trade);
-          await closePositionSlice(pos, trade, sliceQty, `TP${action.tpIndex + 1}`, action.detail);
+          await closePositionSlice(pos, trade, sliceQty, isSrBank ? 'SR_COVERAGE' : `TP${action.tpIndex + 1}`, action.detail);
+
+          // If first slice (TP1 or S/R wall bank) was taken, immediately ratchet stop to Break-Even on Bybit!
+          if (action.tpIndex === 0 && !trade.stopMovedToBreakEven) {
+            positionManager.markStopMoved(trade, trade.entryPrice, 'BREAK_EVEN');
+            saveThesesLocally();
+            syncThesisToServer(trade);
+            try {
+              await postJSON('/api/position/stop', { category: 'linear', symbol: pos.symbol, stopLoss: trade.entryPrice });
+              logEvent(`${pos.symbol} Stop loss ratcheted to break-even at ${trade.entryPrice}`);
+            } catch (e) {}
+          }
         }
       } else if (action.action === 'MOVE_STOP') {
         verdict = action.reason === 'BREAK_EVEN' ? 'STOP → BREAK-EVEN' : 'TRAILING STOP';

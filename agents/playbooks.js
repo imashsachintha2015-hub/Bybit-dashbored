@@ -73,44 +73,48 @@
     const riskDist = Math.abs(entry - stop);
     if (riskDist <= 0) return null;
 
-    // Research §8.4: 50/50 Scaled Liquidity Exit Protocol.
-    // TP1 at 2.0R: bank 50%, move stop to break-even (minimum 2:1 R:R).
-    // TP2 at 3.5R: trailing runner for macro trend capture.
-    const tp1 = direction === 'LONG' ? entry + riskDist * 2.0 : entry - riskDist * 2.0;
-    let tp2 = direction === 'LONG' ? entry + riskDist * 3.5 : entry - riskDist * 3.5;
-
-    // Headroom: how far can price travel before it runs into the structure that
-    // is most likely to stop it? Measured in R, because that is the unit the
-    // decision is made in.
+    // ── Dynamic S/R-Anchored Geometry ──
+    // Headroom: how far can price travel before it runs into the opposing structure?
     const opposing = direction === 'LONG' ? structure.nextResistance : structure.nextSupport;
     let headroomR = Infinity;
     if (opposing != null) {
       headroomR = Math.abs(opposing - entry) / riskDist;
     }
 
-    // A level sitting closer than the first target means there is genuinely
-    // nowhere for the trade to go — reject it. But a level beyond TP1 is a
-    // reason to take profit slightly earlier, not a reason to skip the trade;
-    // the previous cap-to-the-level rule conflated the two and rejected roughly
-    // seven out of eight otherwise-valid setups.
+    let tp1 = direction === 'LONG' ? entry + riskDist * 2.0 : entry - riskDist * 2.0;
+    let tp2 = direction === 'LONG' ? entry + riskDist * 3.5 : entry - riskDist * 3.5;
     let cappedByStructure = false;
-    if (headroomR < 2.0) {
+
+    // Minimum headroom floor: less than 0.8R means there is genuinely nowhere
+    // to trade to before a brick wall — reject it.
+    if (headroomR < 0.8) {
       return {
         entry: +entry.toFixed(6), stop: +stop.toFixed(6), invalidation: +invalidationLevel.toFixed(6),
         targets: [+tp1.toFixed(6), +tp2.toFixed(6)],
         riskDist, rrToTp2: +headroomR.toFixed(2), headroomR: +headroomR.toFixed(2),
         riskPct: +((riskDist / entry) * 100).toFixed(3), cappedByStructure: true, viable: false,
-        rejectReason: `Only ${headroomR.toFixed(2)}R of headroom before the next opposing level at ${opposing.toFixed(4)} — need at least 2.0R for the 50/50 protocol's first exit`
+        nextResistance: structure.nextResistance, nextSupport: structure.nextSupport,
+        rejectReason: `Only ${headroomR.toFixed(2)}R of headroom before opposing level at ${opposing.toFixed(4)} — less than 0.8R floor`
       };
     }
-    if (opposing != null && headroomR < 3.5) {
-      // Park TP2 just short of the opposing level rather than at the full 3.5R,
-      // so the fill happens before the resting orders there do the stopping.
-      const shy = atrValue * 0.15;
+
+    const shy = (atrValue || 0) * 0.15;
+
+    // If an opposing S/R level sits between 0.8R and 2.0R, anchor TP1 directly
+    // to it (just inside the wall) rather than rejecting the trade. This captures
+    // clean +10% to +20% ROI swings that would otherwise be missed.
+    if (opposing != null && headroomR >= 0.8 && headroomR < 2.0) {
+      tp1 = direction === 'LONG' ? opposing - shy : opposing + shy;
+      // Allow runner to extend beyond if breakout occurs
+      tp2 = direction === 'LONG' ? entry + riskDist * 3.0 : entry - riskDist * 3.0;
+      cappedByStructure = true;
+    } else if (opposing != null && headroomR < 3.5) {
+      // Park TP2 just short of the opposing level
       tp2 = direction === 'LONG' ? opposing - shy : opposing + shy;
       cappedByStructure = true;
     }
 
+    const rrToTp1 = Math.abs(tp1 - entry) / riskDist;
     const rrToTp2 = Math.abs(tp2 - entry) / riskDist;
     const netEdgePct = Math.abs(tp1 - entry) / entry - ROUND_TRIP_COST_PCT;
 
@@ -120,13 +124,16 @@
       invalidation: +invalidationLevel.toFixed(6),
       targets: [+tp1.toFixed(6), +tp2.toFixed(6)],
       riskDist,
+      rrToTp1: +rrToTp1.toFixed(2),
       rrToTp2: +rrToTp2.toFixed(2),
       headroomR: isFinite(headroomR) ? +headroomR.toFixed(2) : null,
       riskPct: +((riskDist / entry) * 100).toFixed(3),
       cappedByStructure,
-      viable: rrToTp2 >= MIN_RR && netEdgePct > 0,
-      rejectReason: rrToTp2 < MIN_RR
-        ? `Reward:risk to TP2 is ${rrToTp2.toFixed(2)} — below the ${MIN_RR} floor`
+      nextResistance: structure.nextResistance,
+      nextSupport: structure.nextSupport,
+      viable: (rrToTp2 >= MIN_RR || rrToTp1 >= 0.8) && netEdgePct > 0,
+      rejectReason: (rrToTp2 < MIN_RR && rrToTp1 < 0.8)
+        ? `Reward:risk to targets is below minimum floor`
         : (netEdgePct <= 0 ? 'First target sits inside the round-trip fee + spread band — no net edge to capture' : null)
     };
   }

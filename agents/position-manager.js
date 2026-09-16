@@ -66,12 +66,19 @@
     scaleOutFractions: [0.50, 0.50],
     // Whether a confirmed close beyond the invalidation level closes the trade
     // ahead of the stop. Sounds obviously right; measured below.
-    useStructuralExit: true
+    useStructuralExit: true,
+    // ── Milestone capital protection & S/R coverage ──
+    roiBreakEvenPct: 12.0,            // Automatically move stop to entry once ROI >= +12% (1.2% price move at 10x)
+    rBreakEvenThreshold: 1.0,         // ...or once unrealised R reaches +1.0R, even before TP1 fills
+    srProximityAtr: 0.20,             // Bank partial profit if price comes within 0.20 ATR of opposing S/R wall
+    srCoverageFraction: 0.50,         // Fraction to bank when hitting S/R wall
+    srMinProfitR: 0.70                // S/R coverage requires at least +0.70R profit
   };
 
   const EXIT = {
     STOP: 'STOP',
     TARGET: 'TARGET',
+    SR_COLLISION: 'SR_COLLISION',
     STRUCTURE_BROKEN: 'STRUCTURE_BROKEN',
     THESIS_FLIP: 'THESIS_FLIP',
     TIME_STOP: 'TIME_STOP',
@@ -129,6 +136,7 @@
      *
      * @param {object} trade
      * @param {object} market  { price, confirmedCandle, atr, spreadPct, dataValid,
+     *                           nextResistance, nextSupport,
      *                           opposingSignal: {direction, grade, score}|null }
      */
     evaluate(trade, market) {
@@ -139,6 +147,12 @@
       const r = this.currentR(trade, price);
       const age = this.now() - trade.openedAt;
       const inProfit = r > 0.05;
+      const isLong = trade.side === 'Buy';
+
+      const lev = trade.leverage || 10;
+      const priceMovePct = trade.entryPrice > 0 ? (Math.abs(price - trade.entryPrice) / trade.entryPrice) * 100 : 0;
+      const inProfitDirection = isLong ? price > trade.entryPrice : price < trade.entryPrice;
+      const roiPct = inProfitDirection ? (priceMovePct * lev) : -(priceMovePct * lev);
 
       // ── 1. Emergency: the feed itself is untrustworthy ──
       if (market.dataValid === false) {
@@ -148,8 +162,24 @@
         return { action: 'CLOSE_ALL', reason: EXIT.EMERGENCY, detail: `Spread blew out to ${market.spreadPct.toFixed(3)}% — liquidity has gone, exiting before it gets worse` };
       }
 
-      // ── 2. Targets: bank profit in planned slices ──
-      const isLong = trade.side === 'Buy';
+      // ── 2A. S/R Resistance / Support Collision: bank profit coverage before reversal ──
+      const opposingLevel = isLong ? (market.nextResistance || trade.nextResistance) : (market.nextSupport || trade.nextSupport);
+      if (opposingLevel && !trade.tpFilled[0] && r >= (this.config.srMinProfitR || 0.70)) {
+        const atr = market.atr || (trade.riskDist * 0.5);
+        const distToSr = isLong ? opposingLevel - price : price - opposingLevel;
+        // Within 0.20 ATR of the opposing structure wall
+        if (distToSr <= atr * (this.config.srProximityAtr || 0.20)) {
+          return {
+            action: 'SCALE_OUT',
+            tpIndex: 0,
+            fraction: this.config.srCoverageFraction || 0.50,
+            reason: EXIT.SR_COLLISION,
+            detail: `Opposing structural ${isLong ? 'resistance' : 'support'} at ${opposingLevel} tested (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — banking ${Math.round((this.config.srCoverageFraction || 0.50) * 100)}% profit coverage before potential reversal`
+          };
+        }
+      }
+
+      // ── 2B. Planned Targets: bank profit in planned slices ──
       for (let i = 0; i < trade.targets.length; i++) {
         if (trade.tpFilled[i]) continue;
         const level = trade.targets[i];
@@ -160,25 +190,36 @@
           tpIndex: i,
           fraction: this.config.scaleOutFractions[i],
           reason: EXIT.TARGET,
-          detail: `TP${i + 1} reached at ${level} (${r.toFixed(2)}R) — banking ${Math.round(this.config.scaleOutFractions[i] * 100)}% of the original size`
+          detail: `TP${i + 1} reached at ${level} (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — banking ${Math.round(this.config.scaleOutFractions[i] * 100)}% of the original size`
         };
       }
 
-      // ── 3. Stop management: protect what is already made ──
-      // This is the inverse of the old behaviour. Rather than closing a trade
-      // because it wobbled, raise the floor under it and let it work.
-      if (trade.tpFilled[this.config.breakEvenAfterTp - 1] && !trade.stopMovedToBreakEven) {
+      // ── 3. Stop management: Dual-Trigger Capital Protection & Trailing Stop ──
+      // Milestone break-even: if trade hits TP1, OR hits +1.0R, OR reaches +12% ROI,
+      // move stop to break-even immediately. A trade that is up +15% or +20% ROI must
+      // NEVER be allowed to turn red.
+      const reachedBeMilestone = inProfitDirection && (
+        trade.tpFilled[this.config.breakEvenAfterTp - 1] ||
+        r >= (this.config.rBreakEvenThreshold || 1.0) ||
+        roiPct >= (this.config.roiBreakEvenPct || 12.0)
+      );
+
+      if (reachedBeMilestone && !trade.stopMovedToBreakEven) {
         return {
           action: 'MOVE_STOP',
           newStop: trade.entryPrice,
           reason: 'BREAK_EVEN',
-          detail: `TP${this.config.breakEvenAfterTp} banked — stop to break-even at ${trade.entryPrice}. The remainder is now a free option; it will not be cut for wobbling.`
+          detail: `Capital protection milestone reached (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — stop ratcheted to break-even at ${trade.entryPrice}. Trade is now risk-free.`
         };
       }
-      if (trade.tpFilled[this.config.trailAfterTp - 1] && market.atr) {
+
+      // Trailing stop: activates once TP1/BE is established and runner extends (>= 1.2R)
+      const canTrail = (trade.stopMovedToBreakEven || trade.tpFilled[0]) && market.atr && r >= 1.2;
+      if (canTrail) {
+        const trailAtrMult = this.config.trailAtrMultiple || 1.5;
         const trail = isLong
-          ? price - market.atr * this.config.trailAtrMultiple
-          : price + market.atr * this.config.trailAtrMultiple;
+          ? price - market.atr * trailAtrMult
+          : price + market.atr * trailAtrMult;
         const better = trade.trailingStop == null
           ? true
           : (isLong ? trail > trade.trailingStop : trail < trade.trailingStop);
@@ -187,7 +228,7 @@
             action: 'MOVE_STOP',
             newStop: +trail.toFixed(6),
             reason: 'TRAIL',
-            detail: `Trailing stop to ${trail.toFixed(4)} (${this.config.trailAtrMultiple} ATR behind price) — runner protected, still free to extend`
+            detail: `Trailing stop to ${trail.toFixed(4)} (${trailAtrMult} ATR behind price) — locking in profit while letting runner extend`
           };
         }
       }

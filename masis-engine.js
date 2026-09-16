@@ -597,13 +597,13 @@
 
       const out = this.buildOutput({
         decision, regime, candidate: best, nowStr, validity, gates, blocks,
-        flowSnapshot, alternatives: candidates.slice(1, 3)
+        flowSnapshot, alternatives: candidates.slice(1, 3), atrMtf
       });
       this.lastState = out;
       return out;
     }
 
-    buildOutput({ decision, regime, candidate, nowStr, validity, gates = {}, blocks = [], flowSnapshot, alternatives = [] }) {
+    buildOutput({ decision, regime, candidate, nowStr, validity, gates = {}, blocks = [], flowSnapshot, alternatives = [], atrMtf = null }) {
       const g = candidate ? candidate.geometry : null;
       const candidateScore = candidate && candidate.patternScore != null ? candidate.patternScore : (candidate ? candidate.score : 0);
       const candidatePanelConviction = candidate && candidate.panelConviction != null ? candidate.panelConviction : null;
@@ -625,6 +625,9 @@
         takeProfit: g ? g.targets : null,
         riskReward: g ? g.rrToTp2 : null,
         riskPct: g ? g.riskPct : null,
+        nextResistance: g && g.nextResistance != null ? g.nextResistance : null,
+        nextSupport: g && g.nextSupport != null ? g.nextSupport : null,
+        atr: atrMtf || (this.mtfSeries.length >= 14 ? I.atr(this.mtfSeries, 14) : null),
 
         regime: regime ? regime.regime : 'UNKNOWN',
         bias: regime ? regime.bias : 'NEUTRAL',
@@ -692,6 +695,35 @@
         news: { label: this.newsSignal.sentimentLabel, score: this.newsSignal.sentimentScore, headline: this.newsSignal.headline },
         macro: Object.assign({}, this.macroSignal),
         llmVerdict: this.llmVerdict
+      };
+    }
+
+    getSupportResistance(refPrice) {
+      const p = refPrice || this.price;
+      if (!p || !this.mtfSeries || this.mtfSeries.length < 20) return { nextResistance: null, nextSupport: null, atr: null };
+      const atr = this.mtfSeries.length >= 14 ? I.atr(this.mtfSeries, 14) : p * 0.01;
+      const minDist = atr * 0.33;
+      const levels = [];
+      if (this.lastPanel) {
+        for (const pan of this.lastPanel) {
+          for (const lvl of (pan.levels || [])) {
+            if (lvl && typeof lvl.price === 'number') levels.push(lvl.price);
+          }
+        }
+      }
+      try {
+        const st = I.marketStructure(this.mtfSeries, 2);
+        if (st) {
+          for (const h of (st.swingHighs || [])) levels.push(h.price);
+          for (const l of (st.swingLows || [])) levels.push(l.price);
+        }
+      } catch (e) {}
+      const above = levels.filter(l => l > p + minDist).sort((a, b) => a - b);
+      const below = levels.filter(l => l < p - minDist).sort((a, b) => b - a);
+      return {
+        nextResistance: above.length ? +above[0].toFixed(6) : null,
+        nextSupport: below.length ? +below[0].toFixed(6) : null,
+        atr: +atr.toFixed(6)
       };
     }
   }

@@ -228,11 +228,35 @@ async function manageOpenPositions() {
     const stop = parseFloat(pos.stopLoss);
     const size = parseFloat(pos.size);
 
+    const eng = engines[sym];
+
     if (!trade) {
       const riskDist = Math.abs(entry - stop) || (entry * 0.015);
       const isLong = side.toLowerCase() === 'buy';
-      const tp1 = isLong ? +(entry + riskDist * 1.5).toFixed(6) : +(entry - riskDist * 1.5).toFixed(6);
-      const tp2 = isLong ? +(entry + riskDist * 3.0).toFixed(6) : +(entry - riskDist * 3.0).toFixed(6);
+      let tp1 = null, tp2 = null, nextRes = null, nextSup = null;
+
+      // Extract unique S/R levels from symbol's engine if ready
+      if (eng && eng.getSupportResistance) {
+        try {
+          const sr = eng.getSupportResistance(entry);
+          nextRes = sr.nextResistance;
+          nextSup = sr.nextSupport;
+          const atr = sr.atr || (entry * 0.01);
+          const shy = atr * 0.15;
+          if (isLong && nextRes && nextRes > entry + atr * 0.5) {
+            tp1 = +(nextRes - shy).toFixed(6);
+            tp2 = +(entry + riskDist * 3.0).toFixed(6);
+          } else if (!isLong && nextSup && nextSup < entry - atr * 0.5) {
+            tp1 = +(nextSup + shy).toFixed(6);
+            tp2 = +(entry - riskDist * 3.0).toFixed(6);
+          }
+        } catch (e) {}
+      }
+      if (!tp1) {
+        tp1 = isLong ? +(entry + riskDist * 1.5).toFixed(6) : +(entry - riskDist * 1.5).toFixed(6);
+        tp2 = isLong ? +(entry + riskDist * 3.0).toFixed(6) : +(entry - riskDist * 3.0).toFixed(6);
+      }
+
       trade = {
         symbol: sym,
         side,
@@ -243,6 +267,8 @@ async function manageOpenPositions() {
         riskDist,
         qty: size,
         originalQty: size,
+        nextResistance: nextRes,
+        nextSupport: nextSup,
         setupName: 'BYBIT_LIVE',
         grade: 'A',
         openedAt: parseInt(pos.createdTime || now),
@@ -253,12 +279,11 @@ async function manageOpenPositions() {
       currentAutoState.theses[key] = trade;
       positionManager.trades[key] = trade;
       await postJSON('/api/auto-trade/state', { theses: { [key]: trade } });
-      log(`[POSITION GUARDIAN] Adopted and synced ${sym} ${side.toUpperCase()} thesis to server.`);
+      log(`[POSITION GUARDIAN] Adopted and synced ${sym} ${side.toUpperCase()} thesis (TP1: ${tp1}, S/R: ${nextRes || nextSup || 'n/a'}) to server.`);
     } else {
       positionManager.trades[key] = trade;
     }
 
-    const eng = engines[sym];
     let market = { price: mark, mark, confirmedCandle: null };
     if (eng) {
       try {
@@ -266,7 +291,15 @@ async function manageOpenPositions() {
         if (st) {
           market.atr = st.atr;
           market.confirmedCandle = st.lastConfirmedCandle;
+          market.nextResistance = st.nextResistance;
+          market.nextSupport = st.nextSupport;
           market.opposingSignal = st.decision && st.decision !== (side.toUpperCase() === 'BUY' ? 'BUY' : 'SELL') ? st : null;
+        }
+        if (eng.getSupportResistance && (!market.nextResistance || !market.nextSupport)) {
+          const sr = eng.getSupportResistance(mark);
+          if (!market.nextResistance) market.nextResistance = sr.nextResistance;
+          if (!market.nextSupport) market.nextSupport = sr.nextSupport;
+          if (!market.atr) market.atr = sr.atr;
         }
       } catch (e) {}
     }
@@ -277,7 +310,8 @@ async function manageOpenPositions() {
     if (action.action === 'SCALE_OUT') {
       const fraction = action.fraction || 0.5;
       const sliceQty = +(trade.originalQty * fraction).toFixed(6);
-      log(`[POSITION GUARDIAN] ${sym} TP${action.tpIndex + 1} reached! Banking ${fraction * 100}% slice (${sliceQty})...`);
+      const isSrBank = action.reason === 'SR_COLLISION';
+      log(`[POSITION GUARDIAN] ${sym} ${isSrBank ? 'S/R Structural Wall Tested' : `TP${action.tpIndex + 1} reached`}! Banking ${fraction * 100}% slice (${sliceQty})...`);
       positionManager.markTpFilled(trade, action.tpIndex, mark);
 
       if (currentAutoState.armed) {
@@ -289,9 +323,9 @@ async function manageOpenPositions() {
           qty: sliceQty
         });
 
-        // 2. Immediately move Stop to Break-Even (entry price) upon TP1
+        // 2. Immediately move Stop to Break-Even (entry price) upon TP1 or S/R bank
         if (action.tpIndex === 0 && !trade.stopMovedToBreakEven) {
-          log(`[POSITION GUARDIAN] TP1 banked for ${sym} -> Moving Stop Loss to Entry Point (${trade.entryPrice})`);
+          log(`[POSITION GUARDIAN] Profit coverage secured for ${sym} -> Moving Stop Loss to Entry Point (${trade.entryPrice})`);
           await postJSON('/api/position/stop', {
             category: 'linear',
             symbol: sym,
@@ -534,6 +568,8 @@ async function tick() {
                 targets: s.takeProfit || [], riskDist: Math.abs(s.entry - s.stopLoss),
                 qty, originalQty: qty, setupName: s.setupType, grade: s.grade,
                 score: s.score, regime: s.regime, narrative: s.narrative || '',
+                nextResistance: s.nextResistance || null,
+                nextSupport: s.nextSupport || null,
                 openedAt: now
               };
               currentAutoState.theses = currentAutoState.theses || {};
