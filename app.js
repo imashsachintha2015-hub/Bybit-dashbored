@@ -320,8 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // rule still prevents stacking size onto one symbol.
   const riskGovernor = new MasisRiskGovernor.RiskGovernor({
     riskPerTradePct: 0.5,
-    maxConcurrentPositions: 5,
-    maxCorrelatedPositions: 3,
+    maxConcurrentPositions: 0, // Uncapped (removed 5 order cap)
+    maxCorrelatedPositions: 0, // Uncapped
     consecutiveLossLimit: 8,
     cooldownAfterLossMs: 5 * 60 * 1000,
     cooldownAfterWinMs: 0

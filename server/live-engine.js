@@ -58,7 +58,7 @@ const engines = {};
 for (const s of SYMBOLS) engines[s] = new MasisEngine({ symbol: s, swarmMode: 'observe', scalpMode: SCALP_MODE });
 const positionManager = new PositionManager();
 const riskGovernor = new RiskGovernor({
-  maxConcurrentPositions: 5,
+  maxConcurrentPositions: 0, // Uncapped (removed 5 order cap)
   stopCooldownMs: 15 * 60 * 1000
 });
 
@@ -172,7 +172,7 @@ let currentAutoState = {
   fixedUsdtSize: 10,
   leverage: 10,
   marginMode: 'cross',
-  maxConcurrentPositions: 5
+  maxConcurrentPositions: 0 // Uncapped (removed 5 order cap)
 };
 let openPositionsCache = [];
 let lastStateSync = 0;
@@ -599,12 +599,14 @@ async function tick() {
           continue;
         }
 
-        // Max concurrent orders / positions check
-        const maxOrders = Number(process.env.MAX_CONCURRENT_POSITIONS || currentAutoState.maxConcurrentPositions || 5);
-        const activeCount = openPositionsCache.length + Object.keys(activeOrders).filter(k => now - activeOrders[k].placedAt < 600000).length;
-        if (activeCount >= maxOrders) {
-          log(`[ORDER SKIPPED] Maximum concurrent order/position limit reached (${activeCount}/${maxOrders}).`);
-          continue;
+        // Max concurrent orders / positions check (uncapped by default, unless process.env.MAX_CONCURRENT_POSITIONS is explicitly configured > 0)
+        const maxOrders = Number(process.env.MAX_CONCURRENT_POSITIONS || currentAutoState.maxConcurrentPositions || 0);
+        if (maxOrders > 0) {
+          const activeCount = openPositionsCache.length + Object.keys(activeOrders).filter(k => now - activeOrders[k].placedAt < 600000).length;
+          if (activeCount >= maxOrders) {
+            log(`[ORDER SKIPPED] Maximum concurrent order/position limit reached (${activeCount}/${maxOrders}).`);
+            continue;
+          }
         }
 
         // 1 trade per coin rule:
