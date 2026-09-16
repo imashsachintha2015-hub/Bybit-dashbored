@@ -38,7 +38,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 
   const DEFAULTS = {
-    dailyBudget: 500,               // increased from 120 so DeepSeek provides active supervision
+    dailyBudget: 2000,              // 2,000 calls/day (0 = uncapped)
     perSymbolCooldownMs: 2 * 60 * 1000,  // 2 minutes cooldown instead of 10 minutes
     minGradeRank: 1,                // Grade B or better (A+ = 3, A = 2, B = 1)
     cacheTtlMs: 3 * 60 * 1000,      // 3 minutes cache instead of 15 minutes
@@ -129,7 +129,7 @@
       const effectiveBudget = context.hasOpenPosition
         ? this.config.dailyBudget
         : this.config.dailyBudget - this.config.reserveForOpenPositions;
-      if (this.callsToday >= effectiveBudget) {
+      if (this.config.dailyBudget > 0 && this.callsToday >= effectiveBudget) {
         this.skipped.budget++;
         return { allowed: false, reason: `Daily consultation budget spent (${this.callsToday}/${this.config.dailyBudget}) — running on local logic only, which is the design, not a degradation` };
       }

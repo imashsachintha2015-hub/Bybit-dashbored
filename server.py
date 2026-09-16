@@ -83,7 +83,7 @@ DEEPSEEK_MODEL = _env("DEEPSEEK_MODEL", "deepseek-chat")
 # Hard ceiling on model spend. Reaching it is not an error state: the engine is
 # designed to make every decision locally, with the model acting only as an
 # optional second opinion on setups that already passed every local gate.
-DEEPSEEK_DAILY_CALL_BUDGET = int(_env("DEEPSEEK_DAILY_CALL_BUDGET", "500"))
+DEEPSEEK_DAILY_CALL_BUDGET = int(_env("DEEPSEEK_DAILY_CALL_BUDGET", "2000"))
 
 BENZINGA_API_KEY = _env("BENZINGA_API_KEY")
 BENZINGA_NEWS_URL = "https://api.benzinga.com/api/v2/news"
@@ -393,7 +393,7 @@ def llm_budget_take(caller):
         today = time.strftime("%Y-%m-%d", time.gmtime())
         if llm_budget["day"] != today:
             llm_budget.update({"day": today, "calls": 0, "by_caller": {}, "refused": 0, "cache_hits": 0})
-        if llm_budget["calls"] >= DEEPSEEK_DAILY_CALL_BUDGET:
+        if DEEPSEEK_DAILY_CALL_BUDGET > 0 and llm_budget["calls"] >= DEEPSEEK_DAILY_CALL_BUDGET:
             llm_budget["refused"] += 1
             return False
         llm_budget["calls"] += 1
