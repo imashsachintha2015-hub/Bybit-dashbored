@@ -134,6 +134,7 @@
       this.atrPctHistory = [];
       this.lastState = null;
       this.scalpMode = options.scalpMode || false;
+      this.sureShotMode = options.sureShotMode || false;
 
       // Derivatives context (open interest, funding, crowd positioning, real
       // taker volume), fed hourly. Without it the Positioning analyst reports
@@ -257,6 +258,7 @@
     markPositionClosed(symbol) { this.activePositions.delete(symbol); }
     hasActivePosition(symbol) { return this.activePositions.has(symbol || this.symbol); }
     setScalpMode(enabled) { this.scalpMode = !!enabled; }
+    setSureShotMode(enabled) { this.sureShotMode = !!enabled; }
     setLlmVerdict(v) { this.llmVerdict = v; }
 
     reset() {
@@ -581,6 +583,7 @@
         atrMtf,
         atrLtf,
         scalpMode: this.scalpMode,
+        sureShotMode: this.sureShotMode,
         price: this.price,
         symbol: this.symbol,
         liquidityPools: liquidityRead ? liquidityRead.levels : [],
@@ -732,8 +735,10 @@
         direction: candidate ? candidate.direction : null,
         narrative: candidate ? candidate.narrative : null,
         isScalp: candidate ? !!candidate.isScalp : false,
+        isSureShot: candidate ? !!candidate.isSureShot : false,
         scalpMode: this.scalpMode,
-        horizon: candidate && candidate.horizon ? candidate.horizon : (this.scalpMode ? '5m-10m' : '15m-1h'),
+        sureShotMode: this.sureShotMode,
+        horizon: candidate && candidate.horizon ? candidate.horizon : (this.sureShotMode ? '2m-8m' : (this.scalpMode ? '5m-10m' : '15m-1h')),
         components: candidate ? candidate.components : [],
         entry: g ? g.entry : null,
         stopLoss: g ? g.stop : null,

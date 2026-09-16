@@ -251,6 +251,7 @@
                   </span>
                   <span id="previewTradeBadge" class="badge buy font-mono" style="font-size:10.5px; font-weight:800; padding:2px 8px;">--</span>
                   <span id="previewScalpBadge" class="badge font-mono" style="font-size:9.5px; font-weight:800; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35);">5m-10m SCALP</span>
+                  <span id="previewSureShotBadge" class="badge font-mono" style="display:none; font-size:9.5px; font-weight:800; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.35);">🎯 SURESHOT 90% (+$0.50)</span>
                   <span id="previewStatusBadge" class="badge font-mono" style="font-size:9.5px; font-weight:800; background:rgba(56,189,248,0.15); color:#38bdf8;">ACTIVE</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -412,12 +413,13 @@
                 <span class="arm-status stopped" id="armStatus">STOPPED</span>
               </div>
               <div class="trading-controls-body">
-                <!-- STRATEGY PROFILE (SWING vs SCALP 5-10m) -->
+                <!-- STRATEGY PROFILE (SWING vs SCALP 5-10m vs SURESHOT) -->
                 <div class="control-row strategy-mode-row">
-                  <label class="control-label" title="Standard mode targets 15m-1h structural swing setups. Scalp mode targets quick 5m-10m bursts with rapid 0.4R break-even and tight 10-15m time stops.">Strategy Profile</label>
+                  <label class="control-label" title="Standard mode targets 15m-1h structural swing setups. Scalp mode targets quick 5m-10m bursts. SureShot mode targets high-probability +0.50% moves ($0.50 on $10 margin @ 10x) with break-even ratchet and 10% runner.">Strategy Profile</label>
                   <div class="mode-toggle-group">
                     <button type="button" class="mode-toggle-btn active" id="stratModeStandardBtn" data-mode="standard"><i class="fa-solid fa-chart-line"></i> Swing (15m–1h)</button>
                     <button type="button" class="mode-toggle-btn" id="stratModeScalpBtn" data-mode="scalp" style="color:#f59e0b;"><i class="fa-solid fa-bolt"></i> Scalp (5m–10m)</button>
+                    <button type="button" class="mode-toggle-btn" id="stratModeSureShotBtn" data-mode="sureshot" style="color:#10b981;"><i class="fa-solid fa-crosshairs"></i> 🎯 SureShot (+$0.50)</button>
                   </div>
                 </div>
 

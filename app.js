@@ -2510,7 +2510,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const isWin = !isOngoing && (pnl > 0 || selectedPreviewTrade.status === 'WIN');
     const setupName = (trade && trade.setupName) || selectedPreviewTrade.setup_type || (isLong ? 'TREND_PULLBACK_LONG' : 'DESCENDING_TRIANGLE_SHORT');
-    const isScalp = (trade && trade.isScalp) || selectedPreviewTrade.isScalp || setupName.startsWith('SCALP_') || (currentStrategyMode === 'scalp');
+    const isSureShot = (trade && trade.isSureShot) || selectedPreviewTrade.isSureShot || setupName === 'SURESHOT_MICRO_SCALP' || (currentStrategyMode === 'sureshot');
+    const isScalp = (trade && trade.isScalp) || selectedPreviewTrade.isScalp || setupName.startsWith('SCALP_') || isSureShot || (currentStrategyMode === 'scalp');
 
     let stop = parseFloat((trade && trade.stopLoss) || selectedPreviewTrade.stop || selectedPreviewTrade.stopLoss || 0);
     if (!stop) {
@@ -2546,7 +2547,9 @@ document.addEventListener('DOMContentLoaded', () => {
       badge.className = `badge ${isLong ? 'buy' : 'sell'} font-mono`;
     }
     const scalpB = $('previewScalpBadge');
-    if (scalpB) scalpB.style.display = isScalp ? 'inline-flex' : 'none';
+    if (scalpB) scalpB.style.display = (isScalp && !isSureShot) ? 'inline-flex' : 'none';
+    const sureShotB = $('previewSureShotBadge');
+    if (sureShotB) sureShotB.style.display = isSureShot ? 'inline-flex' : 'none';
 
     const statB = $('previewStatusBadge');
     if (statB) {
@@ -2684,25 +2687,46 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chipSizing) chipSizing.querySelector('span').textContent = sizingTxt;
     const chipStrat = $('chipStrategy');
     if (chipStrat) {
+      const isSureShot = currentStrategyMode === 'sureshot';
       const isScalp = currentStrategyMode === 'scalp';
-      chipStrat.querySelector('span').textContent = isScalp ? 'Scalp (5m–10m)' : 'Swing (15m–1h)';
-      chipStrat.style.borderColor = isScalp ? 'rgba(245,158,11,0.5)' : '';
-      chipStrat.style.color = isScalp ? '#f59e0b' : '';
+      chipStrat.querySelector('span').textContent = isSureShot
+        ? '🎯 SureShot 90% (+$0.50)'
+        : (isScalp ? '⚡ Scalp (5m–10m)' : 'Swing (15m–1h)');
+      chipStrat.style.borderColor = isSureShot
+        ? 'rgba(16,185,129,0.6)'
+        : (isScalp ? 'rgba(245,158,11,0.5)' : '');
+      chipStrat.style.color = isSureShot
+        ? '#10b981'
+        : (isScalp ? '#f59e0b' : '');
     }
   }
 
   let currentStrategyMode = 'standard';
 
   function applyStrategyModeUI(mode) {
-    currentStrategyMode = mode === 'scalp' ? 'scalp' : 'standard';
+    currentStrategyMode = (mode === 'sureshot' || mode === 'scalp') ? mode : 'standard';
     const stdBtn = $('stratModeStandardBtn');
     const scalpBtn = $('stratModeScalpBtn');
+    const sureshotBtn = $('stratModeSureShotBtn');
     if (stdBtn) stdBtn.classList.toggle('active', currentStrategyMode === 'standard');
     if (scalpBtn) scalpBtn.classList.toggle('active', currentStrategyMode === 'scalp');
-    const isScalp = currentStrategyMode === 'scalp';
+    if (sureshotBtn) sureshotBtn.classList.toggle('active', currentStrategyMode === 'sureshot');
+
+    const isSureShot = currentStrategyMode === 'sureshot';
+    const isScalp = currentStrategyMode === 'scalp' || isSureShot;
+
+    // In SureShot Mode, automatically apply $10 USDT margin and 10x leverage ($100 notional)
+    if (isSureShot) {
+      applySizingModeUI('usdt');
+      riskGovernor.config.fixedUsdtSize = 10;
+      if ($('usdtSizeInput')) $('usdtSizeInput').value = 10;
+      applyLeverageUI(10);
+    }
+
     for (const sym of Object.keys(engines)) {
-      if (engines[sym] && engines[sym].setScalpMode) {
-        engines[sym].setScalpMode(isScalp);
+      if (engines[sym]) {
+        if (engines[sym].setScalpMode) engines[sym].setScalpMode(isScalp);
+        if (engines[sym].setSureShotMode) engines[sym].setSureShotMode(isSureShot);
       }
     }
     updateSettingsSummary();
@@ -2716,6 +2740,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('stopBtn').disabled = !armed;
     if ($('stratModeStandardBtn')) $('stratModeStandardBtn').disabled = armed;
     if ($('stratModeScalpBtn')) $('stratModeScalpBtn').disabled = armed;
+    if ($('stratModeSureShotBtn')) $('stratModeSureShotBtn').disabled = armed;
     const dot = $('cloudStatusDot');
     const txt = $('cloudStatusText');
     if (dot && txt) {
@@ -2784,7 +2809,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (scalpBtn) scalpBtn.addEventListener('click', () => {
     applyStrategyModeUI('scalp');
     logEvent('Strategy profile switched to ⚡ SCALP MODE (5m–10m fast targets, tight time stop, rapid BE)');
-    postJSON('/api/auto-trade/state', { strategyMode: 'scalp', scalpMode: true }).catch(() => {});
+    postJSON('/api/auto-trade/state', { strategyMode: 'scalp', scalpMode: true, sureShotMode: false }).catch(() => {});
+  });
+  const sureshotBtn = $('stratModeSureShotBtn');
+  if (sureshotBtn) sureshotBtn.addEventListener('click', () => {
+    applyStrategyModeUI('sureshot');
+    logEvent('Strategy profile switched to 🎯 SURESHOT 90% SCALP (Target +0.50% move, bank 90% at +$0.50, BE ratchet, 10% runner)');
+    postJSON('/api/auto-trade/state', {
+      strategyMode: 'sureshot',
+      scalpMode: true,
+      sureShotMode: true,
+      sizingMode: 'usdt',
+      fixedUsdtSize: 10,
+      leverage: 10
+    }).catch(() => {});
   });
 
   const levInputEl = $('leverageInput');
@@ -2847,7 +2885,8 @@ document.addEventListener('DOMContentLoaded', () => {
         leverage: riskGovernor.config.leverage,
         marginMode: riskGovernor.config.marginMode,
         strategyMode: currentStrategyMode,
-        scalpMode: currentStrategyMode === 'scalp'
+        scalpMode: currentStrategyMode === 'scalp' || currentStrategyMode === 'sureshot',
+        sureShotMode: currentStrategyMode === 'sureshot'
       });
     } catch (e) {
       logEvent(`Could not sync arm state to the server (${e.message}) — other devices won't see this change until it succeeds`);
@@ -2866,6 +2905,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (saved.strategyMode && saved.strategyMode !== currentStrategyMode) {
       applyStrategyModeUI(saved.strategyMode);
+    } else if (saved.sureShotMode && currentStrategyMode !== 'sureshot') {
+      applyStrategyModeUI('sureshot');
     } else if (saved.scalpMode !== undefined && (saved.scalpMode ? 'scalp' : 'standard') !== currentStrategyMode) {
       applyStrategyModeUI(saved.scalpMode ? 'scalp' : 'standard');
     }

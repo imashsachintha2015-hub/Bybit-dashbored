@@ -230,6 +230,67 @@
   }
 
   /**
+   * 🎯 SureShot 90% Scalp Risk Geometry.
+   * Fixed +0.50% price move primary target (+5% ROE @ 10x leverage = $0.50 on $10 margin).
+   * TP1 banks 90% profit. Stop ratchets immediately to Entry.
+   * Remaining 10% margin runner targets TP2 (+1.20% move or next S/R) with zero capital risk.
+   */
+  function buildSureShotRiskGeometry(direction, entry, invalidationLevel, atrValue, structure) {
+    const buffer = (atrValue || 0) * 0.4;
+    const stop = direction === 'LONG'
+      ? invalidationLevel - buffer
+      : invalidationLevel + buffer;
+
+    const riskDist = Math.abs(entry - stop);
+    if (riskDist <= 0) return null;
+
+    // Fixed 0.50% primary target (+0.50% move @ 10x = +5% ROE = +$0.50 on $10 margin)
+    const tp1Pct = 0.0050; // Exactly +0.50%
+    const tp2Pct = 0.0120; // +1.20% extended runner target for the remaining 10%
+    const tp1 = direction === 'LONG' ? entry * (1 + tp1Pct) : entry * (1 - tp1Pct);
+    const tp2 = direction === 'LONG' ? entry * (1 + tp2Pct) : entry * (1 - tp2Pct);
+
+    // Opposing S/R headroom check: opposing wall must be beyond TP1 (at least 0.55% away)
+    const opposing = direction === 'LONG' ? structure.nextResistance : structure.nextSupport;
+    let headroomR = Infinity;
+    if (opposing != null) {
+      headroomR = Math.abs(opposing - entry) / riskDist;
+      const distToOpposingPct = Math.abs(opposing - entry) / entry;
+      if (distToOpposingPct < 0.0055) {
+        return {
+          entry: +entry.toFixed(6), stop: +stop.toFixed(6), invalidation: +invalidationLevel.toFixed(6),
+          targets: [+tp1.toFixed(6), +tp2.toFixed(6)],
+          riskDist, viable: false,
+          rejectReason: `Opposing S/R wall at ${opposing} is only ${(distToOpposingPct * 100).toFixed(2)}% away — needs >0.55% headroom for SureShot TP1`
+        };
+      }
+    }
+
+    const netEdgePct = tp1Pct - ROUND_TRIP_COST_PCT;
+    const rrToTp1 = Math.abs(tp1 - entry) / riskDist;
+    const rrToTp2 = Math.abs(tp2 - entry) / riskDist;
+
+    return {
+      entry: +entry.toFixed(6),
+      stop: +stop.toFixed(6),
+      invalidation: +invalidationLevel.toFixed(6),
+      targets: [+tp1.toFixed(6), +tp2.toFixed(6)],
+      riskDist,
+      rrToTp1: +rrToTp1.toFixed(2),
+      rrToTp2: +rrToTp2.toFixed(2),
+      headroomR: isFinite(headroomR) ? +headroomR.toFixed(2) : null,
+      riskPct: +((riskDist / entry) * 100).toFixed(3),
+      tp1Pct: 0.50,
+      tp2Pct: 1.20,
+      cappedByStructure: false,
+      nextResistance: structure.nextResistance,
+      nextSupport: structure.nextSupport,
+      viable: netEdgePct > 0.0020,
+      rejectReason: netEdgePct <= 0.0020 ? 'Inside fee band' : null
+    };
+  }
+
+  /**
    * Where is the trade actually going? Multiple level sources, ranked by
    * reliability, are folded together into one unified picture:
    *   1. Swing pivots (structural)
@@ -979,10 +1040,83 @@
     };
   }
 
+  // ───────────────────────────────────────────────────────────────────────
+  // SureShot Playbook — SURESHOT_MICRO_SCALP (Target: 90% Win-Rate Micro-Scalp)
+  // Highly selective mean-reversion with HTF trend alignment.
+  // Targets fixed +0.50% move ($0.50 on $10 margin @ 10x leverage).
+  // 90% banked at TP1, stop ratchets to Entry, 10% runner stays risk-free.
+  // ───────────────────────────────────────────────────────────────────────
+  function sureshotMicroScalp(ctx) {
+    const { htf, ltf, price, flow } = ctx;
+    if (!ltf || ltf.length < 15 || !htf || htf.length < 15) return null;
+    const atrLtf = ctx.atrLtf || (I.atr ? I.atr(ltf, 14) : 0);
+    if (!atrLtf || atrLtf <= 0) return null;
+
+    // Filter 1: Low spread check (<0.05%) to avoid fee drag and slippage
+    if (flow && flow.spread != null && (flow.spread / price) > 0.0006) return null;
+
+    // Filter 2: HTF Trend Filter (15m/1h EMA9 vs EMA21)
+    const ema9Val = I.ema(htf.map(c => c.close), 9);
+    const ema21Val = I.ema(htf.map(c => c.close), 21);
+    if (!ema9Val || !ema21Val) return null;
+
+    const htfTrend = ema9Val > ema21Val ? 'BULLISH' : (ema9Val < ema21Val ? 'BEARISH' : 'NEUTRAL');
+    if (htfTrend === 'NEUTRAL') return null;
+
+    // Filter 3: LTF Pullback and Wick Rejection
+    const rsiVal = I.rsi ? I.rsi(ltf.map(c => c.close), 14) : 50;
+
+    const last = ltf[ltf.length - 1];
+    const prev = ltf[ltf.length - 2];
+    const range = Math.max(last.high - last.low, atrLtf * 0.1);
+    const lowerWick = Math.min(last.open, last.close) - last.low;
+    const upperWick = last.high - Math.max(last.open, last.close);
+    const lowerWickPct = lowerWick / range;
+    const upperWickPct = upperWick / range;
+
+    let dir = null;
+    if (htfTrend === 'BULLISH' && (lowerWickPct >= 0.30 || rsiVal < 48)) {
+      dir = 'LONG';
+    } else if (htfTrend === 'BEARISH' && (upperWickPct >= 0.30 || rsiVal > 52)) {
+      dir = 'SHORT';
+    }
+    if (!dir) return null;
+
+    const components = [];
+    components.push(component('htfAlignment', 'HTF Trend Alignment (15m/1h filter)', 35, 0.95, `HTF trend is ${htfTrend}`));
+    components.push(component('exhaustionWick', 'LTF Rejection Wick / Value Pullback', 30,
+      dir === 'LONG' ? I.clamp(lowerWickPct * 1.8, 0.5, 1) : I.clamp(upperWickPct * 1.8, 0.5, 1),
+      `5m ${dir === 'LONG' ? 'lower' : 'upper'} wick rejection confirms absorption`));
+    components.push(component('rsiPosition', 'RSI Pullback within Trend', 20,
+      dir === 'LONG' ? (rsiVal < 50 ? 0.90 : 0.65) : (rsiVal > 50 ? 0.90 : 0.65),
+      `RSI at ${rsiVal.toFixed(1)}`));
+    components.push(component('spreadLiquidity', 'Low Spread & High Book Liquidity', 15, 0.95, 'Tight spread for micro-scalp'));
+
+    const invalidation = dir === 'LONG' ? Math.min(last.low, prev.low) : Math.max(last.high, prev.high);
+    const structLtf = I.marketStructure(ltf, 2);
+    const vpLevels = ctx.vpLevels || [];
+    const structure = nearestLevels(structLtf, price, atrLtf, ctx.liquidityPools, vpLevels);
+    const geometry = buildSureShotRiskGeometry(dir, price, invalidation, atrLtf, structure);
+    if (!geometry || !geometry.viable) return null;
+
+    const score = scoreComponents(components);
+    return {
+      name: 'SURESHOT_MICRO_SCALP',
+      direction: dir,
+      score, grade: grade(score),
+      components, geometry,
+      isScalp: true,
+      isSureShot: true,
+      horizon: '2m-8m',
+      narrative: `🎯 SureShot 90% Scalp: HTF ${htfTrend} trend with 5m value pullback. Targets fixed +0.50% move (+$0.50 profit on $10 margin @ 10x). Banks 90% profit at TP1 with stop ratcheted to Entry, keeping 10% runner.`
+    };
+  }
+
   const ALL = [trendPullback, sweepReclaim, rangeFade, breakoutRetest, squeezeFade];
   const SCALP_PLAYBOOKS = [scalpMomentumBurst, scalpExhaustionFade, scalpOrderflowImbalance];
+  const SURESHOT_PLAYBOOKS = [sureshotMicroScalp];
 
-  /** Runs playbooks based on mode (standard swing or scalp), returns candidates sorted best-first. */
+  /** Runs playbooks based on mode (standard swing, scalp, or sureshot), returns candidates sorted best-first. */
   function evaluate(ctx) {
     // Enrich context with VP levels from the panel for target placement
     const vpRead = (ctx.swarmLevels || []).filter(l => l && (l.src === 'VP' || l.kind === 'VP_POC' || l.kind === 'VP_VAH' || l.kind === 'VP_VAL' || l.kind === 'VP_HVN'));
@@ -995,9 +1129,11 @@
       if (derivsPanel) enrichedCtx.derivsPanel = derivsPanel;
     }
 
-    const playbookList = ctx.scalpMode
-      ? SCALP_PLAYBOOKS
-      : (ctx.includeScalp ? [...ALL, ...SCALP_PLAYBOOKS] : ALL);
+    const playbookList = ctx.sureShotMode
+      ? SURESHOT_PLAYBOOKS
+      : (ctx.scalpMode
+          ? SCALP_PLAYBOOKS
+          : (ctx.includeScalp ? [...ALL, ...SCALP_PLAYBOOKS] : ALL));
 
     const out = [];
     for (const fn of playbookList) {
@@ -1015,5 +1151,23 @@
     return evaluate(Object.assign({}, ctx, { scalpMode: true }));
   }
 
-  return { evaluate, evaluateScalp, grade, MIN_RR, ROUND_TRIP_COST_PCT, buildRiskGeometry, buildScalpRiskGeometry, ALL, SCALP_PLAYBOOKS };
+  function evaluateSureShot(ctx) {
+    return evaluate(Object.assign({}, ctx, { sureShotMode: true }));
+  }
+
+  return {
+    evaluate,
+    evaluateScalp,
+    evaluateSureShot,
+    grade,
+    MIN_RR,
+    ROUND_TRIP_COST_PCT,
+    buildRiskGeometry,
+    buildScalpRiskGeometry,
+    buildSureShotRiskGeometry,
+    ALL,
+    SCALP_PLAYBOOKS,
+    SURESHOT_PLAYBOOKS,
+    sureshotMicroScalp
+  };
 });

@@ -103,6 +103,26 @@
     momentumExitRsiShort: 32
   };
 
+  const SURESHOT_DEFAULTS = {
+    gracePeriodMs: 30 * 1000,          // 30s grace period
+    timeStopBars: 2,                   // 2 bars of 5m (10m max timeout)
+    timeStopMinR: 0.15,
+    timeStopMaxMs: 8 * 60 * 1000,      // 8-minute max duration
+    breakEvenAfterTp: 1,               // Ratchet stop to Entry immediately upon TP1
+    trailAfterTp: 1,
+    scaleOutFractions: [0.90, 0.10],   // 90% banked at TP1 (+0.50% move), 10% margin runner remains
+    trailAtrMultiples: [0.5],          // Tight 0.5 ATR trail for 10% runner
+    roiBreakEvenPct: 2.5,              // Instant break-even ratchet at +2.5% ROI (+0.25% price move @ 10x)
+    rBreakEvenThreshold: 0.25,         // +0.25R profit moves stop to Entry
+    srProximityAtr: 0.10,
+    srCoverageFraction: 0.90,          // Bank 90% coverage at opposing structural wall
+    srMinProfitR: 0.25,
+    momentumExitEnabled: true,
+    momentumExitMinR: 0.40,
+    momentumExitRsiLong: 70,
+    momentumExitRsiShort: 30
+  };
+
   const EXIT = {
     STOP: 'STOP',
     TARGET: 'TARGET',
@@ -178,21 +198,22 @@
       const age = this.now() - trade.openedAt;
       const inProfit = r > 0.05;
       const isLong = trade.side === 'Buy';
-      const isScalp = !!trade.isScalp;
+      const isSureShot = !!trade.isSureShot || trade.setupName === 'SURESHOT_MICRO_SCALP';
+      const isScalp = !!trade.isScalp || isSureShot;
 
-      // ── Dynamic parameter resolution (Scalp vs Standard) ──
-      const gracePeriodMs = isScalp ? (this.config.scalpGracePeriodMs || SCALP_DEFAULTS.gracePeriodMs) : this.config.gracePeriodMs;
-      const srMinProfitR = isScalp ? (this.config.scalpSrMinProfitR || SCALP_DEFAULTS.srMinProfitR) : (this.config.srMinProfitR || 0.70);
-      const srCoverageFraction = isScalp ? (this.config.scalpSrCoverageFraction || SCALP_DEFAULTS.srCoverageFraction) : (this.config.srCoverageFraction || 0.50);
-      const srProximityAtr = isScalp ? (this.config.scalpSrProximityAtr || SCALP_DEFAULTS.srProximityAtr) : (this.config.srProximityAtr || 0.20);
-      const scaleOutFractions = isScalp ? (this.config.scalpScaleOutFractions || SCALP_DEFAULTS.scaleOutFractions) : this.config.scaleOutFractions;
-      const rBreakEvenThreshold = isScalp ? (this.config.scalpRBreakEvenThreshold || SCALP_DEFAULTS.rBreakEvenThreshold) : (this.config.rBreakEvenThreshold || 1.0);
-      const roiBreakEvenPct = isScalp ? (this.config.scalpRoiBreakEvenPct || SCALP_DEFAULTS.roiBreakEvenPct) : (this.config.roiBreakEvenPct || 12.0);
-      const trailAtrMultiples = isScalp ? (this.config.scalpTrailAtrMultiples || SCALP_DEFAULTS.trailAtrMultiples) : (this.config.trailAtrMultiples || [2.0, 1.2, 0.8]);
-      const minTrailR = isScalp ? 0.5 : 1.2;
-      const momentumExitMinR = isScalp ? (this.config.scalpMomentumExitMinR || SCALP_DEFAULTS.momentumExitMinR) : (this.config.momentumExitMinR || 2.0);
-      const timeStopBars = isScalp ? (this.config.scalpTimeStopBars || SCALP_DEFAULTS.timeStopBars) : this.config.timeStopBars;
-      const timeStopMinR = isScalp ? (this.config.scalpTimeStopMinR || SCALP_DEFAULTS.timeStopMinR) : this.config.timeStopMinR;
+      // ── Dynamic parameter resolution (SureShot vs Scalp vs Standard) ──
+      const gracePeriodMs = isSureShot ? SURESHOT_DEFAULTS.gracePeriodMs : (isScalp ? (this.config.scalpGracePeriodMs || SCALP_DEFAULTS.gracePeriodMs) : this.config.gracePeriodMs);
+      const srMinProfitR = isSureShot ? SURESHOT_DEFAULTS.srMinProfitR : (isScalp ? (this.config.scalpSrMinProfitR || SCALP_DEFAULTS.srMinProfitR) : (this.config.srMinProfitR || 0.70));
+      const srCoverageFraction = isSureShot ? SURESHOT_DEFAULTS.srCoverageFraction : (isScalp ? (this.config.scalpSrCoverageFraction || SCALP_DEFAULTS.srCoverageFraction) : (this.config.srCoverageFraction || 0.50));
+      const srProximityAtr = isSureShot ? SURESHOT_DEFAULTS.srProximityAtr : (isScalp ? (this.config.scalpSrProximityAtr || SCALP_DEFAULTS.srProximityAtr) : (this.config.srProximityAtr || 0.20));
+      const scaleOutFractions = isSureShot ? SURESHOT_DEFAULTS.scaleOutFractions : (isScalp ? (this.config.scalpScaleOutFractions || SCALP_DEFAULTS.scaleOutFractions) : this.config.scaleOutFractions);
+      const rBreakEvenThreshold = isSureShot ? SURESHOT_DEFAULTS.rBreakEvenThreshold : (isScalp ? (this.config.scalpRBreakEvenThreshold || SCALP_DEFAULTS.rBreakEvenThreshold) : (this.config.rBreakEvenThreshold || 1.0));
+      const roiBreakEvenPct = isSureShot ? SURESHOT_DEFAULTS.roiBreakEvenPct : (isScalp ? (this.config.scalpRoiBreakEvenPct || SCALP_DEFAULTS.roiBreakEvenPct) : (this.config.roiBreakEvenPct || 12.0));
+      const trailAtrMultiples = isSureShot ? SURESHOT_DEFAULTS.trailAtrMultiples : (isScalp ? (this.config.scalpTrailAtrMultiples || SCALP_DEFAULTS.trailAtrMultiples) : (this.config.trailAtrMultiples || [2.0, 1.2, 0.8]));
+      const minTrailR = isSureShot ? 0.35 : (isScalp ? 0.5 : 1.2);
+      const momentumExitMinR = isSureShot ? SURESHOT_DEFAULTS.momentumExitMinR : (isScalp ? (this.config.scalpMomentumExitMinR || SCALP_DEFAULTS.momentumExitMinR) : (this.config.momentumExitMinR || 2.0));
+      const timeStopBars = isSureShot ? SURESHOT_DEFAULTS.timeStopBars : (isScalp ? (this.config.scalpTimeStopBars || SCALP_DEFAULTS.timeStopBars) : this.config.timeStopBars);
+      const timeStopMinR = isSureShot ? SURESHOT_DEFAULTS.timeStopMinR : (isScalp ? (this.config.scalpTimeStopMinR || SCALP_DEFAULTS.timeStopMinR) : this.config.timeStopMinR);
 
       const lev = trade.leverage || 10;
       const priceMovePct = trade.entryPrice > 0 ? (Math.abs(price - trade.entryPrice) / trade.entryPrice) * 100 : 0;

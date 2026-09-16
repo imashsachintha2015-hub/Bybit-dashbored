@@ -151,6 +151,16 @@ function calculateOrderQty(sym, price, autoState) {
   const minQ = spec.minQty || step;
   const minNotional = spec.minNotional || 5.0;
 
+  // SureShot sizing: fixed 10 USDT margin @ 10x leverage = 100 USDT notional position
+  if (autoState && (autoState.strategyMode === 'sureshot' || autoState.sureShotMode)) {
+    const notional = 100.0;
+    let q = notional / price;
+    q = Math.floor(q / step) * step;
+    if (q * price < minNotional) q = Math.ceil(minNotional / price / step) * step;
+    if (q < minQ) q = minQ;
+    return +q.toFixed(8);
+  }
+
   if (autoState && autoState.sizingMode === 'usdt' && autoState.fixedUsdtSize > 0) {
     let q = autoState.fixedUsdtSize / price;
     q = Math.floor(q / step) * step;
@@ -192,6 +202,15 @@ async function syncAutoTradeState() {
         log(`[STATE SYNC] 24/7 cloud execution ${st.armed ? 'ARMED' : 'STOPPED'} via dashboard.`);
       }
       currentAutoState = Object.assign(currentAutoState, st);
+
+      const isSureShot = st.strategyMode === 'sureshot' || !!st.sureShotMode;
+      const isScalp = isSureShot || st.strategyMode === 'scalp' || !!st.scalpMode;
+      for (const s of SYMBOLS) {
+        if (engines[s]) {
+          if (engines[s].setScalpMode) engines[s].setScalpMode(isScalp);
+          if (engines[s].setSureShotMode) engines[s].setSureShotMode(isSureShot);
+        }
+      }
     }
   } catch (e) {}
 
@@ -302,7 +321,8 @@ async function manageOpenPositions() {
         setupName: s && s.setupType ? s.setupType : 'BYBIT_LIVE',
         grade: 'A',
         isScalp: s ? !!s.isScalp : SCALP_MODE,
-        horizon: s && s.horizon ? s.horizon : (SCALP_MODE ? '5m-10m' : '15m-1h'),
+        isSureShot: s ? (!!s.isSureShot || s.setupType === 'SURESHOT_MICRO_SCALP') : false,
+        horizon: s && s.horizon ? s.horizon : (s && s.isSureShot ? '2m-8m' : (SCALP_MODE ? '5m-10m' : '15m-1h')),
         openedAt: parseInt(pos.createdTime || now),
         tpFilled: [false, false, false],
         trailStage: 0,
@@ -650,7 +670,8 @@ async function tick() {
                 qty, originalQty: qty, setupName: s.setupType, grade: s.grade,
                 score: s.score, regime: s.regime, narrative: s.narrative || '',
                 isScalp: !!s.isScalp,
-                horizon: s.horizon || (s.isScalp ? '5m-10m' : '15m-1h'),
+                isSureShot: !!s.isSureShot || s.setupType === 'SURESHOT_MICRO_SCALP',
+                horizon: s.horizon || (s.isSureShot ? '2m-8m' : (s.isScalp ? '5m-10m' : '15m-1h')),
                 nextResistance: s.nextResistance || null,
                 nextSupport: s.nextSupport || null,
                 openedAt: now
