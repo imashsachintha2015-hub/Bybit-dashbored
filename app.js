@@ -925,7 +925,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       logEvent(`Failed to record outcome for ${trade.symbol}: ${e.message}`);
     }
-    if (trade.riskAmount) riskGovernor.recordOutcome({ symbol: trade.symbol, pnl: realisedPnl, rMultiple: r });
+    riskGovernor.recordOutcome({ symbol: trade.symbol, pnl: realisedPnl, rMultiple: r });
+    if (realisedPnl < 0 || r <= 0) {
+      logEvent(`[RISK GOVERNOR] Mandatory 15-minute stop cooldown initiated on ${trade.symbol} to prevent rapid churn`);
+    }
     // Score the panel as it stood AT ENTRY, so analysts are judged on what they
     // said before the outcome was known.
     if (trade.entryPanel && trade.entryPanel.length) {
@@ -1656,7 +1659,9 @@ document.addEventListener('DOMContentLoaded', () => {
     set('DIV-05', `Setup: ${s.setupType}`, `Grade: ${s.grade || '--'}`, s.grade ? 'pass' : 'active', s.grade ? 'CANDIDATE' : 'SCANNING');
     set('DIV-06', `Gates: ${gatesPassed}/${gatesTotal}`, `Blocked: ${blocked}`, blocked && s.grade ? 'evaluating' : 'pass', blocked && s.grade ? 'BLOCKING' : 'PASS');
     set('DIV-07', `Calls: ${llm.callsToday}/${llm.dailyBudget}`, `Skipped: ${llm.totalSkipped}`);
-    set('DIV-08', `Risk/trade: ${gov.riskPerTradePct}%`, `Day: ${gov.realisedPnlToday >= 0 ? '+' : ''}${gov.realisedPnlToday}`, gov.paused ? 'evaluating' : 'active', gov.paused ? gov.pauseReason : 'ENFORCED');
+    const cdMin = riskGovernor.getRemainingCooldownMin ? riskGovernor.getRemainingCooldownMin(state.symbol) : 0;
+    const cdTxt = cdMin > 0 ? ` [${state.symbol} CD ${cdMin}m]` : '';
+    set('DIV-08', `Risk/trade: ${gov.riskPerTradePct}%`, `Day: ${gov.realisedPnlToday >= 0 ? '+' : ''}${gov.realisedPnlToday}${cdTxt}`, (gov.paused || cdMin > 0) ? 'evaluating' : 'active', cdMin > 0 ? `COOLDOWN ${cdMin}m` : (gov.paused ? gov.pauseReason : 'ENFORCED'));
     set('DIV-10', `Headlines: ${latestNews ? (latestNews.articles || []).length : 0}`, `Sentiment: ${s.news.label}`);
     set('DIV-11', `Whales: ${s.whale.whaleCount}`, `Flow: ${s.whale.dominantSide}`);
     set('DIV-12', `Open: ${openPositionsSnapshot.length}`, `Managed: ${positionManager.all().length}`, openPositionsSnapshot.length ? 'pass' : 'active', openPositionsSnapshot.length ? 'MANAGING' : 'IDLE');
@@ -1781,6 +1786,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const history = perf.trade_history || [];
       previewHistoryList = history;
       setupPerformance = computeSetupPerformance(history);
+
+      // Sync recent stop-outs/losses to riskGovernor cooldowns (15-min cooldown)
+      const nowTs = Date.now();
+      for (const t of history) {
+        if (t.status === 'LOSS') {
+          const tTime = new Date(t.time).getTime() || 0;
+          if (tTime > 0 && (nowTs - tTime < 15 * 60 * 1000)) {
+            const remainingMs = (tTime + 15 * 60 * 1000) - nowTs;
+            riskGovernor.symbolCooldowns.set(t.symbol, nowTs + remainingMs);
+          }
+        }
+      }
+
       $('tradeCount').textContent = `${history.length} trades`;
       const histTbody = $('historyTbody');
       if (!history.length) {

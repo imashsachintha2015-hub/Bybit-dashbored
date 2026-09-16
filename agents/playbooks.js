@@ -88,26 +88,38 @@
     let tp3 = direction === 'LONG' ? entry + riskDist * 4.0 : entry - riskDist * 4.0;
     let cappedByStructure = false;
 
-    // Minimum headroom floor: less than 0.8R means there is genuinely nowhere
-    // to trade to before a brick wall — reject it.
-    if (headroomR < 0.8) {
+    // Minimum headroom floor: less than 1.5R means trading directly into an opposing S/R wall.
+    // Shorting into a support floor or buying into a resistance ceiling guarantees stop runs.
+    if (headroomR < 1.5) {
       return {
         entry: +entry.toFixed(6), stop: +stop.toFixed(6), invalidation: +invalidationLevel.toFixed(6),
         targets: [+tp1.toFixed(6), +tp2.toFixed(6), +tp3.toFixed(6)],
         riskDist, rrToTp2: +headroomR.toFixed(2), headroomR: +headroomR.toFixed(2),
         riskPct: +((riskDist / entry) * 100).toFixed(3), cappedByStructure: true, viable: false,
         nextResistance: structure.nextResistance, nextSupport: structure.nextSupport,
-        rejectReason: `Only ${headroomR.toFixed(2)}R of headroom before opposing level at ${opposing.toFixed(4)} \u2014 less than 0.8R floor`
+        rejectReason: `Only ${headroomR.toFixed(2)}R of headroom before opposing ${direction === 'LONG' ? 'resistance' : 'support'} at ${opposing.toFixed(4)} — less than 1.5R clearance`
+      };
+    }
+
+    const riskPct = (riskDist / entry) * 100;
+    if (riskPct < 0.60) {
+      return {
+        entry: +entry.toFixed(6), stop: +stop.toFixed(6), invalidation: +invalidationLevel.toFixed(6),
+        targets: [+tp1.toFixed(6), +tp2.toFixed(6), +tp3.toFixed(6)],
+        riskDist, rrToTp2: +headroomR.toFixed(2), headroomR: isFinite(headroomR) ? +headroomR.toFixed(2) : null,
+        riskPct: +riskPct.toFixed(3), cappedByStructure: true, viable: false,
+        nextResistance: structure.nextResistance, nextSupport: structure.nextSupport,
+        rejectReason: `Stop distance ${riskPct.toFixed(3)}% is below 0.60% minimum — micro-stops are wiped out by taker fees and spread`
       };
     }
 
     const shy = (atrValue || 0) * 0.15;
 
     // Anchor targets to real structural levels:
-    // TP1 → nearest S/R wall (if 0.8R–2.0R headroom)
+    // TP1 → nearest S/R wall (if 1.5R–2.5R headroom)
     // TP2 → second structural level (if available)
     // TP3 → runner beyond, or fib extension
-    if (opposing != null && headroomR >= 0.8 && headroomR < 2.0) {
+    if (opposing != null && headroomR >= 1.5 && headroomR < 2.5) {
       tp1 = direction === 'LONG' ? opposing - shy : opposing + shy;
       if (secondLevel != null) {
         tp2 = direction === 'LONG' ? secondLevel - shy : secondLevel + shy;
@@ -140,14 +152,14 @@
       rrToTp2: +rrToTp2.toFixed(2),
       rrToTp3: +rrToTp3.toFixed(2),
       headroomR: isFinite(headroomR) ? +headroomR.toFixed(2) : null,
-      riskPct: +((riskDist / entry) * 100).toFixed(3),
+      riskPct: +riskPct.toFixed(3),
       cappedByStructure,
       nextResistance: structure.nextResistance,
       nextSupport: structure.nextSupport,
       secondResistance: structure.secondResistance || null,
       secondSupport: structure.secondSupport || null,
-      viable: (rrToTp2 >= MIN_RR || rrToTp1 >= 0.8) && netEdgePct > 0,
-      rejectReason: (rrToTp2 < MIN_RR && rrToTp1 < 0.8)
+      viable: (rrToTp2 >= MIN_RR || rrToTp1 >= 1.0) && netEdgePct > 0,
+      rejectReason: (rrToTp2 < MIN_RR && rrToTp1 < 1.0)
         ? `Reward:risk to targets is below minimum floor`
         : (netEdgePct <= 0 ? 'First target sits inside the round-trip fee + spread band \u2014 no net edge to capture' : null)
     };

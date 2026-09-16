@@ -36,6 +36,7 @@ const WebSocket = require('ws');
 const https = require('https');
 const { MasisEngine } = require('../masis-engine.js');
 const { PositionManager, EXIT } = require('../agents/position-manager.js');
+const { RiskGovernor } = require('../agents/risk-governor.js');
 
 const ALL_30_COINS = [
   'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT',
@@ -56,6 +57,10 @@ const SCALP_MODE = process.env.SCALP_MODE === 'true';
 const engines = {};
 for (const s of SYMBOLS) engines[s] = new MasisEngine({ symbol: s, swarmMode: 'observe', scalpMode: SCALP_MODE });
 const positionManager = new PositionManager();
+const riskGovernor = new RiskGovernor({
+  maxConcurrentPositions: 5,
+  stopCooldownMs: 15 * 60 * 1000
+});
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
@@ -173,6 +178,8 @@ let openPositionsCache = [];
 let lastStateSync = 0;
 const activeOrders = {}; // sym -> { orderId, placedAt, side, price, qty }
 
+let lastPerfSync = 0;
+
 async function syncAutoTradeState() {
   const now = Date.now();
   if (now - lastStateSync < 12000) return;
@@ -204,6 +211,9 @@ async function syncAutoTradeState() {
             toPrune[k] = null;
             delete currentAutoState.theses[k];
             pruneCount++;
+            // Position closed broker-side (SL or TP) — trigger 15-min cooldown on symbol
+            riskGovernor.recordOutcome({ symbol: th.symbol, pnl: -1, rMultiple: -1 });
+            log(`[POSITION GUARDIAN] ${th.symbol} detected closed broker-side — 15m stop cooldown activated.`);
           }
         }
         if (pruneCount > 0) {
@@ -213,6 +223,25 @@ async function syncAutoTradeState() {
       }
     }
   } catch (e) {}
+
+  // Sync recent stop-outs from closed-PnL feed so cooldown survives restarts
+  if (now - lastPerfSync > 60000) {
+    lastPerfSync = now;
+    try {
+      const perf = await getJSON(`${API_BASE}/api/performance`);
+      if (perf && Array.isArray(perf.trade_history)) {
+        for (const t of perf.trade_history) {
+          if (t.status === 'LOSS') {
+            const tTime = new Date(t.time).getTime() || 0;
+            if (tTime > 0 && now - tTime < 15 * 60 * 1000) {
+              const remainingMs = (tTime + 15 * 60 * 1000) - now;
+              riskGovernor.symbolCooldowns.set(t.symbol, now + remainingMs);
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
 }
 
 // ── Position Guardian & TP/SL Automation ──────────────────────────────────
@@ -369,6 +398,8 @@ async function manageOpenPositions() {
     } else if (action.action === 'CLOSE_ALL') {
       const isMomentumExit = action.reason === 'MOMENTUM_EXIT';
       log(`[POSITION GUARDIAN] ${isMomentumExit ? 'Momentum exit' : 'Closing entire'} ${sym} position: ${action.reason} — ${action.detail}`);
+      riskGovernor.recordOutcome({ symbol: sym, pnl: -1, rMultiple: -1 });
+      log(`[POSITION GUARDIAN] ${sym} closed -> 15-minute stop cooldown initiated.`);
       if (currentAutoState.armed) {
         await postJSON('/api/order/close', {
           category: 'linear',
@@ -557,6 +588,17 @@ async function tick() {
       const isArmed = currentAutoState.armed;
 
       if (isArmed && isGradeA) {
+        // RiskGovernor gate checks: mandatory 15-min cooldown after stops, duplicate guard, daily limits
+        const gate = riskGovernor.canOpen({
+          symbol: sym,
+          openPositions: openPositionsCache,
+          pendingOrders: Object.values(activeOrders).filter(o => now - o.placedAt < 600000)
+        });
+        if (!gate.allowed) {
+          log(`[ORDER SKIPPED] ${sym} blocked by RiskGovernor: ${gate.reasons.join('; ')}`);
+          continue;
+        }
+
         // Max concurrent orders / positions check
         const maxOrders = Number(process.env.MAX_CONCURRENT_POSITIONS || currentAutoState.maxConcurrentPositions || 5);
         const activeCount = openPositionsCache.length + Object.keys(activeOrders).filter(k => now - activeOrders[k].placedAt < 600000).length;

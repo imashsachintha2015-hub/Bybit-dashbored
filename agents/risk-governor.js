@@ -41,6 +41,8 @@
       this.realisedPnlToday = 0;
       this.tradesToday = 0;
       this.rMultiples = [];            // realised R per closed trade, for expectancy
+      this.symbolCooldowns = new Map(); // symbol -> epoch ms
+      this.stopCooldownMs = (options.stopCooldownMs || 15) * 60 * 1000; // 15-min cooldown after a stop-out
     }
 
     _dayKey(d) {
@@ -78,6 +80,11 @@
       this.tradesToday++;
       if (typeof rMultiple === 'number' && isFinite(rMultiple)) this.rMultiples.push(rMultiple);
       if (this.rMultiples.length > 200) this.rMultiples.shift();
+
+      // Enforce 15-minute cooldown on stopped-out / loss trades to prevent churn and revenge trading
+      if (symbol && (pnl < 0 || (typeof rMultiple === 'number' && rMultiple <= 0))) {
+        this.symbolCooldowns.set(symbol, this.now() + this.stopCooldownMs);
+      }
     }
 
     _endOfDayTs() {
@@ -143,7 +150,23 @@
         reasons.push(`Maximum concurrent positions reached (${openPositions.length}/${this.config.maxConcurrentPositions})`);
       }
 
+      // 5. Mandatory Per-Symbol Cooldown following a stop-out (15 min)
+      const cdUntil = this.symbolCooldowns.get(symbol) || 0;
+      if (this.now() < cdUntil) {
+        const remainMin = Math.ceil((cdUntil - this.now()) / 60000);
+        reasons.push(`${symbol} is in cooldown for another ${remainMin}m after a recent stop-out to prevent churn`);
+      }
+
       return { allowed: reasons.length === 0, reasons };
+    }
+
+    isCoolingDown(symbol) {
+      return this.now() < (this.symbolCooldowns.get(symbol) || 0);
+    }
+
+    getRemainingCooldownMin(symbol) {
+      const cdUntil = this.symbolCooldowns.get(symbol) || 0;
+      return Math.max(0, Math.ceil((cdUntil - this.now()) / 60000));
     }
 
     /**
@@ -268,7 +291,10 @@
         dailyLossPct: base > 0 ? +((Math.abs(Math.min(this.realisedPnlToday, 0)) / base) * 100).toFixed(2) : 0,
         maxDailyLossPct: this.config.maxDailyLossPct,
         tradesToday: this.tradesToday,
-        expectancy: this.expectancy()
+        expectancy: this.expectancy(),
+        activeCooldowns: Array.from(this.symbolCooldowns.entries())
+          .filter(([, cd]) => this.now() < cd)
+          .map(([sym, cd]) => ({ symbol: sym, remainingMin: Math.ceil((cd - this.now()) / 60000) }))
       };
     }
   }

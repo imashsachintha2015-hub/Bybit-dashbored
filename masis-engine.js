@@ -362,6 +362,38 @@
       gates.rewardViable = candidate.geometry.viable;
       if (!gates.rewardViable) blocks.push(candidate.geometry.rejectReason);
 
+      // ── Hard Rule: Higher-Timeframe (HTF 1h/4h) Trend Alignment ──
+      // Veto counter-trend shorts into a bullish bounce (which caused 96% of all dollar losses).
+      // Veto counter-trend longs into an established higher-timeframe bleed.
+      const htfCandles = this.confirmed('htf') || [];
+      const htfCloses = htfCandles.map(c => c.close);
+      let htfTrend = 'NEUTRAL';
+      if (htfCloses.length >= 15) {
+        const htfEma20 = I.ema(htfCloses, 20);
+        const htfEma50 = htfCloses.length >= 40 ? I.ema(htfCloses, 50) : htfEma20;
+        const curPrice = this.price || htfCloses[htfCloses.length - 1];
+        if (curPrice > htfEma20 && htfEma20 >= htfEma50 * 0.998) {
+          htfTrend = 'BULLISH';
+        } else if (curPrice < htfEma20 && htfEma20 <= htfEma50 * 1.002) {
+          htfTrend = 'BEARISH';
+        }
+      }
+      const isCounterShort = candidate.direction === 'SHORT' && (htfTrend === 'BULLISH' || (regime.regime && regime.regime.includes('BULL')));
+      const isCounterLong = candidate.direction === 'LONG' && (htfTrend === 'BEARISH' || (regime.regime && regime.regime.includes('BEAR')));
+      gates.htfTrendAligned = !isCounterShort && !isCounterLong;
+      if (isCounterShort) {
+        blocks.push(`Counter-trend short vetoed: 1h/HTF trend is ${htfTrend} (regime ${regime.regime}) — shorting into a macro bounce has a 7% win rate, capital preserved`);
+      } else if (isCounterLong) {
+        blocks.push(`Counter-trend long vetoed: 1h/HTF trend is ${htfTrend} (regime ${regime.regime}) — buying into an established bleed is prohibited`);
+      }
+
+      // ── Hard Rule: S/R Wall Proximity Floor (1.5R clearance) ──
+      const headroomR = candidate.geometry && candidate.geometry.headroomR;
+      gates.srHeadroomViable = (headroomR == null || headroomR >= 1.5);
+      if (!gates.srHeadroomViable) {
+        blocks.push(`Structural ${candidate.direction === 'SHORT' ? 'support floor' : 'resistance ceiling'} is too close (${headroomR.toFixed(2)}R < 1.5R) — never short into support or buy into resistance`);
+      }
+
       // News: a high-impact negative catalyst inside 30 minutes vetoes longs
       // outright. Directional technicals do not survive a live exchange hack.
       const newsRecent = this.now() - (this.newsSignal.highImpactNegativeAt || 0) < 30 * 60 * 1000;
