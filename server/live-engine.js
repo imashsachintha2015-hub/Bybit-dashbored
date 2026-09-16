@@ -51,9 +51,10 @@ const ANALYSIS_INTERVALS = ['5', '15', '60'];
 const TF_OF = { '5': 'ltf', '15': 'mtf', '60': 'htf' };
 const DECISION_MS = Number(process.env.DECISION_MS || 15000);
 const ENABLE_TRADING = process.env.ENABLE_TRADING === 'true';
+const SCALP_MODE = process.env.SCALP_MODE === 'true';
 
 const engines = {};
-for (const s of SYMBOLS) engines[s] = new MasisEngine({ symbol: s, swarmMode: 'observe' });
+for (const s of SYMBOLS) engines[s] = new MasisEngine({ symbol: s, swarmMode: 'observe', scalpMode: SCALP_MODE });
 const positionManager = new PositionManager();
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
@@ -263,16 +264,19 @@ async function manageOpenPositions() {
         entryPrice: entry,
         stopLoss: stop,
         invalidation: stop,
-        targets: [tp1, tp2],
+        targets: [tp1, tp2, tp2 ? (isLong ? +(entry + riskDist * 4.0).toFixed(6) : +(entry - riskDist * 4.0).toFixed(6)) : tp2],
         riskDist,
         qty: size,
         originalQty: size,
         nextResistance: nextRes,
         nextSupport: nextSup,
-        setupName: 'BYBIT_LIVE',
+        setupName: s && s.setupType ? s.setupType : 'BYBIT_LIVE',
         grade: 'A',
+        isScalp: s ? !!s.isScalp : SCALP_MODE,
+        horizon: s && s.horizon ? s.horizon : (SCALP_MODE ? '5m-10m' : '15m-1h'),
         openedAt: parseInt(pos.createdTime || now),
-        tpFilled: [false, false],
+        tpFilled: [false, false, false],
+        trailStage: 0,
         stopMovedToBreakEven: false
       };
       if (!currentAutoState.theses) currentAutoState.theses = {};
@@ -294,6 +298,16 @@ async function manageOpenPositions() {
           market.nextResistance = st.nextResistance;
           market.nextSupport = st.nextSupport;
           market.opposingSignal = st.decision && st.decision !== (side.toUpperCase() === 'BUY' ? 'BUY' : 'SELL') ? st : null;
+          // Add RSI for momentum exit detection
+          if (st.atr && eng.confirmed && eng.confirmed('mtf')) {
+            try {
+              const I = require('../agents/indicators.js');
+              const mtfCandles = eng.confirmed('mtf');
+              if (mtfCandles.length >= 15) {
+                market.rsi = I.rsi(mtfCandles.map(c => c.close), 14);
+              }
+            } catch (e) {}
+          }
         }
         if (eng.getSupportResistance && (!market.nextResistance || !market.nextSupport)) {
           const sr = eng.getSupportResistance(mark);
@@ -310,8 +324,8 @@ async function manageOpenPositions() {
     if (action.action === 'SCALE_OUT') {
       const fraction = action.fraction || 0.5;
       const sliceQty = +(trade.originalQty * fraction).toFixed(6);
-      const isSrBank = action.reason === 'SR_COLLISION';
-      log(`[POSITION GUARDIAN] ${sym} ${isSrBank ? 'S/R Structural Wall Tested' : `TP${action.tpIndex + 1} reached`}! Banking ${fraction * 100}% slice (${sliceQty})...`);
+      const tpLabel = isSrBank ? 'S/R Structural Wall Tested' : `TP${action.tpIndex + 1} reached`;
+      log(`[POSITION GUARDIAN] ${sym} ${tpLabel}! Banking ${fraction * 100}% slice (${sliceQty})...`);
       positionManager.markTpFilled(trade, action.tpIndex, mark);
 
       if (currentAutoState.armed) {
@@ -353,7 +367,8 @@ async function manageOpenPositions() {
         theses: { [key]: trade }
       });
     } else if (action.action === 'CLOSE_ALL') {
-      log(`[POSITION GUARDIAN] Closing entire ${sym} position: ${action.reason} — ${action.detail}`);
+      const isMomentumExit = action.reason === 'MOMENTUM_EXIT';
+      log(`[POSITION GUARDIAN] ${isMomentumExit ? 'Momentum exit' : 'Closing entire'} ${sym} position: ${action.reason} — ${action.detail}`);
       if (currentAutoState.armed) {
         await postJSON('/api/order/close', {
           category: 'linear',
@@ -362,6 +377,28 @@ async function manageOpenPositions() {
           qty: size
         });
       }
+    }
+  }
+
+  // ── Stale Limit Order Cleanup ──
+  // Cancel unfilled limit orders older than ~45 min (or ~10 min for 5m scalps).
+  // Prevents stale entries from filling at prices no longer valid.
+  const now2 = Date.now();
+  for (const [sym, ord] of Object.entries(activeOrders)) {
+    const isScalpOrder = ord.isScalp || SCALP_MODE;
+    const staleMs = isScalpOrder ? (10 * 60 * 1000) : (45 * 60 * 1000);
+    if (now2 - ord.placedAt > staleMs) {
+      log(`[STALE ORDER] Cancelling ${sym} ${isScalpOrder ? 'scalp ' : ''}limit order ${ord.orderId} (placed ${Math.round((now2 - ord.placedAt) / 60000)}min ago)`);
+      if (currentAutoState.armed) {
+        try {
+          await postJSON('/api/order/cancel', {
+            category: 'linear',
+            symbol: sym,
+            orderId: ord.orderId
+          });
+        } catch (e) { log(`[STALE ORDER] Cancel failed for ${sym}: ${e.message}`); }
+      }
+      delete activeOrders[sym];
     }
   }
 }
@@ -557,7 +594,7 @@ async function tick() {
 
             if (ordRes && ordRes.data && ordRes.data.retCode === 0 && ordRes.data.result) {
               const orderId = ordRes.data.result.orderId;
-              activeOrders[sym] = { orderId, placedAt: now, side, price: s.entry, qty };
+              activeOrders[sym] = { orderId, placedAt: now, side, price: s.entry, qty, isScalp: !!s.isScalp };
               log(`[24/7 CLOUD SUCCESS] ${sym} limit order placed on Bybit! Order ID: ${orderId}`);
 
               // Persist thesis to auto_trade_state so Position Guardian displays it everywhere!
@@ -568,6 +605,8 @@ async function tick() {
                 targets: s.takeProfit || [], riskDist: Math.abs(s.entry - s.stopLoss),
                 qty, originalQty: qty, setupName: s.setupType, grade: s.grade,
                 score: s.score, regime: s.regime, narrative: s.narrative || '',
+                isScalp: !!s.isScalp,
+                horizon: s.horizon || (s.isScalp ? '5m-10m' : '15m-1h'),
                 nextResistance: s.nextResistance || null,
                 nextSupport: s.nextSupport || null,
                 openedAt: now

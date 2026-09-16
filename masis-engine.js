@@ -96,6 +96,20 @@
    * because the tape looks orderly. */
   const MIN_24H_TURNOVER_USD = 5_000_000;
 
+  // ── Correlation Group Gate (Research: diversification across sectors) ──
+  // Many altcoins are 85-95% correlated with BTC. Five alt longs during a
+  // BTC dip = five simultaneous losses. Max 2 same-direction positions per group.
+  const CORRELATION_GROUPS = {
+    BTC:   ['BTCUSDT'],
+    ETH:   ['ETHUSDT'],
+    L1:    ['SOLUSDT', 'AVAXUSDT', 'NEARUSDT', 'APTUSDT', 'SUIUSDT', 'ATOMUSDT', 'TONUSDT', 'ICPUSDT', 'ALGOUSDT'],
+    L2:    ['ARBUSDT', 'OPUSDT'],
+    DEFI:  ['UNIUSDT', 'AAVEUSDT', 'INJUSDT', 'LINKUSDT'],
+    MEME:  ['DOGEUSDT', 'SHIB1000USDT'],
+    LEGACY:['LTCUSDT', 'BCHUSDT', 'ETCUSDT', 'XLMUSDT', 'XRPUSDT', 'ADAUSDT', 'DOTUSDT', 'TRXUSDT', 'HBARUSDT', 'FILUSDT', 'SEIUSDT']
+  };
+  const MAX_SAME_DIR_PER_GROUP = 2;
+
   class MasisEngine {
     constructor(options = {}) {
       this.symbol = options.symbol || 'BTCUSDT';
@@ -119,6 +133,7 @@
 
       this.atrPctHistory = [];
       this.lastState = null;
+      this.scalpMode = options.scalpMode || false;
 
       // Derivatives context (open interest, funding, crowd positioning, real
       // taker volume), fed hourly. Without it the Positioning analyst reports
@@ -241,6 +256,7 @@
     markPositionOpen(symbol) { this.activePositions.add(symbol); }
     markPositionClosed(symbol) { this.activePositions.delete(symbol); }
     hasActivePosition(symbol) { return this.activePositions.has(symbol || this.symbol); }
+    setScalpMode(enabled) { this.scalpMode = !!enabled; }
     setLlmVerdict(v) { this.llmVerdict = v; }
 
     reset() {
@@ -456,6 +472,24 @@
       return { gates, blocks, validity };
     }
 
+    /**
+     * Correlation group gate: max 2 same-direction positions from the same
+     * correlation group. Prevents correlated blowup.
+     */
+    correlationGroupBlocked(symbol, direction) {
+      const group = Object.entries(CORRELATION_GROUPS).find(([, members]) => members.includes(symbol));
+      if (!group) return false;
+      const [groupName, members] = group;
+      let sameDir = 0;
+      for (const sym of members) {
+        if (this.activePositions.has(sym)) {
+          // Count as same direction (conservative: we don't always know direction)
+          sameDir++;
+        }
+      }
+      return sameDir >= MAX_SAME_DIR_PER_GROUP;
+    }
+
     // ─── Main evaluation ───
     getState() {
       const nowStr = new Date(this.now()).toISOString();
@@ -481,6 +515,7 @@
 
       const regime = Regime.classify({ htf, mtf, ltf }, { atrPctHistory: this.atrPctHistory });
       const atrMtf = I.atr(mtf, 14);
+      const atrLtf = ltf.length >= 14 ? I.atr(ltf, 14) : atrMtf * 0.5;
       const flowSnapshot = this.flow.snapshot(mtf[mtf.length - 1], atrMtf, mtf, this.price);
 
       // ─── The swarm reads the market, then argues about it ───
@@ -488,12 +523,9 @@
       // deliberate: the analysts must not be shown a candidate and asked to
       // justify it, because that is how a panel becomes a rubber stamp.
       const swarmCtx = {
-        mtf, htf, ltf, price: this.price, atrMtf,
+        mtf, htf, ltf, price: this.price, atrMtf, atrLtf,
         derivs: this.derivs, flowAgent: this.flow,
         now: this.now(), symbol: this.symbol,
-        // Analysts whose model is only valid in certain conditions need to know
-        // the conditions. Without this a mean-reversion analyst votes against
-        // trends and a trap-fade analyst votes against momentum.
         regime: regime.regime, bias: regime.bias
       };
       const panel = (Panel && this.swarmEnabled) ? Panel.run(swarmCtx) : [];
@@ -515,10 +547,13 @@
         regime, htf, mtf, ltf,
         flow: flowSnapshot,
         atrMtf,
+        atrLtf,
+        scalpMode: this.scalpMode,
         price: this.price,
         symbol: this.symbol,
         liquidityPools: liquidityRead ? liquidityRead.levels : [],
-        swarmLevels
+        swarmLevels,
+        panel  // Pass full panel for SQUEEZE_FADE and VP-anchored targets
       });
 
       const best = candidates.length ? candidates[0] : null;
@@ -583,6 +618,52 @@
       }
 
       let decision = 'NO_TRADE';
+
+      // ── Session-weighted scoring (Component 8) ──
+      // The session analyst's confidenceScale modulates the final score.
+      // A grade-A setup at 3am UTC is not the same as at the London/NY overlap.
+      const sessionRead = panel.find(p => p.id === 'sessions');
+      const sessionScale = sessionRead && sessionRead.confidenceScale ? sessionRead.confidenceScale : 1.0;
+      const thinSession = sessionRead && sessionRead.facts && sessionRead.facts.thin;
+      if (best && sessionScale !== 1.0) {
+        best.preSessionScore = best.score;
+        best.score = Math.round(I.clamp(best.score * sessionScale, 0, 100));
+        best.grade = Playbooks.grade(best.score);
+      }
+      // Thin-session hard gate: block low-confidence setups in thin markets
+      if (best && thinSession && best.score < 78) {
+        gates.sessionConfidence = false;
+        blocks.push(`Thin ${sessionRead.facts.session} session with score ${best.score} < 78 \u2014 breakouts in thin books are more often stop-runs`);
+      }
+
+      // ── Correlation group gate (Component 7) ──
+      if (best) {
+        gates.correlationOk = !this.correlationGroupBlocked(this.symbol, best.direction);
+        if (!gates.correlationOk) {
+          blocks.push(`Correlation group already has ${MAX_SAME_DIR_PER_GROUP} ${best.direction} positions \u2014 diversification rule prevents adding another correlated exposure`);
+        }
+      }
+
+      // ── Regime-aware performance gate (Component 10) ──
+      if (best) {
+        const perfKey = `${best.name}_${regime.regime}`;
+        const regimePerf = this.setupPerformance[perfKey] || {};
+        const regimeStreak = regimePerf.recentLossStreak || 0;
+        gates.regimePerfOk = regimeStreak < 3;
+        if (!gates.regimePerfOk) {
+          blocks.push(`${best.name} in ${regime.regime} regime has lost ${regimeStreak} consecutive trades \u2014 sitting this setup×regime combo out`);
+        }
+        // Apply a score modifier based on regime-specific performance
+        if (regimePerf.wins != null && regimePerf.losses != null) {
+          const total = (regimePerf.wins || 0) + (regimePerf.losses || 0);
+          if (total >= 5) {
+            const wr = regimePerf.wins / total;
+            const modifier = Math.round((wr - 0.45) * 10); // +/-5 points based on WR
+            best.score = Math.round(I.clamp(best.score + modifier, 0, 100));
+            best.grade = Playbooks.grade(best.score);
+          }
+        }
+      }
       if (best && allPassed) {
         const rank = GRADE_RANK[best.grade] || 0;
         if (rank >= (GRADE_RANK[this.autoTradeMinGrade] || 2)) {
@@ -618,6 +699,9 @@
         setupType: candidate ? candidate.name : (decision === 'NO_TRADE' ? 'NONE' : decision),
         direction: candidate ? candidate.direction : null,
         narrative: candidate ? candidate.narrative : null,
+        isScalp: candidate ? !!candidate.isScalp : false,
+        scalpMode: this.scalpMode,
+        horizon: candidate && candidate.horizon ? candidate.horizon : (this.scalpMode ? '5m-10m' : '15m-1h'),
         components: candidate ? candidate.components : [],
         entry: g ? g.entry : null,
         stopLoss: g ? g.stop : null,
@@ -627,7 +711,7 @@
         riskPct: g ? g.riskPct : null,
         nextResistance: g && g.nextResistance != null ? g.nextResistance : null,
         nextSupport: g && g.nextSupport != null ? g.nextSupport : null,
-        atr: atrMtf || (this.mtfSeries.length >= 14 ? I.atr(this.mtfSeries, 14) : null),
+        atr: atrMtf || null,
 
         regime: regime ? regime.regime : 'UNKNOWN',
         bias: regime ? regime.bias : 'NEUTRAL',

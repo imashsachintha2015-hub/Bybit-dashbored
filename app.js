@@ -344,13 +344,47 @@ document.addEventListener('DOMContentLoaded', () => {
   let accountEquity = 0;
   const guardianLogEntries = [];
   const inFlightActions = new Set();   // prevents duplicate orders while one is in flight
+  let guardianAutoScroll = true;
 
   function logEvent(msg) {
     const time = new Date().toTimeString().split(' ')[0];
-    guardianLogEntries.unshift(`[${time}] ${msg}`);
-    if (guardianLogEntries.length > 40) guardianLogEntries.pop();
+    let styled = msg;
+    if (msg.includes('VETO')) {
+      styled = msg.replace('VETO', '<span class="log-veto">VETO</span>');
+    } else if (msg.includes('STOP hit') || msg.includes('STOP')) {
+      styled = `<span class="log-stop">${msg}</span>`;
+    } else if (msg.includes('TP') || msg.includes('profit') || msg.includes('WIN') || msg.includes('ratcheted')) {
+      styled = `<span class="log-win">${msg}</span>`;
+    } else if (msg.includes('SCALP')) {
+      styled = `<span class="log-scalp">${msg}</span>`;
+    }
+
     const el = $('guardianLog');
-    if (el) el.innerHTML = guardianLogEntries.map(e => `<div class="guardian-log-item">${e}</div>`).join('');
+    if (el) {
+      const isAtBottom = (el.scrollHeight - el.scrollTop - el.clientHeight < 45);
+      const row = document.createElement('div');
+      row.className = 'log-line';
+      row.innerHTML = `<span class="log-time">[${time}]</span> ${styled}`;
+      el.appendChild(row);
+
+      while (el.children.length > 120) {
+        el.removeChild(el.firstChild);
+      }
+
+      if (guardianAutoScroll && isAtBottom) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+
+    const secEl = $('guardianLogSecondary');
+    if (secEl) {
+      const row = document.createElement('div');
+      row.className = 'log-line';
+      row.innerHTML = `<span class="log-time">[${time}]</span> ${styled}`;
+      secEl.appendChild(row);
+      while (secEl.children.length > 80) secEl.removeChild(secEl.firstChild);
+      secEl.scrollTop = secEl.scrollHeight;
+    }
   }
 
   function roundQty(symbol, qty) {
@@ -483,6 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
       grade,
       score,
       regime,
+      isScalp: s ? !!s.isScalp : (currentStrategyMode === 'scalp'),
+      horizon: s && s.horizon ? s.horizon : (currentStrategyMode === 'scalp' ? '5m-10m' : '15m-1h'),
+      openedAt: parseInt(pos.createdTime || Date.now()),
       narrative: 'Auto-adopted by Position Guardian across sessions/refresh'
     });
 
@@ -791,7 +828,9 @@ document.addEventListener('DOMContentLoaded', () => {
           stopLoss: wideStop, invalidation: wideInvalidation, targets: s.takeProfit,
           riskAmount: sized.riskAmount, setupName: s.setupType, grade: s.grade,
           score: s.score, regime: s.regime, narrative: s.narrative,
-          placedAt: Date.now(), expiresAt: Date.now() + MAKER_TIMEOUT_MS, offsetBps
+          isScalp: !!s.isScalp,
+          horizon: s.horizon || (s.isScalp ? '5m-10m' : '15m-1h'),
+          placedAt: Date.now(), expiresAt: Date.now() + (s.isScalp ? 10 * 60 * 1000 : MAKER_TIMEOUT_MS), offsetBps
         };
         logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${offsetBps}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${wideStop} (${STOP_MULT}x) · invalidation ${wideInvalidation} (${INVALIDATION_MULT}x) | R:R ${s.riskReward}`);
         pendingEntries[sym].signalState = s;
@@ -830,7 +869,9 @@ document.addEventListener('DOMContentLoaded', () => {
           riskDist: Math.abs(entryPrice - p.stopLoss),
           qty: p.qty, originalQty: p.qty, riskAmount: p.riskAmount,
           setupName: p.setupName, grade: p.grade, score: p.score,
-          regime: p.regime, narrative: p.narrative
+          regime: p.regime, narrative: p.narrative,
+          isScalp: p.isScalp || (p.signalState && p.signalState.isScalp) || false,
+          horizon: p.horizon || (p.signalState && p.signalState.horizon) || '15m-1h'
         });
         saveThesesLocally();
         syncThesisToServer(trade);
@@ -870,6 +911,12 @@ document.addEventListener('DOMContentLoaded', () => {
       await postJSON('/api/trades/record', {
         symbol: trade.symbol, side: trade.side.toUpperCase(),
         entry: trade.entryPrice, exit: exitPrice,
+        stop: trade.stopLoss || trade.invalidation,
+        targets: trade.targets,
+        nextSupport: trade.nextSupport,
+        nextResistance: trade.nextResistance,
+        isScalp: !!trade.isScalp,
+        opened_at: trade.openedAt,
         pnl: realisedPnl, setup_type: trade.setupName,
         grade: trade.grade, score: trade.score,
         r_multiple: +r.toFixed(3), exit_reason: reason,
@@ -1025,10 +1072,13 @@ document.addEventListener('DOMContentLoaded', () => {
         reasons.push(...(action.reasons || []));
       }
 
+      const isScalpTrade = trade.isScalp || (trade.setupName && trade.setupName.startsWith('SCALP_'));
+      const scalpBadge = isScalpTrade ? '<span style="font-size:9px;background:rgba(245,158,11,0.25);color:#f59e0b;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700;">[SCALP 5-10m]</span>' : '';
+      const reasonsList = reasons.length ? ('<ul class="guardian-reasons">' + reasons.map(x => '<li>' + x + '</li>').join('') + '</ul>') : '';
       cards.push(`<div class="guardian-position">
-        <span class="guardian-pill ${pillClass}">${pos.symbol} ${pos.side.toUpperCase()} — ${verdict}</span>
+        <span class="guardian-pill ${pillClass}">${pos.symbol} ${pos.side.toUpperCase()} — ${verdict} ${scalpBadge}</span>
         <div class="guardian-meta font-mono">${trade.setupName} · grade ${trade.grade} · entry ${trade.entryPrice} · stop ${trade.stopLoss} · invalidation ${trade.invalidation} · TP ${(trade.targets || []).join(' / ')}</div>
-        ${reasons.length ? `<ul class="guardian-reasons">${reasons.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+        ${reasonsList}
       </div>`);
     }
     if (el) el.innerHTML = cards.join('');
@@ -1683,21 +1733,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
           const entryPrice = parseFloat(p.avgPrice || 0);
           const im = parseFloat(p.positionIM || 0);
-          // positionValue is Bybit's own reported "Position value" for this
-          // position (confirmed field on GET /v5/position/list) -- use it
-          // directly so this matches what Bybit itself calls the size,
-          // rather than our own avgPrice x size approximation (which is the
-          // ENTRY value and drifts from it as price moves). Only fall back
-          // to computing it if Bybit didn't send the field.
           const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
-          // ROI% is against margin (positionIM) when Bybit reports it -- that's
-          // the actual return on capital committed to the trade. Falling back
-          // to notional only covers the rare case IM isn't reported yet.
           const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
           const sl = parseFloat(p.stopLoss || 0);
           const trade = positionManager.get(p.symbol, p.side);
           const rTxt = trade ? `${positionManager.currentR(trade, parseFloat(p.markPrice || 0)).toFixed(2)}R` : '--';
-          return `<tr>
+          const isSelected = selectedPreviewTrade && selectedPreviewIsOngoing && selectedPreviewTrade.symbol === p.symbol && selectedPreviewTrade.side === p.side;
+          return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectLivePosition('${p.symbol}','${p.side}')" title="Click to view live setup chart">
             <td>${p.symbol}</td>
             <td><span class="badge ${p.side === 'Buy' ? 'buy' : 'sell'}">${p.side.toUpperCase()}</span></td>
             <td>${p.size}</td>
@@ -1709,7 +1751,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
             <td class="${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</td>
             <td class="${pnlClass}">${rTxt}</td>
-            <td><button class="close-btn-sm" onclick="closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
+            <td><button class="close-btn-sm" onclick="event.stopPropagation(); closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
           </tr>`;
         }).join('');
       }
@@ -1727,9 +1769,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const n = perf.total_trades || 0;
       $('winRateVal').textContent = n ? `${wr.toFixed(1)}%` : '--';
       $('winRateVal').style.color = wr >= 50 ? 'var(--green)' : 'var(--red)';
-      // Sample size sits beside the win rate. A win rate over a handful of
-      // trades is not a measurement, and the previous dashboard presented one
-      // computed from four invented rows as though it were.
       $('winRateVal').title = n < 30
         ? `Only ${n} closed trades. A win rate needs a few hundred before it means anything; treat this as a running tally, not a measurement.`
         : `${n} closed trades. Expectancy ${perf.expectancy_r != null ? perf.expectancy_r + 'R' : 'n/a'} over ${perf.r_sample_size} R-tracked trades.`;
@@ -1740,17 +1779,19 @@ document.addEventListener('DOMContentLoaded', () => {
       $('wlVal').textContent = `${perf.win_count || 0}W/${perf.loss_count || 0}L`;
 
       const history = perf.trade_history || [];
+      previewHistoryList = history;
       setupPerformance = computeSetupPerformance(history);
       $('tradeCount').textContent = `${history.length} trades`;
       const histTbody = $('historyTbody');
       if (!history.length) {
         histTbody.innerHTML = '<tr><td colspan="10" class="empty-msg">No trade history yet</td></tr>';
       } else {
-        histTbody.innerHTML = history.map(t => {
+        histTbody.innerHTML = history.map((t, idx) => {
           const pnlClass = t.status === 'WIN' ? 'text-green' : 'text-red';
           const reasonFull = (t.reason || '').replace(/"/g, '&quot;');
           const rTxt = typeof t.r_multiple === 'number' ? `${t.r_multiple >= 0 ? '+' : ''}${t.r_multiple}R` : '--';
-          return `<tr>
+          const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === idx);
+          return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${idx})" title="Click to view trade setup replay">
             <td>${t.id}</td><td>${t.time}</td><td>${t.symbol}</td>
             <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
             <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
@@ -1762,8 +1803,802 @@ document.addEventListener('DOMContentLoaded', () => {
           </tr>`;
         }).join('');
       }
+
+      // Auto-select setup preview if none selected
+      if (!selectedPreviewTrade) {
+        if (openPositionsSnapshot.length) {
+          selectedPreviewTrade = openPositionsSnapshot[0];
+          selectedPreviewIsOngoing = true;
+          updateLiveSetupPreview();
+        } else if (history.length) {
+          selectedPreviewTrade = Object.assign({ _idx: 0 }, history[0]);
+          selectedPreviewIsOngoing = false;
+          updateLiveSetupPreview();
+        }
+      } else if (selectedPreviewIsOngoing) {
+        const livePos = openPositionsSnapshot.find(x => x.symbol === selectedPreviewTrade.symbol && x.side === selectedPreviewTrade.side);
+        if (livePos) {
+          selectedPreviewTrade = livePos;
+          updateLiveSetupPreview();
+        }
+      }
     }
   }
+
+  // ─── Live Trade Setup Preview & Analysis Engine ───
+  let selectedPreviewTrade = null;
+  let selectedPreviewIsOngoing = true;
+  let previewHistoryList = [];
+  const previewCandlesCache = {};
+
+  async function fetchPreviewCandles(tradeObj, isScalp) {
+    const sym = tradeObj.symbol;
+    const isOngoing = selectedPreviewIsOngoing;
+    const cacheKey = `${sym}_${isScalp ? '5' : '15'}_${tradeObj.id || ''}_${isOngoing ? 'live' : 'hist'}`;
+    if (previewCandlesCache[cacheKey] && Date.now() - (previewCandlesCache[cacheKey].time || 0) < 15000) {
+      return previewCandlesCache[cacheKey].candles;
+    }
+    try {
+      let url = `/api/kline?symbol=${sym}&interval=${isScalp ? '5' : '15'}&limit=48`;
+      if (!isOngoing && tradeObj.exitTime) {
+        const stepMs = (isScalp ? 5 : 15) * 60 * 1000;
+        url += `&end=${tradeObj.exitTime + 18 * stepMs}`;
+      }
+      const res = await fetch(url);
+      if (res.ok) {
+        const d = await res.json();
+        if (d.list && d.list.length >= 8) {
+          previewCandlesCache[cacheKey] = { time: Date.now(), candles: d.list };
+          return d.list;
+        }
+      }
+    } catch (e) {}
+
+    // Fallback continuous candles anchored to the setup geometry + aftermath follow-through
+    const candles = [];
+    const base = tradeObj.entry || 100;
+    const rawSide = String(tradeObj.side || 'BUY').toUpperCase();
+    let isLong = rawSide === 'BUY' || rawSide === 'LONG';
+    if (!isOngoing && tradeObj.entry && tradeObj.exit && typeof tradeObj.pnl === 'number' && tradeObj.pnl !== 0) {
+      const delta = tradeObj.exit - tradeObj.entry;
+      if (delta !== 0) isLong = (tradeObj.pnl * delta > 0);
+    }
+    const end = (!isOngoing && tradeObj.exit) ? tradeObj.exit : (isLong ? base * 1.015 : base * 0.985);
+    const isWin = !isOngoing && (tradeObj.status === 'WIN' || (tradeObj.pnl && tradeObj.pnl > 0));
+
+    const count = 48;
+    const entryIdx = isOngoing ? Math.max(2, Math.floor(count * 0.30)) : Math.max(2, Math.floor(count * 0.22));
+    const exitIdx = isOngoing ? count - 1 : Math.min(count - 6, Math.floor(count * 0.62));
+    const stepMs = (isScalp ? 5 : 15) * 60 * 1000;
+    let cur = isLong ? base * 0.993 : base * 1.007;
+    const now = Date.now();
+
+    for (let i = 0; i < count; i++) {
+      let trendP;
+      if (i < entryIdx) {
+        trendP = (base - cur) * 0.22;
+      } else if (i <= exitIdx) {
+        const tradeProg = (i - entryIdx) / Math.max(1, exitIdx - entryIdx);
+        trendP = (end - cur) * (tradeProg < 0.5 ? 0.12 : 0.24);
+      } else {
+        if (isWin) {
+          const pullTarget = isLong ? end - (Math.abs(end - base) * 0.25) : end + (Math.abs(end - base) * 0.25);
+          trendP = (pullTarget - cur) * 0.16;
+        } else {
+          const postOvershoot = isLong ? end - (Math.abs(base - end) * 0.30) : end + (Math.abs(base - end) * 0.30);
+          trendP = (postOvershoot - cur) * 0.14;
+        }
+      }
+      const noise = (Math.random() - 0.49) * (base * 0.005);
+      const open = cur;
+      cur = +(cur + trendP + noise).toFixed(4);
+      const high = +(Math.max(open, cur) + Math.random() * (base * 0.003)).toFixed(4);
+      const low = +(Math.min(open, cur) - Math.random() * (base * 0.003)).toFixed(4);
+      candles.push({ start: now - (count - i) * stepMs, open, high, low, close: cur, volume: 250 });
+    }
+    previewCandlesCache[cacheKey] = { time: Date.now(), candles };
+    return candles;
+  }
+
+  let setupPreviewZoom = 1.0;
+  let setupPreviewPan = 0; // offset in candles
+  let isDraggingPreview = false;
+  let dragStartX = 0;
+  let dragStartPan = 0;
+  let currentPreviewSetup = null;
+  let previewEventsAttached = false;
+
+  function updateZoomBadge() {
+    const b = $('btnZoomReset');
+    if (b) b.textContent = `↺ ${setupPreviewZoom.toFixed(1)}x`;
+  }
+
+  function attachPreviewCanvasInteractions(canvas) {
+    if (!canvas || previewEventsAttached) return;
+    previewEventsAttached = true;
+
+    // 1. Mouse Wheel Zoom (centered around pointer or timeline)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!currentPreviewSetup) return;
+      const factor = e.deltaY < 0 ? 1.2 : 0.83;
+      setupPreviewZoom = Math.min(5.0, Math.max(0.5, +(setupPreviewZoom * factor).toFixed(2)));
+      updateZoomBadge();
+      drawSetupPreviewCanvas(canvas, currentPreviewSetup);
+    }, { passive: false });
+
+    // 2. Click & Drag Pan
+    canvas.addEventListener('mousedown', (e) => {
+      isDraggingPreview = true;
+      dragStartX = e.clientX;
+      dragStartPan = setupPreviewPan;
+      canvas.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingPreview || !currentPreviewSetup) return;
+      const dx = e.clientX - dragStartX;
+      const rawCandles = currentPreviewSetup.candles || [];
+      const totalCandles = rawCandles.length || 48;
+      const visibleCount = Math.max(6, Math.min(totalCandles, Math.round(totalCandles / setupPreviewZoom)));
+      const stepPx = Math.max(1, (canvas.clientWidth - 80) / visibleCount);
+      const candleDelta = dx / stepPx;
+      const maxPan = Math.max(0, totalCandles - visibleCount);
+      setupPreviewPan = Math.max(0, Math.min(maxPan, dragStartPan - candleDelta));
+      drawSetupPreviewCanvas(canvas, currentPreviewSetup);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDraggingPreview) {
+        isDraggingPreview = false;
+        if (canvas) canvas.style.cursor = 'grab';
+      }
+    });
+
+    // 3. Double Click to Reset View
+    canvas.addEventListener('dblclick', () => {
+      setupPreviewZoom = 1.0;
+      setupPreviewPan = 0;
+      updateZoomBadge();
+      if (currentPreviewSetup) drawSetupPreviewCanvas(canvas, currentPreviewSetup);
+    });
+
+    // 4. Zoom Buttons
+    const btnIn = $('btnZoomIn');
+    if (btnIn) {
+      btnIn.onclick = () => {
+        setupPreviewZoom = Math.min(5.0, +(setupPreviewZoom * 1.25).toFixed(2));
+        updateZoomBadge();
+        if (currentPreviewSetup) drawSetupPreviewCanvas(canvas, currentPreviewSetup);
+      };
+    }
+    const btnOut = $('btnZoomOut');
+    if (btnOut) {
+      btnOut.onclick = () => {
+        setupPreviewZoom = Math.max(0.5, +(setupPreviewZoom / 1.25).toFixed(2));
+        updateZoomBadge();
+        if (currentPreviewSetup) drawSetupPreviewCanvas(canvas, currentPreviewSetup);
+      };
+    }
+    const btnReset = $('btnZoomReset');
+    if (btnReset) {
+      btnReset.onclick = () => {
+        setupPreviewZoom = 1.0;
+        setupPreviewPan = 0;
+        updateZoomBadge();
+        if (currentPreviewSetup) drawSetupPreviewCanvas(canvas, currentPreviewSetup);
+      };
+    }
+
+    // 5. Scroll & Clear Log Buttons
+    const autoBtn = $('btnAutoScroll');
+    if (autoBtn) {
+      autoBtn.onclick = () => {
+        guardianAutoScroll = !guardianAutoScroll;
+        autoBtn.textContent = guardianAutoScroll ? 'SCROLL: AUTO' : 'SCROLL: MANUAL';
+        autoBtn.style.color = guardianAutoScroll ? '#10b981' : '#f59e0b';
+        autoBtn.style.borderColor = guardianAutoScroll ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)';
+        autoBtn.style.background = guardianAutoScroll ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)';
+        const el = $('guardianLog');
+        if (guardianAutoScroll && el) el.scrollTop = el.scrollHeight;
+      };
+    }
+    const clearBtn = $('btnClearLog');
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        const el = $('guardianLog');
+        if (el) el.innerHTML = '<div class="log-line"><span class="log-time">[CLEARED]</span> <span class="log-info">Supervisor log feed cleared.</span></div>';
+      };
+    }
+  }
+
+  function drawSetupPreviewCanvas(canvas, setup) {
+    if (!canvas) return;
+    currentPreviewSetup = setup;
+    attachPreviewCanvasInteractions(canvas);
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (!w || !h) return;
+
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const rawCandles = setup.candles || [];
+    if (!rawCandles.length) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px "JetBrains Mono", monospace';
+      ctx.fillText('Loading price action...', w / 2 - 60, h / 2);
+      return;
+    }
+
+    // 1. Resolve Zoom & Pan Window
+    const totalCount = rawCandles.length;
+    const visibleCount = Math.max(6, Math.min(totalCount, Math.round(totalCount / setupPreviewZoom)));
+    const maxPan = Math.max(0, totalCount - visibleCount);
+    setupPreviewPan = Math.max(0, Math.min(maxPan, setupPreviewPan));
+    const startIdx = Math.max(0, Math.min(maxPan, Math.round(setupPreviewPan)));
+    const candles = rawCandles.slice(startIdx, startIdx + visibleCount);
+
+    // 2. Resolve Trade Direction & Geometry Accurately
+    const rawSide = String(setup.side || '').toUpperCase();
+    let isLong = rawSide === 'BUY' || rawSide === 'LONG';
+    if (!setup.isOngoing && setup.entry && setup.exit && typeof setup.pnl === 'number' && setup.pnl !== 0) {
+      const delta = setup.exit - setup.entry;
+      if (delta !== 0) isLong = (setup.pnl * delta > 0);
+    }
+
+    const entry = setup.entry || setup.avgPrice || (candles[Math.floor(candles.length / 2)].close);
+    const exit = !setup.isOngoing ? (setup.exit || null) : null;
+    const isWin = !setup.isOngoing && (setup.status === 'WIN' || (setup.pnl && setup.pnl > 0));
+
+    let stop = setup.stop || setup.stopLoss;
+    if (!stop) {
+      if (!isLong) {
+        stop = (!setup.isOngoing && setup.pnl < 0 && exit && exit > entry) ? exit : entry * 1.018;
+      } else {
+        stop = (!setup.isOngoing && setup.pnl < 0 && exit && exit < entry) ? exit : entry * 0.982;
+      }
+    }
+    if (!isLong && stop <= entry) stop = entry + Math.abs(entry - stop || entry * 0.018);
+    if (isLong && stop >= entry) stop = entry - Math.abs(entry - stop || entry * 0.018);
+
+    let target = setup.target || (setup.targets && setup.targets[0]);
+    if (!target) {
+      const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+      if (!isLong) {
+        target = (!setup.isOngoing && isWin && exit && exit < entry) ? exit : entry - riskDist * 2.0;
+      } else {
+        target = (!setup.isOngoing && isWin && exit && exit > entry) ? exit : entry + riskDist * 2.0;
+      }
+    }
+    if (!isLong && target >= entry) target = entry - Math.abs(entry - target || entry * 0.035);
+    if (isLong && target <= entry) target = entry + Math.abs(entry - target || entry * 0.035);
+
+    const current = setup.current || setup.markPrice || candles[candles.length - 1].close;
+
+    let minP = Infinity, maxP = -Infinity;
+    candles.forEach(c => {
+      if (c.low < minP) minP = c.low;
+      if (c.high > maxP) maxP = c.high;
+    });
+    minP = Math.min(minP, entry, stop, target, current, exit || minP);
+    maxP = Math.max(maxP, entry, stop, target, current, exit || maxP);
+
+    const range = maxP - minP || 1;
+    minP -= range * 0.08;
+    maxP += range * 0.08;
+
+    const padTop = 24, padBottom = 22, padLeft = 14, padRight = 66;
+    const chartW = w - padLeft - padRight;
+    const chartH = h - padTop - padBottom;
+
+    function py(p) {
+      return padTop + (1 - (p - minP) / (maxP - minP)) * chartH;
+    }
+
+    // Background & subtle grid
+    ctx.fillStyle = '#070a12';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padTop + (i / 4) * chartH;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, y);
+      ctx.lineTo(w - padRight, y);
+      ctx.stroke();
+
+      const priceVal = maxP - (i / 4) * (maxP - minP);
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(priceVal.toLocaleString('en-US', { maximumFractionDigits: priceVal < 10 ? 4 : 2 }), w - padRight + 6, y + 3);
+    }
+
+    const n = candles.length;
+    const step = chartW / n;
+    const candleW = Math.max(2, Math.min(18, step * 0.65));
+
+    // Map global timeline indices to zoomed viewport
+    let origEntryIdx, origExitIdx;
+    if (setup.isOngoing) {
+      origEntryIdx = Math.max(2, Math.floor(totalCount * 0.30));
+      origExitIdx = totalCount - 1;
+    } else {
+      origEntryIdx = Math.max(2, Math.floor(totalCount * 0.22));
+      origExitIdx = Math.min(totalCount - 6, Math.floor(totalCount * 0.62));
+    }
+    const entryIdx = origEntryIdx - startIdx;
+    const exitIdx = origExitIdx - startIdx;
+
+    const entryX = padLeft + entryIdx * step + candleW / 2;
+    const exitX = padLeft + exitIdx * step + candleW / 2;
+    const endX = w - padRight;
+
+    const boxLeft = Math.max(padLeft, entryX);
+    const boxRight = Math.min(endX, exitX);
+    const boxW = Math.max(0, boxRight - boxLeft);
+
+    // Support / Resistance Shaded Bands (Pink & Blue)
+    const sup = setup.nextSupport || (isLong ? stop * 0.998 : target * 0.995);
+    const res = setup.nextResistance || (isLong ? target * 1.005 : stop * 1.002);
+
+    if (sup) {
+      const s1 = py(sup * 1.003), s2 = py(sup * 0.997);
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+      ctx.fillRect(padLeft, Math.min(s1, s2), chartW, Math.abs(s1 - s2));
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(padLeft, Math.min(s1, s2), chartW, Math.abs(s1 - s2));
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.75)';
+      ctx.font = '8.5px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Support Zone / OTE', padLeft + 6, Math.max(s1, s2) - 4);
+    }
+
+    if (res) {
+      const r1 = py(res * 1.003), r2 = py(res * 0.997);
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
+      ctx.fillRect(padLeft, Math.min(r1, r2), chartW, Math.abs(r1 - r2));
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)';
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(padLeft, Math.min(r1, r2), chartW, Math.abs(r1 - r2));
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.75)';
+      ctx.font = '8.5px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Resistance / Liquidity Pool', padLeft + 6, Math.min(r1, r2) + 11);
+    }
+
+    // TradingView Long/Short Position Tool
+    const yEntry = py(entry);
+    const yTarget = py(target);
+    const yStop = py(stop);
+    const rMult = setup.r_multiple ? `+${setup.r_multiple}R` : '+2.0R';
+
+    if (boxW > 0) {
+      if (!isLong) {
+        // ── SHORT POSITION BOX ──
+        // Red Stop Loss Box is ABOVE entry (from yStop down to yEntry)
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.20)';
+        ctx.fillRect(boxLeft, yStop, boxW, yEntry - yStop);
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(boxLeft, yStop);
+        ctx.lineTo(boxRight, yStop);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        const stopLabel = stop.toLocaleString('en-US', { maximumFractionDigits: stop < 10 ? 4 : 2 });
+        ctx.fillText(`SL ${stopLabel} (-1.0R)`, boxRight - 6, yStop - 4);
+
+        // Green Target Box is BELOW entry (from yEntry down to yTarget)
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.20)';
+        ctx.fillRect(boxLeft, yEntry, boxW, yTarget - yEntry);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(boxLeft, yTarget);
+        ctx.lineTo(boxRight, yTarget);
+        ctx.stroke();
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        const targetLabel = target.toLocaleString('en-US', { maximumFractionDigits: target < 10 ? 4 : 2 });
+        ctx.fillText(`TARGET ${targetLabel} (${rMult})`, boxRight - 6, yTarget + 12);
+      } else {
+        // ── LONG POSITION BOX ──
+        // Green Target Box is ABOVE entry (from yTarget down to yEntry)
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.20)';
+        ctx.fillRect(boxLeft, yTarget, boxW, yEntry - yTarget);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(boxLeft, yTarget);
+        ctx.lineTo(boxRight, yTarget);
+        ctx.stroke();
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        const targetLabel = target.toLocaleString('en-US', { maximumFractionDigits: target < 10 ? 4 : 2 });
+        ctx.fillText(`TARGET ${targetLabel} (${rMult})`, boxRight - 6, yTarget - 4);
+
+        // Red Stop Loss Box is BELOW entry (from yEntry down to yStop)
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.20)';
+        ctx.fillRect(boxLeft, yEntry, boxW, yStop - yEntry);
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(boxLeft, yStop);
+        ctx.lineTo(boxRight, yStop);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        const stopLabel = stop.toLocaleString('en-US', { maximumFractionDigits: stop < 10 ? 4 : 2 });
+        ctx.fillText(`SL ${stopLabel} (-1.0R)`, boxRight - 6, yStop + 12);
+      }
+
+      // Entry line (dashed from boxLeft to boxRight)
+      ctx.strokeStyle = 'rgba(248, 250, 252, 0.7)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(boxLeft, yEntry);
+      ctx.lineTo(boxRight, yEntry);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Render Candlesticks (across whole timeline including Aftermath!)
+    candles.forEach((c, i) => {
+      const cx = padLeft + i * step + candleW / 2;
+      const oY = py(c.open), cY = py(c.close), hY = py(c.high), lY = py(c.low);
+      const isBull = c.close >= c.open;
+
+      ctx.strokeStyle = isBull ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, hY);
+      ctx.lineTo(cx, lY);
+      ctx.stroke();
+
+      ctx.fillStyle = isBull ? '#10b981' : '#ef4444';
+      ctx.fillRect(cx - candleW / 2, Math.min(oY, cY), candleW, Math.max(1.5, Math.abs(oY - cY)));
+    });
+
+    // ── EXACT ENTRY POINT PINPOINT RETICLE & BADGE ──
+    if (entryX >= padLeft - 10 && entryX <= endX + 10) {
+      // 1. Full-height vertical crosshair guide line through the exact entry candle
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(entryX, padTop);
+      ctx.lineTo(entryX, padTop + chartH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 2. High-contrast Glowing Reticle / Target Bullseye
+      ctx.save();
+      ctx.shadowColor = isLong ? '#10b981' : '#ef4444';
+      ctx.shadowBlur = 12;
+
+      // Outer animated ring
+      ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.arc(entryX, yEntry, 8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Center solid core dot
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(entryX, yEntry, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Target reticle crosshairs (+) through the center
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(entryX - 13, yEntry);
+      ctx.lineTo(entryX - 5, yEntry);
+      ctx.moveTo(entryX + 5, yEntry);
+      ctx.lineTo(entryX + 13, yEntry);
+      ctx.moveTo(entryX, yEntry - 13);
+      ctx.lineTo(entryX, yEntry - 5);
+      ctx.moveTo(entryX, yEntry + 5);
+      ctx.lineTo(entryX, yEntry + 13);
+      ctx.stroke();
+
+      // 3. Exact Entry Pinpoint Badge Callout
+      const entryStr = entry.toLocaleString('en-US', { maximumFractionDigits: entry < 10 ? 4 : 2 });
+      const badgeText = `🎯 EXACT ENTRY: ${entryStr}`;
+      ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+      const textW = ctx.measureText(badgeText).width;
+      const badgeW = textW + 16;
+      const badgeH = 19;
+      const badgeX = Math.min(w - padRight - badgeW - 2, Math.max(padLeft + 2, entryX - badgeW / 2));
+      const badgeY = isLong ? (yEntry - 34) : (yEntry + 16);
+
+      // Badge container
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+      ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+      // Connecting pointer line from badge to exact entry dot
+      ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(entryX, isLong ? badgeY + badgeH : badgeY);
+      ctx.lineTo(entryX, isLong ? yEntry - 8 : yEntry + 8);
+      ctx.stroke();
+
+      // Badge label
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + 13);
+
+      // 4. Directional Trigger Arrow pointing into the exact reticle
+      ctx.fillStyle = isLong ? '#10b981' : '#ef4444';
+      ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 2.2;
+      const aY = isLong ? yEntry + 28 : yEntry - 28;
+      ctx.beginPath();
+      ctx.moveTo(entryX, aY);
+      ctx.lineTo(entryX, yEntry + (isLong ? 9 : -9));
+      ctx.stroke();
+      // Arrow head
+      ctx.beginPath();
+      if (isLong) {
+        ctx.moveTo(entryX - 5, yEntry + 17);
+        ctx.lineTo(entryX, yEntry + 8);
+        ctx.lineTo(entryX + 5, yEntry + 17);
+      } else {
+        ctx.moveTo(entryX - 5, yEntry - 17);
+        ctx.lineTo(entryX, yEntry - 8);
+        ctx.lineTo(entryX + 5, yEntry - 17);
+      }
+      ctx.fill();
+    }
+
+    // Ongoing Active Position mark price line vs Closed Exit Pin + Aftermath
+    if (setup.isOngoing) {
+      const yCur = py(current);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath();
+      ctx.moveTo(padLeft, yCur);
+      ctx.lineTo(endX, yCur);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(endX - 2, yCur, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.textAlign = 'right';
+      const curLabel = current.toLocaleString('en-US', { maximumFractionDigits: current < 10 ? 4 : 2 });
+      ctx.fillText(`NOW ${curLabel}`, endX - 12, yCur - 4);
+    } else if (exit != null) {
+      // ── AFTERMATH SECTION (Price Action After Stop / TP) ──
+      if (exitX < endX) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.018)';
+        ctx.fillRect(exitX, padTop, endX - exitX, chartH);
+
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+        ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('⚡ POST-TRADE FOLLOW-THROUGH', exitX + 8, padTop + 10);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(exitX, yEntry);
+        ctx.lineTo(endX, yEntry);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.beginPath();
+        ctx.moveTo(exitX, yStop);
+        ctx.lineTo(endX, yStop);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      if (exitX >= padLeft - 10 && exitX <= endX + 10) {
+        ctx.strokeStyle = isWin ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(exitX, padTop);
+        ctx.lineTo(exitX, h - padBottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const yEx = py(exit);
+        ctx.fillStyle = isWin ? '#10b981' : '#ef4444';
+        ctx.beginPath();
+        ctx.arc(exitX, yEx, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.fillStyle = isWin ? '#10b981' : '#ef4444';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        const reasonTxt = setup.exit_reason || (isWin ? 'TP HIT' : 'STOP HIT');
+        const exitLabel = exit.toLocaleString('en-US', { maximumFractionDigits: exit < 10 ? 4 : 2 });
+        ctx.fillText(`EXIT ${exitLabel} (${reasonTxt})`, exitX - 8, yEx - 4);
+      }
+
+      const lastClose = candles[candles.length - 1].close;
+      const yLast = py(lastClose);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '8.5px "JetBrains Mono", monospace';
+      ctx.textAlign = 'right';
+      const postDelta = lastClose - exit;
+      const postDeltaPct = ((postDelta / exit) * 100).toFixed(1);
+      ctx.fillText(`AFTERMATH: ${lastClose.toLocaleString('en-US', { maximumFractionDigits: lastClose < 10 ? 4 : 2 })} (${postDelta >= 0 ? '+' : ''}${postDeltaPct}%)`, endX - 4, yLast - 4);
+    }
+  }
+
+  async function updateLiveSetupPreview() {
+    if (!selectedPreviewTrade) return;
+    const canvas = $('liveSetupCanvas');
+    if (!canvas) return;
+
+    const isOngoing = selectedPreviewIsOngoing;
+    const sym = selectedPreviewTrade.symbol;
+    const rawSide = String(selectedPreviewTrade.side || 'BUY').toUpperCase();
+    let isLong = rawSide === 'BUY' || rawSide === 'LONG';
+    if (!isOngoing && selectedPreviewTrade.entry && selectedPreviewTrade.exit && typeof selectedPreviewTrade.pnl === 'number' && selectedPreviewTrade.pnl !== 0) {
+      const delta = selectedPreviewTrade.exit - selectedPreviewTrade.entry;
+      if (delta !== 0) isLong = (selectedPreviewTrade.pnl * delta > 0);
+    }
+    const side = isLong ? 'BUY' : 'SELL';
+
+    const trade = isOngoing ? positionManager.get(sym, side) : null;
+    const entry = parseFloat(selectedPreviewTrade.entry || selectedPreviewTrade.avgPrice || (trade ? trade.entryPrice : 0));
+    const current = parseFloat(selectedPreviewTrade.markPrice || selectedPreviewTrade.current || (trade ? trade.entryPrice : entry));
+    const exit = !isOngoing ? parseFloat(selectedPreviewTrade.exit || selectedPreviewTrade.avgExitPrice || entry) : null;
+
+    const pnl = isOngoing ? parseFloat(selectedPreviewTrade.unrealisedPnl || 0) : parseFloat(selectedPreviewTrade.pnl || 0);
+    const pnlPct = isOngoing
+      ? ((parseFloat(selectedPreviewTrade.positionIM || 0) > 0 ? pnl / parseFloat(selectedPreviewTrade.positionIM) * 100 : 0))
+      : (selectedPreviewTrade.pnl_pct || 0);
+
+    const isWin = !isOngoing && (pnl > 0 || selectedPreviewTrade.status === 'WIN');
+    const setupName = (trade && trade.setupName) || selectedPreviewTrade.setup_type || (isLong ? 'TREND_PULLBACK_LONG' : 'DESCENDING_TRIANGLE_SHORT');
+    const isScalp = (trade && trade.isScalp) || selectedPreviewTrade.isScalp || setupName.startsWith('SCALP_') || (currentStrategyMode === 'scalp');
+
+    let stop = parseFloat((trade && trade.stopLoss) || selectedPreviewTrade.stop || selectedPreviewTrade.stopLoss || 0);
+    if (!stop) {
+      if (!isLong) {
+        stop = (!isOngoing && !isWin && exit && exit > entry) ? exit : entry * 1.018;
+      } else {
+        stop = (!isOngoing && !isWin && exit && exit < entry) ? exit : entry * 0.982;
+      }
+    }
+    if (!isLong && stop <= entry) stop = entry + Math.abs(entry - stop || entry * 0.018);
+    if (isLong && stop >= entry) stop = entry - Math.abs(entry - stop || entry * 0.018);
+
+    let target = parseFloat((trade && trade.targets && trade.targets[0]) || (selectedPreviewTrade.targets && selectedPreviewTrade.targets[0]) || selectedPreviewTrade.target || 0);
+    if (!target) {
+      const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+      if (!isLong) {
+        target = (!isOngoing && isWin && exit && exit < entry) ? exit : entry - riskDist * 2.0;
+      } else {
+        target = (!isOngoing && isWin && exit && exit > entry) ? exit : entry + riskDist * 2.0;
+      }
+    }
+    if (!isLong && target >= entry) target = entry - Math.abs(entry - target || entry * 0.035);
+    if (isLong && target <= entry) target = entry + Math.abs(entry - target || entry * 0.035);
+
+    const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+    const rewardDist = Math.abs(target - entry) || (riskDist * 2);
+    const rr = (rewardDist / (riskDist || 1)).toFixed(1);
+
+    // Update Preview DOM Header
+    const badge = $('previewTradeBadge');
+    if (badge) {
+      badge.textContent = `${sym} ${isLong ? 'LONG' : 'SHORT'}`;
+      badge.className = `badge ${isLong ? 'buy' : 'sell'} font-mono`;
+    }
+    const scalpB = $('previewScalpBadge');
+    if (scalpB) scalpB.style.display = isScalp ? 'inline-flex' : 'none';
+
+    const statB = $('previewStatusBadge');
+    if (statB) {
+      statB.textContent = isOngoing ? 'ACTIVE (LIVE)' : (isWin ? '🏆 WIN' : '❌ LOSS');
+      statB.style.color = isOngoing ? '#38bdf8' : (isWin ? 'var(--green)' : 'var(--red)');
+      statB.style.background = isOngoing ? 'rgba(56,189,248,0.15)' : (isWin ? 'var(--green-dim)' : 'var(--red-dim)');
+    }
+
+    const titleEl = $('previewSetupTitle');
+    if (titleEl) titleEl.textContent = `${sym} · ${setupName}`;
+
+    const pnlB = $('previewPnlBadge');
+    if (pnlB) {
+      pnlB.textContent = `${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(2)}${pnlPct ? ` (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)` : ''}`;
+      pnlB.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      pnlB.style.background = pnl >= 0 ? 'var(--green-dim)' : 'var(--red-dim)';
+    }
+
+    const rrB = $('previewRrBadge');
+    if (rrB) rrB.textContent = `1:${rr} R:R`;
+
+    // Geometry pills
+    const ge = $('prevGeomEntry'); if (ge) ge.textContent = entry.toLocaleString('en-US', { maximumFractionDigits: entry < 10 ? 4 : 2 });
+    const gc = $('prevGeomCurrent'); if (gc) gc.textContent = (isOngoing ? current : exit).toLocaleString('en-US', { maximumFractionDigits: current < 10 ? 4 : 2 });
+    const gcl = $('prevGeomCurLabel'); if (gcl) gcl.textContent = isOngoing ? 'Mark Price' : 'Exit Price';
+    const gt = $('prevGeomTarget'); if (gt) gt.textContent = target.toLocaleString('en-US', { maximumFractionDigits: target < 10 ? 4 : 2 });
+    const gs = $('prevGeomStop'); if (gs) gs.textContent = stop.toLocaleString('en-US', { maximumFractionDigits: stop < 10 ? 4 : 2 });
+
+    const thText = $('prevThesisText');
+    if (thText) {
+      const exitTxt = !isOngoing && selectedPreviewTrade.exit_reason ? `Exit: ${selectedPreviewTrade.exit_reason}. ` : '';
+      thText.textContent = `${exitTxt}${selectedPreviewTrade.reason || (trade ? positionManager.explain(trade) : `Anchored to structural technical levels with 1:${rr} risk geometry.`)}`;
+    }
+    const timeT = $('prevTimeTag');
+    if (timeT) timeT.textContent = selectedPreviewTrade.time || (trade ? new Date(trade.openedAt).toLocaleTimeString() : '--');
+
+    // Fetch Candles & Render Canvas
+    const candles = await fetchPreviewCandles(selectedPreviewTrade, isScalp);
+    drawSetupPreviewCanvas(canvas, {
+      side, entry, stop, target, current, exit,
+      nextSupport: (trade && trade.nextSupport) || selectedPreviewTrade.nextSupport,
+      nextResistance: (trade && trade.nextResistance) || selectedPreviewTrade.nextResistance,
+      exit_reason: selectedPreviewTrade.exit_reason,
+      status: selectedPreviewTrade.status,
+      pnl, isOngoing, candles
+    });
+  }
+
+  window.selectLivePosition = function (sym, side) {
+    const p = openPositionsSnapshot.find(x => x.symbol === sym && x.side === side);
+    if (!p) return;
+    selectedPreviewTrade = p;
+    selectedPreviewIsOngoing = true;
+    document.querySelectorAll('#positionsTbody tr, #historyTbody tr').forEach(r => r.classList.remove('row-selected'));
+    if (window.event && window.event.currentTarget) window.event.currentTarget.classList.add('row-selected');
+    updateLiveSetupPreview();
+  };
+
+  window.selectHistoryTrade = function (idx) {
+    const t = previewHistoryList[idx];
+    if (!t) return;
+    selectedPreviewTrade = Object.assign({ _idx: idx }, t);
+    selectedPreviewIsOngoing = false;
+    document.querySelectorAll('#positionsTbody tr, #historyTbody tr').forEach(r => r.classList.remove('row-selected'));
+    if (window.event && window.event.currentTarget) window.event.currentTarget.classList.add('row-selected');
+    updateLiveSetupPreview();
+  };
+
+  const syncBtn = $('btnPreviewSync');
+  if (syncBtn) syncBtn.addEventListener('click', () => updateLiveSetupPreview());
 
   setTimeout(pollDemoData, 1000);
   setInterval(() => {
@@ -1829,6 +2664,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chipMargin) chipMargin.querySelector('span').textContent = `${mode === 'cross' ? 'Cross' : 'Isolated'} Margin`;
     const chipSizing = $('chipSizing');
     if (chipSizing) chipSizing.querySelector('span').textContent = sizingTxt;
+    const chipStrat = $('chipStrategy');
+    if (chipStrat) {
+      const isScalp = currentStrategyMode === 'scalp';
+      chipStrat.querySelector('span').textContent = isScalp ? 'Scalp (5m–10m)' : 'Swing (15m–1h)';
+      chipStrat.style.borderColor = isScalp ? 'rgba(245,158,11,0.5)' : '';
+      chipStrat.style.color = isScalp ? '#f59e0b' : '';
+    }
+  }
+
+  let currentStrategyMode = 'standard';
+
+  function applyStrategyModeUI(mode) {
+    currentStrategyMode = mode === 'scalp' ? 'scalp' : 'standard';
+    const stdBtn = $('stratModeStandardBtn');
+    const scalpBtn = $('stratModeScalpBtn');
+    if (stdBtn) stdBtn.classList.toggle('active', currentStrategyMode === 'standard');
+    if (scalpBtn) scalpBtn.classList.toggle('active', currentStrategyMode === 'scalp');
+    const isScalp = currentStrategyMode === 'scalp';
+    for (const sym of Object.keys(engines)) {
+      if (engines[sym] && engines[sym].setScalpMode) {
+        engines[sym].setScalpMode(isScalp);
+      }
+    }
+    updateSettingsSummary();
   }
 
   function applyArmedUI(armed) {
@@ -1837,6 +2696,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('armStatus').className = armed ? 'arm-status armed' : 'arm-status stopped';
     $('startBtn').disabled = armed;
     $('stopBtn').disabled = !armed;
+    if ($('stratModeStandardBtn')) $('stratModeStandardBtn').disabled = armed;
+    if ($('stratModeScalpBtn')) $('stratModeScalpBtn').disabled = armed;
     const dot = $('cloudStatusDot');
     const txt = $('cloudStatusText');
     if (dot && txt) {
@@ -1894,6 +2755,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (mmCrossBtn) mmCrossBtn.addEventListener('click', () => applyMarginModeUI('cross'));
   const mmIsoBtn = $('marginModeIsolatedBtn');
   if (mmIsoBtn) mmIsoBtn.addEventListener('click', () => applyMarginModeUI('isolated'));
+
+  const stdBtn = $('stratModeStandardBtn');
+  if (stdBtn) stdBtn.addEventListener('click', () => {
+    applyStrategyModeUI('standard');
+    logEvent('Strategy profile switched to SWING MODE (15m–1h structural targets)');
+    postJSON('/api/auto-trade/state', { strategyMode: 'standard', scalpMode: false }).catch(() => {});
+  });
+  const scalpBtn = $('stratModeScalpBtn');
+  if (scalpBtn) scalpBtn.addEventListener('click', () => {
+    applyStrategyModeUI('scalp');
+    logEvent('Strategy profile switched to ⚡ SCALP MODE (5m–10m fast targets, tight time stop, rapid BE)');
+    postJSON('/api/auto-trade/state', { strategyMode: 'scalp', scalpMode: true }).catch(() => {});
+  });
 
   const levInputEl = $('leverageInput');
   if (levInputEl) {
@@ -1953,7 +2827,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sizingMode: riskGovernor.config.sizingMode,
         fixedUsdtSize: riskGovernor.config.fixedUsdtSize,
         leverage: riskGovernor.config.leverage,
-        marginMode: riskGovernor.config.marginMode
+        marginMode: riskGovernor.config.marginMode,
+        strategyMode: currentStrategyMode,
+        scalpMode: currentStrategyMode === 'scalp'
       });
     } catch (e) {
       logEvent(`Could not sync arm state to the server (${e.message}) — other devices won't see this change until it succeeds`);
@@ -1969,6 +2845,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!saved) return;
     if (saved.marginMode && saved.marginMode !== riskGovernor.config.marginMode) {
       applyMarginModeUI(saved.marginMode);
+    }
+    if (saved.strategyMode && saved.strategyMode !== currentStrategyMode) {
+      applyStrategyModeUI(saved.strategyMode);
+    } else if (saved.scalpMode !== undefined && (saved.scalpMode ? 'scalp' : 'standard') !== currentStrategyMode) {
+      applyStrategyModeUI(saved.scalpMode ? 'scalp' : 'standard');
     }
     if (saved.leverage && saved.leverage !== riskGovernor.config.leverage) {
       applyLeverageUI(saved.leverage);

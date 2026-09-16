@@ -289,6 +289,77 @@ def save_trade_stats():
         print(f"[Stats] Failed to save stats: {e}")
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# Kline / Candlestick Cache & Multi-Exchange Proxy
+# ─────────────────────────────────────────────────────────────────────────
+_kline_cache = {}
+_kline_lock = threading.Lock()
+
+def get_cached_klines(symbol, interval="5", limit=60, end_time=None):
+    cache_key = f"{symbol}_{interval}_{limit}_{end_time or 'latest'}"
+    now = time.time()
+    with _kline_lock:
+        if cache_key in _kline_cache:
+            entry = _kline_cache[cache_key]
+            if now - entry["time"] < 15:  # 15s TTL
+                return entry["data"]
+
+    candles = []
+    # 1. Bybit Linear Kline
+    bybit_url = f"https://api.bybit.com/v5/market/kline?category=linear&symbol={symbol}&interval={interval}&limit={limit}"
+    if end_time:
+        bybit_url += f"&end={end_time}"
+    try:
+        req = urllib.request.Request(bybit_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            raw_list = data.get("result", {}).get("list", [])
+            if raw_list:
+                for r in reversed(raw_list):
+                    candles.append({
+                        "start": int(r[0]),
+                        "open": float(r[1]),
+                        "high": float(r[2]),
+                        "low": float(r[3]),
+                        "close": float(r[4]),
+                        "volume": float(r[5])
+                    })
+    except Exception as e:
+        pass
+
+    # 2. OKX Fallback if Bybit returned nothing
+    if not candles:
+        okx_interval_map = {"1": "1m", "3": "3m", "5": "5m", "15": "15m", "30": "30m", "60": "1H", "120": "2H", "240": "4H", "D": "1D"}
+        bar = okx_interval_map.get(str(interval), "5m")
+        inst_id = symbol.replace("USDT", "-USDT-SWAP")
+        okx_url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={bar}&limit={limit}"
+        try:
+            req = urllib.request.Request(okx_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                raw_list = data.get("data", [])
+                if raw_list:
+                    for r in reversed(raw_list):
+                        candles.append({
+                            "start": int(r[0]),
+                            "open": float(r[1]),
+                            "high": float(r[2]),
+                            "low": float(r[3]),
+                            "close": float(r[4]),
+                            "volume": float(r[5])
+                        })
+        except Exception as e:
+            pass
+
+    with _kline_lock:
+        if candles:
+            _kline_cache[cache_key] = {"time": now, "data": candles}
+        elif cache_key in _kline_cache:
+            return _kline_cache[cache_key]["data"]
+
+    return candles
+
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # LLM call budget.
@@ -762,14 +833,53 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     l_count += 1
                     g_loss += abs(pnl)
                 extra = annotate(row)
+                entry_p = float(row.get("avgEntryPrice") or 0)
+                exit_p = float(row.get("avgExitPrice") or 0)
+
+                # In Bybit V5 closed-pnl, row.get("side") is the CLOSING order's side (Buy to close a Short).
+                # Mathematically: if exit > entry and pnl < 0, trade lost money as price rose => SHORT (SELL).
+                raw_side = str(row.get("side", "")).upper()
+                pos_side = extra.get("side")
+                if not pos_side:
+                    price_delta = exit_p - entry_p
+                    if price_delta != 0 and pnl != 0:
+                        pos_side = "BUY" if (pnl * price_delta > 0) else "SELL"
+                    else:
+                        pos_side = "SELL" if raw_side == "BUY" else "BUY"
+
+                is_short = pos_side.upper() in ("SELL", "SHORT")
+
+                stop_val = float(extra.get("stop", 0) or extra.get("stopLoss", 0) or 0)
+                target_list = extra.get("targets") or ([] if not extra.get("target") else [extra.get("target")])
+                if not stop_val:
+                    if pnl < 0 and exit_p:
+                        stop_val = exit_p  # trade stopped out at exit price
+                    else:
+                        stop_val = round(entry_p * (1.018 if is_short else 0.982), 4)
+
+                if not target_list:
+                    if pnl > 0 and exit_p:
+                        target_list = [exit_p]  # trade reached target at exit price
+                    else:
+                        risk_dist = abs(entry_p - stop_val) if stop_val else (entry_p * 0.015)
+                        target_val = round(entry_p - risk_dist * 2.0 if is_short else entry_p + risk_dist * 2.0, 4)
+                        target_list = [target_val]
+
                 merged.append({
                     "id": row.get("orderId", "")[-8:] or "--",
                     "time": time.strftime("%Y-%m-%d %H:%M", time.localtime(
                         int(row.get("updatedTime") or row.get("createdTime") or 0) / 1000)),
+                    "exitTime": int(row.get("updatedTime") or row.get("createdTime") or 0),
+                    "createdTime": int(row.get("createdTime") or 0),
                     "symbol": row.get("symbol"),
-                    "side": str(row.get("side", "")).upper(),
-                    "entry": float(row.get("avgEntryPrice") or 0),
-                    "exit": float(row.get("avgExitPrice") or 0),
+                    "side": pos_side.upper(),
+                    "entry": entry_p,
+                    "exit": exit_p,
+                    "stop": stop_val,
+                    "targets": target_list,
+                    "nextSupport": extra.get("nextSupport"),
+                    "nextResistance": extra.get("nextResistance"),
+                    "isScalp": bool(extra.get("isScalp")),
                     "pnl": round(pnl, 4),
                     "pnl_pct": round(float(row.get("closedPnl", 0)) / max(float(row.get("cumEntryValue") or 1), 1e-9) * 100, 3),
                     "status": "WIN" if pnl > 0 else "LOSS",
@@ -828,6 +938,21 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith("/api/market-overview"):
             res = get_market_overview_state()
             self._send_json(200, res)
+            return
+
+        # 6a. API: Kline / Candlestick feed proxy with caching
+        if self.path.startswith("/api/kline"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed_url.query)
+            symbol = (q.get("symbol") or ["BTCUSDT"])[0].upper()
+            interval = (q.get("interval") or ["5"])[0]
+            end_time = (q.get("end") or [None])[0]
+            try:
+                limit = min(200, max(10, int((q.get("limit") or ["60"])[0])))
+            except Exception:
+                limit = 60
+            candles = get_cached_klines(symbol, interval, limit, end_time)
+            self._send_json(200, {"retCode": 0, "symbol": symbol, "interval": interval, "list": candles})
             return
 
         # 6b. API: Trades and suggestions record (matches Vercel api/trades/record)
@@ -1053,6 +1178,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     "side": str(body.get("side", "")).upper(),
                     "entry": float(body.get("entry", 0) or 0),
                     "exit": float(body.get("exit", 0) or 0),
+                    "stop": float(body.get("stop", 0) or body.get("stopLoss", 0) or 0),
+                    "targets": body.get("targets") or ([] if not body.get("target") else [body.get("target")]),
+                    "nextSupport": body.get("nextSupport"),
+                    "nextResistance": body.get("nextResistance"),
+                    "isScalp": bool(body.get("isScalp")),
                     "pnl": pnl,
                     "status": "WIN" if pnl > 0 else "LOSS",
                     "setup_type": body.get("setup_type", ""),

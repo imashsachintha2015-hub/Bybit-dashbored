@@ -1223,3 +1223,93 @@ body {
   .nav-item, .sym-pill, .int-btn, .coin-card, button { min-height: 36px; }
   .mobile-nav-toggle { min-height: 44px; min-width: 44px; }
 }
+
+/* ═══════════ LIVE TRADE SETUP PREVIEW & ANALYSIS ═══════════ */
+.live-trade-analysis-card {
+  margin-top: 14px;
+}
+.setup-preview-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 14px;
+  padding: 14px 16px;
+}
+@media (max-width: 1024px) {
+  .setup-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.setup-chart-container {
+  background: #0B1120;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.setup-analysis-container {
+  background: #0B1120;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: 380px;
+  overflow: hidden;
+}
+.terminal-feed {
+  flex: 1;
+  height: 330px;
+  max-height: 330px;
+  overflow-y: scroll !important;
+  overflow-x: hidden;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: #94A3B8;
+  background: #070A12;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+.terminal-feed::-webkit-scrollbar {
+  width: 7px;
+}
+.terminal-feed::-webkit-scrollbar-track {
+  background: #070A12;
+}
+.terminal-feed::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+}
+.terminal-feed::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.6);
+}
+.terminal-feed .log-line {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  word-break: break-word;
+}
+.terminal-feed .log-time { color: #64748B; margin-right: 6px; }
+.terminal-feed .log-veto { color: #EF4444; font-weight: 700; }
+.terminal-feed .log-stop { color: #EF4444; }
+.terminal-feed .log-win { color: #10B981; font-weight: 700; }
+.terminal-feed .log-info { color: #38BDF8; }
+.terminal-feed .log-scalp { color: #F59E0B; font-weight: 700; }
+
+.chart-zoom-toolbar button:hover {
+  background: rgba(56, 189, 248, 0.25) !important;
+}
+
+
+.data-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.data-table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+.data-table tbody tr.row-selected {
+  background: rgba(56, 189, 248, 0.14) !important;
+  border-left: 3px solid #38BDF8;
+}
+

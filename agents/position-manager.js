@@ -58,12 +58,15 @@
     timeStopBars: 18,                 // MTF bars before a going-nowhere trade is retired
     timeStopMinR: 0.25,               // ...unless it has made at least this much
     breakEvenAfterTp: 1,              // move stop to entry once TP1 is banked
-    trailAfterTp: 2,                  // start trailing once TP2 is banked
-    trailAtrMultiple: 2.0,
-    // Research §8.4: 50/50 Scaled Liquidity Exit Protocol.
-    // TP1: 50% of position at first structural shelf (min 2:1 R:R), stop to BE.
-    // TP2: remaining 50% trails along HTF swing levels for macro trend capture.
-    scaleOutFractions: [0.50, 0.50],
+    trailAfterTp: 1,                  // start trailing once TP1 is banked (was TP2)
+    // ── 3-Target Scaled Exit Protocol ──
+    // TP1: 25% → quick profit coverage at nearest S/R wall
+    // TP2: 35% → second structural level or VP HVN
+    // TP3: 40% → runner that trails with tightening ATR stop
+    scaleOutFractions: [0.25, 0.35, 0.40],
+    // ── Progressive Trailing Stop (tightens per TP level) ──
+    trailAtrMultiples: [2.0, 1.2, 0.8],  // ATR multiplier per stage
+    trailAtrMultiple: 2.0,               // fallback for legacy 2-target code
     // Whether a confirmed close beyond the invalidation level closes the trade
     // ahead of the stop. Sounds obviously right; measured below.
     useStructuralExit: true,
@@ -71,8 +74,33 @@
     roiBreakEvenPct: 12.0,            // Automatically move stop to entry once ROI >= +12% (1.2% price move at 10x)
     rBreakEvenThreshold: 1.0,         // ...or once unrealised R reaches +1.0R, even before TP1 fills
     srProximityAtr: 0.20,             // Bank partial profit if price comes within 0.20 ATR of opposing S/R wall
-    srCoverageFraction: 0.50,         // Fraction to bank when hitting S/R wall
-    srMinProfitR: 0.70                // S/R coverage requires at least +0.70R profit
+    srCoverageFraction: 0.50,         // Fraction to bank when hitting S/R wall (uses TP1 slot)
+    srMinProfitR: 0.70,               // S/R coverage requires at least +0.70R profit
+    // ── Momentum Exhaustion Exit ──
+    momentumExitEnabled: true,        // Close runner when RSI signals exhaustion
+    momentumExitMinR: 2.0,            // Only trigger if position is at least +2.0R
+    momentumExitRsiLong: 70,          // RSI crossing below this closes long runner
+    momentumExitRsiShort: 30          // RSI crossing above this closes short runner
+  };
+
+  const SCALP_DEFAULTS = {
+    gracePeriodMs: 60 * 1000,          // 1-minute grace period for fast 5m scalps
+    timeStopBars: 3,                   // 3 bars of 5m (~15 min max duration)
+    timeStopMinR: 0.20,
+    timeStopMaxMs: 12 * 60 * 1000,     // 12-minute wall clock timeout for scalps
+    breakEvenAfterTp: 1,
+    trailAfterTp: 1,
+    scaleOutFractions: [0.60, 0.40],   // 60% bank at TP1, 40% runner to TP2
+    trailAtrMultiples: [0.8, 0.5],     // Tight trailing stop
+    roiBreakEvenPct: 5.0,              // Ratchet stop to BE at +5% ROI
+    rBreakEvenThreshold: 0.40,         // Ratchet stop to BE at +0.40R
+    srProximityAtr: 0.15,
+    srCoverageFraction: 0.60,
+    srMinProfitR: 0.35,
+    momentumExitEnabled: true,
+    momentumExitMinR: 0.70,            // Scalp momentum exhaustion fires earlier
+    momentumExitRsiLong: 68,
+    momentumExitRsiShort: 32
   };
 
   const EXIT = {
@@ -82,6 +110,7 @@
     STRUCTURE_BROKEN: 'STRUCTURE_BROKEN',
     THESIS_FLIP: 'THESIS_FLIP',
     TIME_STOP: 'TIME_STOP',
+    MOMENTUM_EXIT: 'MOMENTUM_EXIT',
     EMERGENCY: 'EMERGENCY'
   };
 
@@ -107,9 +136,10 @@
         openedAt: this.now(),
         barsHeld: 0,
         lastBarSeen: null,
-        tpFilled: [false, false],
+        tpFilled: [false, false, false],
         stopMovedToBreakEven: false,
         trailingStop: null,
+        trailStage: 0,             // which ATR multiplier stage (0=initial, 1=after TP1, 2=after TP2)
         flipStreak: 0,
         realisedR: 0,
         remainingFraction: 1,
@@ -148,6 +178,21 @@
       const age = this.now() - trade.openedAt;
       const inProfit = r > 0.05;
       const isLong = trade.side === 'Buy';
+      const isScalp = !!trade.isScalp;
+
+      // ── Dynamic parameter resolution (Scalp vs Standard) ──
+      const gracePeriodMs = isScalp ? (this.config.scalpGracePeriodMs || SCALP_DEFAULTS.gracePeriodMs) : this.config.gracePeriodMs;
+      const srMinProfitR = isScalp ? (this.config.scalpSrMinProfitR || SCALP_DEFAULTS.srMinProfitR) : (this.config.srMinProfitR || 0.70);
+      const srCoverageFraction = isScalp ? (this.config.scalpSrCoverageFraction || SCALP_DEFAULTS.srCoverageFraction) : (this.config.srCoverageFraction || 0.50);
+      const srProximityAtr = isScalp ? (this.config.scalpSrProximityAtr || SCALP_DEFAULTS.srProximityAtr) : (this.config.srProximityAtr || 0.20);
+      const scaleOutFractions = isScalp ? (this.config.scalpScaleOutFractions || SCALP_DEFAULTS.scaleOutFractions) : this.config.scaleOutFractions;
+      const rBreakEvenThreshold = isScalp ? (this.config.scalpRBreakEvenThreshold || SCALP_DEFAULTS.rBreakEvenThreshold) : (this.config.rBreakEvenThreshold || 1.0);
+      const roiBreakEvenPct = isScalp ? (this.config.scalpRoiBreakEvenPct || SCALP_DEFAULTS.roiBreakEvenPct) : (this.config.roiBreakEvenPct || 12.0);
+      const trailAtrMultiples = isScalp ? (this.config.scalpTrailAtrMultiples || SCALP_DEFAULTS.trailAtrMultiples) : (this.config.trailAtrMultiples || [2.0, 1.2, 0.8]);
+      const minTrailR = isScalp ? 0.5 : 1.2;
+      const momentumExitMinR = isScalp ? (this.config.scalpMomentumExitMinR || SCALP_DEFAULTS.momentumExitMinR) : (this.config.momentumExitMinR || 2.0);
+      const timeStopBars = isScalp ? (this.config.scalpTimeStopBars || SCALP_DEFAULTS.timeStopBars) : this.config.timeStopBars;
+      const timeStopMinR = isScalp ? (this.config.scalpTimeStopMinR || SCALP_DEFAULTS.timeStopMinR) : this.config.timeStopMinR;
 
       const lev = trade.leverage || 10;
       const priceMovePct = trade.entryPrice > 0 ? (Math.abs(price - trade.entryPrice) / trade.entryPrice) * 100 : 0;
@@ -164,17 +209,17 @@
 
       // ── 2A. S/R Resistance / Support Collision: bank profit coverage before reversal ──
       const opposingLevel = isLong ? (market.nextResistance || trade.nextResistance) : (market.nextSupport || trade.nextSupport);
-      if (opposingLevel && !trade.tpFilled[0] && r >= (this.config.srMinProfitR || 0.70)) {
+      if (opposingLevel && !trade.tpFilled[0] && r >= srMinProfitR) {
         const atr = market.atr || (trade.riskDist * 0.5);
         const distToSr = isLong ? opposingLevel - price : price - opposingLevel;
-        // Within 0.20 ATR of the opposing structure wall
-        if (distToSr <= atr * (this.config.srProximityAtr || 0.20)) {
+        // Within proximity ATR of the opposing structure wall
+        if (distToSr <= atr * srProximityAtr) {
           return {
             action: 'SCALE_OUT',
             tpIndex: 0,
-            fraction: this.config.srCoverageFraction || 0.50,
+            fraction: srCoverageFraction,
             reason: EXIT.SR_COLLISION,
-            detail: `Opposing structural ${isLong ? 'resistance' : 'support'} at ${opposingLevel} tested (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — banking ${Math.round((this.config.srCoverageFraction || 0.50) * 100)}% profit coverage before potential reversal`
+            detail: `Opposing structural ${isLong ? 'resistance' : 'support'} at ${opposingLevel} tested (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — banking ${Math.round(srCoverageFraction * 100)}% profit coverage before potential reversal`
           };
         }
       }
@@ -185,23 +230,23 @@
         const level = trade.targets[i];
         const reached = isLong ? price >= level : price <= level;
         if (!reached) break; // ordered near-to-far; never skip ahead
+        const frac = scaleOutFractions[Math.min(i, scaleOutFractions.length - 1)];
         return {
           action: 'SCALE_OUT',
           tpIndex: i,
-          fraction: this.config.scaleOutFractions[i],
+          fraction: frac,
           reason: EXIT.TARGET,
-          detail: `TP${i + 1} reached at ${level} (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — banking ${Math.round(this.config.scaleOutFractions[i] * 100)}% of the original size`
+          detail: `TP${i + 1} reached at ${level} (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — banking ${Math.round(frac * 100)}% of the original size`
         };
       }
 
       // ── 3. Stop management: Dual-Trigger Capital Protection & Trailing Stop ──
-      // Milestone break-even: if trade hits TP1, OR hits +1.0R, OR reaches +12% ROI,
-      // move stop to break-even immediately. A trade that is up +15% or +20% ROI must
-      // NEVER be allowed to turn red.
+      // Milestone break-even: if trade hits TP1, OR hits break-even R, OR reaches ROI threshold,
+      // move stop to break-even immediately. A trade that is in profit must NEVER turn red.
       const reachedBeMilestone = inProfitDirection && (
         trade.tpFilled[this.config.breakEvenAfterTp - 1] ||
-        r >= (this.config.rBreakEvenThreshold || 1.0) ||
-        roiPct >= (this.config.roiBreakEvenPct || 12.0)
+        r >= rBreakEvenThreshold ||
+        roiPct >= roiBreakEvenPct
       );
 
       if (reachedBeMilestone && !trade.stopMovedToBreakEven) {
@@ -209,14 +254,15 @@
           action: 'MOVE_STOP',
           newStop: trade.entryPrice,
           reason: 'BREAK_EVEN',
-          detail: `Capital protection milestone reached (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — stop ratcheted to break-even at ${trade.entryPrice}. Trade is now risk-free.`
+          detail: `Capital protection milestone reached (${r.toFixed(2)}R, +${roiPct.toFixed(1)}% ROI) — stop ratcheted to break-even at ${trade.entryPrice}. ${isScalp ? 'Scalp' : 'Trade'} is now risk-free.`
         };
       }
 
-      // Trailing stop: activates once TP1/BE is established and runner extends (>= 1.2R)
-      const canTrail = (trade.stopMovedToBreakEven || trade.tpFilled[0]) && market.atr && r >= 1.2;
+      // ── Progressive Trailing Stop (tightens per TP level) ──
+      const canTrail = (trade.stopMovedToBreakEven || trade.tpFilled[0]) && market.atr && r >= minTrailR;
       if (canTrail) {
-        const trailAtrMult = this.config.trailAtrMultiple || 1.5;
+        const stage = trade.trailStage || 0;
+        const trailAtrMult = trailAtrMultiples[Math.min(stage, trailAtrMultiples.length - 1)] || 1.0;
         const trail = isLong
           ? price - market.atr * trailAtrMult
           : price + market.atr * trailAtrMult;
@@ -228,16 +274,28 @@
             action: 'MOVE_STOP',
             newStop: +trail.toFixed(6),
             reason: 'TRAIL',
-            detail: `Trailing stop to ${trail.toFixed(4)} (${trailAtrMult} ATR behind price) — locking in profit while letting runner extend`
+            detail: `Trailing stop to ${trail.toFixed(4)} (stage ${stage}: ${trailAtrMult} ATR behind price) — locking in profit while letting runner extend`
+          };
+        }
+      }
+
+      // ── Momentum Exhaustion Exit ──
+      if (this.config.momentumExitEnabled && market.rsi != null && r >= momentumExitMinR && trade.tpFilled[0]) {
+        const exhausted = isLong
+          ? market.rsi < (this.config.momentumExitRsiLong || 70)
+          : market.rsi > (this.config.momentumExitRsiShort || 30);
+        if (exhausted) {
+          return {
+            action: 'CLOSE_ALL',
+            reason: 'MOMENTUM_EXIT',
+            detail: `Momentum exhaustion at +${r.toFixed(2)}R: RSI ${market.rsi.toFixed(1)} crossed exhaustion threshold — banking remaining ${(trade.remainingFraction * 100).toFixed(0)}% runner`
           };
         }
       }
 
       // ── 4. Grace period: the ordinary post-entry retrace is not a signal ──
-      // Almost every entry goes slightly against you first. The old guardian
-      // treated that universal fact as an invalidation.
-      if (age < this.config.gracePeriodMs) {
-        hold.reasons.push(`Within the ${Math.round(this.config.gracePeriodMs / 60000)}-minute grace window — only the hard stop applies while the trade is establishing itself`);
+      if (age < gracePeriodMs) {
+        hold.reasons.push(`Within the ${Math.round(gracePeriodMs / 60000) || 1}-minute grace window — only the hard stop applies while trade establishes itself`);
         return hold;
       }
 
@@ -256,8 +314,7 @@
         }
       }
 
-      // ── 6. Thesis flip: must be strong, must persist, and must not be a
-      // profitable trade. A winner never gets cut on an opinion. ──
+      // ── 6. Thesis flip: must be strong, must persist, and must not be a profitable trade ──
       const opp = market.opposingSignal;
       const oppAgainstUs = opp && ((isLong && opp.direction === 'SHORT') || (!isLong && opp.direction === 'LONG'));
       if (oppAgainstUs && (opp.grade === 'A+' || opp.grade === 'A')) {
@@ -281,21 +338,26 @@
         trade.lastBarSeen = market.confirmedCandle.start;
         trade.barsHeld++;
       }
-      // Once TP1 is banked and the stop is at break-even, the remainder costs
-      // nothing to hold: its worst case is zero. Retiring it on a clock throws
-      // away the only part of the distribution that pays for the losers, and
-      // the first cut of this did exactly that — the backtest showed the time
-      // stop closing two thirds of all trades, most of them still alive.
       const isFreeOption = trade.stopMovedToBreakEven || trade.tpFilled[0];
-      if (!isFreeOption && trade.barsHeld >= this.config.timeStopBars && r < this.config.timeStopMinR) {
+
+      // Wall-clock scalp timeout (10-12 minutes max)
+      if (isScalp && !isFreeOption && age >= (this.config.scalpTimeStopMaxMs || SCALP_DEFAULTS.timeStopMaxMs) && r < timeStopMinR) {
         return {
           action: 'CLOSE_ALL',
           reason: EXIT.TIME_STOP,
-          detail: `${trade.barsHeld} bars held and still only ${r.toFixed(2)}R — the move this setup predicted has not happened, so the risk is better deployed elsewhere`
+          detail: `Scalp time limit reached (${Math.round(age / 60000)}m elapsed) at only ${r.toFixed(2)}R — closing dead 5m/10m scalp to free margin`
         };
       }
 
-      hold.reasons.push(`Holding: ${r >= 0 ? '+' : ''}${r.toFixed(2)}R, structure intact, ${trade.barsHeld}/${this.config.timeStopBars} bars used`);
+      if (!isFreeOption && trade.barsHeld >= timeStopBars && r < timeStopMinR) {
+        return {
+          action: 'CLOSE_ALL',
+          reason: EXIT.TIME_STOP,
+          detail: `${trade.barsHeld} bars held and still only ${r.toFixed(2)}R — the ${isScalp ? 'scalp momentum' : 'move this setup predicted'} has not happened, freeing risk capital`
+        };
+      }
+
+      hold.reasons.push(`Holding: ${r >= 0 ? '+' : ''}${r.toFixed(2)}R, structure intact, ${trade.barsHeld}/${timeStopBars} bars used`);
       return hold;
     }
 
@@ -303,10 +365,14 @@
       trade.tpFilled[index] = true;
       const isLong = trade.side === 'Buy';
       const sliceR = ((isLong ? fillPrice - trade.entryPrice : trade.entryPrice - fillPrice) / trade.riskDist);
-      const fraction = this.config.scaleOutFractions[index];
+      const fractions = trade.isScalp ? (this.config.scalpScaleOutFractions || SCALP_DEFAULTS.scaleOutFractions) : this.config.scaleOutFractions;
+      const fraction = fractions[Math.min(index, fractions.length - 1)];
       trade.realisedR += sliceR * fraction;
       trade.remainingFraction = Math.max(0, trade.remainingFraction - fraction);
       trade.exitLog.push({ type: 'TP', index, price: fillPrice, r: +sliceR.toFixed(2), fraction });
+      // Advance trailing stop stage so the trail tightens after each TP
+      const multipliers = trade.isScalp ? (this.config.scalpTrailAtrMultiples || SCALP_DEFAULTS.trailAtrMultiples) : (this.config.trailAtrMultiples || [2.0, 1.2, 0.8]);
+      trade.trailStage = Math.min((trade.trailStage || 0) + 1, multipliers.length - 1);
       return trade;
     }
 
@@ -346,5 +412,5 @@
     }
   }
 
-  return { PositionManager, DEFAULTS, EXIT };
+  return { PositionManager, DEFAULTS, SCALP_DEFAULTS, EXIT };
 });

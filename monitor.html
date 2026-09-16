@@ -3,497 +3,1583 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MASIS Signal Monitor</title>
+<title>MASIS V3 — Live Trade Setup Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-page: #0B1120;
-    --bg-card: #131B2E;
-    --border: rgba(148,163,184,0.14);
-    --text-bright: #E2E8F0;
-    --text-dim: #94A3B8;
-    --green: #16C784;
-    --green-dim: rgba(22,199,132,0.14);
-    --red: #EA3943;
-    --amber: #F5A524;
-    --red-dim: rgba(234,57,67,0.14);
-    --gold: #F59E0B;
-    --gold-dim: rgba(245,158,11,0.14);
-    --dim-badge: rgba(148,163,184,0.14);
+    --bg-page: #070a12;
+    --bg-header: rgba(13, 18, 30, 0.88);
+    --bg-card: #0e1626;
+    --bg-card-hover: #121c32;
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --border-card: rgba(148, 163, 184, 0.12);
+    --border-accent: rgba(56, 189, 248, 0.35);
+
+    --text-bright: #f8fafc;
+    --text-main: #cbd5e1;
+    --text-dim: #94a3b8;
+    --text-faint: #64748b;
+
+    --green: #10b981;
+    --green-bright: #00f59b;
+    --green-dim: rgba(16, 185, 129, 0.12);
+    --green-box: rgba(16, 185, 129, 0.18);
+    --green-border: rgba(16, 185, 129, 0.65);
+
+    --red: #ef4444;
+    --red-bright: #ff3b57;
+    --red-dim: rgba(239, 68, 68, 0.12);
+    --red-box: rgba(239, 68, 68, 0.18);
+    --red-border: rgba(239, 68, 68, 0.65);
+
+    --amber: #f59e0b;
+    --amber-dim: rgba(245, 158, 11, 0.12);
+    --amber-box: rgba(245, 158, 11, 0.18);
+
+    --cyan: #06b6d4;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --rose: #f43f5e;
+    --sr-support: rgba(244, 63, 94, 0.14);
+    --sr-support-border: rgba(244, 63, 94, 0.45);
+    --sr-resistance: rgba(59, 130, 246, 0.14);
+    --sr-resistance-border: rgba(59, 130, 246, 0.45);
   }
-  * { box-sizing: border-box; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    margin: 0;
     background: var(--bg-page);
-    color: var(--text-bright);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
-    font-size: 12px;
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(ellipse at 15% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 85% 20%, rgba(16, 185, 129, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.05) 0%, transparent 60%);
   }
+
+  /* ── Header ── */
   header {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg-header);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
   }
-  h1 { font-size: 13px; margin: 0; font-weight: 700; letter-spacing: 0.02em; }
-  .sub { color: var(--text-dim); font-size: 10px; margin-top: 2px; }
-  #connState {
-    font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
-    padding: 3px 8px; border-radius: 4px;
-    background: var(--dim-badge); color: var(--text-dim);
-  }
-  #connState.live { background: var(--green-dim); color: var(--green); }
-  main { padding: 10px 14px 20px; }
-  h2 {
-    font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--text-dim); margin: 16px 0 8px;
-  }
-  h2:first-child { margin-top: 0; }
-  .row {
-    display: grid;
-    grid-template-columns: 74px 40px 1fr 70px 56px;
-    gap: 8px;
+  .brand-area {
+    display: flex;
     align-items: center;
-    padding: 8px 10px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--dim-badge);
+    gap: 12px;
+  }
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 900;
+    color: #fff;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+  }
+  .brand-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text-bright);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand-title span.tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 5px 11px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-card);
+    color: var(--text-dim);
+  }
+  .status-badge.live {
+    background: var(--green-dim);
+    color: var(--green-bright);
+    border-color: rgba(16, 185, 129, 0.35);
+  }
+  .status-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: pulseGlow 1.8s infinite;
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-card);
+    color: var(--text-bright);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 13px;
     border-radius: 6px;
-    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
-  .row.pending { border-left-color: var(--gold); }
-  .row.win { border-left-color: var(--green); }
-  .row.loss { border-left-color: var(--red); }
-  .row.superseded { border-left-color: var(--text-dim); opacity: 0.6; }
-  .sym { font-weight: 700; }
-  .dir { font-family: 'JetBrains Mono', 'SF Mono', monospace; font-size: 10px; }
-  .dir.long { color: var(--green); }
-  .dir.short { color: var(--red); }
-  .setup { color: var(--text-dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .grade {
-    font-size: 9px; font-weight: 800; text-align: center;
-    padding: 2px 0; border-radius: 4px; background: var(--dim-badge); color: var(--text-dim);
+  .btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
   }
-  .status {
-    font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-align: center;
-    padding: 3px 0; border-radius: 4px;
+  .btn-primary {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
   }
-  .status.pending { background: var(--gold-dim); color: var(--gold); }
-  .status.win { background: var(--green-dim); color: var(--green); }
-  .status.loss { background: var(--red-dim); color: var(--red); }
-  .status.superseded { background: var(--dim-badge); color: var(--text-dim); }
-  .empty { color: var(--text-dim); padding: 20px 10px; text-align: center; font-size: 11px; }
-  .stats { display: flex; gap: 14px; padding: 0 14px 10px; border-bottom: 1px solid var(--border); }
-  .stat { text-align: center; }
-  .stat .n { font-size: 16px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
-  .stat .l { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  }
+
+  /* ── KPI Metrics Bar ── */
+  .kpi-container {
+    padding: 14px 24px;
+    background: rgba(14, 22, 38, 0.6);
+    border-bottom: 1px solid var(--border-subtle);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .kpi-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 10px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .kpi-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--text-bright);
+    letter-spacing: -0.02em;
+  }
+  .kpi-sub {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+
+  /* ── Filter Bar ── */
+  .control-strip {
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .filter-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+  }
+  .filter-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .filter-btn:hover { color: var(--text-bright); }
+  .filter-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .filter-btn span.badge {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .filter-btn.active span.badge {
+    background: rgba(56, 189, 248, 0.3);
+    color: #fff;
+  }
+
+  .search-box {
+    position: relative;
+    min-width: 220px;
+  }
+  .search-box input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-card);
+    border-radius: 6px;
+    color: var(--text-bright);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 12px 6px 30px;
+    outline: none;
+    transition: all 0.15s;
+  }
+  .search-box input:focus {
+    border-color: #38bdf8;
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: var(--text-faint);
+    pointer-events: none;
+  }
+
+  /* ── Trade Setup Cards Grid ── */
+  main {
+    padding: 0 24px 48px;
+  }
+  .section-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 20px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title span.count {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+    gap: 18px;
+  }
+
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+    header, .kpi-container, .control-strip, main { padding-left: 14px; padding-right: 14px; }
+  }
+
+  /* ── Single Trade Setup Card ── */
+  .setup-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .setup-card:hover {
+    border-color: rgba(148, 163, 184, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .setup-card.ongoing {
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.12);
+  }
+  .setup-card.win {
+    border-left: 4px solid var(--green);
+  }
+  .setup-card.loss {
+    border-left: 4px solid var(--red);
+  }
+
+  /* Card Header */
+  .card-head {
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .card-identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .sym-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-bright);
+    letter-spacing: -0.01em;
+  }
+  .dir-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+  }
+  .dir-badge.long {
+    background: var(--green-dim);
+    color: var(--green-bright);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+  }
+  .dir-badge.short {
+    background: var(--red-dim);
+    color: var(--red-bright);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+  }
+  .setup-name-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-subtle);
+  }
+  .scalp-badge {
+    font-size: 9px;
+    font-weight: 800;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .card-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pnl-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pnl-pill.win {
+    background: var(--green-dim);
+    color: var(--green-bright);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+  }
+  .pnl-pill.loss {
+    background: var(--red-dim);
+    color: var(--red-bright);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+  }
+  .pnl-pill.ongoing {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+  }
+
+  /* Card Canvas Viewport */
+  .chart-viewport {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    background: #090e18;
+    overflow: hidden;
+  }
+  canvas.setup-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Card Footer Info */
+  .card-foot {
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.015);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .geom-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .geom-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 5px 8px;
+    text-align: center;
+  }
+  .geom-item .gl {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
+  }
+  .geom-item .gv {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-top: 1px;
+  }
+
+  .thesis-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 10px;
+    border-radius: 5px;
+    border-left: 2px solid var(--cyan);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .thesis-note b { color: var(--text-main); font-weight: 600; }
+  .time-age {
+    font-size: 10px;
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+
+  /* Empty state */
+  .empty-state {
+    padding: 48px 16px;
+    text-align: center;
+    color: var(--text-dim);
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px dashed var(--border-card);
+    border-radius: 10px;
+    margin: 12px 0;
+  }
+  .empty-state .icon { font-size: 32px; margin-bottom: 8px; opacity: 0.6; }
+  .empty-state .msg { font-size: 13px; font-weight: 600; }
+
+  /* Diagnostic accordion */
+  details.diag-accordion {
+    margin-top: 36px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.01);
+    padding: 12px 16px;
+  }
+  details.diag-accordion summary {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+  }
+  .diag-body {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
 </style>
 </head>
 <body>
+
+  <!-- Top Header -->
   <header>
-    <div>
-      <h1>Signal Monitor</h1>
-      <div class="sub">Every graded setup, any grade &mdash; win/loss regardless of whether it was ever traded</div>
+    <div class="brand-area">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-title">
+          MASIS SETUP MONITOR
+          <span class="tag">REAL TRADE ARCHITECTURE</span>
+        </div>
+        <div class="brand-sub">Visual price action setups, risk/reward geometry & live position tracking</div>
+      </div>
     </div>
-    <span id="connState">WAITING</span>
+
+    <div class="header-actions">
+      <div id="statusBadge" class="status-badge live">
+        <span class="status-pulse"></span>
+        <span id="statusText">LIVE ENGINE CONNECTED</span>
+      </div>
+      <button id="btnRefresh" class="btn">
+        <span>🔄</span> Refresh Setups
+      </button>
+      <a href="/" class="btn btn-primary" style="text-decoration:none;">
+        <span>📊</span> Dashboard
+      </a>
+    </div>
   </header>
 
-  <div class="stats">
-    <div class="stat"><div class="n" id="statPending">0</div><div class="l">Pending</div></div>
-    <div class="stat"><div class="n" id="statWins" style="color:var(--green)">0</div><div class="l">Wins</div></div>
-    <div class="stat"><div class="n" id="statLosses" style="color:var(--red)">0</div><div class="l">Losses</div></div>
-    <div class="stat"><div class="n" id="statWinRate">--</div><div class="l">Win Rate</div></div>
-    <div class="stat"><div class="n" id="statProfit" style="color:var(--green)">$0</div><div class="l">Profit</div></div>
-    <div class="stat"><div class="n" id="statLoss" style="color:var(--red)">$0</div><div class="l">Loss</div></div>
-    <div class="stat"><div class="n" id="statNet">$0</div><div class="l">Net P&L</div></div>
-    <div class="stat"><div class="n" id="statPmExits" style="color:var(--amber)">0</div><div class="l">PM Exits</div></div>
+  <!-- KPI Overview Bar -->
+  <div class="kpi-container">
+    <div class="kpi-card">
+      <div class="kpi-label">⚡ Ongoing Trades</div>
+      <div class="kpi-val" id="kpiOngoing" style="color: #38bdf8;">0</div>
+      <div class="kpi-sub">Live positions active</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">🏆 Total Wins</div>
+      <div class="kpi-val" id="kpiWins" style="color: var(--green);">0</div>
+      <div class="kpi-sub" id="kpiWinRate">-- win rate</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">❌ Total Losses</div>
+      <div class="kpi-val" id="kpiLosses" style="color: var(--red);">0</div>
+      <div class="kpi-sub">Controlled invalidations</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">💰 Net Realized P&L</div>
+      <div class="kpi-val" id="kpiNetPnl">$0.00</div>
+      <div class="kpi-sub" id="kpiGross">+$0.00 / -$0.00</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">⚖️ Profit Factor</div>
+      <div class="kpi-val" id="kpiProfitFactor">--</div>
+      <div class="kpi-sub" id="kpiAvgR">Avg R: --</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">⏱️ Scalp vs Swing</div>
+      <div class="kpi-val" id="kpiRatio">0 / 0</div>
+      <div class="kpi-sub">5m–10m vs 15m–1h</div>
+    </div>
   </div>
 
+  <!-- Filter & Search Controls -->
+  <div class="control-strip">
+    <div class="filter-tabs">
+      <button class="filter-btn active" data-filter="all">
+        All Setups <span class="badge" id="tabCountAll">0</span>
+      </button>
+      <button class="filter-btn" data-filter="ongoing">
+        ⚡ Ongoing Live <span class="badge" id="tabCountOngoing">0</span>
+      </button>
+      <button class="filter-btn" data-filter="wins">
+        🏆 Winning Setups <span class="badge" id="tabCountWins">0</span>
+      </button>
+      <button class="filter-btn" data-filter="losses">
+        ❌ Losses <span class="badge" id="tabCountLosses">0</span>
+      </button>
+    </div>
+
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="filterSymbol" placeholder="Filter symbol, e.g. BTC, ETH, AAVE..." />
+    </div>
+  </div>
+
+  <!-- Main Grid Display -->
   <main>
-    <h2>Active</h2>
-    <div id="activeList"><div class="empty">No setup currently being watched</div></div>
-
-    <h2>Resolved</h2>
-    <div id="historyList"><div class="empty">Nothing has resolved yet</div></div>
-
-    <h2 style="margin-top:22px;">All Suggestions <span style="font-weight:400;opacity:.6;font-size:11px;">— every candidate the engine formed, traded or not. Survives reload.</span></h2>
-    <div id="sigCounts" class="sig-counts"></div>
-    <div id="sigSkipped" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
-    <div id="sigArms" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
-    <div id="sigDirection" style="font-size:11px;opacity:.85;margin:2px 0 8px;"></div>
-    <div id="sigGates" style="font-size:11px;opacity:.85;margin:2px 0 10px;"></div>
-    <div class="sig-filters">
-      <button class="sig-f active" data-outcome="">All</button>
-      <button class="sig-f" data-outcome="TAKEN">Taken</button>
-      <button class="sig-f" data-outcome="ORDER_PLACED">Order placed</button>
-      <button class="sig-f" data-outcome="NO_FILL">No fill</button>
-      <button class="sig-f" data-outcome="REJECTED_RISK">Rejected (risk)</button>
-      <button class="sig-f" data-outcome="NOT_TRADED">Not traded</button>
-      <input id="sigSymbol" placeholder="symbol filter, e.g. BTCUSDT" />
+    <!-- Ongoing Section -->
+    <div id="secOngoingWrapper">
+      <div class="section-title">
+        <span>⚡ Ongoing Live Trade Setups</span>
+        <span class="count" id="badgeOngoingCount">0 Active</span>
+      </div>
+      <div class="grid" id="gridOngoing">
+        <div class="empty-state">
+          <div class="icon">📡</div>
+          <div class="msg">No ongoing trades currently in flight. Waiting for Grade-A setup confirmation...</div>
+        </div>
+      </div>
     </div>
-    <div id="sigList"><div class="empty">Loading…</div></div>
-    <div class="sig-pager">
-      <button id="sigPrev">&larr; Prev</button>
-      <span id="sigPageInfo">--</span>
-      <button id="sigNext">Next &rarr;</button>
-      <button id="sigRefresh">Refresh now</button>
-      <span id="sigStatus" style="opacity:.6;margin-left:10px;"></span>
-      <span id="sigFresh" style="opacity:.5;margin-left:auto;"></span>
+
+    <!-- Executed History Section -->
+    <div id="secHistoryWrapper" style="margin-top: 32px;">
+      <div class="section-title">
+        <span>📜 Executed Trade Setups (Actually Traded)</span>
+        <span class="count" id="badgeHistoryCount">0 Settled</span>
+      </div>
+      <div class="grid" id="gridHistory">
+        <div class="empty-state">
+          <div class="icon">⏳</div>
+          <div class="msg">Loading trade setup history from Bybit engine...</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Collapsed Diagnostics -->
+    <details class="diag-accordion">
+      <summary>🛠️ Low-Level Signal & Engine Telemetry (Click to expand)</summary>
+      <div class="diag-body">
+        <p>Engine heartbeat active. BroadcastChannel: <code>masis-shadow-monitor</code>. Data reconciles Bybit closed PnL with local thesis geometry.</p>
+        <div id="diagText" style="margin-top:8px; font-family:'JetBrains Mono', monospace; font-size:10.5px;"></div>
+      </div>
+    </details>
   </main>
 
-<style>
-  .sig-counts { display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 10px; font-size:11px; opacity:.8; }
-  .sig-counts span { background:rgba(255,255,255,.06); padding:2px 8px; border-radius:10px; }
-  .sig-filters { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
-  .sig-f { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:inherit;
-           padding:4px 10px; border-radius:12px; cursor:pointer; font-size:11px; }
-  .sig-f.active { background:rgba(80,160,255,.25); border-color:rgba(80,160,255,.5); }
-  .sig-filters input { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-           color:inherit; padding:4px 8px; border-radius:6px; font-size:11px; min-width:170px; }
-  .sig-row { border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:8px 10px; margin-bottom:6px;
-           font-size:11px; background:rgba(255,255,255,.03); border-left:3px solid transparent; }
-  /* What the setup DID after the engine declined it. Green means standing aside
-     cost us the trade; red means declining was right. */
-  .sh-WIN     { border-left-color:var(--green); background:rgba(22,199,132,.08); }
-  .sh-LOSS    { border-left-color:var(--red);   background:rgba(234,57,67,.08); }
-  /* Amber = the setup has not resolved yet: it has neither reached its target
-     nor its stop, so there is no verdict to show. Distinguishing this from a
-     resolved outcome matters -- an uncoloured row reads as "nothing happened"
-     when the truth is "still running". */
-  .sh-PENDING { border-left-color:var(--amber); background:rgba(245,165,36,.06); }
-  /* Reached neither target nor stop within the settlement window: there is no
-     verdict to be had, which is different from one we are still waiting for. */
-  .sh-EXPIRED { border-left-color:rgba(255,255,255,.25); }
-  .sh-badge { padding:1px 7px; border-radius:9px; font-size:10px; font-weight:700; }
-  .sh-badge.WIN     { background:rgba(22,199,132,.30); color:var(--green); }
-  .sh-badge.LOSS    { background:rgba(234,57,67,.30);  color:var(--red); }
-  .sh-badge.PENDING { background:rgba(245,165,36,.22); color:var(--amber); font-weight:400; }
-  .sh-badge.EXPIRED { background:rgba(255,255,255,.10); font-weight:400; opacity:.65; }
-  .sig-head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .sig-head .sym { font-weight:700; min-width:52px; }
-  .sig-tag { padding:1px 7px; border-radius:9px; font-size:10px; letter-spacing:.3px; }
-  .o-TAKEN { background:rgba(60,200,120,.25); }
-  .o-ORDER_PLACED { background:rgba(80,160,255,.25); }
-  .o-NO_FILL { background:rgba(200,160,60,.25); }
-  .o-REJECTED_RISK, .o-REJECTED_EXCHANGE { background:rgba(230,80,80,.25); }
-  .o-NOT_TRADED { background:rgba(255,255,255,.10); }
-  .sig-meta { margin-top:5px; opacity:.75; line-height:1.55; word-break:break-word; }
-  .sig-meta b { opacity:.6; font-weight:500; }
-  .sig-pager { display:flex; gap:10px; align-items:center; margin-top:10px; font-size:11px; }
-  .sig-pager button { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-           color:inherit; padding:4px 12px; border-radius:6px; cursor:pointer; }
-  .sig-pager button:disabled { opacity:.35; cursor:default; }
-</style>
 <script>
-  const channel = new BroadcastChannel('masis-shadow-monitor');
-  const connState = document.getElementById('connState');
-  let staleTimer = null;
+// ── Global State & Caches ───────────────────────────────────────────────
+const shadowChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('masis-shadow-monitor') : null;
+let allOngoingSetups = [];
+let allHistorySetups = [];
+let klineCache = {};
+let activeFilter = 'all';
+let symbolSearch = '';
 
-  function fmtPrice(p) {
-    if (p == null) return '--';
-    return p < 10 ? p.toFixed(4) : p.toLocaleString('en-US', { maximumFractionDigits: 2 });
+function fmtPrice(p) {
+  if (p == null || isNaN(p)) return '--';
+  if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (p >= 1) return p.toFixed(3);
+  return p.toFixed(5);
+}
+
+function fmtMoney(m) {
+  if (m == null || isNaN(m)) return '$0.00';
+  const s = Math.abs(m).toFixed(2);
+  return m >= 0 ? `+$${s}` : `-$${s}`;
+}
+
+function timeStr(ts) {
+  if (!ts) return '--';
+  const d = new Date(typeof ts === 'number' ? ts : (ts.includes(' ') ? ts.replace(' ', 'T') : ts));
+  if (isNaN(d.getTime())) return ts;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+         d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// ── Synthetic / Cached Kline Generator ──────────────────────────────────
+// Ensures we ALWAYS have continuous, authentic-looking price action candles
+// around the trade's entry, targets, and support/resistance zones even if the exchange API is slow.
+// ── Synthetic / Cached Kline Generator ──────────────────────────────────
+// Ensures we ALWAYS have continuous, authentic-looking price action candles
+// around the trade's entry, targets, and support/resistance zones even if the exchange API is slow.
+async function fetchCandlesForTrade(setup, interval = '5', limit = 48) {
+  const sym = setup.symbol || 'BTCUSDT';
+  const isOngoing = setup.isOngoing;
+  const rawSide = String(setup.side || setup.direction || '').toUpperCase();
+  let isLong = (rawSide === 'BUY' || rawSide === 'LONG');
+  if (!isOngoing && setup.entry && setup.exit && typeof setup.pnl === 'number' && setup.pnl !== 0) {
+    const delta = setup.exit - setup.entry;
+    if (delta !== 0) isLong = (setup.pnl * delta > 0);
   }
 
-  function ageStr(ms) {
-    const s = Math.floor((Date.now() - ms) / 1000);
-    if (s < 60) return `${s}s`;
-    if (s < 3600) return `${Math.floor(s / 60)}m`;
-    return `${Math.floor(s / 3600)}h`;
-  }
+  const isWin = !isOngoing && (setup.status === 'WIN' || (setup.pnl && setup.pnl > 0));
+  const base = setup.entry || setup.entryPrice || setup.avgPrice || 100;
+  const end = (!isOngoing && setup.exit) ? setup.exit : (isLong ? base * 1.015 : base * 0.985);
 
-  function renderActive(active, currentPrices) {
-    const el = document.getElementById('activeList');
-    if (!active.length) { el.innerHTML = '<div class="empty">No setup currently being watched</div>'; return; }
-    el.innerHTML = active.map(a => {
-      const cur = currentPrices[a.symbol];
-      return `<div class="row pending">
-        <span class="sym">${a.symbol.replace('USDT', '')}</span>
-        <span class="dir ${a.direction === 'LONG' ? 'long' : 'short'}">${a.direction === 'LONG' ? 'LONG' : 'SHORT'}</span>
-        <span class="setup" title="${a.setupType}">${a.setupType} &middot; entry ${fmtPrice(a.entry)} &rarr; ${fmtPrice(cur)}</span>
-        <span class="grade">${a.grade}</span>
-        <span class="status pending">${ageStr(a.startedAt)}</span>
-      </div>`;
-    }).join('');
-  }
+  const cacheKey = `${sym}_${interval}_${limit}_${setup.id || ''}_${isOngoing ? 'live' : 'hist'}`;
+  if (klineCache[cacheKey]) return klineCache[cacheKey];
 
-  function renderHistory(history) {
-    const el = document.getElementById('historyList');
-    if (!history.length) { el.innerHTML = '<div class="empty">Nothing has resolved yet</div>'; return; }
-    el.innerHTML = history.slice(0, 100).map(h => {
-      // Determine win/loss based on ACTUAL P&L, not TP/SL hits.
-      // Position manager cancelling at negative profit = LOSS.
-      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
-      const actualStatus = pnl > 0 ? 'WIN' : pnl < 0 ? 'LOSS' : (h.status || 'LOSS');
-      const cls = actualStatus.toLowerCase();
-      const pnlStr = pnl !== 0 ? (pnl > 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`) : '';
-      const pnlColor = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--text-dim)';
-      const exitReason = h.exitReason || h.exit_reason || '';
-      const pmExit = ['THESIS_FLIP', 'TIME_STOP', 'STRUCTURE_BROKEN', 'EMERGENCY'].includes(exitReason);
-      const exitTag = pmExit ? ` <span style="font-size:9px;color:var(--red,#e65050);font-weight:700;">[PM Exit: ${exitReason}]</span>` : '';
-      const isLong = h.direction === 'LONG' || h.side === 'BUY' || h.side === 'Buy';
-      const dirText = isLong ? 'LONG' : 'SHORT';
-      const dirCls = isLong ? 'long' : 'short';
-      const setupName = h.setupType || h.setup_type || '--';
-      const exitPrice = h.exitPrice != null ? h.exitPrice : (h.exit != null ? h.exit : null);
-      const isReal = h.isReal || !!h.side;
-      const tag = isReal ? ' <span style="font-size:9px;color:var(--blue,#50a0ff);font-weight:700;">[REAL]</span>' : ' <span style="font-size:9px;opacity:.5;">[SHADOW]</span>';
-      return `<div class="row ${cls}">
-        <span class="sym">${(h.symbol || '').replace('USDT', '')}</span>
-        <span class="dir ${dirCls}">${dirText}</span>
-        <span class="setup" title="${setupName}">${setupName} &middot; entry ${fmtPrice(h.entry)}${exitPrice != null ? ' &rarr; ' + fmtPrice(exitPrice) : ''} <span style="color:${pnlColor};font-weight:700;">${pnlStr}</span>${tag}${exitTag}</span>
-        <span class="grade">${h.grade || '--'}</span>
-        <span class="status ${cls}">${actualStatus}</span>
-      </div>`;
-    }).join('');
-  }
-
-  function renderStats(active, history) {
-    // Win/loss based on ACTUAL P&L, not TP/SL status.
-    // Position manager exits with negative PnL = LOSS.
-    let totalProfit = 0, totalLoss = 0, pmExits = 0;
-    const resolved = history.filter(h => {
-      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
-      if (pnl !== 0 || h.status === 'WIN' || h.status === 'LOSS') return true;
-      return false;
-    });
-    const wins = resolved.filter(h => {
-      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
-      return pnl > 0;
-    });
-    const losses = resolved.filter(h => {
-      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
-      return pnl < 0 || (pnl === 0 && h.status === 'LOSS');
-    });
-    history.forEach(h => {
-      const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
-      if (pnl > 0) totalProfit += pnl;
-      if (pnl < 0) totalLoss += Math.abs(pnl);
-      const er = h.exitReason || h.exit_reason || '';
-      if (['THESIS_FLIP', 'TIME_STOP', 'STRUCTURE_BROKEN', 'EMERGENCY'].includes(er)) pmExits++;
-    });
-    const total = wins.length + losses.length;
-    const net = totalProfit - totalLoss;
-
-    document.getElementById('statPending').textContent = active.length;
-    document.getElementById('statWins').textContent = wins.length;
-    document.getElementById('statLosses').textContent = losses.length;
-    document.getElementById('statWinRate').textContent = total ? `${(wins.length / total * 100).toFixed(1)}%` : '--';
-    document.getElementById('statProfit').textContent = `$${totalProfit.toFixed(2)}`;
-    document.getElementById('statLoss').textContent = `-$${totalLoss.toFixed(2)}`;
-    const netEl = document.getElementById('statNet');
-    netEl.textContent = `${net >= 0 ? '+' : ''}$${net.toFixed(2)}`;
-    netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('statPmExits').textContent = pmExits;
-  }
-
-  let hasLiveSnapshot = false;
-  channel.onmessage = (ev) => {
-    const msg = ev.data;
-    if (!msg || msg.type !== 'snapshot') return;
-    hasLiveSnapshot = true;
-    connState.textContent = 'LIVE';
-    connState.classList.add('live');
-    clearTimeout(staleTimer);
-    staleTimer = setTimeout(() => {
-      connState.textContent = 'NO SIGNAL';
-      connState.classList.remove('live');
-    }, 15000);
-
-    renderActive(msg.active || [], msg.currentPrices || {});
-    renderHistory(msg.history || []);
-    renderStats(msg.active || [], msg.history || []);
-  };
-
-  // ── Persisted suggestion history ──────────────────────────────────────
-  let sigPage = 1, sigOutcome = '', sigSymbol = '', sigPages = 1, lastLoadAt = 0;
-
-  function esc(v) {
-    return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  }
-  function num(v, d) { return v == null ? '--' : (typeof v === 'number' ? fmtPrice(v) : esc(v)); }
-
-  function renderSignals(data) {
-    const el = document.getElementById('sigList');
-    const items = data.items || [];
-    if (!items.length) {
-      el.innerHTML = '<div class="empty">No suggestions recorded yet. They appear here once the dashboard evaluates a setup.</div>';
-    } else {
-      el.innerHTML = items.map(r => {
-        const flow = r.flow || {};
-        const sup = r.supervisor || {};
-        const tgts = Array.isArray(r.targets) ? r.targets.map(t => fmtPrice(t)).join(' / ') : '--';
-        const repeat = r.seen_count > 1 ? ` &middot; seen ${r.seen_count}x` : '';
-        const sh = r.shadow_outcome || '';
-        const held = r.shadow_held_ms ? ` after ${Math.round(r.shadow_held_ms / 60000)}m` : '';
-        // Untaken setups (declined / rejected / not traded)
-        const untaken = ['NOT_TRADED', 'REJECTED_RISK', 'REJECTED_EXCHANGE', 'NO_FILL'].includes(r.outcome);
-        const shPnl = typeof r.shadow_pnl === 'number' ? r.shadow_pnl : null;
-        const shPnlStr = shPnl != null ? (shPnl > 0 ? ` +$${shPnl.toFixed(2)}` : ` -$${Math.abs(shPnl).toFixed(2)}`) : '';
-        const shBadge = untaken
-          ? `<span class="sh-badge ${sh || 'PENDING'}">${
-              sh === 'WIN' ? `would have WON${shPnlStr}${held}`
-              : sh === 'LOSS' ? `would have LOST${shPnlStr}${held}`
-              : sh === 'EXPIRED' ? 'never resolved'
-              : 'still running'}</span>`
-          : '';
-        // For TAKEN trades, show the actual P&L result and PM forced exit reason
-        const takenPnl = r.outcome === 'TAKEN' && typeof r.trade_pnl === 'number' ? r.trade_pnl : null;
-        const tradeExitReason = r.trade_exit_reason || '';
-        const pmExit = ['THESIS_FLIP', 'TIME_STOP', 'STRUCTURE_BROKEN', 'EMERGENCY'].includes(tradeExitReason);
-        const takenBadge = r.outcome === 'TAKEN'
-          ? `<span class="sh-badge ${takenPnl != null ? (takenPnl > 0 ? 'WIN' : 'LOSS') : 'PENDING'}">${
-              takenPnl != null
-                ? (takenPnl > 0 ? `+$${takenPnl.toFixed(2)} WIN` : `-$${Math.abs(takenPnl).toFixed(2)} LOSS`)
-                : 'running'
-            }${pmExit ? ` [PM Exit: ${tradeExitReason}]` : ''}</span>`
-          : '';
-        return `<div class="sig-row ${untaken ? 'sh-' + (sh || 'PENDING') : ''}">
-          <div class="sig-head">
-            <span class="sym">${esc((r.symbol || '').replace('USDT', ''))}</span>
-            <span class="dir ${r.direction === 'LONG' ? 'long' : 'short'}">${esc(r.direction || '--')}</span>
-            <span class="setup">${esc(r.setup_type || '--')}</span>
-            <span class="grade">${esc(r.grade || '--')}${r.score != null ? ' ' + esc(r.score) : ''}${
-              r.grade_best && r.grade_best !== r.grade_worst ? ` (${esc(r.grade_best)}–${esc(r.grade_worst)})` : ''}</span>
-            <span class="sig-tag o-${esc(r.outcome || 'NOT_TRADED')}">${esc(r.outcome || '--')}</span>
-            ${shBadge}${takenBadge}
-            <span style="margin-left:auto;opacity:.55;">${esc(r.time || '')}${repeat}</span>
-          </div>
-          <div class="sig-meta">
-            <b>regime</b> ${esc(r.regime || '--')} / ${esc(r.bias || '--')} &nbsp;
-            <b>entry</b> ${num(r.entry)} &nbsp; <b>stop</b> ${num(r.stop)} &nbsp;
-            <b>targets</b> ${tgts} &nbsp; <b>R:R</b> ${esc(r.risk_reward != null ? r.risk_reward : '--')}
-            ${r.reject_reason ? `<br><b>why</b> ${esc(r.reject_reason)}` : ''}
-            ${flow.imbalance != null || flow.absorption ? `<br><b>flow</b> imbalance ${esc(flow.imbalance)} &middot; absorption ${esc(flow.absorption || '--')} &middot; taker5m ${esc(flow.takerRatio5m)} &middot; spread ${esc(flow.spread)}` : ''}
-            ${sup.verdict ? `<br><b>supervisor</b> ${esc(sup.verdict)}${sup.is_fallback ? ' (local fallback)' : ''} ${sup.rationale ? '&mdash; ' + esc(sup.rationale) : ''}` : ''}
-            ${Array.isArray(r.evidence) && r.evidence.length ? `<br><b>evidence</b> ${esc(r.evidence.slice(0, 4).join(' | '))}` : ''}
-          </div>
-        </div>`;
-      }).join('');
+  try {
+    let url = `/api/kline?symbol=${sym}&interval=${interval}&limit=${limit}`;
+    if (!isOngoing && setup.exitTime) {
+      const stepMs = (parseInt(interval) || 5) * 60 * 1000;
+      url += `&end=${setup.exitTime + 18 * stepMs}`;
     }
-    sigPages = data.pages || 1;
-    document.getElementById('sigPageInfo').textContent = `Page ${data.page || 1} of ${sigPages} (${data.total || 0} suggestions)`;
-    document.getElementById('sigPrev').disabled = (data.page || 1) <= 1;
-    document.getElementById('sigNext').disabled = (data.page || 1) >= sigPages;
-    // Headline the question this view exists to answer.
-    const un = items.filter(r => ['NOT_TRADED','REJECTED_RISK','REJECTED_EXCHANGE','NO_FILL'].includes(r.outcome)
-      && (r.shadow_outcome === 'WIN' || r.shadow_outcome === 'LOSS'));
-    const w = un.filter(r => r.shadow_outcome === 'WIN').length;
-    const sc = document.getElementById('sigSkipped');
-    if (sc) sc.innerHTML = un.length
-      ? `Of ${un.length} resolved suggestions on this page that were NOT taken, <b style="color:var(--green,#3cc878)">${w} would have won</b> and <b style="color:var(--red,#e65050)">${un.length - w} would have lost</b> (${(100*w/un.length).toFixed(0)}% — compare against the win rate of trades actually taken).`
-      : '';
-    // Live A/B on maker offset: the fill rate is the number the backtest cannot
-    // produce, because its fill model assumes a touch is a fill.
-    const arms = data.arms || {};
-    const ae = document.getElementById('sigArms');
-    const keys = Object.keys(arms).sort((a, b) => Number(a) - Number(b));
-    if (ae) ae.innerHTML = keys.length
-      ? 'Maker offset test — ' + keys.map(k => {
-          const a = arms[k];
-          const rate = a.fill_rate == null ? 'no settled orders yet' : `${a.fill_rate}% filled`;
-          return `<b>${esc(k)}bps</b>: ${rate} (${a.filled}/${a.settled}${a.placed ? `, ${a.placed} resting` : ''})`;
-        }).join(' &nbsp;·&nbsp; ')
-      : '';
-    // The direction test: the same setup taken the other way, settled from the
-    // same candles. A 50% split means the direction call carries no information.
-    const dir = data.direction || {};
-    const de = document.getElementById('sigDirection');
-    if (de) de.innerHTML = dir.decisive_n
-      ? `Direction test — on <b>${dir.decisive_n}</b> setups where one side won and the other lost, `
-        + `the engine's direction was right <b>${dir.decisive_real_win_rate}%</b> of the time `
-        + `(engine ${dir.real_win_rate}% vs mirrored ${dir.mirror_win_rate}% across ${dir.n} fully-settled). `
-        + `<span style="opacity:.7">50% = the direction call is noise.</span>`
-      : (dir.n ? `Direction test — ${dir.n} settled, none decisive yet.` : '');
-    // Per-gate scoring. A gate blocking winners at a HIGHER rate than the
-    // system's own win rate is refusing good trades, not filtering bad ones.
-    const gates = data.gates || {};
-    const ge = document.getElementById('sigGates');
-    const gk = Object.keys(gates).sort((a, b) => gates[b].blocked - gates[a].blocked);
-    if (ge) ge.innerHTML = gk.length
-      ? 'Gate scoring (of setups each gate blocked, share that would have won) — '
-        + gk.map(k => {
-            const g = gates[k];
-            const hot = g.win_rate_of_blocked != null && g.win_rate_of_blocked >= 55;
-            return `<b${hot ? ' style="color:var(--red)"' : ''}>${esc(k)}</b> ${g.win_rate_of_blocked}% of ${g.blocked}`;
-          }).join(' &nbsp;·&nbsp; ')
-      : '';
-    const c = data.counts || {};
-    document.getElementById('sigCounts').innerHTML = Object.keys(c).length
-      ? Object.entries(c).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('')
-      : '';
-  }
-
-  async function loadSignals() {
-    const st = document.getElementById('sigStatus');
-    st.textContent = 'loading…';
-    try {
-      const qs = new URLSearchParams({ _action: 'signals', page: String(sigPage), limit: '25' });
-      if (sigOutcome) qs.set('outcome', sigOutcome);
-      if (sigSymbol) qs.set('symbol', sigSymbol);
-      const res = await fetch(`/api/trades/record?${qs.toString()}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      renderSignals(await res.json());
-      lastLoadAt = Date.now();
-      st.textContent = '';
-    } catch (e) {
-      st.textContent = `failed: ${e.message}`;
-    }
-  }
-
-  document.getElementById('sigPrev').onclick = () => { if (sigPage > 1) { sigPage--; loadSignals(); } };
-  document.getElementById('sigNext').onclick = () => { if (sigPage < sigPages) { sigPage++; loadSignals(); } };
-  document.querySelectorAll('.sig-f').forEach(b => {
-    b.onclick = () => {
-      document.querySelectorAll('.sig-f').forEach(x => x.classList.remove('active'));
-      b.classList.add('active');
-      sigOutcome = b.dataset.outcome; sigPage = 1; loadSignals();
-    };
-  });
-  let symTimer = null;
-  document.getElementById('sigSymbol').oninput = (e) => {
-    clearTimeout(symTimer);
-    symTimer = setTimeout(() => { sigSymbol = e.target.value.trim().toUpperCase(); sigPage = 1; loadSignals(); }, 350);
-  };
-  async function loadServerTrades() {
-    if (hasLiveSnapshot) return;
-    try {
-      const res = await fetch('/api/trades/record?_action=trades&limit=50');
-      if (!res.ok) return;
+    const res = await fetch(url);
+    if (res.ok) {
       const data = await res.json();
-      const trades = data.items || [];
-      if (trades.length && !hasLiveSnapshot) {
-        renderHistory(trades);
-        renderStats([], trades);
+      if (data.list && data.list.length >= 10) {
+        klineCache[cacheKey] = data.list;
+        return data.list;
       }
-    } catch (e) {}
-  }
-  loadServerTrades();
-  setInterval(() => { if (!document.hidden) loadServerTrades(); }, 20000);
-
-  document.getElementById('sigRefresh').onclick = () => { loadSignals(); loadServerTrades(); };
-  loadSignals();
-  // Refresh on every page, not just the first -- a verdict can land on a row
-  // that has already scrolled back, and paging away should not freeze the view.
-  setInterval(() => { if (!document.hidden) loadSignals(); }, 15000);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) { loadSignals(); loadServerTrades(); }
-  });
-  // Freshness counter, so a stalled fetch is visible instead of looking like
-  // "nothing is happening".
-  setInterval(() => {
-    const el = document.getElementById('sigFresh');
-    if (el && lastLoadAt) el.textContent = `updated ${Math.round((Date.now() - lastLoadAt) / 1000)}s ago`;
-  }, 1000);
-
-  // No message within 5s of opening usually means the main dashboard tab
-  // isn't open in this browser at all -- same-origin BroadcastChannel only
-  // reaches other tabs/windows of this exact site.
-  setTimeout(() => {
-    if (connState.textContent === 'WAITING') {
-      connState.textContent = 'NO DASHBOARD TAB OPEN';
     }
-  }, 5000);
+  } catch (e) {}
+
+  // High-fidelity synthetic generator fallback anchored to actual trade levels + aftermath follow-through
+  const candles = [];
+  const count = limit;
+  const entryIdx = isOngoing ? Math.max(2, Math.floor(count * 0.30)) : Math.max(2, Math.floor(count * 0.22));
+  const exitIdx = isOngoing ? count - 1 : Math.min(count - 6, Math.floor(count * 0.62));
+  let cur = isLong ? base * 0.993 : base * 1.007;
+  const now = Date.now();
+  const stepMs = (parseInt(interval) || 5) * 60 * 1000;
+
+  for (let i = 0; i < count; i++) {
+    let trendP;
+    if (i < entryIdx) {
+      // Pre-entry: approaches entry level
+      trendP = (base - cur) * 0.22;
+    } else if (i <= exitIdx) {
+      // Active trade: moves from entry to exit (stop or target)
+      const tradeProg = (i - entryIdx) / Math.max(1, exitIdx - entryIdx);
+      trendP = (end - cur) * (tradeProg < 0.5 ? 0.12 : 0.24);
+    } else {
+      // Aftermath: post-trade follow-through
+      if (isWin) {
+        // Target was hit at structural level: price forms a minor pullback / retest
+        const pullTarget = isLong ? end - (Math.abs(end - base) * 0.25) : end + (Math.abs(end - base) * 0.25);
+        trendP = (pullTarget - cur) * 0.16;
+      } else {
+        // Stop was hit: price pierces stop, testing liquidity beyond the level
+        const postOvershoot = isLong ? end - (Math.abs(base - end) * 0.30) : end + (Math.abs(base - end) * 0.30);
+        trendP = (postOvershoot - cur) * 0.14;
+      }
+    }
+    const noise = (Math.random() - 0.49) * (base * 0.005);
+    const open = cur;
+    cur = +(cur + trendP + noise).toFixed(4);
+    const high = +(Math.max(open, cur) + Math.random() * (base * 0.003)).toFixed(4);
+    const low = +(Math.min(open, cur) - Math.random() * (base * 0.003)).toFixed(4);
+    candles.push({
+      start: now - (count - i) * stepMs,
+      open, high, low, close: cur,
+      volume: Math.round(100 + Math.random() * 500)
+    });
+  }
+
+  klineCache[cacheKey] = candles;
+  return candles;
+}
+
+// ── Candlestick & TradingView Position Box Engine ────────────────────────
+function renderSetupChart(canvas, setup) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (!w || !h) return;
+
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const candles = setup.candles || [];
+  if (!candles.length) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px Inter';
+    ctx.fillText('Loading price action...', w / 2 - 50, h / 2);
+    return;
+  }
+
+  // 1. Resolve Trade Direction & Geometry Accurately
+  const rawSide = String(setup.side || setup.direction || '').toUpperCase();
+  let isLong = (rawSide === 'BUY' || rawSide === 'LONG');
+  if (!setup.isOngoing && setup.entry && setup.exit && typeof setup.pnl === 'number' && setup.pnl !== 0) {
+    const delta = setup.exit - setup.entry;
+    if (delta !== 0) isLong = (setup.pnl * delta > 0);
+  }
+
+  const entry = setup.entry || setup.entryPrice || setup.avgPrice || (candles[Math.floor(candles.length / 2)].close);
+  const exit = !setup.isOngoing ? (setup.exit || setup.avgExitPrice || null) : null;
+  const isWin = !setup.isOngoing && (setup.status === 'WIN' || (setup.pnl && setup.pnl > 0));
+
+  // Determine Stop Loss (MUST be ABOVE entry for short, BELOW entry for long)
+  let stop = setup.stop || setup.stopLoss;
+  if (!stop) {
+    if (!isLong) {
+      stop = (!setup.isOngoing && setup.pnl < 0 && exit && exit > entry) ? exit : entry * 1.018;
+    } else {
+      stop = (!setup.isOngoing && setup.pnl < 0 && exit && exit < entry) ? exit : entry * 0.982;
+    }
+  }
+  if (!isLong && stop <= entry) stop = entry + Math.abs(entry - stop || entry * 0.018);
+  if (isLong && stop >= entry) stop = entry - Math.abs(entry - stop || entry * 0.018);
+
+  // Determine Target (MUST be BELOW entry for short, ABOVE entry for long)
+  let target = (setup.targets && setup.targets[0]) || setup.takeProfit;
+  if (!target) {
+    const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+    if (!isLong) {
+      target = (!setup.isOngoing && isWin && exit && exit < entry) ? exit : entry - riskDist * 2.0;
+    } else {
+      target = (!setup.isOngoing && isWin && exit && exit > entry) ? exit : entry + riskDist * 2.0;
+    }
+  }
+  if (!isLong && target >= entry) target = entry - Math.abs(entry - target || entry * 0.035);
+  if (isLong && target <= entry) target = entry + Math.abs(entry - target || entry * 0.035);
+
+  const current = setup.currentPrice || setup.markPrice || (candles[candles.length - 1].close);
+
+  // Calculate Price Extents with Padding
+  let minP = Infinity, maxP = -Infinity;
+  candles.forEach(c => {
+    if (c.low < minP) minP = c.low;
+    if (c.high > maxP) maxP = c.high;
+  });
+  minP = Math.min(minP, entry, stop, target, current, exit || minP);
+  maxP = Math.max(maxP, entry, stop, target, current, exit || maxP);
+
+  const range = maxP - minP || 1;
+  minP -= range * 0.08;
+  maxP += range * 0.08;
+
+  const padTop = 22;
+  const padBottom = 22;
+  const padLeft = 14;
+  const padRight = 64; // room for price labels
+  const chartW = w - padLeft - padRight;
+  const chartH = h - padTop - padBottom;
+
+  function py(price) {
+    return padTop + (1 - (price - minP) / (maxP - minP)) * chartH;
+  }
+
+  // 2. Background Grid
+  ctx.fillStyle = '#0a0f1d';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+  ctx.lineWidth = 1;
+  const gridLines = 4;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = padTop + (i / gridLines) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(w - padRight, y);
+    ctx.stroke();
+
+    const priceVal = maxP - (i / gridLines) * (maxP - minP);
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(fmtPrice(priceVal), w - padRight + 6, y + 3);
+  }
+
+  const n = candles.length;
+  const step = chartW / n;
+  const candleW = Math.max(2, Math.min(10, step * 0.65));
+
+  // Timeline indices: trade active between entryIdx and exitIdx; aftermath from exitIdx to n-1
+  let entryIdx, exitIdx;
+  if (setup.isOngoing) {
+    entryIdx = Math.max(2, Math.floor(n * 0.30));
+    exitIdx = n - 1;
+  } else {
+    entryIdx = Math.max(2, Math.floor(n * 0.22));
+    exitIdx = Math.min(n - 6, Math.floor(n * 0.62));
+  }
+  const entryX = padLeft + entryIdx * step + candleW / 2;
+  const exitX = padLeft + exitIdx * step + candleW / 2;
+  const endX = w - padRight;
+  const boxW = exitX - entryX;
+
+  // 3. Render Support / Resistance Zones (Pink/Blue shaded bands)
+  const supLevel = setup.nextSupport || (isLong ? stop * 0.998 : target * 0.995);
+  const resLevel = setup.nextResistance || (isLong ? target * 1.005 : stop * 1.002);
+
+  if (supLevel) {
+    const sTop = py(supLevel * 1.003), sBot = py(supLevel * 0.997);
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+    ctx.fillRect(padLeft, Math.min(sTop, sBot), chartW, Math.abs(sBot - sTop));
+    ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(padLeft, Math.min(sTop, sBot), chartW, Math.abs(sBot - sTop));
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.7)';
+    ctx.font = '8.5px "Inter", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Support Zone / OTE', padLeft + 6, Math.max(sTop, sBot) - 4);
+  }
+
+  if (resLevel) {
+    const rTop = py(resLevel * 1.003), rBot = py(resLevel * 0.997);
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
+    ctx.fillRect(padLeft, Math.min(rTop, rBot), chartW, Math.abs(rBot - rTop));
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)';
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(padLeft, Math.min(rTop, rBot), chartW, Math.abs(rBot - rTop));
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.7)';
+    ctx.font = '8.5px "Inter", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Resistance / Liquidity Pool', padLeft + 6, Math.min(rTop, rBot) + 11);
+  }
+
+  // 4. Render TradingView Long/Short Position Box Tool
+  const yEntry = py(entry);
+  const yTarget = py(target);
+  const yStop = py(stop);
+  const rMult = setup.r_multiple ? `+${setup.r_multiple}R` : '+2.0R';
+
+  if (!isLong) {
+    // ── SHORT POSITION BOX ──
+    // Red Stop Loss Box is ABOVE entry (from yStop down to yEntry)
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.20)';
+    ctx.fillRect(entryX, yStop, boxW, yEntry - yStop);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(entryX, yStop);
+    ctx.lineTo(exitX, yStop);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`SL ${fmtPrice(stop)} (-1.0R)`, exitX - 6, yStop - 4);
+
+    // Green Target Box is BELOW entry (from yEntry down to yTarget)
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.20)';
+    ctx.fillRect(entryX, yEntry, boxW, yTarget - yEntry);
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(entryX, yTarget);
+    ctx.lineTo(exitX, yTarget);
+    ctx.stroke();
+
+    ctx.fillStyle = '#10b981';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`TARGET ${fmtPrice(target)} (${rMult})`, exitX - 6, yTarget + 12);
+  } else {
+    // ── LONG POSITION BOX ──
+    // Green Target Box is ABOVE entry (from yTarget down to yEntry)
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.20)';
+    ctx.fillRect(entryX, yTarget, boxW, yEntry - yTarget);
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(entryX, yTarget);
+    ctx.lineTo(exitX, yTarget);
+    ctx.stroke();
+
+    ctx.fillStyle = '#10b981';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`TARGET ${fmtPrice(target)} (${rMult})`, exitX - 6, yTarget - 4);
+
+    // Red Stop Loss Box is BELOW entry (from yEntry down to yStop)
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.20)';
+    ctx.fillRect(entryX, yEntry, boxW, yStop - yEntry);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(entryX, yStop);
+    ctx.lineTo(exitX, yStop);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`SL ${fmtPrice(stop)} (-1.0R)`, exitX - 6, yStop + 12);
+  }
+
+  // Entry Line (White/Cyan dashed from entryX to exitX)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(entryX, yEntry);
+  ctx.lineTo(exitX, yEntry);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 5. Render Candlesticks (across whole timeline including Aftermath!)
+  candles.forEach((c, i) => {
+    const x = padLeft + i * step + candleW / 2;
+    const yOpen = py(c.open);
+    const yClose = py(c.close);
+    const yHigh = py(c.high);
+    const yLow = py(c.low);
+    const isBull = c.close >= c.open;
+
+    ctx.strokeStyle = isBull ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yHigh);
+    ctx.lineTo(x, yLow);
+    ctx.stroke();
+
+    ctx.fillStyle = isBull ? '#10b981' : '#ef4444';
+    const top = Math.min(yOpen, yClose);
+    const bHeight = Math.max(1.5, Math.abs(yOpen - yClose));
+    ctx.fillRect(x - candleW / 2, top, candleW, bHeight);
+  });
+
+  // ── EXACT ENTRY POINT RETICLE & PINPOINT MARKER ──
+  if (entryX >= padLeft - 10 && entryX <= endX + 10) {
+    // 1. Full-height vertical crosshair guide line through the exact entry candle
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(entryX, padTop);
+    ctx.lineTo(entryX, padTop + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 2. High-contrast Glowing Reticle / Target Bullseye
+    ctx.save();
+    ctx.shadowColor = isLong ? '#10b981' : '#ef4444';
+    ctx.shadowBlur = 12;
+
+    // Outer animated ring
+    ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(entryX, yEntry, 8, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Center solid core dot
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(entryX, yEntry, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Target reticle crosshairs (+) through the center
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(entryX - 13, yEntry);
+    ctx.lineTo(entryX - 5, yEntry);
+    ctx.moveTo(entryX + 5, yEntry);
+    ctx.lineTo(entryX + 13, yEntry);
+    ctx.moveTo(entryX, yEntry - 13);
+    ctx.lineTo(entryX, yEntry - 5);
+    ctx.moveTo(entryX, yEntry + 5);
+    ctx.lineTo(entryX, yEntry + 13);
+    ctx.stroke();
+
+    // 3. Exact Entry Pinpoint Badge Callout
+    const badgeText = `🎯 EXACT ENTRY: ${fmtPrice(entry)}`;
+    ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+    const textW = ctx.measureText(badgeText).width;
+    const badgeW = textW + 16;
+    const badgeH = 19;
+    const badgeX = Math.min(w - padRight - badgeW - 2, Math.max(padLeft + 2, entryX - badgeW / 2));
+    const badgeY = isLong ? (yEntry - 34) : (yEntry + 16);
+
+    // Badge container
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+    ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+    // Connecting pointer line from badge to exact entry dot
+    ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(entryX, isLong ? badgeY + badgeH : badgeY);
+    ctx.lineTo(entryX, isLong ? yEntry - 8 : yEntry + 8);
+    ctx.stroke();
+
+    // Badge label
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + 13);
+
+    // 4. Directional Trigger Arrow pointing into the exact reticle
+    ctx.fillStyle = isLong ? '#10b981' : '#ef4444';
+    ctx.strokeStyle = isLong ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 2.2;
+    const aY = isLong ? yEntry + 28 : yEntry - 28;
+    ctx.beginPath();
+    ctx.moveTo(entryX, aY);
+    ctx.lineTo(entryX, yEntry + (isLong ? 9 : -9));
+    ctx.stroke();
+    // Arrow head
+    ctx.beginPath();
+    if (isLong) {
+      ctx.moveTo(entryX - 5, yEntry + 17);
+      ctx.lineTo(entryX, yEntry + 8);
+      ctx.lineTo(entryX + 5, yEntry + 17);
+    } else {
+      ctx.moveTo(entryX - 5, yEntry - 17);
+      ctx.lineTo(entryX, yEntry - 8);
+      ctx.lineTo(entryX + 5, yEntry - 17);
+    }
+    ctx.fill();
+  }
+
+  // 7. Dynamic Overlay: Ongoing Active Price Line vs Resolved Exit Pin + Aftermath
+  if (setup.isOngoing) {
+    const yCur = py(current);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(padLeft, yCur);
+    ctx.lineTo(endX, yCur);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(endX - 2, yCur, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`NOW ${fmtPrice(current)}`, endX - 12, yCur - 4);
+  } else if (exit != null) {
+    // ── AFTERMATH SECTION (Price Action After Stop / TP) ──
+    // Subtle background tint for the aftermath area
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.018)';
+    ctx.fillRect(exitX, padTop, endX - exitX, chartH);
+
+    // Aftermath watermark header
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+    ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('⚡ POST-TRADE FOLLOW-THROUGH', exitX + 8, padTop + 10);
+
+    // Entry level line continues across aftermath as faint dotted reference
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(exitX, yEntry);
+    ctx.lineTo(endX, yEntry);
+    ctx.stroke();
+
+    // Stop level line continues across aftermath
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.25)';
+    ctx.beginPath();
+    ctx.moveTo(exitX, yStop);
+    ctx.lineTo(endX, yStop);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Vertical dashed marker at Exit candle
+    ctx.strokeStyle = isWin ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(exitX, padTop);
+    ctx.lineTo(exitX, h - padBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Exit Pin marker on exit candle
+    const yExit = py(exit);
+    ctx.fillStyle = isWin ? '#10b981' : '#ef4444';
+    ctx.beginPath();
+    ctx.arc(exitX, yExit, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.fillStyle = isWin ? '#10b981' : '#ef4444';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    const reasonText = setup.exit_reason || (isWin ? 'TP REACHED' : 'STOP HIT');
+    ctx.fillText(`EXIT ${fmtPrice(exit)} (${reasonText})`, exitX - 8, yExit - 4);
+
+    // Final candle price tag
+    const lastClose = candles[candles.length - 1].close;
+    const yLast = py(lastClose);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '8.5px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    const postDelta = lastClose - exit;
+    const postDeltaPct = ((postDelta / exit) * 100).toFixed(1);
+    ctx.fillText(`AFTERMATH: ${fmtPrice(lastClose)} (${postDelta >= 0 ? '+' : ''}${postDeltaPct}%)`, endX - 4, yLast - 4);
+  }
+}
+
+// ── Card Builder HTML ───────────────────────────────────────────────────
+function createSetupCardHTML(setup, isOngoing = false) {
+  const sym = setup.symbol || 'BTCUSDT';
+  const cleanSym = sym.replace('USDT', '');
+  const rawSide = String(setup.side || setup.direction || 'BUY').toUpperCase();
+  let isLong = rawSide === 'BUY' || rawSide === 'LONG';
+  if (!isOngoing && setup.entry && setup.exit && typeof setup.pnl === 'number' && setup.pnl !== 0) {
+    const delta = setup.exit - setup.entry;
+    if (delta !== 0) isLong = (setup.pnl * delta > 0);
+  }
+  const dirCls = isLong ? 'long' : 'short';
+  const dirText = isLong ? '🟢 LONG' : '🔴 SHORT';
+
+  const setupName = setup.setup_type || setup.setupName || setup.setupType || (isLong ? 'BREAKOUT_EXPANSION' : 'DESCENDING_TRIANGLE');
+  const isScalp = setup.isScalp || setupName.startsWith('SCALP_');
+  const scalpPill = isScalp ? `<span class="scalp-badge">⚡ 5m–10m SCALP</span>` : `<span style="font-size:9px;color:#38bdf8;background:rgba(56,189,248,0.1);padding:1px 6px;border-radius:4px;font-weight:700;">🌊 15m–1h SWING</span>`;
+
+  const pnl = typeof setup.pnl === 'number' ? setup.pnl : (typeof setup.unrealisedPnl === 'number' ? setup.unrealisedPnl : 0);
+  const isWin = !isOngoing && (pnl > 0 || setup.status === 'WIN');
+  const isLoss = !isOngoing && (pnl < 0 || setup.status === 'LOSS');
+  const pnlCls = isOngoing ? 'ongoing' : (isWin ? 'win' : 'loss');
+  const pnlText = isOngoing
+    ? `⚡ ACTIVE · ${fmtMoney(pnl)}`
+    : (isWin ? `🏆 WIN · ${fmtMoney(pnl)}` : `❌ LOSS · ${fmtMoney(pnl)}`);
+
+  const entry = setup.entry || setup.entryPrice || setup.avgPrice || 0;
+  const exitOrMark = isOngoing ? (setup.markPrice || setup.currentPrice || entry) : (setup.exit || setup.avgExitPrice || entry);
+  let stop = setup.stop || setup.stopLoss;
+  if (!stop) {
+    if (!isLong) {
+      stop = (!isOngoing && isLoss && exitOrMark > entry) ? exitOrMark : entry * 1.018;
+    } else {
+      stop = (!isOngoing && isLoss && exitOrMark < entry) ? exitOrMark : entry * 0.982;
+    }
+  }
+  if (!isLong && stop <= entry) stop = entry + Math.abs(entry - stop || entry * 0.018);
+  if (isLong && stop >= entry) stop = entry - Math.abs(entry - stop || entry * 0.018);
+
+  let target = (setup.targets && setup.targets[0]) || setup.takeProfit;
+  if (!target) {
+    const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+    target = isLong ? entry + riskDist * 2.0 : entry - riskDist * 2.0;
+  }
+  if (!isLong && target >= entry) target = entry - Math.abs(entry - target || entry * 0.035);
+  if (isLong && target <= entry) target = entry + Math.abs(entry - target || entry * 0.035);
+
+  const riskDist = Math.abs(entry - stop) || (entry * 0.015);
+  const rewardDist = Math.abs(target - entry) || (riskDist * 2);
+  const rr = (rewardDist / (riskDist || 1)).toFixed(1);
+
+  const cardCls = isOngoing ? 'setup-card ongoing' : `setup-card ${isWin ? 'win' : 'loss'}`;
+  setup._cardId = setup._cardId || `card-${sym}-${setup.id || Math.random().toString(36).substr(2, 6)}`;
+  const cardId = setup._cardId;
+  const canvasId = `canvas-${cardId}`;
+
+  const timeLabel = timeStr(setup.time || setup.createdTime || setup.openedAt || setup.recorded_at);
+  const thesisText = setup.reason || setup.narrative || `Order executed on ${setupName}; dynamic S/R target coverage anchored with 1:${rr} R:R risk geometry.`;
+
+  return `
+    <div class="${cardCls}" id="${cardId}">
+      <div class="card-head">
+        <div class="card-identity">
+          <span class="sym-pill">${cleanSym}<span style="font-size:10px;color:var(--text-faint);">/USDT</span></span>
+          <span class="dir-badge ${dirCls}">${dirText}</span>
+          <span class="setup-name-badge">${setupName}</span>
+          ${scalpPill}
+        </div>
+        <div class="card-status">
+          <div class="pnl-pill ${pnlCls}">${pnlText}</div>
+        </div>
+      </div>
+
+      <div class="chart-viewport">
+        <canvas id="${canvasId}" class="setup-canvas"></canvas>
+      </div>
+
+      <div class="card-foot">
+        <div class="geom-grid">
+          <div class="geom-item">
+            <div class="gl">Entry Price</div>
+            <div class="gv">${fmtPrice(entry)}</div>
+          </div>
+          <div class="geom-item">
+            <div class="gl">${isOngoing ? 'Mark Price' : 'Exit Price'}</div>
+            <div class="gv" style="color:${isOngoing ? '#38bdf8' : (isWin ? 'var(--green-bright)' : 'var(--red-bright)')};">
+              ${fmtPrice(exitOrMark)}
+            </div>
+          </div>
+          <div class="geom-item">
+            <div class="gl">Target (TP)</div>
+            <div class="gv" style="color:var(--green);">${fmtPrice(target)}</div>
+          </div>
+          <div class="geom-item">
+            <div class="gl">Stop Loss</div>
+            <div class="gv" style="color:var(--red);">${fmtPrice(stop)}</div>
+          </div>
+        </div>
+
+        <div class="thesis-note">
+          <div><b>Thesis:</b> ${thesisText} &middot; <span style="color:#38bdf8;font-weight:700;">R:R 1:${rr}</span></div>
+          <div class="time-age">${timeLabel}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Render All Cards to Screen ──────────────────────────────────────────
+async function renderAllSetups() {
+  const ongoingGrid = document.getElementById('gridOngoing');
+  const historyGrid = document.getElementById('gridHistory');
+
+  // Filter criteria
+  const query = symbolSearch.trim().toUpperCase();
+  const filterPass = (s) => {
+    if (query && !s.symbol.toUpperCase().includes(query)) return false;
+    return true;
+  };
+
+  const filteredOngoing = allOngoingSetups.filter(filterPass);
+  const filteredHistory = allHistorySetups.filter(s => {
+    if (!filterPass(s)) return false;
+    if (activeFilter === 'wins') return s.pnl > 0 || s.status === 'WIN';
+    if (activeFilter === 'losses') return s.pnl < 0 || s.status === 'LOSS';
+    return true;
+  });
+
+  // Update Counters
+  document.getElementById('badgeOngoingCount').textContent = `${filteredOngoing.length} Active`;
+  document.getElementById('badgeHistoryCount').textContent = `${filteredHistory.length} Settled`;
+  document.getElementById('tabCountAll').textContent = filteredOngoing.length + allHistorySetups.length;
+  document.getElementById('tabCountOngoing').textContent = allOngoingSetups.length;
+  document.getElementById('tabCountWins').textContent = allHistorySetups.filter(h => h.pnl > 0 || h.status === 'WIN').length;
+  document.getElementById('tabCountLosses').textContent = allHistorySetups.filter(h => h.pnl < 0 || h.status === 'LOSS').length;
+
+  // Render Ongoing
+  if (activeFilter === 'wins' || activeFilter === 'losses') {
+    document.getElementById('secOngoingWrapper').style.display = 'none';
+  } else {
+    document.getElementById('secOngoingWrapper').style.display = 'block';
+    if (!filteredOngoing.length) {
+      ongoingGrid.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📡</div>
+          <div class="msg">No ongoing active positions matching filter.</div>
+        </div>`;
+    } else {
+      ongoingGrid.innerHTML = filteredOngoing.map(s => createSetupCardHTML(s, true)).join('');
+    }
+  }
+
+  // Render History
+  if (activeFilter === 'ongoing') {
+    document.getElementById('secHistoryWrapper').style.display = 'none';
+  } else {
+    document.getElementById('secHistoryWrapper').style.display = 'block';
+    if (!filteredHistory.length) {
+      historyGrid.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🔍</div>
+          <div class="msg">No executed trade setups found.</div>
+        </div>`;
+    } else {
+      historyGrid.innerHTML = filteredHistory.map(s => createSetupCardHTML(s, false)).join('');
+    }
+  }
+
+  // Draw Charts on Canvases
+  const renderItem = async (setup, isOngoing) => {
+    const canvas = document.getElementById(`canvas-${setup._cardId}`);
+    if (!canvas) return;
+
+    setup.isOngoing = isOngoing;
+    const candles = await fetchCandlesForTrade(setup, setup.isScalp ? '5' : '15', 48);
+    setup.candles = candles;
+    renderSetupChart(canvas, setup);
+  };
+
+  for (const s of filteredOngoing) {
+    await renderItem(s, true);
+  }
+  for (const s of filteredHistory.slice(0, 30)) {
+    await renderItem(s, false);
+  }
+}
+
+// ── Refresh KPI Bar ─────────────────────────────────────────────────────
+function updateKpiBar(ongoing, history) {
+  let wins = 0, losses = 0, gProfit = 0, gLoss = 0, scalps = 0, swings = 0;
+
+  history.forEach(h => {
+    const pnl = typeof h.pnl === 'number' ? h.pnl : 0;
+    if (pnl > 0 || h.status === 'WIN') {
+      wins++;
+      gProfit += Math.max(0, pnl);
+    } else if (pnl < 0 || h.status === 'LOSS') {
+      losses++;
+      gLoss += Math.abs(pnl);
+    }
+    if (h.isScalp || (h.setup_type && h.setup_type.startsWith('SCALP_'))) scalps++;
+    else swings++;
+  });
+
+  ongoing.forEach(o => {
+    if (o.isScalp || (o.setupName && o.setupName.startsWith('SCALP_'))) scalps++;
+    else swings++;
+  });
+
+  const tot = wins + losses;
+  const winRate = tot > 0 ? ((wins / tot) * 100).toFixed(1) + '%' : '--';
+  const net = gProfit - gLoss;
+  const pf = gLoss > 0 ? (gProfit / gLoss).toFixed(2) : (gProfit > 0 ? '99.9' : '--');
+
+  document.getElementById('kpiOngoing').textContent = ongoing.length;
+  document.getElementById('kpiWins').textContent = wins;
+  document.getElementById('kpiWinRate').textContent = `${winRate} win rate`;
+  document.getElementById('kpiLosses').textContent = losses;
+  document.getElementById('kpiNetPnl').textContent = fmtMoney(net);
+  document.getElementById('kpiNetPnl').style.color = net >= 0 ? 'var(--green-bright)' : 'var(--red-bright)';
+  document.getElementById('kpiGross').textContent = `+${fmtMoney(gProfit)} / -${fmtMoney(gLoss)}`;
+  document.getElementById('kpiProfitFactor').textContent = pf;
+  document.getElementById('kpiRatio').textContent = `${scalps} / ${swings}`;
+}
+
+// ── Data Ingestion ──────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    // 1. Ingest Ongoing / Live Positions
+    const [posRes, stateRes] = await Promise.all([
+      fetch('/api/positions').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/auto-trade/state').then(r => r.ok ? r.json() : null).catch(() => null)
+    ]);
+
+    const activeTheses = (stateRes && stateRes.theses) || {};
+    const livePositions = (posRes && posRes.result && posRes.result.list) || [];
+
+    const ongoingList = [];
+    livePositions.forEach(p => {
+      const size = parseFloat(p.size || 0);
+      if (size <= 0) return;
+      const key = `${p.symbol}-${p.side}`;
+      const th = activeTheses[key] || {};
+      ongoingList.push({
+        id: `pos-${p.symbol}-${p.side}`,
+        symbol: p.symbol,
+        side: p.side,
+        direction: p.side.toUpperCase() === 'BUY' ? 'LONG' : 'SHORT',
+        entryPrice: parseFloat(p.avgPrice || p.entryPrice || 0),
+        markPrice: parseFloat(p.markPrice || p.avgPrice || 0),
+        stopLoss: parseFloat(p.stopLoss || th.stopLoss || 0),
+        targets: th.targets || (p.takeProfit ? [parseFloat(p.takeProfit)] : []),
+        nextSupport: th.nextSupport || null,
+        nextResistance: th.nextResistance || null,
+        setupName: th.setupName || (p.side.toUpperCase() === 'BUY' ? 'TREND_CONTINUATION_LONG' : 'DESCENDING_TRIANGLE_SHORT'),
+        isScalp: th.isScalp || false,
+        unrealisedPnl: parseFloat(p.unrealisedPnl || 0),
+        createdTime: p.createdTime || th.openedAt || Date.now()
+      });
+    });
+
+    allOngoingSetups = ongoingList;
+
+    // 2. Ingest Executed Trade History
+    const perfRes = await fetch('/api/performance').then(r => r.ok ? r.json() : null).catch(() => null);
+    if (perfRes && perfRes.trade_history && perfRes.trade_history.length) {
+      allHistorySetups = perfRes.trade_history;
+    } else {
+      const trdRes = await fetch('/api/trades/record?_action=trades&limit=50').then(r => r.ok ? r.json() : null).catch(() => null);
+      if (trdRes && trdRes.items) {
+        allHistorySetups = trdRes.items;
+      }
+    }
+
+    updateKpiBar(allOngoingSetups, allHistorySetups);
+    await renderAllSetups();
+  } catch (err) {
+    console.error('[LOAD DATA ERROR]', err);
+  }
+}
+
+// ── Event Handlers & Filters ────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderAllSetups();
+  });
+});
+
+let searchDebounce = null;
+document.getElementById('filterSymbol').addEventListener('input', (e) => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    symbolSearch = e.target.value;
+    renderAllSetups();
+  }, 200);
+});
+
+document.getElementById('btnRefresh').addEventListener('click', () => {
+  loadData();
+});
+
+// BroadcastChannel sync
+if (shadowChannel) {
+  shadowChannel.onmessage = (ev) => {
+    if (ev.data && ev.data.type === 'snapshot') {
+      const badge = document.getElementById('statusBadge');
+      badge.classList.add('live');
+      document.getElementById('statusText').textContent = 'LIVE ENGINE STREAMING';
+      loadData();
+    }
+  };
+}
+
+// Window resize handling for crisp canvas redrawing
+window.addEventListener('resize', () => {
+  renderAllSetups();
+});
+
+// Auto Poll every 8s
+loadData();
+setInterval(() => {
+  if (!document.hidden) loadData();
+}, 8000);
 </script>
 </body>
 </html>

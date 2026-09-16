@@ -185,6 +185,32 @@
         };
       }
 
+      // 2. VOL_ADJUSTED MODE: normalises the dollar risk per trade across all coins.
+      // Size = riskBudget / (atrPct × leverage × entry). A coin with 8× the ATR
+      // of BTC gets an 8× smaller position, so each trade risks the same dollars.
+      if (this.config.sizingMode === 'vol_adjusted') {
+        const atrPct = this.config.atrPct || 0.01; // caller must supply current ATR%
+        const lev = this.config.leverage || 10;
+        const riskBudget = eq * (this.config.riskPerTradePct / 100);
+        // Dollar risk = position_notional * atrPct, so position_notional = riskBudget / atrPct
+        let notional = riskBudget / Math.max(atrPct, 0.001);
+        // Cap at leverage ceiling
+        const maxNotional = eq * lev;
+        if (notional > maxNotional) notional = maxNotional;
+        let q = notional / entry;
+        q = Math.floor(q / step) * step;
+        if (q * entry < minNotional) q = Math.ceil(minNotional / entry / step) * step;
+        if (q < minQ) q = minQ;
+        q = +q.toFixed(8);
+        return {
+          qty: q,
+          riskAmount: +(riskDist * q).toFixed(2),
+          notional: +(q * entry).toFixed(2),
+          effectiveLeverage: +((q * entry) / eq).toFixed(2),
+          sizingNote: `Vol-adjusted: ATR% ${(atrPct * 100).toFixed(2)}%, risk budget $${riskBudget.toFixed(2)}`
+        };
+      }
+
       const usdtMode = this.config.sizingMode === 'usdt';
       const riskAmount = usdtMode ? +(riskDist * (this.config.fixedUsdtSize / entry)).toFixed(2) : eq * (this.config.riskPerTradePct / 100);
       let qty = usdtMode ? this.config.fixedUsdtSize / entry : riskAmount / riskDist;

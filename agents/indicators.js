@@ -236,11 +236,120 @@
     return below / arr.length;
   }
 
+  /** Full RSI series, needed for divergence analysis and momentum exit. */
+  function rsiSeries(closes, period = 14) {
+    if (closes.length < period + 1) return [];
+    let gain = 0, loss = 0;
+    for (let i = 1; i <= period; i++) {
+      const d = closes[i] - closes[i - 1];
+      if (d >= 0) gain += d; else loss -= d;
+    }
+    let avgGain = gain / period, avgLoss = loss / period;
+    const out = new Array(period).fill(50);
+    out.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+    for (let i = period + 1; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      avgGain = (avgGain * (period - 1) + (d > 0 ? d : 0)) / period;
+      avgLoss = (avgLoss * (period - 1) + (d < 0 ? -d : 0)) / period;
+      out.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+    }
+    return out;
+  }
+
+  /**
+   * RSI Divergence Scanner.
+   *
+   * Regular divergence: price makes a new extreme, RSI does not → reversal.
+   * Hidden divergence: RSI makes a new extreme, price does not → continuation.
+   *
+   * Both types use only confirmed swing points, never the forming bar, so the
+   * detection is stable and does not flicker.
+   *
+   * @returns {{ type: 'REGULAR'|'HIDDEN', side: 'BULLISH'|'BEARISH',
+   *            priceSwings: [{index, price}], rsiSwings: [{index, value}] } | null }
+   */
+  function rsiDivergence(candles, period = 14, lookback = 2) {
+    if (candles.length < period + lookback * 3 + 5) return null;
+    const closes = candles.map(c => c.close);
+    const rs = rsiSeries(closes, period);
+    if (rs.length < candles.length) return null;
+
+    const { highs, lows } = swingPoints(candles, lookback);
+    if (highs.length < 2 && lows.length < 2) return null;
+
+    // --- Bearish divergence: price highs ---
+    if (highs.length >= 2) {
+      const h1 = highs[highs.length - 2], h2 = highs[highs.length - 1];
+      const r1 = rs[h1.index], r2 = rs[h2.index];
+      // Regular bearish: price higher high, RSI lower high → reversal
+      if (h2.price > h1.price && r2 < r1 - 1.5) {
+        return { type: 'REGULAR', side: 'BEARISH',
+          priceSwings: [h1, h2], rsiSwings: [{ index: h1.index, value: r1 }, { index: h2.index, value: r2 }] };
+      }
+      // Hidden bearish: price lower high, RSI higher high → continuation down
+      if (h2.price < h1.price && r2 > r1 + 1.5) {
+        return { type: 'HIDDEN', side: 'BEARISH',
+          priceSwings: [h1, h2], rsiSwings: [{ index: h1.index, value: r1 }, { index: h2.index, value: r2 }] };
+      }
+    }
+
+    // --- Bullish divergence: price lows ---
+    if (lows.length >= 2) {
+      const l1 = lows[lows.length - 2], l2 = lows[lows.length - 1];
+      const r1 = rs[l1.index], r2 = rs[l2.index];
+      // Regular bullish: price lower low, RSI higher low → reversal
+      if (l2.price < l1.price && r2 > r1 + 1.5) {
+        return { type: 'REGULAR', side: 'BULLISH',
+          priceSwings: [l1, l2], rsiSwings: [{ index: l1.index, value: r1 }, { index: l2.index, value: r2 }] };
+      }
+      // Hidden bullish: price higher low, RSI lower low → continuation up
+      if (l2.price > l1.price && r2 < r1 - 1.5) {
+        return { type: 'HIDDEN', side: 'BULLISH',
+          priceSwings: [l1, l2], rsiSwings: [{ index: l1.index, value: r1 }, { index: l2.index, value: r2 }] };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Fibonacci retracement levels between a swing high and swing low.
+   * Returns levels as { ratio, price } objects.
+   */
+  function fibLevels(swingHigh, swingLow) {
+    const range = swingHigh - swingLow;
+    if (range <= 0) return [];
+    const RATIOS = [0.236, 0.382, 0.5, 0.618, 0.786];
+    return RATIOS.map(r => ({
+      ratio: r,
+      // Retracement from the high: price = high - range * ratio
+      priceFromHigh: +(swingHigh - range * r).toFixed(8),
+      // Retracement from the low: price = low + range * ratio
+      priceFromLow: +(swingLow + range * r).toFixed(8)
+    }));
+  }
+
+  /**
+   * Fibonacci extension levels from a swing (A→B→C pattern).
+   * Used for profit targets on continuation moves.
+   */
+  function fibExtensions(swingA, swingB, swingC) {
+    const leg = Math.abs(swingB - swingA);
+    if (leg <= 0) return [];
+    const RATIOS = [1.0, 1.272, 1.618, 2.0, 2.618];
+    const isUp = swingB > swingA;
+    return RATIOS.map(r => ({
+      ratio: r,
+      price: +(isUp ? swingC + leg * r : swingC - leg * r).toFixed(8)
+    }));
+  }
+
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
   return {
     emaSeries, ema, sma, stdev, trueRanges, atr, atrPct, vwap,
-    efficiencyRatio, adx, rsi, slopeInAtr, swingPoints, marketStructure,
+    efficiencyRatio, adx, rsi, rsiSeries, rsiDivergence, fibLevels, fibExtensions,
+    slopeInAtr, swingPoints, marketStructure,
     percentileRank, clamp
   };
 });
