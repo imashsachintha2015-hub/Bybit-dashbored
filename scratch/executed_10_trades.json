@@ -1,0 +1,110 @@
+[
+  {
+    "symbol": "BTCUSDT",
+    "orderId": "6a386430-d64e-4503-9f6d-481b0a5230c6",
+    "side": "Buy",
+    "qty": 0.001,
+    "entry": 77409.1,
+    "notional": 77.41,
+    "tp": 77873.55,
+    "sl": 76789.83,
+    "expected_gross_win": 0.46,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "ETHUSDT",
+    "orderId": "a84f152d-c8c7-4547-a0a2-6a7d89f3fa5a",
+    "side": "Buy",
+    "qty": 0.04,
+    "entry": 2477.51,
+    "notional": 99.1,
+    "tp": 2492.38,
+    "sl": 2457.69,
+    "expected_gross_win": 0.59,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "SOLUSDT",
+    "orderId": "d277d77a-2c11-4473-9886-64cd63cf33c5",
+    "side": "Buy",
+    "qty": 1.0,
+    "entry": 104.11,
+    "notional": 104.11,
+    "tp": 104.73,
+    "sl": 103.28,
+    "expected_gross_win": 0.62,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "LINKUSDT",
+    "orderId": "59fae8e1-3bf9-45a8-99d9-3ea9261dca71",
+    "side": "Buy",
+    "qty": 8.5,
+    "entry": 11.717,
+    "notional": 99.59,
+    "tp": 11.79,
+    "sl": 11.62,
+    "expected_gross_win": 0.6,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "DOGEUSDT",
+    "orderId": "a4fabb4e-2b98-4eec-b9fb-635223bb543d",
+    "side": "Buy",
+    "qty": 1193,
+    "entry": 0.08385,
+    "notional": 100.03,
+    "tp": 0.0844,
+    "sl": 0.0832,
+    "expected_gross_win": 0.6,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "XRPUSDT",
+    "orderId": "7ba1747b-39be-4b26-ad2c-8f6b362e218e",
+    "side": "Buy",
+    "qty": 76,
+    "entry": 1.3204,
+    "notional": 100.35,
+    "tp": 1.3283,
+    "sl": 1.3098,
+    "expected_gross_win": 0.6,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "AVAXUSDT",
+    "orderId": "b50c448e-77bd-4d9f-855f-0c75519b7a57",
+    "side": "Buy",
+    "qty": 12.8,
+    "entry": 7.804,
+    "notional": 99.89,
+    "tp": 7.8508,
+    "sl": 7.7416,
+    "expected_gross_win": 0.6,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "ADAUSDT",
+    "orderId": "f13ddfd4-500e-41e9-9f82-c72d6e41002f",
+    "side": "Buy",
+    "qty": 464,
+    "entry": 0.2154,
+    "notional": 99.95,
+    "tp": 0.2167,
+    "sl": 0.2137,
+    "expected_gross_win": 0.6,
+    "status": "FILLED_ACTIVE"
+  },
+  {
+    "symbol": "SUIUSDT",
+    "orderId": "35dbc01b-892a-4224-8518-31313752c65f",
+    "side": "Buy",
+    "qty": 128,
+    "entry": 0.7786,
+    "notional": 99.66,
+    "tp": 0.7833,
+    "sl": 0.7724,
+    "expected_gross_win": 0.6,
+    "status": "FILLED_ACTIVE"
+  }
+]

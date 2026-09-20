@@ -600,6 +600,29 @@
     </div>
   </header>
 
+  <!-- Target Mode & Prophet Banner -->
+  <div style="max-width: 1600px; margin: 0 auto 16px auto; padding: 12px 18px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(168, 85, 247, 0.08)); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 16px;">🧠</span>
+      <div>
+        <div style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+          ANALYZE MODE: ACTIVE UNTIL TARGET
+          <span id="monTargetPill" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; padding: 1px 6px; border-radius: 12px; font-size: 10px;">ACTIVE</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted);">Continuous market scanning &amp; DeepSeek staged profit claimer active until gross target hit</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div style="text-align: right;">
+        <div style="font-size: 10.5px; color: var(--text-muted);">Target Equity Progress</div>
+        <div id="monTargetProgressText" style="font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #38bdf8;">$9.55 / $15.00 (63.7%)</div>
+      </div>
+      <div style="width: 140px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+        <div id="monTargetProgressBar" style="width: 63.7%; height: 100%; background: linear-gradient(90deg, #38bdf8, #22c55e); border-radius: 4px; transition: width 0.4s ease;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- KPI Overview Bar -->
   <div class="kpi-container">
     <div class="kpi-card">
@@ -706,6 +729,28 @@ let klineCache = {};
 let activeFilter = 'all';
 let symbolSearch = '';
 
+function resolveApiUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const cleanUrl = url.startsWith('/') ? url : '/' + url;
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (window.location.protocol === 'file:' || (isLocalDev && window.location.port !== '8080')) {
+    return 'http://localhost:8080' + cleanUrl;
+  }
+  return cleanUrl;
+}
+
+async function apiFetch(url) {
+  try {
+    const fullUrl = resolveApiUrl(url);
+    const r = await fetch(fullUrl);
+    return r.ok ? await r.json() : null;
+  } catch (e) {
+    console.warn('[Monitor API Notice]', url, e.message);
+    return null;
+  }
+}
+
 function fmtPrice(p) {
   if (p == null || isNaN(p)) return '--';
   if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -756,7 +801,8 @@ async function fetchCandlesForTrade(setup, interval = '5', limit = 48) {
       const stepMs = (parseInt(interval) || 5) * 60 * 1000;
       url += `&end=${setup.exitTime + 18 * stepMs}`;
     }
-    const res = await fetch(url);
+    const fullKlineUrl = resolveApiUrl(url);
+    const res = await fetch(fullKlineUrl);
     if (res.ok) {
       const data = await res.json();
       if (data.list && data.list.length >= 10) {
@@ -1484,8 +1530,8 @@ async function loadData() {
   try {
     // 1. Ingest Ongoing / Live Positions
     const [posRes, stateRes] = await Promise.all([
-      fetch('/api/positions').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/api/auto-trade/state').then(r => r.ok ? r.json() : null).catch(() => null)
+      apiFetch('/api/positions'),
+      apiFetch('/api/auto-trade/state')
     ]);
 
     const activeTheses = (stateRes && stateRes.theses) || {};
@@ -1515,20 +1561,54 @@ async function loadData() {
       });
     });
 
+    // Ensure newest live position is always on top
+    ongoingList.sort((a, b) => {
+      const tA = parseInt(a.createdTime) || 0;
+      const tB = parseInt(b.createdTime) || 0;
+      return tB - tA;
+    });
     allOngoingSetups = ongoingList;
 
     // 2. Ingest Executed Trade History
-    const perfRes = await fetch('/api/performance').then(r => r.ok ? r.json() : null).catch(() => null);
+    const perfRes = await apiFetch('/api/performance');
     if (perfRes && perfRes.trade_history && perfRes.trade_history.length) {
       allHistorySetups = perfRes.trade_history;
     } else {
-      const trdRes = await fetch('/api/trades/record?_action=trades&limit=50').then(r => r.ok ? r.json() : null).catch(() => null);
+      const trdRes = await apiFetch('/api/trades/record?_action=trades&limit=50');
       if (trdRes && trdRes.items) {
         allHistorySetups = trdRes.items;
       }
     }
 
+    // Ensure newly trade is always on top (descending timestamp)
+    allHistorySetups.sort((a, b) => {
+      const tA = (a.exitTime || a.createdTime || (a.recorded_at ? parseInt(a.recorded_at) : (a.time ? new Date(a.time).getTime() : 0))) || 0;
+      const tB = (b.exitTime || b.createdTime || (b.recorded_at ? parseInt(b.recorded_at) : (b.time ? new Date(b.time).getTime() : 0))) || 0;
+      return tB - tA;
+    });
+
     updateKpiBar(allOngoingSetups, allHistorySetups);
+
+    // Ingest Target Mode & Progress
+    const tgtRes = await apiFetch('/api/agent/target-mode');
+    if (tgtRes) {
+      const pill = document.getElementById('monTargetPill');
+      const text = document.getElementById('monTargetProgressText');
+      const bar = document.getElementById('monTargetProgressBar');
+      if (pill) {
+        pill.textContent = tgtRes.status;
+        pill.style.color = tgtRes.status === 'ACTIVE' ? '#22c55e' : (tgtRes.status === 'TARGET_REACHED_PARKED' ? '#c084fc' : '#94a3b8');
+        pill.style.borderColor = pill.style.color;
+      }
+      if (text) {
+        const cur = tgtRes.current_equity != null ? `$${tgtRes.current_equity.toFixed(2)}` : '--';
+        text.textContent = `${cur} / $${(tgtRes.target_equity || 15.0).toFixed(2)} (${tgtRes.progress_pct || 0}%)`;
+      }
+      if (bar) {
+        bar.style.width = `${Math.min(100, Math.max(0, tgtRes.progress_pct || 0))}%`;
+      }
+    }
+
     await renderAllSetups();
   } catch (err) {
     console.error('[LOAD DATA ERROR]', err);

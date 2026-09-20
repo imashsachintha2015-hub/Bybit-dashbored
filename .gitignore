@@ -17,3 +17,4 @@ research/data/
 backtest/data-15m-research/
 node_modules/
 commit_msg.txt
+market_knowledge.db

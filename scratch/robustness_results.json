@@ -1,0 +1,52 @@
+{
+  "V1: 3.0x Vol, 50% Wick, TP 0.50%, BE 0.18%": {
+    "trades": 33,
+    "wins": 12,
+    "be": 16,
+    "losses": 5,
+    "win_rate": 36.36363636363637,
+    "no_loss_rate": 84.84848484848484,
+    "profit_factor": 1.228747844168845,
+    "total_net_pnl": 1.0465213870724648
+  },
+  "V2: 3.0x Vol, 50% Wick, TP 0.55%, BE 0.20%": {
+    "trades": 33,
+    "wins": 12,
+    "be": 17,
+    "losses": 4,
+    "win_rate": 36.36363636363637,
+    "no_loss_rate": 87.87878787878788,
+    "profit_factor": 1.4846357562801764,
+    "total_net_pnl": 2.02335428246972
+  },
+  "V3: 3.5x Vol, 50% Wick, TP 0.50%, BE 0.18%": {
+    "trades": 24,
+    "wins": 10,
+    "be": 10,
+    "losses": 4,
+    "win_rate": 41.66666666666667,
+    "no_loss_rate": 83.33333333333334,
+    "profit_factor": 1.364961775227732,
+    "total_net_pnl": 1.2591181245356764
+  },
+  "V4: 2.8x Vol, 55% Wick, TP 0.50%, BE 0.18%": {
+    "trades": 35,
+    "wins": 10,
+    "be": 17,
+    "losses": 8,
+    "win_rate": 28.57142857142857,
+    "no_loss_rate": 77.14285714285715,
+    "profit_factor": 0.7493682904941418,
+    "total_net_pnl": -1.5703896063065426
+  },
+  "V5: 2.8x Vol, 50% Wick, TP 0.60%, BE 0.22%": {
+    "trades": 44,
+    "wins": 14,
+    "be": 21,
+    "losses": 9,
+    "win_rate": 31.818181818181817,
+    "no_loss_rate": 79.54545454545455,
+    "profit_factor": 1.0434561141237013,
+    "total_net_pnl": 0.33203625889935534
+  }
+}

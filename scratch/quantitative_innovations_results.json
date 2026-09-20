@@ -1,0 +1,89 @@
+{
+  "1. VWAP 2.5-Sigma Mean Reversion (Institutional Value)": {
+    "trades": 0
+  },
+  "2. Liquidation Cascade Exhaustion (Volume Climax Hammer)": {
+    "trades": 9,
+    "wins": 4,
+    "be": 4,
+    "losses": 1,
+    "win_rate": 44.44444444444444,
+    "no_loss_rate": 88.88888888888889,
+    "profit_factor": 1.9960432514651876,
+    "total_net_pnl": 1.020944332751808,
+    "proj_100_pnl": 11.343825919464532,
+    "avg_bars": 10.333333333333334
+  },
+  "3. ICT Asian Range Sweep & London/NY Expansion": {
+    "trades": 100,
+    "wins": 23,
+    "be": 47,
+    "losses": 30,
+    "win_rate": 23.0,
+    "no_loss_rate": 70.0,
+    "profit_factor": 0.6779370534279927,
+    "total_net_pnl": -6.690857715033441,
+    "proj_100_pnl": -6.690857715033441,
+    "avg_bars": 10.54
+  },
+  "4. 15m Supertrend + Pullback Confluence": {
+    "trades": 696,
+    "wins": 145,
+    "be": 248,
+    "losses": 303,
+    "win_rate": 20.833333333333336,
+    "no_loss_rate": 56.46551724137932,
+    "profit_factor": 0.4802681973688018,
+    "total_net_pnl": -81.84661155854737,
+    "proj_100_pnl": -11.759570626228069,
+    "avg_bars": 3.1005747126436782
+  },
+  "5. Bollinger Squeeze Volatility Expansion + Momentum": {
+    "trades": 47,
+    "wins": 5,
+    "be": 23,
+    "losses": 19,
+    "win_rate": 10.638297872340425,
+    "no_loss_rate": 59.57446808510638,
+    "profit_factor": 0.22495825401973704,
+    "total_net_pnl": -11.679879111922553,
+    "proj_100_pnl": -24.850806621111815,
+    "avg_bars": 8.893617021276595
+  },
+  "6. 80-20 Institutional Day Reversal (Raschke Rule)": {
+    "trades": 318,
+    "wins": 48,
+    "be": 171,
+    "losses": 99,
+    "win_rate": 15.09433962264151,
+    "no_loss_rate": 68.86792452830188,
+    "profit_factor": 0.42901626578978586,
+    "total_net_pnl": -39.60198255414282,
+    "proj_100_pnl": -12.453453633378246,
+    "avg_bars": 5.349056603773585
+  },
+  "7. Trend EMA Ribbon + Stochastic Divergence Scalp": {
+    "trades": 150,
+    "wins": 39,
+    "be": 73,
+    "losses": 38,
+    "win_rate": 26.0,
+    "no_loss_rate": 74.66666666666667,
+    "profit_factor": 0.7043494099481442,
+    "total_net_pnl": -7.516916252068394,
+    "proj_100_pnl": -5.011277501378929,
+    "avg_bars": 8.673333333333334
+  },
+  "8. Passive Maker Grid-Spread Scalp (Ranging Filter)": {
+    "trades": 690,
+    "wins": 184,
+    "be": 268,
+    "losses": 238,
+    "win_rate": 26.666666666666668,
+    "no_loss_rate": 65.5072463768116,
+    "profit_factor": 0.43445798811089464,
+    "total_net_pnl": -75.30191888303432,
+    "proj_100_pnl": -10.91332157725135,
+    "avg_bars": 5.750724637681159
+  }
+}

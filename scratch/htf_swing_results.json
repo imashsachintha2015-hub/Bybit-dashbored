@@ -1,0 +1,41 @@
+{
+  "1. 15m Trend Pullback (1.5R/2.5R Targets)": {
+    "trades": 279,
+    "wins": 66,
+    "be": 100,
+    "losses": 113,
+    "win_rate": 23.655913978494624,
+    "no_loss_rate": 59.49820788530465,
+    "profit_factor": 0.6777500921412183,
+    "total_net_pnl": -28.779490072785297,
+    "total_r": -37.50931453821176,
+    "proj_100_pnl": -10.315229416768924,
+    "avg_hold_mins": 187.15053763440858
+  },
+  "2. 15m Liquidity Sweep Reclaim (1.5R/2.5R)": {
+    "trades": 211,
+    "wins": 38,
+    "be": 88,
+    "losses": 85,
+    "win_rate": 18.009478672985782,
+    "no_loss_rate": 59.71563981042654,
+    "profit_factor": 0.6583135525453091,
+    "total_net_pnl": -14.811297763087428,
+    "total_r": -44.699507611491214,
+    "proj_100_pnl": -7.019572399567502,
+    "avg_hold_mins": 87.86729857819904
+  },
+  "3. 15m Squeeze Breakout Retest (1.5R/3.0R)": {
+    "trades": 108,
+    "wins": 24,
+    "be": 29,
+    "losses": 55,
+    "win_rate": 22.22222222222222,
+    "no_loss_rate": 49.074074074074076,
+    "profit_factor": 0.46499725380244344,
+    "total_net_pnl": -20.719308031761837,
+    "total_r": -25.671745610823358,
+    "proj_100_pnl": -19.184544473853553,
+    "avg_hold_mins": 199.02777777777777
+  }
+}

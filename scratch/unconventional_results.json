@@ -1,0 +1,52 @@
+{
+  "2. Funding Settlement Glitch (Mechanical 8H Snapback)": {
+    "trades": 4,
+    "wins": 0,
+    "be": 3,
+    "losses": 1,
+    "win_rate": 0.0,
+    "no_loss_rate": 75.0,
+    "profit_factor": 0.0,
+    "total_net_pnl": -0.6741114852225898
+  },
+  "3. Triple-Tap Liquidity Wall (3-Wick Cluster Rejection)": {
+    "trades": 69,
+    "wins": 16,
+    "be": 40,
+    "losses": 13,
+    "win_rate": 23.18840579710145,
+    "no_loss_rate": 81.15942028985508,
+    "profit_factor": 0.8305343511450434,
+    "total_net_pnl": -1.6649999999999392
+  },
+  "4. Iceberg Absorption Wall (Volume Explodes, Range Contracts)": {
+    "trades": 59,
+    "wins": 13,
+    "be": 35,
+    "losses": 11,
+    "win_rate": 22.033898305084744,
+    "no_loss_rate": 81.35593220338984,
+    "profit_factor": 0.7892857142857199,
+    "total_net_pnl": -1.7699999999999396
+  },
+  "5. Fractal Dimension Noise-to-Trend Spring (Chaos Filter)": {
+    "trades": 12,
+    "wins": 1,
+    "be": 5,
+    "losses": 6,
+    "win_rate": 8.333333333333332,
+    "no_loss_rate": 50.0,
+    "profit_factor": 0.15886524822695197,
+    "total_net_pnl": -2.9649999999999634
+  },
+  "6. Exhaustion Sequential Run (5 Consecutive Climax Bars)": {
+    "trades": 34,
+    "wins": 3,
+    "be": 14,
+    "losses": 17,
+    "win_rate": 8.823529411764707,
+    "no_loss_rate": 50.0,
+    "profit_factor": 0.14133949191686043,
+    "total_net_pnl": -9.294999999999899
+  }
+}

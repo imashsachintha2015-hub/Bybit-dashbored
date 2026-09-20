@@ -22,6 +22,10 @@ class handler(JsonApiHandler):
                 body.get("leverage"),
                 body.get("marginMode"),
                 theses=body.get("theses"),
+                daily_gross_target=body.get("dailyGrossTarget"),
+                target_notional=body.get("targetNotional"),
+                virtual_equity=body.get("virtualEquity"),
+                max_concurrent_positions=body.get("maxConcurrentPositions"),
             )
             self._send_json(200, state)
         except Exception as e:

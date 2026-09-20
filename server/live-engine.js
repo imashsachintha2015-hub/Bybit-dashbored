@@ -151,38 +151,44 @@ function calculateOrderQty(sym, price, autoState) {
   const minQ = spec.minQty || step;
   const minNotional = spec.minNotional || 5.0;
 
-  // SureShot sizing: fixed 10 USDT margin @ 10x leverage = 100 USDT notional position
-  if (autoState && (autoState.strategyMode === 'sureshot' || autoState.sureShotMode)) {
-    const notional = 100.0;
-    let q = notional / price;
-    q = Math.floor(q / step) * step;
-    if (q * price < minNotional) q = Math.ceil(minNotional / price / step) * step;
-    if (q < minQ) q = minQ;
-    return +q.toFixed(8);
+  // Calibrated target notional for $10 equity and $5/day gross target.
+  // With $10 equity @ 10x leverage, buying power is $100 notional ($10 margin).
+  // A +0.50% move generates +$0.50 gross profit (10 wins = $5.00 gross target).
+  // A +1.00% move generates +$1.00 gross profit (5 wins = $5.00 gross target).
+  let targetNotional = 100.0;
+  if (autoState && autoState.targetNotional > 0) {
+    targetNotional = autoState.targetNotional;
+  } else if (autoState && (autoState.strategyMode === 'sureshot' || autoState.sureShotMode)) {
+    targetNotional = 100.0;
+  } else if (autoState && autoState.fixedUsdtSize > 0) {
+    targetNotional = (autoState.fixedUsdtSize <= 25)
+      ? autoState.fixedUsdtSize * (autoState.leverage || 10)
+      : autoState.fixedUsdtSize;
   }
 
-  if (autoState && autoState.sizingMode === 'usdt' && autoState.fixedUsdtSize > 0) {
-    let q = autoState.fixedUsdtSize / price;
-    q = Math.floor(q / step) * step;
-    if (q * price < minNotional) q = Math.ceil(minNotional / price / step) * step;
-    if (q < minQ) q = minQ;
-    return +q.toFixed(8);
-  }
+  // Safety hard ceiling: for $10 equity, never exceed $100 notional (10x leverage max)
+  const maxCap = (autoState && autoState.virtualEquity && autoState.virtualEquity <= 20) ? 100.0 : 250.0;
+  if (targetNotional > maxCap) targetNotional = maxCap;
+  if (targetNotional < minNotional) targetNotional = minNotional;
 
-  // Default: 'min' sizing mode (smallest valid legal order on Bybit)
-  let q = Math.max(minQ, Math.ceil(minNotional / price / step) * step);
+  let q = targetNotional / price;
   q = Math.floor(q / step) * step;
+  if (q * price < minNotional) q = Math.ceil(minNotional / price / step) * step;
+  if (q < minQ) q = minQ;
   return +q.toFixed(8);
 }
 
 // ── Cross-Device Arm State & Open Positions Cache ─────────────────────────
 let currentAutoState = {
   armed: false,
-  sizingMode: 'min',
+  virtualEquity: 10.0,
+  sizingMode: 'usdt',
   fixedUsdtSize: 10,
+  targetNotional: 100.0,
+  dailyGrossTarget: 5.0,
   leverage: 10,
   marginMode: 'cross',
-  maxConcurrentPositions: 0 // Uncapped (removed 5 order cap)
+  maxConcurrentPositions: 1 // Strictly 1 position at a time for $10 equity
 };
 let openPositionsCache = [];
 let lastStateSync = 0;
@@ -243,19 +249,40 @@ async function syncAutoTradeState() {
     }
   } catch (e) {}
 
-  // Sync recent stop-outs from closed-PnL feed so cooldown survives restarts
+  // Sync recent stop-outs & daily gross profit target ($5.00/day) from closed-PnL feed
   if (now - lastPerfSync > 60000) {
     lastPerfSync = now;
     try {
       const perf = await getJSON(`${API_BASE}/api/performance`);
       if (perf && Array.isArray(perf.trade_history)) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        let grossProfitToday = 0;
         for (const t of perf.trade_history) {
+          if (t.time && t.time.startsWith(todayStr)) {
+            const p = parseFloat(t.pnl || 0);
+            if (p > 0) grossProfitToday += p;
+          }
           if (t.status === 'LOSS') {
             const tTime = new Date(t.time).getTime() || 0;
             if (tTime > 0 && now - tTime < 15 * 60 * 1000) {
               const remainingMs = (tTime + 15 * 60 * 1000) - now;
               riskGovernor.symbolCooldowns.set(t.symbol, now + remainingMs);
             }
+          }
+        }
+        riskGovernor.dailyGrossProfitToday = Math.max(riskGovernor.dailyGrossProfitToday, grossProfitToday);
+
+        const target = currentAutoState.dailyGrossTarget || 5.0;
+        if (grossProfitToday >= target && currentAutoState.armed) {
+          log(`[DAILY TARGET ACHIEVED] Gross profit today is $${grossProfitToday.toFixed(2)} (>= $${target.toFixed(2)} target)! Disarming 24/7 cloud execution to lock gains.`);
+          currentAutoState.armed = false;
+          await postJSON('/api/auto-trade/state', { armed: false });
+          // Cancel any pending entry orders
+          for (const [sSym, ord] of Object.entries(activeOrders)) {
+            try {
+              await postJSON('/api/order/cancel', { category: 'linear', symbol: sSym, orderId: ord.orderId });
+            } catch (e) {}
+            delete activeOrders[sSym];
           }
         }
       }
@@ -619,8 +646,44 @@ async function tick() {
           continue;
         }
 
-        // Max concurrent orders / positions check (uncapped by default, unless process.env.MAX_CONCURRENT_POSITIONS is explicitly configured > 0)
-        const maxOrders = Number(process.env.MAX_CONCURRENT_POSITIONS || currentAutoState.maxConcurrentPositions || 0);
+        // ── Macro Trend Gate (BTC/ETH 1h/4h alignment) ──
+        // Veto counter-trend shorts into a macro bullish rally.
+        // Veto counter-trend longs into a macro bearish bleed.
+        const btcEng = engines['BTCUSDT'];
+        const ethEng = engines['ETHUSDT'];
+        const btcTicker = btcEng && btcEng.ticker;
+        const ethTicker = ethEng && ethEng.ticker;
+        const btcChange = btcTicker ? parseFloat(btcTicker.price24hPcnt || 0) * 100 : 0;
+        const ethChange = ethTicker ? parseFloat(ethTicker.price24hPcnt || 0) * 100 : 0;
+
+        let macroBullish = false;
+        let macroBearish = false;
+
+        const btcHtf = btcEng && btcEng.confirmed('htf');
+        if (btcHtf && btcHtf.length >= 10) {
+          const I = require('../agents/indicators.js');
+          const btcCloses = btcHtf.map(c => c.close);
+          const ema20 = I.ema(btcCloses, 20);
+          const curPrice = btcEng.price || btcCloses[btcCloses.length - 1];
+          if (curPrice > ema20 && btcChange >= 0) macroBullish = true;
+          if (curPrice < ema20 && btcChange <= -1.5) macroBearish = true;
+        } else {
+          if (btcChange >= 1.0 || ethChange >= 1.5) macroBullish = true;
+          if (btcChange <= -1.5 || ethChange <= -2.0) macroBearish = true;
+        }
+
+        const candidateSide = s.decision === 'BUY' ? 'Buy' : 'Sell';
+        if (candidateSide === 'Sell' && macroBullish) {
+          log(`[MACRO TREND VETO] SHORT ${sym} vetoed: BTC/ETH market is BULLISH (BTC 24h: ${btcChange.toFixed(2)}%, ETH 24h: ${ethChange.toFixed(2)}%). Counter-trend shorting forbidden, capital preserved.`);
+          continue;
+        }
+        if (candidateSide === 'Buy' && macroBearish) {
+          log(`[MACRO TREND VETO] LONG ${sym} vetoed: BTC/ETH market is BEARISH (BTC 24h: ${btcChange.toFixed(2)}%, ETH 24h: ${ethChange.toFixed(2)}%). Counter-trend buying forbidden, capital preserved.`);
+          continue;
+        }
+
+        // Max concurrent orders / positions check (defaults to 1 for $10 equity, or configured)
+        const maxOrders = Number(currentAutoState.maxConcurrentPositions || process.env.MAX_CONCURRENT_POSITIONS || 1);
         if (maxOrders > 0) {
           const activeCount = openPositionsCache.length + Object.keys(activeOrders).filter(k => now - activeOrders[k].placedAt < 600000).length;
           if (activeCount >= maxOrders) {

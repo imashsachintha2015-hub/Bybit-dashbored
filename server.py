@@ -890,6 +890,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     "reason": extra.get("reason", "")
                 })
 
+            # Ensure newly trade is always on top (descending timestamp)
+            merged.sort(key=lambda x: int(x.get("exitTime") or x.get("createdTime") or 0), reverse=True)
+
             tot_trades = w_count + l_count
             win_rate = round((w_count / tot_trades) * 100, 1) if tot_trades > 0 else 0.0
             profit_factor = round(g_profit / g_loss, 2) if g_loss > 0 else (0.0 if g_profit == 0 else 99.9)
@@ -920,6 +923,37 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "accounting_note": "Bybit closed-PnL is the single source of truth for money; local records supply setup and exit-reason metadata only."
             }
             self._send_json(200, res)
+            return
+
+        # 3b. API: DeepSeek Smart Profit Claimer history & state
+        if self.path.startswith("/api/profit-claimer/history"):
+            claim_file = os.path.join(DIRECTORY, "scratch", "deepseek_claimer_decisions.json")
+            history = []
+            if os.path.exists(claim_file):
+                try:
+                    with open(claim_file, "r", encoding="utf-8") as f:
+                        history = json.load(f)
+                except Exception:
+                    pass
+            self._send_json(200, {"history": history, "count": len(history)})
+            return
+
+        # 3c. API: Agent Target Mode & Progress
+        if self.path.startswith("/api/agent/target-mode"):
+            from backend_lib.market_knowledge import kb
+            wb = bybit_client.get_wallet_balance()
+            coins = wb.get("result", {}).get("list", [{}])[0].get("coin", [])
+            usdt = next((c for c in coins if c.get("coin") == "USDT"), {})
+            eq = float(usdt.get("equity", 0)) if usdt else None
+            state = kb.get_target_state(current_equity=eq)
+            self._send_json(200, state)
+            return
+
+        # 3d. API: Market Prophet Knowledge Base
+        if self.path.startswith("/api/market-prophet/knowledge"):
+            from backend_lib.market_knowledge import kb
+            summary = kb.get_knowledge_summary()
+            self._send_json(200, summary)
             return
 
         # 4. API: DIV-10 Benzinga News Sentinel feed
@@ -1035,6 +1069,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
 
     def _route_post(self, body):
+        # 0. API: Configure Agent Target Mode
+        if self.path == "/api/agent/target-mode":
+            from backend_lib.market_knowledge import kb
+            target_eq = body.get("target_equity")
+            is_armed = body.get("is_armed")
+            status = body.get("status")
+            kb.set_target_state(target_equity=target_eq, is_armed=is_armed, status=status)
+            wb = bybit_client.get_wallet_balance()
+            coins = wb.get("result", {}).get("list", [{}])[0].get("coin", [])
+            usdt = next((c for c in coins if c.get("coin") == "USDT"), {})
+            eq = float(usdt.get("equity", 0)) if usdt else None
+            self._send_json(200, kb.get_target_state(current_equity=eq))
+            return
+
         # 1. API: Place Demo Order
         if self.path == "/api/order/place":
             category = body.get("category", "linear")
@@ -1214,6 +1262,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     body.get("leverage"),
                     body.get("marginMode"),
                     theses=body.get("theses"),
+                    daily_gross_target=body.get("dailyGrossTarget"),
+                    target_notional=body.get("targetNotional"),
+                    virtual_equity=body.get("virtualEquity"),
+                    max_concurrent_positions=body.get("maxConcurrentPositions"),
                 )
                 self._send_json(200, state)
             except Exception as e:

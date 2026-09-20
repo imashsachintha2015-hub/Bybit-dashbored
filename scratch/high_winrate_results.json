@@ -1,0 +1,72 @@
+{
+  "1. SureShot Micro-Scalp (0.50% TP1, 90% Bank, BE)": {
+    "trades": 676,
+    "wins": 133,
+    "be": 28,
+    "losses": 515,
+    "win_rate": 19.674556213017752,
+    "no_loss_rate": 23.816568047337277,
+    "profit_factor": 0.33221770859055866,
+    "total_net_pnl": -79.30528469833342,
+    "pnl_per_trade": -0.11731550990877726,
+    "proj_100_pnl": -11.731550990877725,
+    "max_dd": 80.28005764771626,
+    "avg_hold_mins": 22.159763313609467
+  },
+  "2. Liquidity Sweep & Wick Trap (Turtle Soup)": {
+    "trades": 92,
+    "wins": 18,
+    "be": 3,
+    "losses": 71,
+    "win_rate": 19.565217391304348,
+    "no_loss_rate": 22.82608695652174,
+    "profit_factor": 0.41887324120212355,
+    "total_net_pnl": -11.296155513922574,
+    "pnl_per_trade": -0.12278429906437581,
+    "proj_100_pnl": -12.27842990643758,
+    "max_dd": 12.5770110874865,
+    "avg_hold_mins": 22.77173913043478
+  },
+  "3. Bollinger 2.5-Sigma Capitulation Fade": {
+    "trades": 2,
+    "wins": 1,
+    "be": 0,
+    "losses": 1,
+    "win_rate": 50.0,
+    "no_loss_rate": 50.0,
+    "profit_factor": 5.344729043183651,
+    "total_net_pnl": 0.34757832345469214,
+    "pnl_per_trade": 0.17378916172734607,
+    "proj_100_pnl": 17.378916172734606,
+    "max_dd": 0.08,
+    "avg_hold_mins": 17.5
+  },
+  "4. EMA Supertrend Pullback": {
+    "trades": 231,
+    "wins": 50,
+    "be": 18,
+    "losses": 163,
+    "win_rate": 21.645021645021643,
+    "no_loss_rate": 29.43722943722944,
+    "profit_factor": 0.41052969106190523,
+    "total_net_pnl": -24.270601186995886,
+    "pnl_per_trade": -0.1050675376060428,
+    "proj_100_pnl": -10.50675376060428,
+    "max_dd": 24.485166121552666,
+    "avg_hold_mins": 33.26839826839827
+  },
+  "5. Volume Absorption Breakout": {
+    "trades": 110,
+    "wins": 16,
+    "be": 3,
+    "losses": 91,
+    "win_rate": 14.545454545454545,
+    "no_loss_rate": 17.272727272727273,
+    "profit_factor": 0.16727132868013753,
+    "total_net_pnl": -22.911288270973518,
+    "pnl_per_trade": -0.208284438827032,
+    "proj_100_pnl": -20.828443882703198,
+    "max_dd": 23.011450142942895,
+    "avg_hold_mins": 28.727272727272727
+  }
+}

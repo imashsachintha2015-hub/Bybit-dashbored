@@ -1,0 +1,74 @@
+{
+  "1. Liq Climax: Instant Claim @ +0.20% (Maker TP)": {
+    "trades": 20,
+    "wins": 15,
+    "be": 0,
+    "losses": 5,
+    "win_rate": 75.0,
+    "no_loss_rate": 75.0,
+    "profit_factor": 1.0105263157894735,
+    "total_net_pnl": 0.0249999999999998,
+    "total_fees_paid": 0.975,
+    "avg_bars": 2.8
+  },
+  "2. Liq Climax: Instant Claim @ +0.25% (Maker TP)": {
+    "trades": 20,
+    "wins": 15,
+    "be": 0,
+    "losses": 5,
+    "win_rate": 75.0,
+    "no_loss_rate": 75.0,
+    "profit_factor": 1.2000000000000177,
+    "total_net_pnl": 0.525000000000039,
+    "total_fees_paid": 0.975,
+    "avg_bars": 3.05
+  },
+  "3. Liq Climax: Instant Claim @ +0.30% (Maker TP)": {
+    "trades": 20,
+    "wins": 14,
+    "be": 1,
+    "losses": 5,
+    "win_rate": 70.0,
+    "no_loss_rate": 75.0,
+    "profit_factor": 1.246213104740693,
+    "total_net_pnl": 0.7191512413461606,
+    "total_fees_paid": 1.01,
+    "avg_bars": 4.4
+  },
+  "4. Liq Climax: Instant Claim @ +0.25% + BE @ +0.15%": {
+    "trades": 20,
+    "wins": 9,
+    "be": 6,
+    "losses": 5,
+    "win_rate": 45.0,
+    "no_loss_rate": 75.0,
+    "profit_factor": 0.568421052631583,
+    "total_net_pnl": -1.434999999999976,
+    "total_fees_paid": 1.185,
+    "avg_bars": 2.75
+  },
+  "5. 1m High-Frequency Liq Climax: Claim @ +0.18%": {
+    "trades": 22,
+    "wins": 9,
+    "be": 6,
+    "losses": 7,
+    "win_rate": 40.909090909090914,
+    "no_loss_rate": 68.18181818181817,
+    "profit_factor": 0.41582952816160823,
+    "total_net_pnl": -1.5843109758960023,
+    "total_fees_paid": 1.3699999999999999,
+    "avg_bars": 10.863636363636363
+  },
+  "6. 1m EMA Micro-Pullback HFT: Claim @ +0.15%": {
+    "trades": 1963,
+    "wins": 787,
+    "be": 689,
+    "losses": 487,
+    "win_rate": 40.09169638308711,
+    "no_loss_rate": 75.19103413143148,
+    "profit_factor": 0.3935633475371877,
+    "total_net_pnl": -119.04992023624537,
+    "total_fees_paid": 123.74,
+    "avg_bars": 7.8257768721344885
+  }
+}

@@ -548,23 +548,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resolveApiUrl(url) {
+    if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (window.location.protocol === 'file:') {
-      return 'http://localhost:8080' + (url.startsWith('/') ? '' : '/') + url;
+    const cleanUrl = url.startsWith('/') ? url : '/' + url;
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (window.location.protocol === 'file:' || (isLocalDev && window.location.port !== '8080')) {
+      return 'http://localhost:8080' + cleanUrl;
     }
-    return url;
+    return cleanUrl;
   }
 
   async function fetchJSON(url) {
     const fullUrl = resolveApiUrl(url);
-    try { const r = await fetch(fullUrl); return await readJSONResponse(r, fullUrl); }
-    catch (e) { console.warn('API fetch error:', fullUrl, e.message); return null; }
+    try {
+      const r = await fetch(fullUrl);
+      return await readJSONResponse(r, fullUrl);
+    } catch (e) {
+      console.warn('[Network Notice] API fetch fallback for:', fullUrl, e.message);
+      return null;
+    }
   }
 
-  async function postJSON(url, body) {
+  async function postJSON(url, body, retries = 1) {
     const fullUrl = resolveApiUrl(url);
-    const r = await fetch(fullUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    return readJSONResponse(r, fullUrl);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const r = await fetch(fullUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        return await readJSONResponse(r, fullUrl);
+      } catch (e) {
+        if (attempt < retries) {
+          await new Promise(res => setTimeout(res, 400));
+          continue;
+        }
+        console.warn('[Network Notice] API post failed for:', fullUrl, e.message);
+        return { ok: false, error: e.message };
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -579,7 +602,8 @@ document.addEventListener('DOMContentLoaded', () => {
   //
   // The fingerprint lets the server fold repeated evaluations of an unchanged
   // candidate into a single row: the engine re-evaluates every 5 seconds and a
-  // setup that stands for an hour would otherwise write ~720 identical rows.
+  // live setup can persist for an hour.
+  //
   // Identity is symbol + setup + direction. Grade and decision are deliberately
   // NOT part of it: a candidate re-scores constantly as price moves, and
   // including them meant one setup watched for an hour became a dozen rows
@@ -591,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function logSignal(sym, s, outcome, rejectReason, extra) {
     try {
-      await postJSON('/api/trades/record?_action=signal', {
+      const res = await postJSON('/api/trades/record?_action=signal', {
         fingerprint: signalFingerprint(sym, s),
         symbol: sym,
         direction: s.direction || (s.decision === 'BUY' ? 'LONG' : s.decision === 'SELL' ? 'SHORT' : ''),
@@ -630,9 +654,12 @@ document.addEventListener('DOMContentLoaded', () => {
         maker_offset_bps: extra && extra.offsetBps != null ? extra.offsetBps : null,
         fill_price: extra && extra.fillPrice != null ? extra.fillPrice : null
       });
+      if (res && res.error) {
+        console.warn(`[Signal Log] ${sym} candidate not recorded: ${res.error}`);
+      }
     } catch (e) {
-      // Logging must never be able to interfere with trading.
-      logEvent(`Signal log failed for ${sym}: ${e.message}`);
+      // Logging must never be able to interfere with trading or pollute UI event log.
+      console.warn(`[Signal Log] ${sym} candidate not recorded: ${e.message}`);
     }
   }
 
@@ -1455,9 +1482,109 @@ document.addEventListener('DOMContentLoaded', () => {
   async function pollMacro() { const res = await fetchJSON('/api/market-overview'); if (res) latestMacro = res; }
   async function pollLlmStatus() { llmStatus = await fetchJSON('/api/llm/status'); }
 
+  // ── Analyze Mode & Market Prophet Knowledge Base Polling ──
+  let targetModeState = null;
+
+  async function pollTargetMode() {
+    const res = await fetchJSON('/api/agent/target-mode');
+    if (!res) return;
+    targetModeState = res;
+    const pill = $('targetModePill');
+    const input = $('targetEquityInput');
+    const progText = $('targetProgressText');
+    const progBar = $('targetProgressBar');
+    const toggleBtn = $('toggleAnalyzeModeBtn');
+
+    if (pill) {
+      pill.textContent = res.status;
+      if (res.status === 'ACTIVE') {
+        pill.style.background = 'rgba(34, 197, 94, 0.15)';
+        pill.style.color = '#22c55e';
+        pill.style.borderColor = '#22c55e';
+      } else if (res.status === 'TARGET_REACHED_PARKED') {
+        pill.style.background = 'rgba(168, 85, 247, 0.2)';
+        pill.style.color = '#c084fc';
+        pill.style.borderColor = '#c084fc';
+      } else {
+        pill.style.background = 'rgba(148, 163, 184, 0.15)';
+        pill.style.color = '#94a3b8';
+        pill.style.borderColor = '#94a3b8';
+      }
+    }
+
+    if (input && document.activeElement !== input) {
+      input.value = (res.target_equity || 15.0).toFixed(2);
+    }
+
+    if (progText) {
+      const cur = res.current_equity != null ? `$${res.current_equity.toFixed(2)}` : '--';
+      progText.textContent = `${cur} / $${(res.target_equity || 15.0).toFixed(2)} (${res.progress_pct || 0}%)`;
+    }
+
+    if (progBar) {
+      progBar.style.width = `${Math.min(100, Math.max(0, res.progress_pct || 0))}%`;
+    }
+
+    if (toggleBtn) {
+      if (res.is_armed) {
+        toggleBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Active (Target Armed)';
+        toggleBtn.style.color = '#38bdf8';
+        toggleBtn.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+      } else {
+        toggleBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Paused (Click to Arm)';
+        toggleBtn.style.color = 'var(--text-muted)';
+        toggleBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+      }
+    }
+  }
+
+  async function pollMarketProphet() {
+    const res = await fetchJSON('/api/market-prophet/knowledge');
+    if (!res) return;
+    const container = $('prophetRulesContainer');
+    const countEl = $('prophetRulesCount');
+    if (countEl) countEl.textContent = `${res.total_episodes_learned} Episodes · SQLite`;
+    if (container) {
+      if (!res.top_rules || !res.top_rules.length) {
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:10.5px;">Learning active: DeepSeek will synthesize rules after trade closes.</div>';
+      } else {
+        container.innerHTML = res.top_rules.map(r => `
+          <div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <span style="color:#38bdf8; font-weight:700;">[${r.symbol}]</span> ${r.rule_summary}
+          </div>
+        `).join('');
+      }
+    }
+  }
+
+  function initAnalyzeModeControls() {
+    const setBtn = $('setTargetBtn');
+    if (setBtn) {
+      setBtn.onclick = async () => {
+        const input = $('targetEquityInput');
+        const val = input ? parseFloat(input.value) : 15.0;
+        if (!isNaN(val) && val > 0) {
+          await postJSON('/api/agent/target-mode', { target_equity: val, is_armed: true });
+          await pollTargetMode();
+        }
+      };
+    }
+    const toggleBtn = $('toggleAnalyzeModeBtn');
+    if (toggleBtn) {
+      toggleBtn.onclick = async () => {
+        const nextArmed = !(targetModeState && targetModeState.is_armed);
+        await postJSON('/api/agent/target-mode', { is_armed: nextArmed });
+        await pollTargetMode();
+      };
+    }
+  }
+
   setTimeout(pollNews, 1200); setInterval(pollNews, 300000);
   setTimeout(pollMacro, 1500); setInterval(pollMacro, 300000);
   setTimeout(pollLlmStatus, 2000); setInterval(pollLlmStatus, 60000);
+  setTimeout(pollTargetMode, 1000); setInterval(pollTargetMode, 5000);
+  setTimeout(pollMarketProphet, 1500); setInterval(pollMarketProphet, 15000);
+  initAnalyzeModeControls();
 
   // ─────────────────────────────────────────────────────────────────────
   // Main intelligence tick.
@@ -1701,6 +1828,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const pos = await fetchJSON('/api/positions');
     if (pos && pos.result && pos.result.list) {
       openPositionsSnapshot = pos.result.list.filter(p => parseFloat(p.size) > 0);
+      // Ensure newest live position is always on top
+      openPositionsSnapshot.sort((a, b) => {
+        const tA = parseInt(a.createdTime || a.updatedTime || 0);
+        const tB = parseInt(b.createdTime || b.updatedTime || 0);
+        return tB - tA;
+      });
       await checkPendingEntries();
 
       // Ensure every open position on Bybit has a thesis in positionManager (auto-adopt if opened outside/reloaded)
@@ -1783,7 +1916,13 @@ document.addEventListener('DOMContentLoaded', () => {
       $('pnlVal').style.color = netPnl >= 0 ? 'var(--green)' : 'var(--red)';
       $('wlVal').textContent = `${perf.win_count || 0}W/${perf.loss_count || 0}L`;
 
-      const history = perf.trade_history || [];
+      const rawHistory = perf.trade_history || [];
+      // Ensure newest trade is always on top (descending timestamp)
+      const history = [...rawHistory].sort((a, b) => {
+        const tA = (a.exitTime || a.createdTime || (a.recorded_at ? parseInt(a.recorded_at) : (a.time ? new Date(a.time).getTime() : 0))) || 0;
+        const tB = (b.exitTime || b.createdTime || (b.recorded_at ? parseInt(b.recorded_at) : (b.time ? new Date(b.time).getTime() : 0))) || 0;
+        return tB - tA;
+      });
       previewHistoryList = history;
       setupPerformance = computeSetupPerformance(history);
 
@@ -1862,7 +2001,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const stepMs = (isScalp ? 5 : 15) * 60 * 1000;
         url += `&end=${tradeObj.exitTime + 18 * stepMs}`;
       }
-      const res = await fetch(url);
+      const fullKlineUrl = resolveApiUrl(url);
+      const res = await fetch(fullKlineUrl);
       if (res.ok) {
         const d = await res.json();
         if (d.list && d.list.length >= 8) {
@@ -2923,6 +3063,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saved.riskPerTradePct && saved.riskPerTradePct !== riskGovernor.config.riskPerTradePct) {
       riskGovernor.config.riskPerTradePct = saved.riskPerTradePct;
       $('marginInput').value = saved.riskPerTradePct;
+    }
+    if (saved.dailyGrossTarget) {
+      riskGovernor.config.dailyGrossProfitTarget = saved.dailyGrossTarget;
+    }
+    if (saved.targetNotional) {
+      riskGovernor.config.targetNotional = saved.targetNotional;
+    }
+    if (saved.virtualEquity) {
+      riskGovernor.config.virtualEquity = saved.virtualEquity;
+      riskGovernor.currentEquity = saved.virtualEquity;
     }
     if (saved.theses && typeof saved.theses === 'object') {
       let imported = 0;

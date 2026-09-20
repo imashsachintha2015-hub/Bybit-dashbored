@@ -24,9 +24,13 @@ STATE_KEY = "auto_trade_state"
 
 DEFAULT_STATE = {
     "armed": False,
-    "riskPerTradePct": 0.5,
-    "sizingMode": "min",
+    "virtualEquity": 10.0,
+    "riskPerTradePct": 5.0,
+    "sizingMode": "usdt",
     "fixedUsdtSize": 10,
+    "targetNotional": 100.0,
+    "dailyGrossTarget": 5.0,
+    "maxConcurrentPositions": 1,
     "leverage": 10,
     "marginMode": "cross",
     "theses": {},
@@ -40,7 +44,7 @@ def load():
     return {**DEFAULT_STATE, **state}
 
 
-def save(armed=None, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=None, leverage=None, margin_mode=None, theses=None):
+def save(armed=None, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=None, leverage=None, margin_mode=None, theses=None, daily_gross_target=None, target_notional=None, virtual_equity=None, max_concurrent_positions=None):
     current = load()
     merged_theses = dict(current.get("theses", {}) or {})
     if isinstance(theses, dict):
@@ -52,9 +56,13 @@ def save(armed=None, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=
 
     state = {
         "armed": bool(armed) if armed is not None else current.get("armed", False),
-        "riskPerTradePct": float(risk_per_trade_pct) if risk_per_trade_pct is not None else current.get("riskPerTradePct", 0.5),
-        "sizingMode": sizing_mode if sizing_mode in ("risk", "usdt", "min") else current.get("sizingMode", "min"),
+        "virtualEquity": float(virtual_equity) if virtual_equity is not None else current.get("virtualEquity", 10.0),
+        "riskPerTradePct": float(risk_per_trade_pct) if risk_per_trade_pct is not None else current.get("riskPerTradePct", 5.0),
+        "sizingMode": sizing_mode if sizing_mode in ("risk", "usdt", "min") else current.get("sizingMode", "usdt"),
         "fixedUsdtSize": float(fixed_usdt_size) if fixed_usdt_size is not None else current.get("fixedUsdtSize", 10),
+        "targetNotional": float(target_notional) if target_notional is not None else current.get("targetNotional", 100.0),
+        "dailyGrossTarget": float(daily_gross_target) if daily_gross_target is not None else current.get("dailyGrossTarget", 5.0),
+        "maxConcurrentPositions": int(max_concurrent_positions) if max_concurrent_positions is not None else current.get("maxConcurrentPositions", 1),
         "leverage": int(leverage) if leverage and int(leverage) > 0 else current.get("leverage", 10),
         "marginMode": str(margin_mode).lower() if str(margin_mode).lower() in ("cross", "isolated") else current.get("marginMode", "cross"),
         "theses": merged_theses,

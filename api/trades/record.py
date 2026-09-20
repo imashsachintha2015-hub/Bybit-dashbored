@@ -126,6 +126,23 @@ class handler(JsonApiHandler):
                 signal_log_mod.record_trade_outcome(body)
             except Exception as e:
                 print(f"[trades/record] signal_log update failed: {e}")
+            if body.get("setup_type") != "KV_PERSISTENCE_TEST":
+                try:
+                    from backend_lib.market_knowledge import kb
+                    kb.record_trade_close({
+                        "symbol": body.get("symbol", ""),
+                        "direction": str(body.get("side", "")).upper(),
+                        "entry_price": float(body.get("entry", 0) or 0),
+                        "exit_price": float(body.get("exit", 0) or 0),
+                        "size": float(body.get("size", 0) or 0),
+                        "pnl_net": pnl,
+                        "pnl_pct": float(body.get("pnl_pct", 0) or 0),
+                        "mfe_pct": float(body.get("mfe_pct", 0) or 0),
+                        "mae_pct": float(body.get("mae_pct", 0) or 0),
+                        "exit_reason": body.get("exit_reason", ""),
+                    }, micro_data=body.get("microstructure") or {})
+                except Exception as e:
+                    print(f"[trades/record] kb.record_trade_close failed: {e}")
             self._send_json(200, {"success": True})
         except Exception as e:
             print(f"[POST /api/trades/record] Unhandled error: {e}")

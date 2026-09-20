@@ -80,6 +80,9 @@ class handler(JsonApiHandler):
                 "reason": extra.get("reason", "")
             })
 
+        # Ensure newly trade is always on top (descending timestamp)
+        merged.sort(key=lambda x: int(x.get("exitTime") or x.get("createdTime") or x.get("ts") or 0), reverse=True)
+
         tot_trades = w_count + l_count
         win_rate = round((w_count / tot_trades) * 100, 1) if tot_trades > 0 else 0.0
         profit_factor = round(g_profit / g_loss, 2) if g_loss > 0 else (0.0 if g_profit == 0 else 99.9)

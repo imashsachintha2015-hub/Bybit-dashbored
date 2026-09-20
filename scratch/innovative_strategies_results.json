@@ -1,0 +1,72 @@
+{
+  "A. S/R Key Level Defense (Support Bounce)": {
+    "trades": 36,
+    "wins": 6,
+    "be": 13,
+    "losses": 17,
+    "win_rate": 16.666666666666664,
+    "no_loss_rate": 52.77777777777778,
+    "profit_factor": 0.36762716730764805,
+    "total_net_pnl": -3.396770241735037,
+    "pnl_per_trade": -0.09435472893708435,
+    "proj_100_pnl": -9.435472893708436,
+    "max_dd": 3.747394212546448,
+    "avg_hold_mins": 21.25
+  },
+  "B. Dual Bollinger 2.0-Sigma Snapback": {
+    "trades": 44,
+    "wins": 8,
+    "be": 24,
+    "losses": 12,
+    "win_rate": 18.181818181818183,
+    "no_loss_rate": 72.72727272727273,
+    "profit_factor": 0.5709879948521122,
+    "total_net_pnl": -2.35463393009789,
+    "pnl_per_trade": -0.053514407502224776,
+    "proj_100_pnl": -5.351440750222477,
+    "max_dd": 2.6266847609343045,
+    "avg_hold_mins": 15.568181818181818
+  },
+  "C. Patient Limit Retest (50% Pullback Dip)": {
+    "trades": 261,
+    "wins": 63,
+    "be": 68,
+    "losses": 130,
+    "win_rate": 24.137931034482758,
+    "no_loss_rate": 50.191570881226056,
+    "profit_factor": 0.528256430262055,
+    "total_net_pnl": -20.076486914622,
+    "pnl_per_trade": -0.07692140580314942,
+    "proj_100_pnl": -7.692140580314942,
+    "max_dd": 20.40014971543759,
+    "avg_hold_mins": 20.632183908045974
+  },
+  "D. Trend-Aligned Liquidity Sweep (Turtle Soup)": {
+    "trades": 66,
+    "wins": 15,
+    "be": 34,
+    "losses": 17,
+    "win_rate": 22.727272727272727,
+    "no_loss_rate": 74.24242424242425,
+    "profit_factor": 0.6474730491661993,
+    "total_net_pnl": -2.941827086145591,
+    "pnl_per_trade": -0.044573137668872595,
+    "proj_100_pnl": -4.4573137668872596,
+    "max_dd": 4.023751911710223,
+    "avg_hold_mins": 21.515151515151516
+  },
+  "E. Wide-Anchor SureShot + Rapid BE (+0.18%)": {
+    "trades": 150,
+    "wins": 31,
+    "be": 74,
+    "losses": 45,
+    "win_rate": 20.666666666666668,
+    "no_loss_rate": 70.0,
+    "profit_factor": 0.40522481861258663,
+    "total_net_pnl": -11.970729748887498,
+    "pnl_per_trade": -0.07980486499258332,
+    "proj_100_pnl": -7.980486499258332,
+    "max_dd": 12.30437069260831,
+    "avg_hold_mins": 22.133333333333333
+  }
+}

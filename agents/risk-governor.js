@@ -22,13 +22,16 @@
     leverage: 10,                    // Bybit leverage (1–100)
     marginMode: 'cross',             // 'cross' or 'isolated'
     sizingMode: 'min',               // 'min' = smallest possible exchange size, 'usdt' = fixed notional, 'risk' = % equity
-    fixedUsdtSize: 10,               // USDT per trade when sizingMode='usdt'
+    fixedUsdtSize: 10,               // USDT margin per trade when sizingMode='usdt'
+    targetNotional: 100.0,           // Standard calibrated notional position size ($100 = $10 margin @ 10x)
+    maxTradeNotional: 250.0,         // Absolute safety cap on position notional to prevent oversized risk
     riskPerTradePct: 0.5,            // % of equity risked when sizingMode='risk'
     maxConcurrentPositions: 0,       // 0 = uncapped (no maximum concurrent order cap)
 
-    // ── Safety ──
-    maxDailyLossPct: 3.0,            // hard daily loss limit (% of session start equity)
-    minEquity: 50                    // minimum account balance to trade
+    // ── Target & Safety ──
+    dailyGrossProfitTarget: 5.0,     // Target gross profit per day in USDT ($5.00/day)
+    maxDailyLossPct: 25.0,           // Daily loss limit (% of equity)
+    minEquity: 5                     // minimum account balance to trade (adjusted for $10 equity)
   };
 
   class RiskGovernor {
@@ -39,6 +42,7 @@
       this.currentEquity = 0;
       this.dayKey = this._dayKey();
       this.realisedPnlToday = 0;
+      this.dailyGrossProfitToday = 0;
       this.tradesToday = 0;
       this.rMultiples = [];            // realised R per closed trade, for expectancy
       this.symbolCooldowns = new Map(); // symbol -> epoch ms
@@ -55,6 +59,7 @@
       if (key !== this.dayKey) {
         this.dayKey = key;
         this.realisedPnlToday = 0;
+        this.dailyGrossProfitToday = 0;
         this.tradesToday = 0;
         this.sessionStartEquity = this.currentEquity;
         if (this.pauseReason === 'DAILY_LOSS_LIMIT') {
@@ -77,6 +82,9 @@
     recordOutcome({ symbol, pnl, rMultiple }) {
       this._rollDayIfNeeded();
       this.realisedPnlToday += pnl;
+      if (pnl > 0) {
+        this.dailyGrossProfitToday += pnl;
+      }
       this.tradesToday++;
       if (typeof rMultiple === 'number' && isFinite(rMultiple)) this.rMultiples.push(rMultiple);
       if (this.rMultiples.length > 200) this.rMultiples.shift();
@@ -114,14 +122,15 @@
     /**
      * The gate. Returns { allowed, reasons[] } — every refusal names itself so
      * the operator can see exactly why the system stood down.
-     *
-     * Only restriction: cannot open a second position on the SAME coin when one
-     * is already live or a limit order is resting.  Everything else is removed
-     * — no concurrent-position cap, no correlation-group cap, no cooldowns.
      */
     canOpen({ symbol, openPositions = [], pendingOrders = [] }) {
       this._rollDayIfNeeded();
       const reasons = [];
+
+      // 0. Daily gross profit target lock ($5.00/day)
+      if (this.config.dailyGrossProfitTarget > 0 && this.dailyGrossProfitToday >= this.config.dailyGrossProfitTarget) {
+        reasons.push(`Daily gross profit target ($${this.config.dailyGrossProfitTarget.toFixed(2)}) reached ($${this.dailyGrossProfitToday.toFixed(2)}) — trading completed for the day`);
+      }
 
       // 1. Minimum equity
       if (this.currentEquity > 0 && this.currentEquity < this.config.minEquity) {
@@ -235,12 +244,18 @@
       }
 
       const usdtMode = this.config.sizingMode === 'usdt';
-      const riskAmount = usdtMode ? +(riskDist * (this.config.fixedUsdtSize / entry)).toFixed(2) : eq * (this.config.riskPerTradePct / 100);
-      let qty = usdtMode ? this.config.fixedUsdtSize / entry : riskAmount / riskDist;
+      let targetNotional = this.config.targetNotional || 100.0;
+      if (usdtMode && this.config.fixedUsdtSize > 0) {
+        targetNotional = (this.config.fixedUsdtSize <= 25)
+          ? this.config.fixedUsdtSize * (this.config.leverage || 10)
+          : this.config.fixedUsdtSize;
+      }
+      const riskAmount = usdtMode ? +(riskDist * (targetNotional / entry)).toFixed(2) : eq * (this.config.riskPerTradePct / 100);
+      let qty = usdtMode ? targetNotional / entry : riskAmount / riskDist;
 
-      // Never let sizing push notional past the leverage ceiling.
+      // Never let sizing push notional past the leverage ceiling or max trade notional safety cap
       const effLev = Math.max(1, this.config.leverage || maxLeverage);
-      const maxNotional = eq * effLev;
+      const maxNotional = Math.min(eq * effLev, this.config.maxTradeNotional || 250.0);
       if (qty * entry > maxNotional) {
         qty = maxNotional / entry;
       }

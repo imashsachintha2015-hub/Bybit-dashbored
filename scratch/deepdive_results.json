@@ -1,0 +1,90 @@
+{
+  "A. Liq Climax (2.5x Vol, 45% Wick, TP 0.50%)": {
+    "trades": 43,
+    "wins": 16,
+    "be": 17,
+    "losses": 10,
+    "win_rate": 37.2093023255814,
+    "no_loss_rate": 76.74418604651163,
+    "profit_factor": 0.9210293911261197,
+    "total_net_pnl": -0.6337391362128896,
+    "proj_100_pnl": -1.4738119446811386
+  },
+  "B. Liq Climax (3.0x Vol, 50% Wick, TP 0.55%)": {
+    "trades": 23,
+    "wins": 11,
+    "be": 10,
+    "losses": 2,
+    "win_rate": 47.82608695652174,
+    "no_loss_rate": 91.30434782608695,
+    "profit_factor": 2.591983489159251,
+    "total_net_pnl": 3.50236367615032,
+    "proj_100_pnl": 15.227668157175305
+  },
+  "C. Liq Climax Trend-Filtered (with 200 EMA)": {
+    "trades": 20,
+    "wins": 5,
+    "be": 8,
+    "losses": 7,
+    "win_rate": 25.0,
+    "no_loss_rate": 65.0,
+    "profit_factor": 0.4887171429162644,
+    "total_net_pnl": -2.72258121397089,
+    "proj_100_pnl": -13.61290606985445
+  },
+  "D. Liq Climax + RSI Extreme (<32 / >68)": {
+    "trades": 27,
+    "wins": 9,
+    "be": 14,
+    "losses": 4,
+    "win_rate": 33.33333333333333,
+    "no_loss_rate": 85.18518518518519,
+    "profit_factor": 1.3001299853110555,
+    "total_net_pnl": 1.1855134419786648,
+    "proj_100_pnl": 4.390790525846907
+  },
+  "E. VWAP 1.8-Sigma Snapback (TP 0.50%, BE 0.18%)": {
+    "trades": 36,
+    "wins": 9,
+    "be": 17,
+    "losses": 10,
+    "win_rate": 25.0,
+    "no_loss_rate": 72.22222222222221,
+    "profit_factor": 0.5364461891233187,
+    "total_net_pnl": -3.4882424268470085,
+    "proj_100_pnl": -9.689562296797245
+  },
+  "F. VWAP 2.0-Sigma Snapback (TP 0.60%, BE 0.20%)": {
+    "trades": 97,
+    "wins": 12,
+    "be": 61,
+    "losses": 24,
+    "win_rate": 12.371134020618557,
+    "no_loss_rate": 75.25773195876289,
+    "profit_factor": 0.25389645849103853,
+    "total_net_pnl": -15.886197951499186,
+    "proj_100_pnl": -16.377523661339367
+  },
+  "G. VWAP 2.2-Sigma Snapback (TP 0.70%, BE 0.22%)": {
+    "trades": 70,
+    "wins": 10,
+    "be": 51,
+    "losses": 9,
+    "win_rate": 14.285714285714285,
+    "no_loss_rate": 87.14285714285714,
+    "profit_factor": 0.41405816112016175,
+    "total_net_pnl": -6.591845687398185,
+    "proj_100_pnl": -9.416922410568835
+  },
+  "H. Hybrid: VWAP 2.0-Sigma + Vol Climax": {
+    "trades": 22,
+    "wins": 1,
+    "be": 18,
+    "losses": 3,
+    "win_rate": 4.545454545454546,
+    "no_loss_rate": 86.36363636363636,
+    "profit_factor": 0.14050805729423932,
+    "total_net_pnl": -2.741498836129168,
+    "proj_100_pnl": -12.461358346041674
+  }
+}

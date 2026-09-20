@@ -1,0 +1,89 @@
+{
+  "1. Liquidity Sweep & Retest (Ghost Hunter)": {
+    "trades": 43,
+    "wins": 6,
+    "be": 25,
+    "losses": 12,
+    "win_rate": 13.953488372093023,
+    "no_loss_rate": 72.09302325581395,
+    "profit_factor": 0.372678191050259,
+    "total_net_pnl": -3.7935953677584533,
+    "proj_100_pnl": -8.82231480874059,
+    "avg_hold_mins": 15.58139534883721
+  },
+  "2. 3-Sigma Mean Reversion (Rubber Band)": {
+    "trades": 0
+  },
+  "3. Order Block & FVG Retest (Smart Money)": {
+    "trades": 131,
+    "wins": 32,
+    "be": 59,
+    "losses": 40,
+    "win_rate": 24.427480916030532,
+    "no_loss_rate": 69.46564885496184,
+    "profit_factor": 0.5497928275959668,
+    "total_net_pnl": -7.935923094497284,
+    "proj_100_pnl": -6.05795656068495,
+    "avg_hold_mins": 26.755725190839694
+  },
+  "4. Squeeze Volatility Breakout": {
+    "trades": 98,
+    "wins": 17,
+    "be": 39,
+    "losses": 42,
+    "win_rate": 17.346938775510203,
+    "no_loss_rate": 57.14285714285714,
+    "profit_factor": 0.30893195965538617,
+    "total_net_pnl": -10.777977915658369,
+    "proj_100_pnl": -10.997936648630988,
+    "avg_hold_mins": 23.163265306122447
+  },
+  "5. Session Range Liquidity Rotation": {
+    "trades": 160,
+    "wins": 27,
+    "be": 62,
+    "losses": 71,
+    "win_rate": 16.875,
+    "no_loss_rate": 55.625,
+    "profit_factor": 0.36526076090231396,
+    "total_net_pnl": -14.98908580041061,
+    "proj_100_pnl": -9.368178625256633,
+    "avg_hold_mins": 16.59375
+  },
+  "6. RSI Divergence Climax (Double Reversal)": {
+    "trades": 88,
+    "wins": 22,
+    "be": 32,
+    "losses": 34,
+    "win_rate": 25.0,
+    "no_loss_rate": 61.36363636363637,
+    "profit_factor": 0.8225371208354176,
+    "total_net_pnl": -1.9391442064282036,
+    "proj_100_pnl": -2.2035729618502313,
+    "avg_hold_mins": 21.25
+  },
+  "7. MA Ribbon Compression Expansion": {
+    "trades": 166,
+    "wins": 16,
+    "be": 81,
+    "losses": 69,
+    "win_rate": 9.63855421686747,
+    "no_loss_rate": 58.43373493975904,
+    "profit_factor": 0.18126336024264333,
+    "total_net_pnl": -21.347145655020956,
+    "proj_100_pnl": -12.859726298205395,
+    "avg_hold_mins": 20.0
+  },
+  "8. Volume Delta Absorption Wall (Whale Wall)": {
+    "trades": 19,
+    "wins": 3,
+    "be": 6,
+    "losses": 10,
+    "win_rate": 15.789473684210526,
+    "no_loss_rate": 47.368421052631575,
+    "profit_factor": 0.16710219941877458,
+    "total_net_pnl": -3.196411715867528,
+    "proj_100_pnl": -16.823219557197515,
+    "avg_hold_mins": 17.63157894736842
+  }
+}
