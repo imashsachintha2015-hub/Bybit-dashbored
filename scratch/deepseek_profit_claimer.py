@@ -349,8 +349,14 @@ class SmartProfitClaimer:
                 "rationale": rationale,
                 "stage": 1
             }
-            print(f"\n[DEEPSEEK PROFIT CLAIMER] {sym} +{gain_pct:.2f}% -> VERDICT: {verdict} ({source})")
-            print(f"   Rationale: {rationale}")
+            def safe_p(text):
+                try:
+                    print(text)
+                except UnicodeEncodeError:
+                    print(text.encode('ascii', errors='replace').decode('ascii'))
+
+            safe_p(f"\n[DEEPSEEK PROFIT CLAIMER] {sym} +{gain_pct:.2f}% -> VERDICT: {verdict} ({source})")
+            safe_p(f"   Rationale: {rationale}")
             
             # Execute Staged Plan
             if verdict == "TAKE_ALL":
@@ -360,7 +366,7 @@ class SmartProfitClaimer:
                 log_entry["api_response"] = close_res.get('retMsg', '')
                 state['stage1_done'] = True
                 state['stage2_done'] = True
-                print(f"   Action: Closed 100% position at market IOC!")
+                safe_p(f"   Action: Closed 100% position at market IOC!")
             
             elif verdict == "TAKE_PARTIAL":
                 # Bank 50%
@@ -368,7 +374,7 @@ class SmartProfitClaimer:
                 if half_qty > 0 and half_qty < size:
                     close_res = self.client.close_position('linear', sym, side, half_qty)
                     log_entry["action_taken"] = f"BANKED_50% ({half_qty} units closed, remaining {size - half_qty})"
-                    print(f"   Action: Banked 50% ({half_qty} units) into cash balance!")
+                    safe_p(f"   Action: Banked 50% ({half_qty} units) into cash balance!")
                 else:
                     log_entry["action_taken"] = f"CANNOT_SPLIT (size {size} too small, maintaining full)"
                 
@@ -378,7 +384,7 @@ class SmartProfitClaimer:
                 stop_res = self.client.set_trading_stop('linear', sym, stop_loss=str(be_stop))
                 log_entry["ratchet_sl"] = be_stop
                 state['stage1_done'] = True
-                print(f"   Action: Ratcheted broker-side SL to {be_stop} (+0.12% fee-cushioned green stop)!")
+                safe_p(f"   Action: Ratcheted broker-side SL to {be_stop} (+0.12% fee-cushioned green stop)!")
             
             elif verdict == "KEEP_RUNNER":
                 # Don't close, but lock in risk-free stop at Entry + 0.12%
@@ -387,7 +393,7 @@ class SmartProfitClaimer:
                 stop_res = self.client.set_trading_stop('linear', sym, stop_loss=str(be_stop))
                 log_entry["action_taken"] = f"RUNNER_KEPT (SL ratcheted to {be_stop})"
                 state['stage1_done'] = True
-                print(f"   Action: Keeping 100% runner! Ratcheted SL to {be_stop} (risk-free).")
+                safe_p(f"   Action: Keeping 100% runner! Ratcheted SL to {be_stop} (risk-free).")
                 
             self.claimed_stages[key] = state
             self.history.append(log_entry)
@@ -396,7 +402,10 @@ class SmartProfitClaimer:
             
         # STAGE 2: Hit +0.75% or higher
         elif gain_pct >= 0.75 and state['stage1_done'] and not state['stage2_done']:
-            print(f"\n[STAGE 2 TARGET HIT] {sym} reached +{gain_pct:.2f}%! Locking final runner.")
+            try:
+                print(f"\n[STAGE 2 TARGET HIT] {sym} reached +{gain_pct:.2f}%! Locking final runner.")
+            except UnicodeEncodeError:
+                pass
             close_res = self.client.close_position('linear', sym, side, size)
             state['stage2_done'] = True
             self.claimed_stages[key] = state
