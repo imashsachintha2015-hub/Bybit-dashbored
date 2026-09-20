@@ -1579,12 +1579,298 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ── Table Sorting & Filtering State & Engine ──
+  let tableFilterText = '';
+  let historySortCol = 'time';
+  let historySortAsc = false; // default newest first
+  let positionsSortCol = 'symbol';
+  let positionsSortAsc = true;
+  let cachedRawHistory = [];
+
+  function sortTradeList(list, col, asc) {
+    return [...list].sort((a, b) => {
+      let vA, vB;
+      if (col === 'id') {
+        vA = String(a.id || '');
+        vB = String(b.id || '');
+      } else if (col === 'time') {
+        vA = (a.exitTime || a.createdTime || (a.recorded_at ? parseInt(a.recorded_at) : (a.time ? new Date(a.time).getTime() : 0))) || 0;
+        vB = (b.exitTime || b.createdTime || (b.recorded_at ? parseInt(b.recorded_at) : (b.time ? new Date(b.time).getTime() : 0))) || 0;
+      } else if (col === 'symbol') {
+        vA = String(a.symbol || '');
+        vB = String(b.symbol || '');
+      } else if (col === 'side') {
+        vA = String(a.side || '');
+        vB = String(b.side || '');
+      } else if (col === 'entry') {
+        vA = parseFloat(a.entry || 0);
+        vB = parseFloat(b.entry || 0);
+      } else if (col === 'exit') {
+        vA = parseFloat(a.exit || 0);
+        vB = parseFloat(b.exit || 0);
+      } else if (col === 'pnl') {
+        vA = parseFloat(a.pnl || 0);
+        vB = parseFloat(b.pnl || 0);
+      } else if (col === 'r') {
+        vA = typeof a.r_multiple === 'number' ? a.r_multiple : -9999;
+        vB = typeof b.r_multiple === 'number' ? b.r_multiple : -9999;
+      } else if (col === 'setup') {
+        vA = String(a.setup_type || '');
+        vB = String(b.setup_type || '');
+      } else if (col === 'exit_reason') {
+        vA = String(a.exit_reason || '');
+        vB = String(b.exit_reason || '');
+      } else {
+        vA = a[col] || '';
+        vB = b[col] || '';
+      }
+
+      if (typeof vA === 'string' && typeof vB === 'string') {
+        const cmp = vA.localeCompare(vB, undefined, { sensitivity: 'base' });
+        return asc ? cmp : -cmp;
+      }
+      return asc ? (vA - vB) : (vB - vA);
+    });
+  }
+
+  function filterTradeList(list, q) {
+    if (!q) return list;
+    const term = q.toLowerCase();
+    return list.filter(t => 
+      (t.symbol && t.symbol.toLowerCase().includes(term)) ||
+      (t.setup_type && t.setup_type.toLowerCase().includes(term)) ||
+      (t.exit_reason && t.exit_reason.toLowerCase().includes(term)) ||
+      (t.side && t.side.toLowerCase().includes(term)) ||
+      (t.id && String(t.id).toLowerCase().includes(term)) ||
+      (t.status && t.status.toLowerCase().includes(term))
+    );
+  }
+
+  function renderHistoryTable() {
+    const histTbody = $('historyTbody');
+    if (!histTbody) return;
+
+    let processed = filterTradeList(cachedRawHistory, tableFilterText);
+    processed = sortTradeList(processed, historySortCol, historySortAsc);
+    previewHistoryList = processed;
+
+    // Update count display
+    const countEl = $('tradeCount');
+    if (countEl) {
+      if (tableFilterText) {
+        countEl.textContent = `${processed.length}/${cachedRawHistory.length} trades`;
+      } else {
+        countEl.textContent = `${cachedRawHistory.length} trades`;
+      }
+    }
+
+    // Update header icons
+    document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
+      const col = th.getAttribute('data-sort');
+      const icon = th.querySelector('.sort-indicator');
+      if (col === historySortCol) {
+        th.classList.add('sort-active');
+        if (icon) {
+          icon.className = `fa-solid ${historySortAsc ? 'fa-sort-up' : 'fa-sort-down'} sort-indicator`;
+        }
+      } else {
+        th.classList.remove('sort-active');
+        if (icon) {
+          icon.className = 'fa-solid fa-sort sort-indicator';
+        }
+      }
+    });
+
+    if (!processed.length) {
+      histTbody.innerHTML = `<tr><td colspan="10" class="empty-msg">${tableFilterText ? 'No matching trades found' : 'No trade history yet'}</td></tr>`;
+      return;
+    }
+
+    histTbody.innerHTML = processed.map((t, idx) => {
+      const pnlClass = t.status === 'WIN' ? 'text-green' : 'text-red';
+      const reasonFull = (t.reason || '').replace(/"/g, '&quot;');
+      const rTxt = typeof t.r_multiple === 'number' ? `${t.r_multiple >= 0 ? '+' : ''}${t.r_multiple}R` : '--';
+      const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === idx);
+      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${idx})" title="Click to view trade setup replay">
+        <td>${t.id}</td><td>${t.time}</td><td>${t.symbol}</td>
+        <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
+        <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
+        <td>${t.exit ? t.exit.toLocaleString() : '--'}</td>
+        <td class="${pnlClass}">${t.pnl >= 0 ? '+$' : '-$'}${Math.abs(t.pnl).toFixed(2)}</td>
+        <td class="${pnlClass}">${rTxt}</td>
+        <td class="font-mono" style="font-size:9px;">${t.setup_type || '--'}${t.grade ? ' ' + t.grade : ''}</td>
+        <td style="font-size:9px;" title="${reasonFull}">${t.exit_reason || '--'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderPositionsTable() {
+    const tbody = $('positionsTbody');
+    if (!tbody) return;
+
+    let list = [...openPositionsSnapshot];
+    if (tableFilterText) {
+      list = list.filter(p => p.symbol && p.symbol.toLowerCase().includes(tableFilterText));
+    }
+
+    // Sort active positions
+    list.sort((a, b) => {
+      let vA, vB;
+      if (positionsSortCol === 'symbol') {
+        vA = a.symbol || '';
+        vB = b.symbol || '';
+      } else if (positionsSortCol === 'side') {
+        vA = a.side || '';
+        vB = b.side || '';
+      } else if (positionsSortCol === 'size') {
+        vA = parseFloat(a.size || 0);
+        vB = parseFloat(b.size || 0);
+      } else if (positionsSortCol === 'notional') {
+        vA = parseFloat(a.positionValue || 0) || (parseFloat(a.avgPrice || 0) * parseFloat(a.size || 0));
+        vB = parseFloat(b.positionValue || 0) || (parseFloat(b.avgPrice || 0) * parseFloat(b.size || 0));
+      } else if (positionsSortCol === 'unrealisedPnl') {
+        vA = parseFloat(a.unrealisedPnl || 0);
+        vB = parseFloat(b.unrealisedPnl || 0);
+      } else {
+        vA = parseFloat(a[positionsSortCol] || 0);
+        vB = parseFloat(b[positionsSortCol] || 0);
+      }
+      if (typeof vA === 'string') {
+        const cmp = vA.localeCompare(vB);
+        return positionsSortAsc ? cmp : -cmp;
+      }
+      return positionsSortAsc ? (vA - vB) : (vB - vA);
+    });
+
+    const posCountEl = $('posCount');
+    if (posCountEl) {
+      if (tableFilterText) {
+        posCountEl.textContent = `${list.length}/${openPositionsSnapshot.length} active`;
+      } else {
+        posCountEl.textContent = `${openPositionsSnapshot.length} active`;
+      }
+    }
+
+    document.querySelectorAll('#positionsTable th.sortable-header').forEach(th => {
+      const col = th.getAttribute('data-sort');
+      const icon = th.querySelector('.sort-indicator');
+      if (col === positionsSortCol) {
+        th.classList.add('sort-active');
+        if (icon) icon.className = `fa-solid ${positionsSortAsc ? 'fa-sort-up' : 'fa-sort-down'} sort-indicator`;
+      } else {
+        th.classList.remove('sort-active');
+        if (icon) icon.className = 'fa-solid fa-sort sort-indicator';
+      }
+    });
+
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="12" class="empty-msg">${tableFilterText ? 'No matching positions' : 'No active positions'}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map(p => {
+      const pnl = parseFloat(p.unrealisedPnl || 0);
+      const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
+      const entryPrice = parseFloat(p.avgPrice || 0);
+      const im = parseFloat(p.positionIM || 0);
+      const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
+      const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
+      const sl = parseFloat(p.stopLoss || 0);
+      const trade = positionManager.get(p.symbol, p.side);
+      const rTxt = trade ? `${positionManager.currentR(trade, parseFloat(p.markPrice || 0)).toFixed(2)}R` : '--';
+      const isSelected = selectedPreviewTrade && selectedPreviewIsOngoing && selectedPreviewTrade.symbol === p.symbol && selectedPreviewTrade.side === p.side;
+      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectLivePosition('${p.symbol}','${p.side}')" title="Click to view live setup chart">
+        <td>${p.symbol}</td>
+        <td><span class="badge ${p.side === 'Buy' ? 'buy' : 'sell'}">${p.side.toUpperCase()}</span></td>
+        <td>${p.size}</td>
+        <td>$${notional.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td>${entryPrice.toLocaleString()}</td>
+        <td>${parseFloat(p.markPrice || 0).toLocaleString()}</td>
+        <td class="text-red">${sl ? sl.toLocaleString() : '--'}</td>
+        <td>${p.liqPrice ? parseFloat(p.liqPrice).toLocaleString() : '--'}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
+        <td class="${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</td>
+        <td class="${pnlClass}">${rTxt}</td>
+        <td><button class="close-btn-sm" onclick="event.stopPropagation(); closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function initTableControls() {
+    // 1. Column header click to sort A-Z
+    document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-sort');
+        if (!col) return;
+        if (historySortCol === col) {
+          historySortAsc = !historySortAsc;
+        } else {
+          historySortCol = col;
+          // default asc for strings/A-Z, desc for time/pnl
+          historySortAsc = (col === 'symbol' || col === 'setup' || col === 'exit_reason' || col === 'side' || col === 'id');
+        }
+        const select = $('tableSortSelect');
+        if (select) select.value = `${historySortCol}_${historySortAsc ? 'asc' : 'desc'}`;
+        renderHistoryTable();
+      });
+    });
+
+    document.querySelectorAll('#positionsTable th.sortable-header').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-sort');
+        if (!col) return;
+        if (positionsSortCol === col) {
+          positionsSortAsc = !positionsSortAsc;
+        } else {
+          positionsSortCol = col;
+          positionsSortAsc = (col === 'symbol' || col === 'side');
+        }
+        renderPositionsTable();
+      });
+    });
+
+    // 2. Search / filter input
+    const filterInput = $('tableFilterInput');
+    const clearBtn = $('clearTableFilter');
+    if (filterInput) {
+      filterInput.addEventListener('input', (e) => {
+        tableFilterText = e.target.value.trim().toLowerCase();
+        if (clearBtn) clearBtn.style.display = tableFilterText ? 'block' : 'none';
+        renderHistoryTable();
+        renderPositionsTable();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (filterInput) filterInput.value = '';
+        tableFilterText = '';
+        clearBtn.style.display = 'none';
+        renderHistoryTable();
+        renderPositionsTable();
+      });
+    }
+
+    // 3. Quick Sort select dropdown
+    const sortSelect = $('tableSortSelect');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const [col, dir] = val.split('_');
+        historySortCol = col;
+        historySortAsc = (dir === 'asc');
+        renderHistoryTable();
+      });
+    }
+  }
+
   setTimeout(pollNews, 1200); setInterval(pollNews, 300000);
   setTimeout(pollMacro, 1500); setInterval(pollMacro, 300000);
   setTimeout(pollLlmStatus, 2000); setInterval(pollLlmStatus, 60000);
   setTimeout(pollTargetMode, 1000); setInterval(pollTargetMode, 5000);
   setTimeout(pollMarketProphet, 1500); setInterval(pollMarketProphet, 15000);
   initAnalyzeModeControls();
+  initTableControls();
 
   // ─────────────────────────────────────────────────────────────────────
   // Main intelligence tick.
@@ -1861,38 +2147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      $('posCount').textContent = `${openPositionsSnapshot.length} active`;
-      const tbody = $('positionsTbody');
-      if (!openPositionsSnapshot.length) {
-        tbody.innerHTML = '<tr><td colspan="12" class="empty-msg">No active positions</td></tr>';
-      } else {
-        tbody.innerHTML = openPositionsSnapshot.map(p => {
-          const pnl = parseFloat(p.unrealisedPnl || 0);
-          const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
-          const entryPrice = parseFloat(p.avgPrice || 0);
-          const im = parseFloat(p.positionIM || 0);
-          const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
-          const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
-          const sl = parseFloat(p.stopLoss || 0);
-          const trade = positionManager.get(p.symbol, p.side);
-          const rTxt = trade ? `${positionManager.currentR(trade, parseFloat(p.markPrice || 0)).toFixed(2)}R` : '--';
-          const isSelected = selectedPreviewTrade && selectedPreviewIsOngoing && selectedPreviewTrade.symbol === p.symbol && selectedPreviewTrade.side === p.side;
-          return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectLivePosition('${p.symbol}','${p.side}')" title="Click to view live setup chart">
-            <td>${p.symbol}</td>
-            <td><span class="badge ${p.side === 'Buy' ? 'buy' : 'sell'}">${p.side.toUpperCase()}</span></td>
-            <td>${p.size}</td>
-            <td>$${notional.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td>${entryPrice.toLocaleString()}</td>
-            <td>${parseFloat(p.markPrice || 0).toLocaleString()}</td>
-            <td class="text-red">${sl ? sl.toLocaleString() : '--'}</td>
-            <td>${p.liqPrice ? parseFloat(p.liqPrice).toLocaleString() : '--'}</td>
-            <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
-            <td class="${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</td>
-            <td class="${pnlClass}">${rTxt}</td>
-            <td><button class="close-btn-sm" onclick="event.stopPropagation(); closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
-          </tr>`;
-        }).join('');
-      }
+      renderPositionsTable();
     }
 
     const perf = await fetchJSON('/api/performance');
@@ -1916,19 +2171,12 @@ document.addEventListener('DOMContentLoaded', () => {
       $('pnlVal').style.color = netPnl >= 0 ? 'var(--green)' : 'var(--red)';
       $('wlVal').textContent = `${perf.win_count || 0}W/${perf.loss_count || 0}L`;
 
-      const rawHistory = perf.trade_history || [];
-      // Ensure newest trade is always on top (descending timestamp)
-      const history = [...rawHistory].sort((a, b) => {
-        const tA = (a.exitTime || a.createdTime || (a.recorded_at ? parseInt(a.recorded_at) : (a.time ? new Date(a.time).getTime() : 0))) || 0;
-        const tB = (b.exitTime || b.createdTime || (b.recorded_at ? parseInt(b.recorded_at) : (b.time ? new Date(b.time).getTime() : 0))) || 0;
-        return tB - tA;
-      });
-      previewHistoryList = history;
-      setupPerformance = computeSetupPerformance(history);
+      cachedRawHistory = perf.trade_history || [];
+      setupPerformance = computeSetupPerformance(cachedRawHistory);
 
       // Sync recent stop-outs/losses to riskGovernor cooldowns (15-min cooldown)
       const nowTs = Date.now();
-      for (const t of history) {
+      for (const t of cachedRawHistory) {
         if (t.status === 'LOSS') {
           const tTime = new Date(t.time).getTime() || 0;
           if (tTime > 0 && (nowTs - tTime < 15 * 60 * 1000)) {
@@ -1938,28 +2186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      $('tradeCount').textContent = `${history.length} trades`;
-      const histTbody = $('historyTbody');
-      if (!history.length) {
-        histTbody.innerHTML = '<tr><td colspan="10" class="empty-msg">No trade history yet</td></tr>';
-      } else {
-        histTbody.innerHTML = history.map((t, idx) => {
-          const pnlClass = t.status === 'WIN' ? 'text-green' : 'text-red';
-          const reasonFull = (t.reason || '').replace(/"/g, '&quot;');
-          const rTxt = typeof t.r_multiple === 'number' ? `${t.r_multiple >= 0 ? '+' : ''}${t.r_multiple}R` : '--';
-          const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === idx);
-          return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${idx})" title="Click to view trade setup replay">
-            <td>${t.id}</td><td>${t.time}</td><td>${t.symbol}</td>
-            <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
-            <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
-            <td>${t.exit ? t.exit.toLocaleString() : '--'}</td>
-            <td class="${pnlClass}">${t.pnl >= 0 ? '+$' : '-$'}${Math.abs(t.pnl).toFixed(2)}</td>
-            <td class="${pnlClass}">${rTxt}</td>
-            <td class="font-mono" style="font-size:9px;">${t.setup_type || '--'}${t.grade ? ' ' + t.grade : ''}</td>
-            <td style="font-size:9px;" title="${reasonFull}">${t.exit_reason || '--'}</td>
-          </tr>`;
-        }).join('');
-      }
+      renderHistoryTable();
 
       // Auto-select setup preview if none selected
       if (!selectedPreviewTrade) {

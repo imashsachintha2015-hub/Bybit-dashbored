@@ -349,7 +349,7 @@ class SmartProfitClaimer:
                 "rationale": rationale,
                 "stage": 1
             }
-            print(f"\n🧠 [DEEPSEEK PROFIT CLAIMER] {sym} +{gain_pct:.2f}% -> VERDICT: {verdict} ({source})")
+            print(f"\n[DEEPSEEK PROFIT CLAIMER] {sym} +{gain_pct:.2f}% -> VERDICT: {verdict} ({source})")
             print(f"   Rationale: {rationale}")
             
             # Execute Staged Plan
@@ -396,7 +396,7 @@ class SmartProfitClaimer:
             
         # STAGE 2: Hit +0.75% or higher
         elif gain_pct >= 0.75 and state['stage1_done'] and not state['stage2_done']:
-            print(f"\n🎯 [STAGE 2 TARGET HIT] {sym} reached +{gain_pct:.2f}%! Locking final runner.")
+            print(f"\n[STAGE 2 TARGET HIT] {sym} reached +{gain_pct:.2f}%! Locking final runner.")
             close_res = self.client.close_position('linear', sym, side, size)
             state['stage2_done'] = True
             self.claimed_stages[key] = state

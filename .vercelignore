@@ -3,12 +3,15 @@
 
 backtest/
 research/
+scratch/
 node_modules/
 tests/
 server/
 server.log
 server.py
 trade_stats.json
+market_knowledge.db
+*.db
 .git/
 .github/
 .vscode/

@@ -210,17 +210,53 @@
 
             <!-- POSITIONS / HISTORY (TABBED) -->
             <section class="card accent-blue" id="positionsSection">
-              <div class="card-header">
+              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <div class="tab-bar" id="posHistTabs">
                   <button class="tab-btn active" data-tab="positions"><i class="fa-solid fa-briefcase"></i> Active <span class="count-badge font-mono" id="posCount">0</span></button>
                   <button class="tab-btn" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> History <span class="count-badge font-mono" id="tradeCount">0</span></button>
+                </div>
+                <!-- Interactive Table Filter & Sorting Controls -->
+                <div class="table-filter-toolbar">
+                  <div class="table-search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="tableFilterInput" placeholder="Filter symbol, setup, reason..." autocomplete="off" />
+                    <button type="button" id="clearTableFilter" class="clear-btn" title="Clear filter" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div class="table-sort-box">
+                    <i class="fa-solid fa-arrow-down-a-z sort-select-icon"></i>
+                    <select id="tableSortSelect" title="Sort Table">
+                      <option value="time_desc">Time (Newest)</option>
+                      <option value="time_asc">Time (Oldest)</option>
+                      <option value="symbol_asc">Symbol (A → Z)</option>
+                      <option value="symbol_desc">Symbol (Z → A)</option>
+                      <option value="pnl_desc">PnL (High → Low)</option>
+                      <option value="pnl_asc">PnL (Low → High)</option>
+                      <option value="side_asc">Side (A → Z)</option>
+                      <option value="entry_desc">Entry (High → Low)</option>
+                      <option value="exit_desc">Exit (High → Low)</option>
+                      <option value="r_desc">R-Multiple (High → Low)</option>
+                      <option value="setup_asc">Setup (A → Z)</option>
+                      <option value="exit_reason_asc">Exit Reason (A → Z)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div class="table-wrap tab-panel active" data-panel="positions">
                 <table class="data-table" id="positionsTable">
                   <thead>
                     <tr>
-                      <th>Symbol</th><th>Side</th><th>Size</th><th>Size (USD)</th><th>Entry</th><th>Mark</th><th>Stop Loss</th><th>Liq Price</th><th>Unrealized PnL</th><th>ROI %</th><th title="Profit or loss in units of the risk taken on this trade. 1R is exactly what the trade was set up to lose if wrong.">R</th><th>Action</th>
+                      <th data-sort="symbol" class="sortable-header" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="size" class="sortable-header" title="Click to sort">Size <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="notional" class="sortable-header" title="Click to sort">Size (USD) <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="mark" class="sortable-header" title="Click to sort">Mark <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="stopLoss" class="sortable-header" title="Click to sort">Stop Loss <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="liqPrice" class="sortable-header" title="Click to sort">Liq Price <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="unrealisedPnl" class="sortable-header" title="Click to sort">Unrealized PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="roi" class="sortable-header" title="Click to sort">ROI % <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="r" class="sortable-header" title="Profit or loss in units of risk">R <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody id="positionsTbody">
@@ -232,7 +268,16 @@
                 <table class="data-table" id="historyTable">
                   <thead>
                     <tr>
-                      <th>ID</th><th>Time</th><th>Symbol</th><th>Side</th><th>Entry</th><th>Exit</th><th>PnL</th><th title="Result in units of the risk taken. Averaging these is the only honest way to say whether the system makes money.">R</th><th>Setup</th><th>Exit reason</th>
+                      <th data-sort="id" class="sortable-header" title="Click to sort A-Z">ID <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="time" class="sortable-header sort-active" title="Click to sort">Time <i class="fa-solid fa-sort-down sort-indicator"></i></th>
+                      <th data-sort="symbol" class="sortable-header" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="exit" class="sortable-header" title="Click to sort">Exit <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="pnl" class="sortable-header" title="Click to sort">PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="r" class="sortable-header" title="Result in units of the risk taken">R <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="setup" class="sortable-header" title="Click to sort A-Z">Setup <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="exit_reason" class="sortable-header" title="Click to sort A-Z">Exit reason <i class="fa-solid fa-sort sort-indicator"></i></th>
                     </tr>
                   </thead>
                   <tbody id="historyTbody">

@@ -27,6 +27,20 @@ class handler(JsonApiHandler):
         q = self._query()
         action = (q.get("_action") or [""])[0]
 
+        if action == "knowledge":
+            try:
+                from backend_lib.market_knowledge import kb
+                symbol = (q.get("symbol") or [None])[0]
+                if symbol:
+                    rules = kb.get_relevant_knowledge(symbol=symbol)
+                    self._send_json(200, {"rules": rules})
+                    return
+                summary = kb.get_knowledge_summary()
+                self._send_json(200, summary)
+            except Exception as e:
+                self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+            return
+
         if action == "signals":
             # Settle a few outstanding suggestions before rendering. The
             # browser-side watcher only runs while a dashboard tab is awake,
@@ -81,6 +95,14 @@ class handler(JsonApiHandler):
                 self._send_json(200, {"success": True, "row": signal_log_mod.resolve(body)})
             except Exception as e:
                 print(f"[POST /api/trades/record?_action=signal_resolve] error: {e}")
+                self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+            return
+        if (q.get("_action") or [""])[0] == "knowledge":
+            try:
+                from backend_lib.market_knowledge import kb
+                res = kb.record_trade_close(body, micro_data=body.get("microstructure"))
+                self._send_json(200, {"success": True, "result": res})
+            except Exception as e:
                 self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
             return
         if (q.get("_action") or [""])[0] == "signal":

@@ -1342,3 +1342,127 @@ body {
   border-left: 3px solid #38BDF8;
 }
 
+/* ── Interactive Table Filter Toolbar & Header Sorting ── */
+.table-filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.table-search-box .search-icon {
+  position: absolute;
+  left: 9px;
+  font-size: 11px;
+  color: var(--text-dim, #94a3b8);
+  pointer-events: none;
+}
+
+.table-search-box input {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 26px 4px 26px;
+  font-size: 11px;
+  color: #f8fafc;
+  outline: none;
+  width: 170px;
+  transition: all 0.2s ease;
+}
+
+.table-search-box input:focus {
+  border-color: #38bdf8;
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+  width: 195px;
+}
+
+.table-search-box .clear-btn {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-dim, #94a3b8);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+
+.table-search-box .clear-btn:hover {
+  color: #f8fafc;
+}
+
+.table-sort-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.table-sort-box .sort-select-icon {
+  position: absolute;
+  left: 8px;
+  font-size: 11px;
+  color: #38bdf8;
+  pointer-events: none;
+}
+
+.table-sort-box select {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 10px 4px 24px;
+  font-size: 11px;
+  color: #f8fafc;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.table-sort-box select:focus,
+.table-sort-box select:hover {
+  border-color: #38bdf8;
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.sortable-header:hover {
+  background: rgba(56, 189, 248, 0.12) !important;
+  color: #38bdf8 !important;
+}
+
+.sortable-header .sort-indicator {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.35;
+  transition: all 0.15s ease;
+}
+
+.sortable-header:hover .sort-indicator {
+  opacity: 0.85;
+  color: #38bdf8;
+}
+
+.sortable-header.sort-active {
+  color: #38bdf8 !important;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.sortable-header.sort-active .sort-indicator {
+  opacity: 1 !important;
+  color: #38bdf8 !important;
+}
+
+
