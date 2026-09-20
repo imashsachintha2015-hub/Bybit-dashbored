@@ -189,6 +189,8 @@ def run_scanner_loop():
     log("  Universe: SOL, AVAX, NEAR, LINK, DOGE, SUI, ADA ($1 Micro-Scalps)")
     log("========================================================================")
     
+    from scratch.btc_macro_monitor import fetch_btc_macro
+
     scan_count = 0
     
     while True:
@@ -196,28 +198,44 @@ def run_scanner_loop():
         try:
             eq, active = get_account_status()
             
-            # Scan all symbols
+            # 1. Real-time Bitcoin Macro & Altcoin Sensitivity Guard
+            btc_macro = fetch_btc_macro()
+            btc_dumping = btc_macro and not btc_macro.get('alt_long_allowed', True)
+            btc_desc = f"BTC: ${btc_macro.get('btc_price', 0):,.1f} ({btc_macro.get('btc_chg_5m', 0):+.2f}% 5m, {btc_macro.get('regime', 'UNKNOWN')})" if btc_macro else "BTC: N/A"
+
+            # 2. Scan all symbols
             results = []
             for sym in COIN_CONFIG.keys():
                 info = scan_symbol(sym)
                 if info:
+                    if btc_dumping and info.get('direction') == 'BUY':
+                        info['score'] = max(0, info['score'] - 40)
+                        info['recommended'] = False
+                        info['veto_reason'] = f"BLOCKED_BY_BTC_DUMP: BTC is flushing ({btc_macro.get('btc_chg_5m')}%)"
                     results.append(info)
                     
             results.sort(key=lambda x: x['score'], reverse=True)
             
             # Print brief scan summary every tick
             top = results[0] if results else None
+            if btc_dumping and top and top.get('direction') == 'BUY':
+                top['recommended'] = False
+                top['veto_reason'] = f"BLOCKED_BY_BTC_DUMP: BTC is flushing ({btc_macro.get('btc_chg_5m')}%)"
+                
             top_rec = f"{top['symbol']} {top['direction']} (Score {top['score']}/100 - {top['setup']})" if top else "None"
+            if btc_dumping:
+                top_rec += f" [VETOED: BTC DUMPING {btc_macro.get('btc_chg_5m')}%]"
             
             pos_desc = f"{len(active)} active: " + ", ".join(f"{p['symbol']} {p['side']} (${p['unpnl']:+.3f})" for p in active) if active else "0 active"
             
-            log(f"[SCAN #{scan_count}] Equity: ${eq:.4f} | {pos_desc} | Top Setup: {top_rec}")
+            log(f"[SCAN #{scan_count}] {btc_desc} | Equity: ${eq:.4f} | {pos_desc} | Top Setup: {top_rec}")
             
             # Save complete snapshot to live_market_state.json
             payload = {
                 "timestamp": int(time.time()),
                 "scan_count": scan_count,
                 "equity": eq,
+                "btc_macro": btc_macro,
                 "active_positions": active,
                 "leaderboard": results,
                 "top_recommendation": top

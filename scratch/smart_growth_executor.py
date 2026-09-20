@@ -73,7 +73,11 @@ def get_account_state():
 
 def calculate_trade_qty(symbol, price):
     raw_qty = NOTIONAL_PER_TRADE / price
-    return round_qty(symbol, raw_qty)
+    qty = round_qty(symbol, raw_qty)
+    min_q = COIN_SPECS.get(symbol, {}).get('min_qty', 0)
+    if qty < min_q:
+        qty = min_q
+    return qty
 
 def check_and_learn_closed_trades(current_active_symbols):
     """Detects when a tracked position has closed, records to SQLite, and triggers DeepSeek learning."""
@@ -138,6 +142,9 @@ def run_single_cycle():
     active_syms = [p['symbol'] for p in active]
     check_and_learn_closed_trades(active_syms)
         
+    from scratch.btc_macro_monitor import fetch_btc_macro
+    btc_macro = fetch_btc_macro()
+
     # 2. Manage all active positions with DeepSeek Smart Profit Claimer
     if active:
         for pos in active:
@@ -157,8 +164,11 @@ def run_single_cycle():
             
             log(f"📊 [MONITOR] {sym} {side} | Mark: {mark} (Entry: {entry}) | Gain: {gain_pct:+.2f}% (${unpnl:+.4f}) | Peak Gain: {tracked_trades[sym]['max_gain']:+.2f}%")
             
-            # DeepSeek claimer triggers if gain >= +0.32%
-            if gain_pct >= 0.32:
+            # Emergency BTC Flush Defense: If BTC is dumping and altcoin is in profit, bank immediately
+            if btc_macro and btc_macro.get('is_dumping') and gain_pct >= 0.15:
+                log(f"🛡️ [BTC FLUSH DEFENSE] Bitcoin dropping ({btc_macro.get('btc_chg_5m')}%)! Defending {sym} (+{gain_pct:.2f}%)...")
+                claimer.evaluate_and_claim(pos)
+            elif gain_pct >= 0.32:
                 claimer.evaluate_and_claim(pos)
                 
         # If we have reached max concurrent positions, don't open new ones
@@ -182,6 +192,11 @@ def run_single_cycle():
             score = top['score']
             cur_price = top['price']
             
+            # BTC DUMP VETO: Never enter altcoin longs when Bitcoin is dumping
+            if btc_macro and not btc_macro.get('alt_long_allowed', True) and direction == 'BUY':
+                log(f"🛑 [BTC DUMP VETO] Long entry for {sym} blocked: Bitcoin is flushing ({btc_macro.get('btc_chg_5m')}%, {btc_macro.get('regime')})!")
+                return True
+
             if score >= 90 and direction == 'BUY':
                 qty = calculate_trade_qty(sym, cur_price)
                 if qty <= 0:
