@@ -230,7 +230,7 @@ def run_scanner_loop():
                 try:
                     from backend_lib.supabase_client import supabase_kv_set, supabase_post
                     supabase_kv_set("live_market_state", payload)
-                    if top and top.get("score", 0) >= 80:
+                    if top and top.get("score", 0) >= 75:
                         supabase_post("live_market_signals", {
                             "symbol": top["symbol"],
                             "direction": top["direction"],
@@ -239,7 +239,11 @@ def run_scanner_loop():
                             "rsi_5m": top["rsi_5m"],
                             "vol_ratio": top["vol_ratio"],
                             "lower_wick_pct": top["lower_wick_pct"],
-                            "upper_wick_pct": top["upper_wick_pct"]
+                            "upper_wick_pct": top["upper_wick_pct"],
+                            "entry_price": top.get("price"),
+                            "was_traded": False,
+                            "status": "SUGGESTED",
+                            "result_reason": f"Top AI setup identified: {top['setup']} with score {top['score']}/100"
                         }, prefer="return=minimal")
                 except Exception as e:
                     pass

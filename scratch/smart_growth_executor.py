@@ -210,8 +210,26 @@ def run_single_cycle():
                 
                 if order_res.get('retCode') == 0:
                     log(f"✅ Order Placed Successfully! OrderId: {order_res.get('result', {}).get('orderId')}")
+                    try:
+                        from backend_lib.supabase_client import supabase_patch
+                        supabase_patch("live_market_signals", {"symbol": f"eq.{sym}", "status": "eq.SUGGESTED"}, {
+                            "was_traded": True,
+                            "status": "EXECUTED",
+                            "entry_price": cur_price,
+                            "result_reason": f"Executed live on Bybit demo @ {cur_price} with SL {sl_price} (-0.75%), TP {tp_price} (+0.90%)"
+                        })
+                    except Exception:
+                        pass
                 else:
                     log(f"❌ Order Failed: {order_res.get('retMsg')}")
+                    try:
+                        from backend_lib.supabase_client import supabase_patch
+                        supabase_patch("live_market_signals", {"symbol": f"eq.{sym}", "status": "eq.SUGGESTED"}, {
+                            "status": "FAILED_EXECUTION",
+                            "result_reason": f"Order rejected by broker: {order_res.get('retMsg')}"
+                        })
+                    except Exception:
+                        pass
                     
     return True
 

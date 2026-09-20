@@ -262,6 +262,14 @@ class MarketKnowledgeBase:
         exit_reason = str(trade_data.get("exit_reason") or "MARKET")
         micro_obj = micro_data or {}
 
+        status = "WIN" if pnl_net > 0 else ("LOSS" if pnl_net < 0 else "BREAKEVEN")
+        outcome_analysis = trade_data.get("outcome_analysis")
+        if not outcome_analysis:
+            if pnl_net > 0:
+                outcome_analysis = f"Won: Settled with +{pnl_pct:.2f}% gain (${pnl_net:+.4f}) via {exit_reason}."
+            else:
+                outcome_analysis = f"Failed/Loss: Hit {exit_reason} with {pnl_pct:.2f}% loss (${pnl_net:+.4f})."
+
         episode_id = None
 
         # 1. Supabase Primary
@@ -278,10 +286,20 @@ class MarketKnowledgeBase:
                     "mfe_pct": mfe_pct,
                     "mae_pct": mae_pct,
                     "exit_reason": exit_reason,
+                    "status": status,
+                    "outcome_analysis": outcome_analysis,
                     "microstructure_json": micro_obj
                 }, prefer="return=representation")
                 if res and isinstance(res, list) and len(res) > 0:
                     episode_id = res[0].get("id")
+
+                # Also update corresponding signal record if present
+                supabase_patch("live_market_signals", {"symbol": f"eq.{sym}"}, {
+                    "status": status,
+                    "exit_price": exit_p,
+                    "pnl_net": pnl_net,
+                    "result_reason": outcome_analysis
+                })
             except Exception as e:
                 print(f"[Supabase record_trade_close failed]: {e}")
 
@@ -378,7 +396,8 @@ Respond strictly in JSON:
             try:
                 if episode_id:
                     supabase_patch("trade_episodes", {"id": f"eq.{episode_id}"}, {
-                        "deepseek_reflection": full_reflection
+                        "deepseek_reflection": full_reflection,
+                        "outcome_analysis": f"{'Won' if pnl > 0 else 'Failed'}: {rule_summary} ({lesson_text})"
                     })
                 supabase_post("learned_rules", {
                     "symbol": sym,

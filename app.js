@@ -1585,7 +1585,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(pollTargetMode, 1000); setInterval(pollTargetMode, 5000);
   setTimeout(pollMarketProphet, 1500); setInterval(pollMarketProphet, 15000);
   initAnalyzeModeControls();
-  initTableSortAndFilter();
 
   // ─────────────────────────────────────────────────────────────────────
   // Main intelligence tick.
@@ -1813,305 +1812,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return out;
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Interactive Table Sorting & Search Filter Engine
-  // Allows full A-to-Z sorting on any column header and dynamic instant search.
-  // ─────────────────────────────────────────────────────────────────────
-  let tableFilterText = '';
-  let historySortCol = 'time';
-  let historySortAsc = false; // default newest first
-  let positionsSortCol = 'symbol';
-  let positionsSortAsc = true;
-  let cachedRawHistory = [];
-
-  function sortTradeList(list, col, asc) {
-    return [...list].sort((a, b) => {
-      let vA, vB;
-      if (col === 'id') {
-        vA = String(a.id || '');
-        vB = String(b.id || '');
-      } else if (col === 'time') {
-        vA = (a.exitTime || a.createdTime || (a.recorded_at ? parseInt(a.recorded_at) : (a.time ? new Date(a.time).getTime() : 0))) || 0;
-        vB = (b.exitTime || b.createdTime || (b.recorded_at ? parseInt(b.recorded_at) : (b.time ? new Date(b.time).getTime() : 0))) || 0;
-      } else if (col === 'symbol') {
-        vA = String(a.symbol || '');
-        vB = String(b.symbol || '');
-      } else if (col === 'side') {
-        vA = String(a.side || '');
-        vB = String(b.side || '');
-      } else if (col === 'entry') {
-        vA = parseFloat(a.entry || 0);
-        vB = parseFloat(b.entry || 0);
-      } else if (col === 'exit') {
-        vA = parseFloat(a.exit || 0);
-        vB = parseFloat(b.exit || 0);
-      } else if (col === 'pnl') {
-        vA = parseFloat(a.pnl || 0);
-        vB = parseFloat(b.pnl || 0);
-      } else if (col === 'r') {
-        vA = typeof a.r_multiple === 'number' ? a.r_multiple : -9999;
-        vB = typeof b.r_multiple === 'number' ? b.r_multiple : -9999;
-      } else if (col === 'setup') {
-        vA = String(a.setup_type || '');
-        vB = String(b.setup_type || '');
-      } else if (col === 'exit_reason') {
-        vA = String(a.exit_reason || '');
-        vB = String(b.exit_reason || '');
-      } else {
-        vA = a[col] || '';
-        vB = b[col] || '';
-      }
-
-      if (typeof vA === 'string' && typeof vB === 'string') {
-        const cmp = vA.localeCompare(vB, undefined, { sensitivity: 'base' });
-        return asc ? cmp : -cmp;
-      }
-      return asc ? (vA - vB) : (vB - vA);
-    });
-  }
-
-  function filterTradeList(list, q) {
-    if (!q) return list;
-    const term = q.toLowerCase();
-    return list.filter(t => 
-      (t.symbol && t.symbol.toLowerCase().includes(term)) ||
-      (t.setup_type && t.setup_type.toLowerCase().includes(term)) ||
-      (t.exit_reason && t.exit_reason.toLowerCase().includes(term)) ||
-      (t.side && t.side.toLowerCase().includes(term)) ||
-      (t.id && String(t.id).toLowerCase().includes(term)) ||
-      (t.status && t.status.toLowerCase().includes(term))
-    );
-  }
-
-  function renderHistoryTable() {
-    const histTbody = $('historyTbody');
-    if (!histTbody) return;
-
-    let processed = filterTradeList(cachedRawHistory, tableFilterText);
-    processed = sortTradeList(processed, historySortCol, historySortAsc);
-    previewHistoryList = processed;
-
-    // Update count badge
-    const countEl = $('tradeCount');
-    if (countEl) {
-      if (tableFilterText) {
-        countEl.textContent = `${processed.length}/${cachedRawHistory.length} filtered`;
-      } else {
-        countEl.textContent = `${cachedRawHistory.length} trades`;
-      }
-    }
-
-    // Update table header sorting icons
-    document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
-      const col = th.getAttribute('data-sort');
-      const icon = th.querySelector('.sort-indicator');
-      if (col === historySortCol) {
-        th.classList.add('sort-active');
-        if (icon) {
-          icon.className = `fa-solid ${historySortAsc ? 'fa-sort-up' : 'fa-sort-down'} sort-indicator`;
-        }
-      } else {
-        th.classList.remove('sort-active');
-        if (icon) {
-          icon.className = 'fa-solid fa-sort sort-indicator';
-        }
-      }
-    });
-
-    if (!processed.length) {
-      histTbody.innerHTML = `<tr><td colspan="10" class="empty-msg">${tableFilterText ? 'No matching trades found' : 'No trade history yet'}</td></tr>`;
-      return;
-    }
-
-    histTbody.innerHTML = processed.map((t, idx) => {
-      const pnlClass = t.status === 'WIN' ? 'text-green' : 'text-red';
-      const reasonFull = (t.reason || '').replace(/"/g, '&quot;');
-      const rTxt = typeof t.r_multiple === 'number' ? `${t.r_multiple >= 0 ? '+' : ''}${t.r_multiple}R` : '--';
-      const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === idx);
-      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${idx})" title="Click to view trade setup replay">
-        <td>${t.id}</td><td>${t.time}</td><td>${t.symbol}</td>
-        <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
-        <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
-        <td>${t.exit ? t.exit.toLocaleString() : '--'}</td>
-        <td class="${pnlClass}">${t.pnl >= 0 ? '+$' : '-$'}${Math.abs(t.pnl).toFixed(2)}</td>
-        <td class="${pnlClass}">${rTxt}</td>
-        <td class="font-mono" style="font-size:9px;">${t.setup_type || '--'}${t.grade ? ' ' + t.grade : ''}</td>
-        <td style="font-size:9px;" title="${reasonFull}">${t.exit_reason || '--'}</td>
-      </tr>`;
-    }).join('');
-  }
-
-  function renderPositionsTable() {
-    const tbody = $('positionsTbody');
-    if (!tbody) return;
-
-    let processed = openPositionsSnapshot.filter(p => {
-      if (!tableFilterText) return true;
-      const term = tableFilterText.toLowerCase();
-      return (p.symbol && p.symbol.toLowerCase().includes(term)) ||
-             (p.side && p.side.toLowerCase().includes(term));
-    });
-
-    // Sort active positions
-    processed.sort((a, b) => {
-      let vA, vB;
-      if (positionsSortCol === 'symbol') {
-        vA = a.symbol || '';
-        vB = b.symbol || '';
-      } else if (positionsSortCol === 'side') {
-        vA = a.side || '';
-        vB = b.side || '';
-      } else if (positionsSortCol === 'size') {
-        vA = parseFloat(a.size || 0);
-        vB = parseFloat(b.size || 0);
-      } else if (positionsSortCol === 'notional') {
-        vA = parseFloat(a.positionValue || 0) || (parseFloat(a.avgPrice || 0) * parseFloat(a.size || 0));
-        vB = parseFloat(b.positionValue || 0) || (parseFloat(b.avgPrice || 0) * parseFloat(b.size || 0));
-      } else if (positionsSortCol === 'entry') {
-        vA = parseFloat(a.avgPrice || 0);
-        vB = parseFloat(b.avgPrice || 0);
-      } else if (positionsSortCol === 'mark') {
-        vA = parseFloat(a.markPrice || 0);
-        vB = parseFloat(b.markPrice || 0);
-      } else if (positionsSortCol === 'unrealisedPnl') {
-        vA = parseFloat(a.unrealisedPnl || 0);
-        vB = parseFloat(b.unrealisedPnl || 0);
-      } else {
-        vA = a[positionsSortCol] || 0;
-        vB = b[positionsSortCol] || 0;
-      }
-      if (typeof vA === 'string' && typeof vB === 'string') {
-        const cmp = vA.localeCompare(vB, undefined, { sensitivity: 'base' });
-        return positionsSortAsc ? cmp : -cmp;
-      }
-      return positionsSortAsc ? (vA - vB) : (vB - vA);
-    });
-
-    // Update positions count
-    const posCountEl = $('posCount');
-    if (posCountEl) {
-      if (tableFilterText) {
-        posCountEl.textContent = `${processed.length}/${openPositionsSnapshot.length} active`;
-      } else {
-        posCountEl.textContent = `${openPositionsSnapshot.length} active`;
-      }
-    }
-
-    // Update header icons for positions
-    document.querySelectorAll('#positionsTable th.sortable-header').forEach(th => {
-      const col = th.getAttribute('data-sort');
-      const icon = th.querySelector('.sort-indicator');
-      if (col === positionsSortCol) {
-        th.classList.add('sort-active');
-        if (icon) icon.className = `fa-solid ${positionsSortAsc ? 'fa-sort-up' : 'fa-sort-down'} sort-indicator`;
-      } else {
-        th.classList.remove('sort-active');
-        if (icon) icon.className = 'fa-solid fa-sort sort-indicator';
-      }
-    });
-
-    if (!processed.length) {
-      tbody.innerHTML = `<tr><td colspan="12" class="empty-msg">${tableFilterText ? 'No matching active positions' : 'No active positions'}</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = processed.map(p => {
-      const pnl = parseFloat(p.unrealisedPnl || 0);
-      const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
-      const entryPrice = parseFloat(p.avgPrice || 0);
-      const im = parseFloat(p.positionIM || 0);
-      const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
-      const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
-      const sl = parseFloat(p.stopLoss || 0);
-      const trade = positionManager.get(p.symbol, p.side);
-      const rTxt = trade ? `${positionManager.currentR(trade, parseFloat(p.markPrice || 0)).toFixed(2)}R` : '--';
-      const isSelected = selectedPreviewTrade && selectedPreviewIsOngoing && selectedPreviewTrade.symbol === p.symbol && selectedPreviewTrade.side === p.side;
-      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectLivePosition('${p.symbol}','${p.side}')" title="Click to view live setup chart">
-        <td>${p.symbol}</td>
-        <td><span class="badge ${p.side === 'Buy' ? 'buy' : 'sell'}">${p.side.toUpperCase()}</span></td>
-        <td>${p.size}</td>
-        <td>$${notional.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        <td>${entryPrice.toLocaleString()}</td>
-        <td>${parseFloat(p.markPrice || 0).toLocaleString()}</td>
-        <td class="text-red">${sl ? sl.toLocaleString() : '--'}</td>
-        <td>${p.liqPrice ? parseFloat(p.liqPrice).toLocaleString() : '--'}</td>
-        <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
-        <td class="${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</td>
-        <td class="${pnlClass}">${rTxt}</td>
-        <td><button class="close-btn-sm" onclick="event.stopPropagation(); closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
-      </tr>`;
-    }).join('');
-  }
-
-  function initTableSortAndFilter() {
-    // 1. Column header click to sort A-Z / toggle for history table
-    document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
-      th.addEventListener('click', () => {
-        const col = th.getAttribute('data-sort');
-        if (!col) return;
-        if (historySortCol === col) {
-          historySortAsc = !historySortAsc;
-        } else {
-          historySortCol = col;
-          // default asc (A-Z) for strings, desc for time/pnl
-          historySortAsc = (col === 'symbol' || col === 'setup' || col === 'exit_reason' || col === 'side' || col === 'id');
-        }
-        const select = $('tableSortSelect');
-        if (select) select.value = `${historySortCol}_${historySortAsc ? 'asc' : 'desc'}`;
-        renderHistoryTable();
-      });
-    });
-
-    // 2. Column header click to sort for positions table
-    document.querySelectorAll('#positionsTable th.sortable-header').forEach(th => {
-      th.addEventListener('click', () => {
-        const col = th.getAttribute('data-sort');
-        if (!col) return;
-        if (positionsSortCol === col) {
-          positionsSortAsc = !positionsSortAsc;
-        } else {
-          positionsSortCol = col;
-          positionsSortAsc = (col === 'symbol' || col === 'side');
-        }
-        renderPositionsTable();
-      });
-    });
-
-    // 3. Search / filter input
-    const filterInput = $('tableFilterInput');
-    const clearBtn = $('clearTableFilter');
-    if (filterInput) {
-      filterInput.addEventListener('input', (e) => {
-        tableFilterText = e.target.value.trim().toLowerCase();
-        if (clearBtn) clearBtn.style.display = tableFilterText ? 'block' : 'none';
-        renderHistoryTable();
-        renderPositionsTable();
-      });
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        if (filterInput) filterInput.value = '';
-        tableFilterText = '';
-        clearBtn.style.display = 'none';
-        renderHistoryTable();
-        renderPositionsTable();
-      });
-    }
-
-    // 4. Quick Sort select dropdown
-    const sortSelect = $('tableSortSelect');
-    if (sortSelect) {
-      sortSelect.addEventListener('change', (e) => {
-        const val = e.target.value;
-        const [col, dir] = val.split('_');
-        historySortCol = col;
-        historySortAsc = (dir === 'asc');
-        renderHistoryTable();
-      });
-    }
-  }
-
   async function pollDemoData() {
     await resyncArmedState();
 
@@ -2160,9 +1860,289 @@ document.addEventListener('DOMContentLoaded', () => {
           removeThesisFromServer(t.symbol, t.side);
         }
       }
-
       renderPositionsTable();
     }
+    await updateActivePositionsAndHistory();
+  }
+
+  // ─── Table Sorting & Filtering Engine ───
+  let tableFilterText = '';
+  let historySortCol = 'time';
+  let historySortAsc = false; // default newest on top
+  let positionsSortCol = 'symbol';
+  let positionsSortAsc = true;
+  let cachedRawHistory = [];
+  let tableControlsInitialized = false;
+
+  function sortTradeList(list, col, asc) {
+    return [...list].sort((a, b) => {
+      let vA, vB;
+      if (col === 'id') {
+        vA = String(a.id || '');
+        vB = String(b.id || '');
+      } else if (col === 'time') {
+        vA = (a.exitTime || a.createdTime || (a.recorded_at ? parseInt(a.recorded_at) : (a.time ? new Date(a.time).getTime() : 0))) || 0;
+        vB = (b.exitTime || b.createdTime || (b.recorded_at ? parseInt(b.recorded_at) : (b.time ? new Date(b.time).getTime() : 0))) || 0;
+      } else if (col === 'symbol') {
+        vA = String(a.symbol || '');
+        vB = String(b.symbol || '');
+      } else if (col === 'side') {
+        vA = String(a.side || '');
+        vB = String(b.side || '');
+      } else if (col === 'entry') {
+        vA = parseFloat(a.entry || a.avgPrice || 0);
+        vB = parseFloat(b.entry || b.avgPrice || 0);
+      } else if (col === 'exit') {
+        vA = parseFloat(a.exit || a.avgExitPrice || 0);
+        vB = parseFloat(b.exit || b.avgExitPrice || 0);
+      } else if (col === 'pnl') {
+        vA = parseFloat(a.pnl != null ? a.pnl : (a.unrealisedPnl || 0));
+        vB = parseFloat(b.pnl != null ? b.pnl : (b.unrealisedPnl || 0));
+      } else if (col === 'r') {
+        vA = typeof a.r_multiple === 'number' ? a.r_multiple : -9999;
+        vB = typeof b.r_multiple === 'number' ? b.r_multiple : -9999;
+      } else if (col === 'setup') {
+        vA = String(a.setup_type || '');
+        vB = String(b.setup_type || '');
+      } else if (col === 'exit_reason') {
+        vA = String(a.exit_reason || '');
+        vB = String(b.exit_reason || '');
+      } else if (col === 'size') {
+        vA = parseFloat(a.size || 0);
+        vB = parseFloat(b.size || 0);
+      } else if (col === 'notional') {
+        vA = parseFloat(a.positionValue || 0) || (parseFloat(a.avgPrice || 0) * parseFloat(a.size || 0));
+        vB = parseFloat(b.positionValue || 0) || (parseFloat(b.avgPrice || 0) * parseFloat(b.size || 0));
+      } else if (col === 'mark') {
+        vA = parseFloat(a.markPrice || 0);
+        vB = parseFloat(b.markPrice || 0);
+      } else if (col === 'stopLoss') {
+        vA = parseFloat(a.stopLoss || 0);
+        vB = parseFloat(b.stopLoss || 0);
+      } else if (col === 'liqPrice') {
+        vA = parseFloat(a.liqPrice || 0);
+        vB = parseFloat(b.liqPrice || 0);
+      } else if (col === 'roi') {
+        const pA = parseFloat(a.unrealisedPnl || 0), imA = parseFloat(a.positionIM || 0);
+        const pB = parseFloat(b.unrealisedPnl || 0), imB = parseFloat(b.positionIM || 0);
+        vA = imA > 0 ? (pA / imA) : 0;
+        vB = imB > 0 ? (pB / imB) : 0;
+      } else {
+        vA = a[col] || '';
+        vB = b[col] || '';
+      }
+
+      if (typeof vA === 'string' && typeof vB === 'string') {
+        const cmp = vA.localeCompare(vB, undefined, { sensitivity: 'base' });
+        return asc ? cmp : -cmp;
+      }
+      return asc ? (vA - vB) : (vB - vA);
+    });
+  }
+
+  function filterTradeList(list, q) {
+    if (!q) return list;
+    const term = q.toLowerCase().trim();
+    return list.filter(t => 
+      (t.symbol && t.symbol.toLowerCase().includes(term)) ||
+      (t.setup_type && t.setup_type.toLowerCase().includes(term)) ||
+      (t.exit_reason && t.exit_reason.toLowerCase().includes(term)) ||
+      (t.side && t.side.toLowerCase().includes(term)) ||
+      (t.id && String(t.id).toLowerCase().includes(term)) ||
+      (t.status && t.status.toLowerCase().includes(term))
+    );
+  }
+
+  function renderPositionsTable() {
+    const tbody = $('positionsTbody');
+    if (!tbody) return;
+
+    let processed = filterTradeList(openPositionsSnapshot, tableFilterText);
+    processed = sortTradeList(processed, positionsSortCol, positionsSortAsc);
+
+    const posCountEl = $('posCount');
+    if (posCountEl) {
+      if (tableFilterText) {
+        posCountEl.textContent = `${processed.length}/${openPositionsSnapshot.length} filtered`;
+      } else {
+        posCountEl.textContent = `${openPositionsSnapshot.length} active`;
+      }
+    }
+
+    // Update active header sort indicator icons
+    document.querySelectorAll('#positionsTable th.sortable-header').forEach(th => {
+      const col = th.getAttribute('data-sort');
+      const icon = th.querySelector('.sort-indicator');
+      if (col === positionsSortCol) {
+        th.classList.add('sort-active');
+        if (icon) icon.className = `fa-solid ${positionsSortAsc ? 'fa-sort-up' : 'fa-sort-down'} sort-indicator`;
+      } else {
+        th.classList.remove('sort-active');
+        if (icon) icon.className = 'fa-solid fa-sort sort-indicator';
+      }
+    });
+
+    if (!processed.length) {
+      tbody.innerHTML = `<tr><td colspan="12" class="empty-msg">${tableFilterText ? 'No matching positions' : 'No active positions'}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = processed.map(p => {
+      const pnl = parseFloat(p.unrealisedPnl || 0);
+      const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
+      const entryPrice = parseFloat(p.avgPrice || 0);
+      const im = parseFloat(p.positionIM || 0);
+      const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
+      const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
+      const sl = parseFloat(p.stopLoss || 0);
+      const trade = positionManager.get(p.symbol, p.side);
+      const rTxt = trade ? `${positionManager.currentR(trade, parseFloat(p.markPrice || 0)).toFixed(2)}R` : '--';
+      const isSelected = selectedPreviewTrade && selectedPreviewIsOngoing && selectedPreviewTrade.symbol === p.symbol && selectedPreviewTrade.side === p.side;
+      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectLivePosition('${p.symbol}','${p.side}')" title="Click to view live setup chart">
+        <td class="col-sticky-symbol">${p.symbol}</td>
+        <td><span class="badge ${p.side === 'Buy' ? 'buy' : 'sell'}">${p.side.toUpperCase()}</span></td>
+        <td>${p.size}</td>
+        <td class="col-hide-mobile">$${notional.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td>${entryPrice.toLocaleString()}</td>
+        <td>${parseFloat(p.markPrice || 0).toLocaleString()}</td>
+        <td class="text-red">${sl ? sl.toLocaleString() : '--'}</td>
+        <td class="col-hide-mobile">${p.liqPrice ? parseFloat(p.liqPrice).toLocaleString() : '--'}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
+        <td class="${pnlClass} col-hide-mobile">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</td>
+        <td class="${pnlClass}">${rTxt}</td>
+        <td class="col-hide-mobile"><button class="close-btn-sm" onclick="event.stopPropagation(); closePosition('${p.symbol}','${p.side}','${p.size}')">Close</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderHistoryTable() {
+    const histTbody = $('historyTbody');
+    if (!histTbody) return;
+
+    let processed = filterTradeList(cachedRawHistory, tableFilterText);
+    processed = sortTradeList(processed, historySortCol, historySortAsc);
+    previewHistoryList = processed;
+
+    const countEl = $('tradeCount');
+    if (countEl) {
+      if (tableFilterText) {
+        countEl.textContent = `${processed.length}/${cachedRawHistory.length} filtered`;
+      } else {
+        countEl.textContent = `${cachedRawHistory.length} trades`;
+      }
+    }
+
+    // Update active header sort indicator icons
+    document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
+      const col = th.getAttribute('data-sort');
+      const icon = th.querySelector('.sort-indicator');
+      if (col === historySortCol) {
+        th.classList.add('sort-active');
+        if (icon) icon.className = `fa-solid ${historySortAsc ? 'fa-sort-up' : 'fa-sort-down'} sort-indicator`;
+      } else {
+        th.classList.remove('sort-active');
+        if (icon) icon.className = 'fa-solid fa-sort sort-indicator';
+      }
+    });
+
+    if (!processed.length) {
+      histTbody.innerHTML = `<tr><td colspan="10" class="empty-msg">${tableFilterText ? 'No matching trades found' : 'No trade history yet'}</td></tr>`;
+      return;
+    }
+
+    histTbody.innerHTML = processed.map((t, idx) => {
+      const pnlClass = t.status === 'WIN' ? 'text-green' : 'text-red';
+      const reasonFull = (t.reason || '').replace(/"/g, '&quot;');
+      const rTxt = typeof t.r_multiple === 'number' ? `${t.r_multiple >= 0 ? '+' : ''}${t.r_multiple}R` : '--';
+      const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === idx);
+      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${idx})" title="Click to view trade setup replay">
+        <td>${t.id}</td><td>${t.time}</td><td>${t.symbol}</td>
+        <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
+        <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
+        <td>${t.exit ? t.exit.toLocaleString() : '--'}</td>
+        <td class="${pnlClass}">${t.pnl >= 0 ? '+$' : '-$'}${Math.abs(t.pnl).toFixed(2)}</td>
+        <td class="${pnlClass}">${rTxt}</td>
+        <td class="font-mono" style="font-size:9px;">${t.setup_type || '--'}${t.grade ? ' ' + t.grade : ''}</td>
+        <td style="font-size:9px;" title="${reasonFull}">${t.exit_reason || '--'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function initTableControls() {
+    if (tableControlsInitialized) return;
+    tableControlsInitialized = true;
+
+    // 1. History Table Header Click Sorting
+    document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-sort');
+        if (!col) return;
+        if (historySortCol === col) {
+          historySortAsc = !historySortAsc;
+        } else {
+          historySortCol = col;
+          // default A-Z for text columns, desc for numbers/time
+          historySortAsc = (col === 'symbol' || col === 'setup' || col === 'exit_reason' || col === 'side' || col === 'id');
+        }
+        const select = $('tableSortSelect');
+        if (select) select.value = `${historySortCol}_${historySortAsc ? 'asc' : 'desc'}`;
+        renderHistoryTable();
+      });
+    });
+
+    // 2. Positions Table Header Click Sorting
+    document.querySelectorAll('#positionsTable th.sortable-header').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-sort');
+        if (!col) return;
+        if (positionsSortCol === col) {
+          positionsSortAsc = !positionsSortAsc;
+        } else {
+          positionsSortCol = col;
+          positionsSortAsc = (col === 'symbol' || col === 'side');
+        }
+        renderPositionsTable();
+      });
+    });
+
+    // 3. Search / Filter Input
+    const filterInput = $('tableFilterInput');
+    const clearBtn = $('clearTableFilter');
+    if (filterInput) {
+      filterInput.addEventListener('input', (e) => {
+        tableFilterText = e.target.value;
+        if (clearBtn) clearBtn.style.display = tableFilterText ? 'block' : 'none';
+        renderHistoryTable();
+        renderPositionsTable();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (filterInput) filterInput.value = '';
+        tableFilterText = '';
+        clearBtn.style.display = 'none';
+        renderHistoryTable();
+        renderPositionsTable();
+      });
+    }
+
+    // 4. Quick Sort Dropdown
+    const sortSelect = $('tableSortSelect');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const [col, dir] = val.split('_');
+        historySortCol = col;
+        historySortAsc = (dir === 'asc');
+        renderHistoryTable();
+      });
+    }
+  }
+
+  async function updateActivePositionsAndHistory() {
+    renderPositionsTable();
+    initTableControls();
 
     const perf = await fetchJSON('/api/performance');
     if (perf) {
@@ -2186,6 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
       $('wlVal').textContent = `${perf.win_count || 0}W/${perf.loss_count || 0}L`;
 
       cachedRawHistory = perf.trade_history || [];
+      renderHistoryTable();
       setupPerformance = computeSetupPerformance(cachedRawHistory);
 
       // Sync recent stop-outs/losses to riskGovernor cooldowns (15-min cooldown)
@@ -2200,16 +2181,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      renderHistoryTable();
-
       // Auto-select setup preview if none selected
       if (!selectedPreviewTrade) {
         if (openPositionsSnapshot.length) {
           selectedPreviewTrade = openPositionsSnapshot[0];
           selectedPreviewIsOngoing = true;
           updateLiveSetupPreview();
-        } else if (history.length) {
-          selectedPreviewTrade = Object.assign({ _idx: 0 }, history[0]);
+        } else if (cachedRawHistory.length) {
+          selectedPreviewTrade = Object.assign({ _idx: 0 }, cachedRawHistory[0]);
           selectedPreviewIsOngoing = false;
           updateLiveSetupPreview();
         }
@@ -2236,41 +2215,57 @@ document.addEventListener('DOMContentLoaded', () => {
     if (previewCandlesCache[cacheKey] && Date.now() - (previewCandlesCache[cacheKey].time || 0) < 15000) {
       return previewCandlesCache[cacheKey].candles;
     }
-    try {
-      let url = `/api/kline?symbol=${sym}&interval=${isScalp ? '5' : '15'}&limit=48`;
-      if (!isOngoing && tradeObj.exitTime) {
-        const stepMs = (isScalp ? 5 : 15) * 60 * 1000;
-        url += `&end=${tradeObj.exitTime + 18 * stepMs}`;
-      }
-      const fullKlineUrl = resolveApiUrl(url);
-      const res = await fetch(fullKlineUrl);
-      if (res.ok) {
-        const d = await res.json();
-        if (d.list && d.list.length >= 8) {
-          previewCandlesCache[cacheKey] = { time: Date.now(), candles: d.list };
-          return d.list;
-        }
-      }
-    } catch (e) {}
 
-    // Fallback continuous candles anchored to the setup geometry + aftermath follow-through
+    const interval = isScalp ? '5' : '15';
+    // 1. Fetch real market candles directly from public Bybit APIs (CORS enabled, works on Vercel without function slots)
+    const klineUrls = [
+      `https://api-demo.bybit.com/v5/market/kline?category=linear&symbol=${sym}&interval=${interval}&limit=48`,
+      `https://api.bybit.com/v5/market/kline?category=linear&symbol=${sym}&interval=${interval}&limit=48`,
+      resolveApiUrl(`/api/kline?symbol=${sym}&interval=${interval}&limit=48`)
+    ];
+
+    for (const u of klineUrls) {
+      try {
+        const res = await fetch(u);
+        if (res.ok) {
+          const d = await res.json();
+          const list = (d.result && d.result.list) || d.list;
+          if (list && list.length >= 8) {
+            // Bybit returns [start, open, high, low, close, volume, turnover] in reverse order
+            const formatted = list.slice().reverse().map(c => ({
+              start: parseInt(c[0]),
+              open: parseFloat(c[1]),
+              high: parseFloat(c[2]),
+              low: parseFloat(c[3]),
+              close: parseFloat(c[4]),
+              volume: parseFloat(c[5])
+            }));
+            previewCandlesCache[cacheKey] = { time: Date.now(), candles: formatted };
+            return formatted;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fallback continuous candles anchored to the EXACT coin entry/mark price (never default to 100!)
     const candles = [];
-    const base = tradeObj.entry || 100;
+    const base = parseFloat(tradeObj.entry || tradeObj.avgPrice || tradeObj.entryPrice || tradeObj.markPrice || tradeObj.mark || 1);
     const rawSide = String(tradeObj.side || 'BUY').toUpperCase();
     let isLong = rawSide === 'BUY' || rawSide === 'LONG';
     if (!isOngoing && tradeObj.entry && tradeObj.exit && typeof tradeObj.pnl === 'number' && tradeObj.pnl !== 0) {
       const delta = tradeObj.exit - tradeObj.entry;
       if (delta !== 0) isLong = (tradeObj.pnl * delta > 0);
     }
-    const end = (!isOngoing && tradeObj.exit) ? tradeObj.exit : (isLong ? base * 1.015 : base * 0.985);
+    const end = (!isOngoing && tradeObj.exit) ? parseFloat(tradeObj.exit) : (isLong ? base * 1.008 : base * 0.992);
     const isWin = !isOngoing && (tradeObj.status === 'WIN' || (tradeObj.pnl && tradeObj.pnl > 0));
 
     const count = 48;
     const entryIdx = isOngoing ? Math.max(2, Math.floor(count * 0.30)) : Math.max(2, Math.floor(count * 0.22));
     const exitIdx = isOngoing ? count - 1 : Math.min(count - 6, Math.floor(count * 0.62));
     const stepMs = (isScalp ? 5 : 15) * 60 * 1000;
-    let cur = isLong ? base * 0.993 : base * 1.007;
+    let cur = isLong ? base * 0.996 : base * 1.004;
     const now = Date.now();
+    const precision = base < 1 ? 5 : (base < 50 ? 3 : 2);
 
     for (let i = 0; i < count; i++) {
       let trendP;
@@ -2288,11 +2283,11 @@ document.addEventListener('DOMContentLoaded', () => {
           trendP = (postOvershoot - cur) * 0.14;
         }
       }
-      const noise = (Math.random() - 0.49) * (base * 0.005);
+      const noise = (Math.random() - 0.49) * (base * 0.003);
       const open = cur;
-      cur = +(cur + trendP + noise).toFixed(4);
-      const high = +(Math.max(open, cur) + Math.random() * (base * 0.003)).toFixed(4);
-      const low = +(Math.min(open, cur) - Math.random() * (base * 0.003)).toFixed(4);
+      cur = +(cur + trendP + noise).toFixed(precision);
+      const high = +(Math.max(open, cur) + Math.random() * (base * 0.002)).toFixed(precision);
+      const low = +(Math.min(open, cur) - Math.random() * (base * 0.002)).toFixed(precision);
       candles.push({ start: now - (count - i) * stepMs, open, high, low, close: cur, volume: 250 });
     }
     previewCandlesCache[cacheKey] = { time: Date.now(), candles };
@@ -2477,7 +2472,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isLong && target >= entry) target = entry - Math.abs(entry - target || entry * 0.035);
     if (isLong && target <= entry) target = entry + Math.abs(entry - target || entry * 0.035);
 
-    const current = setup.current || setup.markPrice || candles[candles.length - 1].close;
+    const current = setup.current || setup.markPrice || (candles.length ? candles[candles.length - 1].close : entry);
+
+    // Defensive sanity check: Ensure candle prices are in the same price range as entry
+    if (entry > 0 && candles.length > 0) {
+      const avgCandleClose = candles.reduce((acc, c) => acc + (c.close || 0), 0) / candles.length;
+      if (avgCandleClose > entry * 4 || avgCandleClose < entry * 0.25) {
+        const ratio = entry / (avgCandleClose || 1);
+        candles.forEach(c => {
+          c.open = +(c.open * ratio);
+          c.high = +(c.high * ratio);
+          c.low = +(c.low * ratio);
+          c.close = +(c.close * ratio);
+        });
+      }
+    }
 
     let minP = Infinity, maxP = -Infinity;
     candles.forEach(c => {
@@ -2731,7 +2740,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const badgeW = textW + 16;
       const badgeH = 19;
       const badgeX = Math.min(w - padRight - badgeW - 2, Math.max(padLeft + 2, entryX - badgeW / 2));
-      const badgeY = isLong ? (yEntry - 34) : (yEntry + 16);
+      const rawBadgeY = isLong ? (yEntry - 34) : (yEntry + 16);
+      const badgeY = Math.max(padTop + 2, Math.min(h - padBottom - badgeH - 2, rawBadgeY));
 
       // Badge container
       ctx.fillStyle = '#090d16';
@@ -3356,9 +3366,253 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })();
 
+  // ─── Futures PnL Analysis & Calendar Heatmap Modal ───
+  let pnlCalendarYear = new Date().getFullYear();
+  let pnlCalendarMonth = new Date().getMonth(); // 0-indexed
+
+  function openPnlCalendar() {
+    const modal = $('pnlCalendarModal');
+    if (!modal) return;
+
+    // 1. Update live equity and timestamps
+    const equityEl = $('equityVal');
+    const totalAssetsEl = $('modalTotalAssets');
+    if (equityEl && totalAssetsEl) {
+      totalAssetsEl.textContent = equityEl.textContent || '$0.00';
+    }
+
+    const updatedEl = $('modalUpdatedAt');
+    if (updatedEl) {
+      const now = new Date();
+      updatedEl.textContent = `Updated at: ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${now.toTimeString().substring(0,8)}`;
+    }
+
+    // 2. Compute dynamic stats from cachedRawHistory
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const sevenDaysAgo = now.getTime() - 7 * 86400 * 1000;
+    const thirtyDaysAgo = now.getTime() - 30 * 86400 * 1000;
+
+    let todayPnl = 0.0;
+    let sevenDayPnl = 0.0;
+    let thirtyDayPnl = 0.0;
+
+    for (const t of cachedRawHistory) {
+      const pnl = parseFloat(t.pnl || 0);
+      const tTime = t.exitTime || (t.time ? new Date(t.time).getTime() : 0);
+      if (t.time && t.time.startsWith(todayStr)) {
+        todayPnl += pnl;
+      }
+      if (tTime >= sevenDaysAgo) {
+        sevenDayPnl += pnl;
+      }
+      if (tTime >= thirtyDaysAgo) {
+        thirtyDayPnl += pnl;
+      }
+    }
+
+    // Update today's chip
+    const todayPnlValEl = $('modalTodayPnlVal');
+    const todayChip = $('modalTodayPnl');
+    if (todayPnlValEl && todayChip) {
+      todayPnlValEl.textContent = `${todayPnl >= 0 ? '+' : ''}$${todayPnl.toFixed(2)}`;
+      if (todayPnl >= 0) {
+        todayChip.classList.add('positive');
+      } else {
+        todayChip.classList.remove('positive');
+      }
+    }
+
+    // Update 7d and 30d
+    const s7 = $('modal7dPnl');
+    if (s7) {
+      s7.textContent = `${sevenDayPnl >= 0 ? '+' : ''}$${sevenDayPnl.toFixed(2)}`;
+      s7.style.color = sevenDayPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+    const s30 = $('modal30dPnl');
+    if (s30) {
+      s30.textContent = `${thirtyDayPnl >= 0 ? '+' : ''}$${thirtyDayPnl.toFixed(2)}`;
+      s30.style.color = thirtyDayPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+
+    renderPnlCalendar(pnlCalendarYear, pnlCalendarMonth);
+    modal.style.display = 'flex';
+  }
+
+  function closePnlCalendar() {
+    const modal = $('pnlCalendarModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function renderPnlCalendar(year, month) {
+    const grid = $('calendarDaysGrid');
+    const monthLabel = $('pnlCurrentMonthLabel');
+    if (!grid || !monthLabel) return;
+
+    monthLabel.textContent = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+    // Group trades by day of the selected month
+    const dayPnlMap = {};
+    const dayTradesMap = {};
+
+    for (const t of cachedRawHistory) {
+      let dObj = null;
+      if (t.time) dObj = new Date(t.time);
+      else if (t.exitTime) dObj = new Date(t.exitTime);
+
+      if (dObj && !isNaN(dObj.getTime())) {
+        if (dObj.getFullYear() === year && dObj.getMonth() === month) {
+          const dNum = dObj.getDate();
+          const p = parseFloat(t.pnl || 0);
+          dayPnlMap[dNum] = (dayPnlMap[dNum] || 0) + p;
+          if (!dayTradesMap[dNum]) dayTradesMap[dNum] = [];
+          dayTradesMap[dNum].push(t);
+        }
+      }
+    }
+
+    const firstDayIdx = new Date(year, month, 1).getDay(); // 0 = Sun
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    const todayObj = new Date();
+    const isCurYearMonth = (todayObj.getFullYear() === year && todayObj.getMonth() === month);
+    const todayDateNum = todayObj.getDate();
+
+    let html = '';
+
+    // Leading empty cells
+    for (let i = 0; i < firstDayIdx; i++) {
+      html += '<div class="calendar-day-cell cell-empty"></div>';
+    }
+
+    // Days 1..totalDays
+    for (let day = 1; day <= totalDays; day++) {
+      const isToday = isCurYearMonth && (day === todayDateNum);
+      const hasTrades = Object.prototype.hasOwnProperty.call(dayPnlMap, day);
+      const pnl = hasTrades ? dayPnlMap[day] : null;
+
+      let cellClass = 'cell-neutral';
+      let pnlText = '--';
+
+      if (hasTrades) {
+        if (pnl > 0) {
+          cellClass = 'cell-win';
+          pnlText = `+$${pnl.toFixed(2)}`;
+        } else if (pnl < 0) {
+          cellClass = 'cell-loss';
+          pnlText = `-$${Math.abs(pnl).toFixed(2)}`;
+        } else {
+          cellClass = 'cell-neutral';
+          pnlText = '$0.00';
+        }
+      }
+
+      if (isToday) cellClass += ' cell-today';
+
+      const dayNumHtml = isToday
+        ? `<div class="day-num-wrap"><span class="day-num">${day}</span></div>`
+        : `<span class="day-num">${day}</span>`;
+
+      html += `<div class="calendar-day-cell ${cellClass}" onclick="window.showDayTradesDetails(${year}, ${month}, ${day})" title="${hasTrades ? `Day ${day}: ${pnlText} (${dayTradesMap[day].length} trades)` : `Day ${day}: No trades`}">
+        ${dayNumHtml}
+        <span class="day-pnl font-mono">${pnlText}</span>
+      </div>`;
+    }
+
+    grid.innerHTML = html;
+  }
+
+  window.showDayTradesDetails = function (year, month, day) {
+    const details = $('pnlDayDetails');
+    const dateEl = $('dayDetailsDate');
+    const pnlEl = $('dayDetailsPnl');
+    const listEl = $('dayDetailsList');
+    if (!details || !listEl) return;
+
+    const dayTrades = [];
+    let net = 0.0;
+    for (const t of cachedRawHistory) {
+      let dObj = null;
+      if (t.time) dObj = new Date(t.time);
+      else if (t.exitTime) dObj = new Date(t.exitTime);
+
+      if (dObj && dObj.getFullYear() === year && dObj.getMonth() === month && dObj.getDate() === day) {
+        dayTrades.push(t);
+        net += parseFloat(t.pnl || 0);
+      }
+    }
+
+    details.style.display = 'block';
+    dateEl.textContent = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')} (${dayTrades.length} trades)`;
+    pnlEl.textContent = `${net >= 0 ? '+' : ''}$${net.toFixed(2)}`;
+    pnlEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+
+    if (!dayTrades.length) {
+      listEl.innerHTML = '<div style="color:var(--text-muted); padding:4px 0;">No trades recorded on this date.</div>';
+      return;
+    }
+
+    listEl.innerHTML = dayTrades.map(t => {
+      const p = parseFloat(t.pnl || 0);
+      const col = p >= 0 ? 'var(--green)' : 'var(--red)';
+      return `<div class="day-trade-row font-mono">
+        <span><b>${t.symbol}</b> ${t.side} <span style="font-size:9px; color:var(--text-dim);">${t.setup_type || ''}</span></span>
+        <span style="color:${col}; font-weight:700;">${p >= 0 ? '+' : ''}$${p.toFixed(2)}</span>
+      </div>`;
+    }).join('');
+  };
+
+  function initPnlCalendarControls() {
+    const openBtn = $('openPnlCalendarBtn');
+    const netPnlItem = $('netPnlAcctItem');
+    const closeBtn = $('closePnlCalendarBtn');
+    const modal = $('pnlCalendarModal');
+    const prevBtn = $('pnlPrevMonthBtn');
+    const nextBtn = $('pnlNextMonthBtn');
+
+    if (openBtn) openBtn.addEventListener('click', openPnlCalendar);
+    if (netPnlItem) netPnlItem.addEventListener('click', openPnlCalendar);
+    if (closeBtn) closeBtn.addEventListener('click', closePnlCalendar);
+
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closePnlCalendar();
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal && modal.style.display !== 'none') {
+        closePnlCalendar();
+      }
+    });
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        pnlCalendarMonth--;
+        if (pnlCalendarMonth < 0) {
+          pnlCalendarMonth = 11;
+          pnlCalendarYear--;
+        }
+        renderPnlCalendar(pnlCalendarYear, pnlCalendarMonth);
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        pnlCalendarMonth++;
+        if (pnlCalendarMonth > 11) {
+          pnlCalendarMonth = 0;
+          pnlCalendarYear++;
+        }
+        renderPnlCalendar(pnlCalendarYear, pnlCalendarMonth);
+      });
+    }
+  }
+
   bootstrapEngines();
   wsClient.connect();
   resyncArmedState();
+  initPnlCalendarControls();
 
   console.log('%c MASIS V3 — Multi-Timeframe Confluence Engine ', 'background:#0B1120;color:#38BDF8;font-size:14px;font-weight:700;padding:8px 16px;border-radius:6px;border:1px solid rgba(56,189,248,0.3);');
 });

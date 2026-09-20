@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="index.css?v=3.3">
+  <link rel="stylesheet" href="index.css?v=3.2">
 </head>
 <body>
 
@@ -59,12 +59,13 @@
           <div class="account-strip" id="accountStrip">
             <div class="acct-item"><span class="acct-label">Demo Equity</span><span class="acct-val text-cyan font-mono" id="equityVal">--</span></div>
             <div class="acct-divider"></div>
-            <div class="acct-item"><span class="acct-label">Net P&amp;L</span><span class="acct-val font-mono" id="pnlVal">--</span></div>
+            <div class="acct-item" id="netPnlAcctItem" style="cursor:pointer;" title="Click to view Day-wise PnL Calendar Heatmap"><span class="acct-label">Net P&amp;L <i class="fa-solid fa-calendar-days" style="font-size:8.5px; color:#38bdf8; margin-left:2px;"></i></span><span class="acct-val font-mono" id="pnlVal">--</span></div>
             <div class="acct-divider"></div>
             <div class="acct-item"><span class="acct-label">Win Rate</span><span class="acct-val text-green font-mono" id="winRateVal">--</span></div>
             <div class="acct-divider"></div>
             <div class="acct-item compact"><span class="acct-label">W/L</span><span class="acct-val font-mono" id="wlVal">--</span></div>
           </div>
+          <button class="int-btn" id="openPnlCalendarBtn" title="View Day-wise PnL Calendar Heatmap"><i class="fa-solid fa-calendar-days" style="color:#10b981;"></i> Calendar</button>
           <button class="int-btn" id="openMonitorBtn" title="Open the signal monitor in a separate window"><i class="fa-solid fa-up-right-from-square"></i> Monitor</button>
           <div class="time-display font-mono" id="clockDisplay">00:00:00</div>
         </div>
@@ -245,18 +246,18 @@
                 <table class="data-table" id="positionsTable">
                   <thead>
                     <tr>
-                      <th data-sort="symbol" class="sortable-header" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="symbol" class="sortable-header col-sticky-symbol" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="size" class="sortable-header" title="Click to sort">Size <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="notional" class="sortable-header" title="Click to sort">Size (USD) <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="notional" class="sortable-header col-hide-mobile" title="Click to sort">Size (USD) <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="mark" class="sortable-header" title="Click to sort">Mark <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="stopLoss" class="sortable-header" title="Click to sort">Stop Loss <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="liqPrice" class="sortable-header" title="Click to sort">Liq Price <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="liqPrice" class="sortable-header col-hide-mobile" title="Click to sort">Liq Price <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="unrealisedPnl" class="sortable-header" title="Click to sort">Unrealized PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="roi" class="sortable-header" title="Click to sort">ROI % <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      <th data-sort="roi" class="sortable-header col-hide-mobile" title="Click to sort">ROI % <i class="fa-solid fa-sort sort-indicator"></i></th>
                       <th data-sort="r" class="sortable-header" title="Profit or loss in units of risk">R <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th>Action</th>
+                      <th class="col-hide-mobile">Action</th>
                     </tr>
                   </thead>
                   <tbody id="positionsTbody">
@@ -622,6 +623,71 @@
 
   </div>
 
+  <!-- ═══════════ FUTURES PNL ANALYSIS & CALENDAR HEATMAP MODAL ═══════════ -->
+  <div id="pnlCalendarModal" class="pnl-modal-backdrop" style="display:none;">
+    <div class="pnl-modal-window">
+      <div class="pnl-modal-header">
+        <div class="pnl-modal-title-wrap">
+          <span class="pnl-modal-title"><i class="fa-solid fa-chart-line" style="color:#10b981;"></i> Futures PnL Analysis</span>
+          <span class="beta-badge">Beta</span>
+        </div>
+        <button type="button" id="closePnlCalendarBtn" class="pnl-modal-close-btn" title="Close (Esc)">&times;</button>
+      </div>
+
+      <!-- Top Assets & PnL Summary Bar (Matches user screenshot) -->
+      <div class="pnl-modal-summary">
+        <div class="pnl-assets-row">
+          <span class="assets-label">Total Assets <i class="fa-regular fa-eye" style="opacity:0.6; font-size:10px;"></i></span>
+          <div class="assets-val font-mono" id="modalTotalAssets">$8.22</div>
+          <div class="today-pnl-chip font-mono" id="modalTodayPnl">Today's PnL &nbsp; <span id="modalTodayPnlVal">+$0.00 (+0.00%)</span></div>
+        </div>
+        <div class="pnl-stats-grid">
+          <div class="pnl-stat-card">
+            <span class="pnl-stat-label">7-day PnL <i class="fa-regular fa-circle-question"></i></span>
+            <div class="pnl-stat-val font-mono" id="modal7dPnl">+$0.00 (+0.00%)</div>
+          </div>
+          <div class="pnl-stat-card">
+            <span class="pnl-stat-label">30-day PnL <i class="fa-regular fa-circle-question"></i></span>
+            <div class="pnl-stat-val font-mono" id="modal30dPnl">+$0.00 (+0.00%)</div>
+          </div>
+        </div>
+        <div class="pnl-updated-at font-mono" id="modalUpdatedAt">Updated at: --</div>
+      </div>
+
+      <!-- Subnav Tabs & Month Navigation -->
+      <div class="pnl-modal-nav">
+        <div class="pnl-modal-tabs">
+          <span class="pnl-tab-link" id="pnlTabAnalysis">PnL Analysis</span>
+          <span class="pnl-tab-link active" id="pnlTabCalendar">PnL Calendar</span>
+        </div>
+        <div class="pnl-month-picker">
+          <button id="pnlPrevMonthBtn" class="month-nav-btn" title="Previous Month"><i class="fa-solid fa-chevron-left"></i></button>
+          <span id="pnlCurrentMonthLabel" class="month-display font-mono">2026-09</span>
+          <button id="pnlNextMonthBtn" class="month-nav-btn" title="Next Month"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+      </div>
+
+      <!-- Calendar Heatmap Grid -->
+      <div class="pnl-calendar-container">
+        <div class="calendar-weekdays">
+          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+        </div>
+        <div class="calendar-days-grid" id="calendarDaysGrid">
+          <!-- Dynamically populated via renderPnlCalendar() in app.js -->
+        </div>
+      </div>
+
+      <!-- Selected Day Details Drawer -->
+      <div class="pnl-day-details" id="pnlDayDetails" style="display:none;">
+        <div class="day-details-head">
+          <span id="dayDetailsDate" class="font-mono">--</span>
+          <span id="dayDetailsPnl" class="font-mono">--</span>
+        </div>
+        <div class="day-details-list" id="dayDetailsList"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Shared agent modules. Each is also loadable in Node, which is how the
        backtest harness exercises the exact same decision code the browser runs. -->
   <script src="agents/indicators.js?v=3.0"></script>
@@ -649,6 +715,6 @@
   <script src="chart.js?v=3.0"></script>
   <script src="masis-engine.js?v=3.0"></script>
   <script src="whale-agent.js?v=3.0"></script>
-  <script src="app.js?v=3.3"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>
