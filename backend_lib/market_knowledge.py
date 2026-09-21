@@ -10,6 +10,7 @@ import sys
 import json
 import sqlite3
 import time
+import math
 import urllib.request
 from datetime import datetime
 
@@ -165,14 +166,71 @@ class MarketKnowledgeBase:
                             row.update(patch_payload)
 
                     strategy_mode = str(row.get("strategy_mode") or "SWING_RUNNER")
+                    
+                    # ── Target Horizon, Velocity & ETA Engine ──
+                    from .supabase_client import supabase_kv_get
+                    pacing_kv = supabase_kv_get("target_pacing_state") or {}
+                    time_horizon_hours = float(pacing_kv.get("time_horizon_hours") or 24.0)
+                    start_time = float(pacing_kv.get("start_time") or (now - 3600))
+                    start_eq = float(pacing_kv.get("start_equity") or (target_eq - 5.0))
+
+                    elapsed_hours = max(0.1, (now - start_time) / 3600.0)
+                    remaining_hours = max(0.1, time_horizon_hours - elapsed_hours)
+
+                    effective_eq = current_equity if current_equity is not None else start_eq
+                    needed_usd = max(0.0, target_eq - effective_eq)
+                    profit_earned = max(0.0, effective_eq - start_eq)
+
+                    req_velocity = round(needed_usd / remaining_hours, 2)
+                    actual_velocity = round(profit_earned / elapsed_hours, 2)
+
+                    if actual_velocity > 0.05:
+                        eta_hours = round(needed_usd / actual_velocity, 1)
+                    else:
+                        # Baseline: ~$0.85 per 3.5h swing cycle in HTF Swing Runner mode
+                        swings_needed = math.ceil(needed_usd / 0.85) if needed_usd > 0 else 0
+                        eta_hours = round(swings_needed * 3.5, 1)
+
+                    eta_days = int(eta_hours // 24)
+                    eta_rem_hrs = int(eta_hours % 24)
+                    eta_mins = int((eta_hours % 1) * 60)
+                    eta_display = f"{eta_days}d {eta_rem_hrs}h" if eta_days > 0 else f"{int(eta_hours)}h {eta_mins}m"
+
+                    if current_equity and current_equity >= target_eq:
+                        pacing_status = "COMPLETED"
+                        pacing_msg = f"Target ${target_eq:.2f} reached! Capital parked."
+                    elif actual_velocity >= req_velocity * 1.15:
+                        pacing_status = "AHEAD_OF_PACE"
+                        pacing_msg = f"Velocity +${actual_velocity:.2f}/hr (Ahead of +${req_velocity:.2f}/hr needed). ETA: {eta_display}"
+                    elif actual_velocity >= req_velocity * 0.75:
+                        pacing_status = "ON_TRACK"
+                        pacing_msg = f"Velocity +${actual_velocity:.2f}/hr (On pace for {time_horizon_hours:.0f}h sprint). ETA: {eta_display}"
+                    elif remaining_hours <= 2.0 and needed_usd > 1.0:
+                        pacing_status = "HORIZON_EXPIRING"
+                        pacing_msg = f"Window closing ({remaining_hours:.1f}h remaining). High-conviction runner required."
+                    else:
+                        pacing_status = "PACING_ACTIVE"
+                        pacing_msg = f"Sprint Pace: +${req_velocity:.2f}/hr needed for ${target_eq:.2f} within {remaining_hours:.1f}h. ETA: {eta_display}"
+
                     return {
                         "target_equity": target_eq,
-                        "target_profit": 5.5,
+                        "target_profit": round(needed_usd, 2),
                         "is_armed": is_armed,
                         "status": status,
                         "strategy_mode": strategy_mode,
                         "current_equity": current_equity,
                         "progress_pct": progress_pct,
+                        "time_horizon_hours": time_horizon_hours,
+                        "start_equity": start_eq,
+                        "start_time": int(start_time),
+                        "elapsed_hours": round(elapsed_hours, 1),
+                        "remaining_hours": round(remaining_hours, 1),
+                        "required_velocity_usd_hr": req_velocity,
+                        "actual_velocity_usd_hr": actual_velocity,
+                        "eta_hours": eta_hours,
+                        "eta_display": eta_display,
+                        "pacing_status": pacing_status,
+                        "pacing_message": pacing_msg,
                         "last_updated": int(now * 1000)
                     }
             except Exception as e:
@@ -199,6 +257,15 @@ class MarketKnowledgeBase:
                             "strategy_mode": "SWING_RUNNER",
                             "current_equity": current_equity,
                             "progress_pct": progress_pct,
+                            "time_horizon_hours": 24.0,
+                            "elapsed_hours": 1.0,
+                            "remaining_hours": 23.0,
+                            "required_velocity_usd_hr": 0.21,
+                            "actual_velocity_usd_hr": 0.0,
+                            "eta_hours": 17.5,
+                            "eta_display": "17h 30m",
+                            "pacing_status": "PACING_ACTIVE",
+                            "pacing_message": "24-Hour Sprint active. Targeting ~$0.85/winner.",
                             "last_updated": r["last_updated"]
                         }
             except Exception:
@@ -206,33 +273,61 @@ class MarketKnowledgeBase:
 
         return {
             "target_equity": 15.0,
-            "target_profit": 5.5,
+            "target_profit": 5.0,
             "is_armed": True,
             "status": "ACTIVE",
             "strategy_mode": "SWING_RUNNER",
             "current_equity": current_equity,
             "progress_pct": 0.0,
+            "time_horizon_hours": 24.0,
+            "elapsed_hours": 1.0,
+            "remaining_hours": 23.0,
+            "required_velocity_usd_hr": 0.21,
+            "actual_velocity_usd_hr": 0.0,
+            "eta_hours": 17.5,
+            "eta_display": "17h 30m",
+            "pacing_status": "PACING_ACTIVE",
+            "pacing_message": "24-Hour Sprint active. Targeting ~$0.85/winner.",
             "last_updated": int(time.time() * 1000)
         }
 
-    def set_target_state(self, target_equity=None, is_armed=None, status=None, strategy_mode=None):
-        """Updates target mode state in Supabase and SQLite."""
+    def set_target_state(self, target_equity=None, is_armed=None, status=None, strategy_mode=None, time_horizon_hours=None, start_equity=None, start_time=None):
+        """Updates target mode state in Supabase and SQLite with pacing parameters."""
+        now = time.time()
         # 1. Supabase Primary
         if SUPABASE_URL and SUPABASE_KEY:
             try:
-                payload = {}
+                table_payload = {}
                 if target_equity is not None:
-                    payload["target_equity"] = float(target_equity)
+                    table_payload["target_equity"] = float(target_equity)
                 if is_armed is not None:
-                    payload["is_armed"] = bool(is_armed)
+                    table_payload["is_armed"] = bool(is_armed)
                 if status is not None:
-                    payload["status"] = str(status)
+                    table_payload["status"] = str(status)
                 if strategy_mode is not None:
-                    payload["strategy_mode"] = str(strategy_mode)
-                if payload:
-                    supabase_patch("target_mode_state", {"id": "eq.1"}, payload)
+                    table_payload["strategy_mode"] = str(strategy_mode)
+                if table_payload:
+                    supabase_patch("target_mode_state", {"id": "eq.1"}, table_payload)
                     if "_target_state_cache" in globals() and _target_state_cache.get("data"):
-                        _target_state_cache["data"].update(payload)
+                        _target_state_cache["data"].update(table_payload)
+
+                # Store pacing parameters in Supabase KV store
+                from .supabase_client import supabase_kv_set, supabase_kv_get
+                pacing_kv = supabase_kv_get("target_pacing_state") or {}
+                if time_horizon_hours is not None:
+                    pacing_kv["time_horizon_hours"] = float(time_horizon_hours)
+                if start_equity is not None:
+                    pacing_kv["start_equity"] = float(start_equity)
+                elif target_equity is not None:
+                    # initialize start equity
+                    current_eq = (_target_state_cache.get("last_patched_eq") if "_target_state_cache" in globals() else None) or float(target_equity) - 5.0
+                    pacing_kv["start_equity"] = current_eq
+                if start_time is not None or target_equity is not None:
+                    pacing_kv["start_time"] = int(start_time or now)
+                
+                supabase_kv_set("target_pacing_state", pacing_kv)
+                if "_target_state_cache" in globals() and _target_state_cache.get("data"):
+                    _target_state_cache["data"].update(pacing_kv)
             except Exception as e:
                 print(f"[Supabase set_target_state failed]: {e}")
 

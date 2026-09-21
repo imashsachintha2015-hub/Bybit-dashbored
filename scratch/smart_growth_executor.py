@@ -228,6 +228,19 @@ def run_single_cycle():
                     client.close_position('linear', sym, side, pos['size'])
                     continue
 
+                # ── ANTI-STAGNATION TIME-STOP (Prevents 1 month delay) ──
+                # If a trade has been open for > 3.5 hours and is trapped in dead chop (< +0.35% peak gain, sitting near flat),
+                # scratch the trade to free capital for active sprint velocity.
+                opened_at = tracked_trades[sym].get('opened_at', time.time())
+                duration_hrs = (time.time() - opened_at) / 3600.0
+                peak_g = tracked_trades[sym].get('max_gain', 0.0)
+                if duration_hrs >= 3.5:
+                    if peak_g < 0.35 and -0.50 <= gain_pct <= 0.15:
+                        log(f"⏳ [STAGNATION TIME-STOP] {sym} open for {duration_hrs:.1f}h without momentum expansion (Peak: +{peak_g:.2f}%, Now: {gain_pct:+.2f}%). Scratching position to maintain target sprint pace...")
+                        client.close_position('linear', sym, side, pos['size'])
+                        symbol_cooldowns[sym] = time.time() + 900
+                        continue
+
             else:
                 # ── MICRO SCALP MODE (Legacy fallback) ──
                 if gain_pct >= 0.18 and pos.get('sl', 0) < entry:

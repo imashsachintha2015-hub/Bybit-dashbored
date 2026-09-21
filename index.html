@@ -144,6 +144,59 @@
           </div>
         </section>
 
+        <!-- ═══════════ TARGET SPRINT HORIZON & VELOCITY BANNER ═══════════ -->
+        <section class="card" style="margin-bottom: 16px; padding: 14px 20px; background: #FFFFFF; border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <!-- Left: Target Progress & Pacing Status -->
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(14, 165, 233, 0.12); display: flex; align-items: center; justify-content: center; color: #0284C7; font-size: 18px;">
+                <i class="fa-solid fa-bullseye"></i>
+              </div>
+              <div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 700;">
+                  Target Sprint Horizon · <span id="mainTargetPacingStatus" style="color:#16C784; font-weight: 800;">ON TRACK</span>
+                </div>
+                <div style="font-size: 17px; font-weight: 800; font-family: var(--font-mono); color: var(--text-primary); display: flex; align-items: baseline; gap: 6px;">
+                  <span id="mainTargetProgressText">-- / $15.00</span>
+                  <span style="font-size: 12px; color: #0284C7; font-weight: 700;" id="mainTargetPct">(0.0%)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Center: Velocity Speedometer -->
+            <div style="display: flex; gap: 16px; align-items: center; background: #F8FAFC; padding: 7px 16px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.08);">
+              <div>
+                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600;">Required Velocity</span>
+                <span id="mainTargetReqVel" style="font-size: 12.5px; font-weight: 800; color: #0284C7; font-family: var(--font-mono);">+$0.21 / hr</span>
+              </div>
+              <div style="border-left: 1px solid rgba(15, 23, 42, 0.1); padding-left: 14px;">
+                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600;">Dynamic ETA</span>
+                <span id="mainTargetEta" style="font-size: 12.5px; font-weight: 800; color: #16C784; font-family: var(--font-mono);">18h 30m</span>
+              </div>
+              <div style="border-left: 1px solid rgba(15, 23, 42, 0.1); padding-left: 14px;">
+                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600;">Sprint Window</span>
+                <span id="mainTargetRemaining" style="font-size: 12.5px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono);">23.1h left</span>
+              </div>
+            </div>
+
+            <!-- Right: Horizon Switcher & Anti-Stagnation Tag -->
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 10.5px; color: var(--text-dim); font-weight: 600;">Sprint:</span>
+              <button type="button" class="sprint-horizon-btn" data-hours="24" style="background: rgba(14, 165, 233, 0.12); border: 1px solid #0EA5E9; color: #0284C7; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">24h</button>
+              <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">48h</button>
+              <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">72h</button>
+              <span style="font-size: 10px; color: #B45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Stuck trades in flat consolidation are auto-scratched after 3.5h to protect velocity.">
+                <i class="fa-solid fa-stopwatch" style="color: #D97706;"></i> 3.5h Time-Stop Guard
+              </span>
+            </div>
+          </div>
+
+          <!-- Progress Bar Line -->
+          <div style="width: 100%; height: 6px; background: rgba(15, 23, 42, 0.08); border-radius: 3px; overflow: hidden; margin-top: 10px;">
+            <div id="mainTargetProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0EA5E9, #16C784); border-radius: 3px; transition: width 0.4s ease;"></div>
+          </div>
+        </section>
+
         <div class="content-grid">
           <div class="content-main">
 
@@ -528,7 +581,7 @@
                     <span id="targetModePill" class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 600;">ACTIVE</span>
                   </div>
 
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                     <div>
                       <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Target Equity (USDT)</label>
                       <div class="input-with-unit" style="margin: 0;">
@@ -542,9 +595,35 @@
                     </div>
                   </div>
 
+                  <!-- Sprint Horizon Selector -->
+                  <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 10.5px; color: var(--text-muted);">Horizon:</span>
+                    <button type="button" class="sprint-horizon-btn active" data-hours="24" style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #38bdf8; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">24h Sprint</button>
+                    <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">48h Swing</button>
+                    <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">72h Extended</button>
+                  </div>
+
                   <!-- Progress Bar -->
-                  <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+                  <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
                     <div id="targetProgressBar" style="width: 63.7%; height: 100%; background: linear-gradient(90deg, #38bdf8, #22c55e); border-radius: 3px; transition: width 0.4s ease;"></div>
+                  </div>
+
+                  <!-- Velocity & ETA Speedometer -->
+                  <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 7px 10px; margin-bottom: 10px; font-size: 11px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px;">
+                      <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 9.5px; text-transform: uppercase;">Required Velocity</span>
+                        <span id="targetReqVelocity" style="font-weight: 700; color: #f8fafc; font-family: monospace;">+$0.21 / hr</span>
+                      </div>
+                      <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 9.5px; text-transform: uppercase;">Dynamic ETA</span>
+                        <span id="targetEta" style="font-weight: 700; color: #38bdf8; font-family: monospace;">18h 30m</span>
+                      </div>
+                    </div>
+                    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+                      <span id="targetPacingStatus" style="color: #22c55e; font-weight: 600; font-size: 10px;"><i class="fa-solid fa-gauge-high"></i> ON TRACK</span>
+                      <span id="targetTimeRemaining" style="color: var(--text-muted); font-size: 10px; font-family: monospace;">23.1h remaining</span>
+                    </div>
                   </div>
 
                   <!-- Mode Control Buttons -->
@@ -557,7 +636,7 @@
                     </button>
                   </div>
                   <p style="margin: 8px 0 0 0; font-size: 10.5px; color: var(--text-muted); line-height: 1.35;">
-                    DeepSeek agent analyzes the market continuously and trades $1-margin micro-scalps until reaching the target, then auto-disarms and parks safely.
+                    <i class="fa-solid fa-bolt" style="color: #38bdf8;"></i> <b>HTF Swing Runner:</b> Targets $1.00+ profit swings (+2.2% to +6.5%). Capital rotates dynamically; flat consolidation positions are auto-scratched after 3.5h so targets are never delayed for days or weeks.
                   </p>
 
                   <!-- Market Prophet Learning Feed -->

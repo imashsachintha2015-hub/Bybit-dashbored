@@ -1184,7 +1184,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             target_eq = body.get("target_equity")
             is_armed = body.get("is_armed")
             status = body.get("status")
-            kb.set_target_state(target_equity=target_eq, is_armed=is_armed, status=status)
+            strategy_mode = body.get("strategy_mode")
+            time_horizon_hours = body.get("time_horizon_hours")
+            start_equity = body.get("start_equity")
+            kb.set_target_state(
+                target_equity=target_eq,
+                is_armed=is_armed,
+                status=status,
+                strategy_mode=strategy_mode,
+                time_horizon_hours=time_horizon_hours,
+                start_equity=start_equity
+            )
             wb = bybit_client.get_wallet_balance()
             coins = wb.get("result", {}).get("list", [{}])[0].get("coin", [])
             usdt = next((c for c in coins if c.get("coin") == "USDT"), {})

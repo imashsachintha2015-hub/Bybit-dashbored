@@ -442,6 +442,11 @@ def evaluate_setup_with_deepseek(candidate, btc_macro=None):
     candlestick_reaction = analyze_price_level_historical_reaction(sym, cur_p)
     past_trades_at_price = fetch_past_trades_at_price(sym, cur_p, tolerance_pct=1.5)
     
+    # ── CONDITIONAL STATISTICAL EDGE ENGINE ──
+    from backend_lib.conditional_edge_engine import cee
+    state_vector = cee.extract_state_vector(candidate, sr, btc_macro, candlestick_reaction, track_record)
+    conditional_edge = cee.compute_conditional_edge(state_vector)
+    
     rules_text = "\n".join(f"- {r}" for r in rules) if rules else "- No specific historical mistakes recorded yet."
     
     recent_level_trades_str = ""
@@ -532,15 +537,28 @@ Candidate Trade Details:
 {rules_text}
 
 ======================================================================
-5. BITCOIN MACRO ENVIRONMENT
+5. CONDITIONAL STATISTICAL EDGE ENGINE (Empirical State Distribution)
+======================================================================
+- Comparable Historical Episodes (N): {conditional_edge.get('comparable_sample_size', 0)}
+- Empirical Win Probability P(Win): {conditional_edge.get('win_probability_pct', 0)}%
+- Empirical TP1 Hit Probability P(TP1 >= +2.20%): {conditional_edge.get('tp1_probability_pct', 0)}%
+- Empirical Stop Probability P(Stop): {conditional_edge.get('stop_probability_pct', 0)}%
+- Median MFE Excursion: +{conditional_edge.get('median_mfe_pct', 0)}% (+{conditional_edge.get('median_mfe_r', 0)}R)
+- Median MAE Drawdown: {conditional_edge.get('median_mae_pct', 0)}% ({conditional_edge.get('median_mae_r', 0)}R)
+- Expected Net R (E[R]): {conditional_edge.get('expected_r', 0)}R
+- Statistical Edge Verdict: {conditional_edge.get('edge_verdict')} ({conditional_edge.get('confidence')})
+
+======================================================================
+6. BITCOIN MACRO ENVIRONMENT
 ======================================================================
 - BTC Context: {btc_desc}
 
 ======================================================================
 INSTITUTIONAL QUANTITATIVE DIRECTIVES:
 ======================================================================
-1. DUAL VALIDATION (Candlestick Price History + Coin Trade History):
+1. DUAL STATISTICAL VALIDATION (Candlestick Price History + Conditional Edge Engine):
    - Check Candlestick Reaction: Did previous visits to this price level launch strong rallies (bounce rate >= 60%, max rally >= +2.5%)?
+   - Check Statistical Edge: Notice the Empirical P(Win) ({conditional_edge.get('win_probability_pct')}%) and Expected R ({conditional_edge.get('expected_r')}R). If the statistical edge is NEGATIVE_EDGE_CHURN_RISK, VETO the trade.
    - Check Coin MFE Profile: How far do winning trades typically run on {sym}? Can this setup realistically reach TP1 (+2.20%), TP2 (+4.00%), or TP3 (+6.50%) without hitting immediate resistance?
 2. S/R Runway Safety: If nearest overhead resistance is within +1.80%, DISAPPROVE (VETO) immediately. Runway must be >= +2.50% for swing clearance.
 3. Drawdown Confluence: Entry must have dynamic support nearby (EMA21/EMA20 within 1.3%) so the -1.50% stop loss is not breached during normal noise.
@@ -552,6 +570,8 @@ Respond strictly in valid JSON:
 {{
   "approved": true | false,
   "conviction_score": 93,
+  "expected_r": {conditional_edge.get('expected_r', 0.0)},
+  "statistical_edge_verdict": "{conditional_edge.get('edge_verdict')}",
   "risk_reward_ratio": "1:3.2",
   "nearest_support": {sr.get('nearest_sup', 0)},
   "nearest_resistance": {sr.get('nearest_res', 0)},
@@ -562,7 +582,7 @@ Respond strictly in valid JSON:
   "recommended_tp3": float,
   "price_level_reaction_evaluation": "Analysis of what happened historically when price was at this level",
   "coin_mfe_and_runner_evaluation": "Analysis of how far winners typically run on this coin and whether TP targets are realistic",
-  "compliance_note": "How this trade respects past learned rules",
+  "compliance_note": "How this trade respects past learned rules and statistical edge",
   "concerns": ["Any potential overhead risk"],
   "rationale": "Comprehensive 1-2 sentence institutional rationale."
 }}"""

@@ -1549,6 +1549,91 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
       }
     }
+
+    const reqVelEl = $('targetReqVelocity');
+    const etaEl = $('targetEta');
+    const pacingStatusEl = $('targetPacingStatus');
+    const timeRemEl = $('targetTimeRemaining');
+
+    if (reqVelEl) {
+      reqVelEl.textContent = `+$${(res.required_velocity_usd_hr || 0.21).toFixed(2)} / hr`;
+    }
+    if (etaEl) {
+      etaEl.textContent = res.eta_display || '18h 30m';
+    }
+    if (pacingStatusEl) {
+      const status = res.pacing_status || 'ON_TRACK';
+      if (status === 'COMPLETED') {
+        pacingStatusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> TARGET COMPLETED';
+        pacingStatusEl.style.color = '#22c55e';
+      } else if (status === 'AHEAD_OF_PACE') {
+        pacingStatusEl.innerHTML = '<i class="fa-solid fa-rocket"></i> AHEAD OF PACE';
+        pacingStatusEl.style.color = '#10b981';
+      } else if (status === 'ON_TRACK') {
+        pacingStatusEl.innerHTML = '<i class="fa-solid fa-gauge-high"></i> ON TRACK';
+        pacingStatusEl.style.color = '#38bdf8';
+      } else if (status === 'HORIZON_EXPIRING') {
+        pacingStatusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> SPRINT EXPIRING';
+        pacingStatusEl.style.color = '#f59e0b';
+      } else {
+        pacingStatusEl.innerHTML = '<i class="fa-solid fa-gauge"></i> PACING ACTIVE';
+        pacingStatusEl.style.color = '#38bdf8';
+      }
+    }
+    if (timeRemEl) {
+      timeRemEl.textContent = `${(res.remaining_hours || 24.0).toFixed(1)}h remaining`;
+    }
+
+    // Highlight the active horizon preset button
+    const currentHorizon = res.time_horizon_hours || 24;
+    document.querySelectorAll('.sprint-horizon-btn').forEach(btn => {
+      const hrs = parseFloat(btn.getAttribute('data-hours'));
+      if (Math.abs(hrs - currentHorizon) < 1) {
+        btn.style.background = 'rgba(14, 165, 233, 0.15)';
+        btn.style.borderColor = '#0EA5E9';
+        btn.style.color = '#0284C7';
+      } else {
+        btn.style.background = '#F1F5F9';
+        btn.style.borderColor = 'rgba(15, 23, 42, 0.1)';
+        btn.style.color = 'var(--text-dim)';
+      }
+    });
+
+    // Also sync main dashboard banner elements
+    const mainProgressText = $('mainTargetProgressText');
+    const mainPct = $('mainTargetPct');
+    const mainProgressBar = $('mainTargetProgressBar');
+    const mainReqVel = $('mainTargetReqVel');
+    const mainEta = $('mainTargetEta');
+    const mainPacingStatus = $('mainTargetPacingStatus');
+    const mainRemaining = $('mainTargetRemaining');
+
+    if (mainProgressText) {
+      const cur = res.current_equity != null ? `$${res.current_equity.toFixed(2)}` : '--';
+      mainProgressText.textContent = `${cur} / $${(res.target_equity || 15.0).toFixed(2)}`;
+    }
+    if (mainPct) {
+      mainPct.textContent = `(${res.progress_pct || 0}%)`;
+    }
+    if (mainProgressBar) {
+      mainProgressBar.style.width = `${Math.min(100, Math.max(0, res.progress_pct || 0))}%`;
+    }
+    if (mainReqVel) {
+      mainReqVel.textContent = `+$${(res.required_velocity_usd_hr || 0.21).toFixed(2)} / hr`;
+    }
+    if (mainEta) {
+      mainEta.textContent = res.eta_display || '18h 30m';
+    }
+    if (mainPacingStatus) {
+      const status = res.pacing_status || 'ON_TRACK';
+      mainPacingStatus.textContent = status.replace(/_/g, ' ');
+      if (status === 'COMPLETED' || status === 'AHEAD_OF_PACE') mainPacingStatus.style.color = '#10b981';
+      else if (status === 'HORIZON_EXPIRING') mainPacingStatus.style.color = '#f59e0b';
+      else mainPacingStatus.style.color = '#38bdf8';
+    }
+    if (mainRemaining) {
+      mainRemaining.textContent = `${(res.remaining_hours || 24.0).toFixed(1)}h left`;
+    }
   }
 
   async function pollMarketProphet() {
@@ -1635,6 +1720,13 @@ document.addEventListener('DOMContentLoaded', () => {
         await pollTargetMode();
       };
     }
+    document.querySelectorAll('.sprint-horizon-btn').forEach(btn => {
+      btn.onclick = async () => {
+        const hrs = parseFloat(btn.getAttribute('data-hours')) || 24;
+        await postJSON('/api/agent/target-mode', { time_horizon_hours: hrs });
+        await pollTargetMode();
+      };
+    });
   }
 
   setTimeout(pollNews, 1200); setInterval(pollNews, 300000);

@@ -382,5 +382,227 @@
         }
       ]
     }
+  },
+  {
+    "approved": false,
+    "conviction_score": 70,
+    "risk_reward_ratio": "1:1.2",
+    "nearest_support": 1.0097,
+    "nearest_resistance": 1.0351,
+    "runway_pct": 2.08,
+    "recommended_sl": 0.9988,
+    "recommended_tp1": 1.0363,
+    "recommended_tp2": 1.0546,
+    "recommended_tp3": 1.0799,
+    "price_level_reaction_evaluation": "STRONG BUYER ACCUMULATION & DEMAND ZONE: 100.0% of visits launched rallies >= +1.5% (Tested 3 times, max rally +6.68%, avg rally +5.09%).",
+    "coin_mfe_and_runner_evaluation": "Winners on SUIUSDT average +0.46% MFE (Max: +0.88%). Realistic swing clearance confirmed.",
+    "compliance_note": "Validated via dual candlestick history and coin MFE track record.",
+    "concerns": [
+      "Insufficient runway to resistance (<2.5%)"
+    ],
+    "rationale": "Dual quantitative evaluation: Historical reaction is 'STRONG BUYER ACCUMULATION & DEMAND ZONE: 100.0% of visits launched rallies >= +1.5% (Tested 3 times, max rally +6.68%, avg rally +5.09%).'. Winner MFE avg is +0.46%. Approved: False.",
+    "source": "LOCAL_QUANT_GATEKEEPER",
+    "timestamp": 1790006233,
+    "symbol": "SUIUSDT",
+    "direction": "BUY",
+    "price": 1.014,
+    "sr_data": {
+      "cur_price": 1.014,
+      "nearest_res": 1.0351,
+      "nearest_sup": 1.0097,
+      "runway_to_res_pct": 2.08,
+      "dist_to_sup_pct": 0.42,
+      "res_1h": 1.0817,
+      "sup_1h": 0.9363,
+      "res_15m": 1.0662,
+      "sup_15m": 0.9976,
+      "ema20_1h": 1.0142,
+      "ema50_1h": 1.0136,
+      "ema21_15m": 1.0308,
+      "pivot_p": 1.025,
+      "pivot_r1": 1.0351,
+      "pivot_s1": 1.0097
+    },
+    "track_record": {
+      "total_trades": 45,
+      "wins": 20,
+      "losses": 25,
+      "win_rate": 44.4,
+      "avg_pnl": -0.0083,
+      "win_mfe_avg": 0.46,
+      "win_mfe_max": 0.88,
+      "win_mae_avg": -0.14,
+      "loss_mfe_avg": 0.18,
+      "gross_profit": 1.387,
+      "gross_loss": -1.7612,
+      "recent_trades": [
+        {
+          "id": 262,
+          "direction": "Buy",
+          "entry_price": 1.03595,
+          "exit_price": 1.0464,
+          "pnl_net": 0.1861,
+          "pnl_pct": 1.01,
+          "mfe_pct": 0.88,
+          "mae_pct": 0.84,
+          "exit_reason": "TAKE_PROFIT_OR_CLAIM"
+        },
+        {
+          "id": 261,
+          "direction": "Buy",
+          "entry_price": 1.0398,
+          "exit_price": 1.0408,
+          "pnl_net": -0.0029,
+          "pnl_pct": 0.1,
+          "mfe_pct": 0.34,
+          "mae_pct": -0.34,
+          "exit_reason": "STOP_LOSS"
+        },
+        {
+          "id": 259,
+          "direction": "Buy",
+          "entry_price": 1.0391,
+          "exit_price": 1.0396,
+          "pnl_net": -0.0064,
+          "pnl_pct": 0.05,
+          "mfe_pct": 0.33,
+          "mae_pct": -0.17,
+          "exit_reason": "STOP_LOSS"
+        },
+        {
+          "id": 258,
+          "direction": "Buy",
+          "entry_price": 1.0391,
+          "exit_price": 1.0396,
+          "pnl_net": -0.0064,
+          "pnl_pct": 0.05,
+          "mfe_pct": 0.07,
+          "mae_pct": -0.05,
+          "exit_reason": "STOP_LOSS"
+        },
+        {
+          "id": 257,
+          "direction": "Buy",
+          "entry_price": 1.0391,
+          "exit_price": 1.0396,
+          "pnl_net": -0.0064,
+          "pnl_pct": 0.05,
+          "mfe_pct": 0.38,
+          "mae_pct": -0.01,
+          "exit_reason": "STOP_LOSS"
+        }
+      ]
+    }
+  },
+  {
+    "approved": false,
+    "conviction_score": 70,
+    "risk_reward_ratio": "1:1.2",
+    "nearest_support": 12.8334,
+    "nearest_resistance": 13.0104,
+    "runway_pct": 0.72,
+    "recommended_sl": 12.7232,
+    "recommended_tp1": 13.2012,
+    "recommended_tp2": 13.4337,
+    "recommended_tp3": 13.7566,
+    "price_level_reaction_evaluation": "STRONG BUYER ACCUMULATION & DEMAND ZONE: 66.7% of visits launched rallies >= +1.5% (Tested 3 times, max rally +2.88%, avg rally +1.95%).",
+    "coin_mfe_and_runner_evaluation": "Winners on LINKUSDT average +0.52% MFE (Max: +0.71%). Realistic swing clearance confirmed.",
+    "compliance_note": "Validated via dual candlestick history and coin MFE track record.",
+    "concerns": [
+      "Insufficient runway to resistance (<2.5%)"
+    ],
+    "rationale": "Dual quantitative evaluation: Historical reaction is 'STRONG BUYER ACCUMULATION & DEMAND ZONE: 66.7% of visits launched rallies >= +1.5% (Tested 3 times, max rally +2.88%, avg rally +1.95%).'. Winner MFE avg is +0.52%. Approved: False.",
+    "source": "LOCAL_QUANT_GATEKEEPER",
+    "timestamp": 1790006396,
+    "symbol": "LINKUSDT",
+    "direction": "BUY",
+    "price": 12.917,
+    "sr_data": {
+      "cur_price": 12.917,
+      "nearest_res": 13.0104,
+      "nearest_sup": 12.8334,
+      "runway_to_res_pct": 0.72,
+      "dist_to_sup_pct": 0.65,
+      "res_1h": 13.289,
+      "sup_1h": 12.469,
+      "res_15m": 13.077,
+      "sup_15m": 12.8,
+      "ema20_1h": 12.9494,
+      "ema50_1h": 12.917,
+      "ema21_15m": 12.9897,
+      "pivot_p": 12.9427,
+      "pivot_r1": 13.0104,
+      "pivot_s1": 12.8334
+    },
+    "track_record": {
+      "total_trades": 21,
+      "wins": 2,
+      "losses": 19,
+      "win_rate": 9.5,
+      "avg_pnl": -0.0317,
+      "win_mfe_avg": 0.52,
+      "win_mfe_max": 0.71,
+      "win_mae_avg": 0.12,
+      "loss_mfe_avg": 0.13,
+      "gross_profit": 0.0323,
+      "gross_loss": -0.6977,
+      "recent_trades": [
+        {
+          "id": 276,
+          "direction": "Buy",
+          "entry_price": 12.937,
+          "exit_price": 12.818,
+          "pnl_net": -0.1198,
+          "pnl_pct": -0.92,
+          "mfe_pct": 0.04,
+          "mae_pct": -0.94,
+          "exit_reason": "STOP_LOSS"
+        },
+        {
+          "id": 235,
+          "direction": "Buy",
+          "entry_price": 13.18,
+          "exit_price": 0.0,
+          "pnl_net": 0.0,
+          "pnl_pct": -100.0,
+          "mfe_pct": 0.0,
+          "mae_pct": -0.29,
+          "exit_reason": "STOP_LOSS"
+        },
+        {
+          "id": 231,
+          "direction": "Buy",
+          "entry_price": 13.229,
+          "exit_price": 13.125,
+          "pnl_net": -0.0948,
+          "pnl_pct": -0.79,
+          "mfe_pct": -0.02,
+          "mae_pct": -0.63,
+          "exit_reason": "STOP_LOSS"
+        },
+        {
+          "id": 222,
+          "direction": "Buy",
+          "entry_price": 13.167,
+          "exit_price": 13.207,
+          "pnl_net": 0.0102,
+          "pnl_pct": 0.3,
+          "mfe_pct": 0.71,
+          "mae_pct": -0.05,
+          "exit_reason": "TAKE_PROFIT_OR_CLAIM"
+        },
+        {
+          "id": 213,
+          "direction": "Buy",
+          "entry_price": 13.152,
+          "exit_price": 13.159,
+          "pnl_net": -0.006,
+          "pnl_pct": 0.05,
+          "mfe_pct": 0.32,
+          "mae_pct": -0.05,
+          "exit_reason": "STOP_LOSS"
+        }
+      ]
+    }
   }
 ]
