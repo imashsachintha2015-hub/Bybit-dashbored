@@ -170,6 +170,7 @@
               <button type="button" class="sprint-horizon-btn" data-hours="24" style="background: rgba(14, 165, 233, 0.12); border: 1px solid #0EA5E9; color: #0284C7; border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 700; cursor: pointer;">24h</button>
               <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer;">48h</button>
               <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer;">72h</button>
+              <button type="button" id="sprintCustomBtn" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Set custom sprint duration in hours"><i class="fa-solid fa-pen-to-square" style="font-size: 9.5px;"></i> <span id="sprintCustomBtnText">Custom</span></button>
               <span class="sprint-guard-badge" style="font-size: 10px; color: #B45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Stuck trades in flat consolidation are auto-scratched after 3.5h to protect velocity.">
                 <i class="fa-solid fa-stopwatch" style="color: #D97706;"></i> 3.5h Guard
               </span>
@@ -624,6 +625,7 @@
                     <button type="button" class="sprint-horizon-btn active" data-hours="24" style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #38bdf8; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">24h Sprint</button>
                     <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">48h Swing</button>
                     <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">72h Extended</button>
+                    <button type="button" id="sprintCustomSideBtn" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;" title="Set custom sprint duration in hours">Custom...</button>
                   </div>
 
                   <!-- Progress Bar -->
@@ -849,6 +851,6 @@
   <script src="chart.js?v=3.0"></script>
   <script src="masis-engine.js?v=3.0"></script>
   <script src="whale-agent.js?v=3.0"></script>
-  <script src="app.js?v=3.5"></script>
+  <script src="app.js?v=3.6"></script>
 </body>
 </html>

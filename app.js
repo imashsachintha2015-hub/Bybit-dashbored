@@ -1584,11 +1584,13 @@ document.addEventListener('DOMContentLoaded', () => {
       timeRemEl.textContent = `${(res.remaining_hours || 24.0).toFixed(1)}h remaining`;
     }
 
-    // Highlight the active horizon preset button
+    // Highlight the active horizon preset button or custom button
     const currentHorizon = res.time_horizon_hours || 24;
+    let isPreset = false;
     document.querySelectorAll('.sprint-horizon-btn').forEach(btn => {
       const hrs = parseFloat(btn.getAttribute('data-hours'));
-      if (Math.abs(hrs - currentHorizon) < 1) {
+      if (Math.abs(hrs - currentHorizon) < 0.1) {
+        isPreset = true;
         btn.style.background = 'rgba(14, 165, 233, 0.15)';
         btn.style.borderColor = '#0EA5E9';
         btn.style.color = '#0284C7';
@@ -1598,6 +1600,37 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.style.color = 'var(--text-dim)';
       }
     });
+
+    const customBtn = $('sprintCustomBtn');
+    const customBtnText = $('sprintCustomBtnText');
+    const customSideBtn = $('sprintCustomSideBtn');
+    const displayHrs = currentHorizon % 1 === 0 ? currentHorizon : currentHorizon.toFixed(1);
+    if (customBtn) {
+      if (!isPreset) {
+        customBtn.style.background = 'rgba(14, 165, 233, 0.15)';
+        customBtn.style.borderColor = '#0EA5E9';
+        customBtn.style.color = '#0284C7';
+        if (customBtnText) customBtnText.textContent = `${displayHrs}h`;
+      } else {
+        customBtn.style.background = '#F1F5F9';
+        customBtn.style.borderColor = 'rgba(15, 23, 42, 0.1)';
+        customBtn.style.color = 'var(--text-dim)';
+        if (customBtnText) customBtnText.textContent = 'Custom';
+      }
+    }
+    if (customSideBtn) {
+      if (!isPreset) {
+        customSideBtn.style.background = 'rgba(56, 189, 248, 0.2)';
+        customSideBtn.style.borderColor = '#38bdf8';
+        customSideBtn.style.color = '#38bdf8';
+        customSideBtn.textContent = `${displayHrs}h Custom`;
+      } else {
+        customSideBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+        customSideBtn.style.borderColor = 'rgba(255,255,255,0.1)';
+        customSideBtn.style.color = 'var(--text-muted)';
+        customSideBtn.textContent = 'Custom...';
+      }
+    }
 
     // Also sync main dashboard banner elements
     const mainProgressText = $('mainTargetProgressText');
@@ -1727,6 +1760,25 @@ document.addEventListener('DOMContentLoaded', () => {
         await pollTargetMode();
       };
     });
+
+    const handleCustomSprint = async () => {
+      const current = (targetModeState && targetModeState.time_horizon_hours) || 24;
+      const input = prompt('Enter Target Sprint Horizon in hours (e.g. 6, 12, 36, 120, 168):', current);
+      if (input !== null) {
+        const hrs = parseFloat(input.trim());
+        if (!isNaN(hrs) && hrs > 0 && hrs <= 10000) {
+          await postJSON('/api/agent/target-mode', { time_horizon_hours: hrs });
+          await pollTargetMode();
+        } else {
+          alert('Please enter a valid positive number of hours (e.g. 12, 36, 120).');
+        }
+      }
+    };
+
+    const customBtn = $('sprintCustomBtn');
+    if (customBtn) customBtn.onclick = handleCustomSprint;
+    const customSideBtn = $('sprintCustomSideBtn');
+    if (customSideBtn) customSideBtn.onclick = handleCustomSprint;
   }
 
   setTimeout(pollNews, 1200); setInterval(pollNews, 300000);
