@@ -18,23 +18,26 @@ class handler(JsonApiHandler):
             self._send_json(500, {"retCode": -1, "retMsg": err})
             return
 
-        # Fetch Bybit closed trades (two pages of 100 to get full 200 history)
+        # Fetch Bybit closed trades (paginate to get all available historical trades up to 200+)
         closed_list = []
-        try:
-            p1 = client.get_closed_pnl(limit=100)
-            res1 = p1.get("result", {})
-            list1 = res1.get("list", []) or []
-            closed_list.extend(list1)
-            cursor = res1.get("nextPageCursor")
-            if cursor:
-                try:
-                    p2 = client._signed_request("GET", "/v5/position/closed-pnl", {"category": "linear", "limit": 100, "cursor": cursor})
-                    list2 = p2.get("result", {}).get("list", []) or []
-                    closed_list.extend(list2)
-                except Exception:
-                    pass
-        except Exception as e:
-            print(f"[api/performance] Bybit pnl fetch error: {e}")
+        cursor = ""
+        for _ in range(4):
+            try:
+                params = {"category": "linear", "limit": 100}
+                if cursor:
+                    params["cursor"] = cursor
+                p = client.signed_request("GET", "/v5/position/closed-pnl", params)
+                res = p.get("result", {})
+                batch = res.get("list", []) or []
+                if not batch:
+                    break
+                closed_list.extend(batch)
+                cursor = res.get("nextPageCursor")
+                if not cursor:
+                    break
+            except Exception as e:
+                print(f"[api/performance] Bybit pnl fetch error: {e}")
+                break
 
         stats = trade_stats_mod.load()
         local_history = list(stats.get("trade_history", []))
