@@ -478,12 +478,16 @@ def evaluate_setup_with_deepseek(candidate, btc_macro=None):
         btc_regime = btc_macro.get('regime', 'CONSOLIDATING')
         btc_desc = f"${btc_price:,.1f} ({btc_chg_5m:+.2f}% 5m, {btc_chg_1h:+.2f}% 1h, Regime: {btc_regime})"
 
-    runway_pct = sr.get('runway_to_res_pct', 0)
-    runway_verdict = f"APPROVED (+{runway_pct}% to nearest resistance)" if runway_pct >= 2.50 else f"VETO HAZARD (Only +{runway_pct}% to nearest resistance, below 2.50% minimum swing buffer)"
+    if direction == 'SELL':
+        runway_pct = sr.get('dist_to_sup_pct', 0)
+        runway_verdict = f"APPROVED (-{runway_pct}% down to nearest support floor)" if runway_pct >= 2.50 else f"VETO HAZARD (Only -{runway_pct}% to nearest support, below 2.50% minimum swing clearance)"
+    else:
+        runway_pct = sr.get('runway_to_res_pct', 0)
+        runway_verdict = f"APPROVED (+{runway_pct}% to nearest resistance)" if runway_pct >= 2.50 else f"VETO HAZARD (Only +{runway_pct}% to nearest resistance, below 2.50% minimum swing buffer)"
 
     prompt = f"""You are the Chief Quantitative Risk Officer at MASIS Institutional Crypto Trading.
 A potential HIGH-CONVICTION HTF SWING RUNNER trade candidate has been detected by the scanner.
-Our strategy targets $1.00+ realistic profit per trade (like our high-performing DOGE swing setup) with EXTREME CAUTION.
+Our strategy targets $1.00+ realistic profit per trade (both Longs and Shorts like XRP 1.5588->1.5045 or AVAX 11.1828->10.6897) with EXTREME CAUTION.
 
 Candidate Trade Details:
 - Symbol: {sym}
@@ -541,7 +545,7 @@ Candidate Trade Details:
 ======================================================================
 - Comparable Historical Episodes (N): {conditional_edge.get('comparable_sample_size', 0)}
 - Empirical Win Probability P(Win): {conditional_edge.get('win_probability_pct', 0)}%
-- Empirical TP1 Hit Probability P(TP1 >= +2.20%): {conditional_edge.get('tp1_probability_pct', 0)}%
+- Empirical TP1 Hit Probability P(TP1 >= 2.00%): {conditional_edge.get('tp1_probability_pct', 0)}%
 - Empirical Stop Probability P(Stop): {conditional_edge.get('stop_probability_pct', 0)}%
 - Median MFE Excursion: +{conditional_edge.get('median_mfe_pct', 0)}% (+{conditional_edge.get('median_mfe_r', 0)}R)
 - Median MAE Drawdown: {conditional_edge.get('median_mae_pct', 0)}% ({conditional_edge.get('median_mae_r', 0)}R)
@@ -557,13 +561,20 @@ Candidate Trade Details:
 INSTITUTIONAL QUANTITATIVE DIRECTIVES:
 ======================================================================
 1. DUAL STATISTICAL VALIDATION (Candlestick Price History + Conditional Edge Engine):
-   - Check Candlestick Reaction: Did previous visits to this price level launch strong rallies (bounce rate >= 60%, max rally >= +2.5%)?
-   - Check Statistical Edge: Notice the Empirical P(Win) ({conditional_edge.get('win_probability_pct')}%) and Expected R ({conditional_edge.get('expected_r')}R). If the statistical edge is NEGATIVE_EDGE_CHURN_RISK, VETO the trade.
-   - Check Coin MFE Profile: How far do winning trades typically run on {sym}? Can this setup realistically reach TP1 (+2.20%), TP2 (+4.00%), or TP3 (+6.50%) without hitting immediate resistance?
-2. S/R Runway Safety: If nearest overhead resistance is within +1.80%, DISAPPROVE (VETO) immediately. Runway must be >= +2.50% for swing clearance.
-3. Drawdown Confluence: Entry must have dynamic support nearby (EMA21/EMA20 within 1.3%) so the -1.50% stop loss is not breached during normal noise.
-4. Rule Compliance: Verify that this candidate does not trigger any of the stored learned rules on {sym}.
-5. Bitcoin Confirmation: Reject altcoin longs if BTC is flushing or 5m delta is < -0.12%.
+   - For BUY: Check if previous visits launched strong rallies (bounce rate >= 55%).
+   - For SELL: Check if previous visits suffered strong rejections/drops (rejection rate >= 55%).
+   - Check Statistical Edge: Notice Empirical P(Win) ({conditional_edge.get('win_probability_pct')}%) and Expected R. If NEGATIVE_EDGE_CHURN_RISK, VETO.
+   - Realistic Runway: Can this setup realistically reach TP targets without hitting immediate opposing S/R?
+2. S/R Runway Safety:
+   - For BUY: If nearest overhead resistance is within +1.80%, VETO. Upward runway must be >= +2.50%.
+   - For SELL: If nearest support floor is within -1.80%, VETO. Downward runway must be >= +2.50%.
+3. Stop Loss Confluence:
+   - For BUY: Stop loss should be below support (~1.50% below entry).
+   - For SELL: Stop loss should be above resistance pivot (~1.35% above entry).
+4. Rule Compliance: Verify candidate does not trigger stored learned rules on {sym}.
+5. Bitcoin Confirmation:
+   - For BUY: Reject altcoin longs if BTC is flushing or 5m delta is < -0.12%.
+   - For SELL: Reject altcoin shorts if BTC is strongly pumping or 1h delta is > +0.35%. A dumping BTC is a TAILWIND for shorts!
 6. Conviction Threshold: Only grant "approved": true if conviction_score is >= 90.
 
 Respond strictly in valid JSON:
@@ -636,23 +647,37 @@ Respond strictly in valid JSON:
     return decision
 
 def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlestick_reaction=None):
-    """Local institutional rule validator if API is unavailable."""
-    runway = sr.get('runway_to_res_pct', 0)
+    direction = candidate.get('direction', 'BUY')
+    runway_res = sr.get('runway_to_res_pct', 0)
     dist_sup = sr.get('dist_to_sup_pct', 0)
     score = candidate.get('score', 0)
     cur_p = candidate.get('price', 0)
     sym = candidate.get('symbol', '')
     
     btc_dumping = btc_macro and (btc_macro.get('is_dumping') or btc_macro.get('btc_chg_5m', 0) < -0.15)
+    btc_pumping = btc_macro and (btc_macro.get('regime') == 'BTC_BULL_PUMPING' or btc_macro.get('btc_chg_1h', 0) > 0.35)
     
-    # Check 1: Runway >= 2.5%
-    has_runway = runway >= 2.5
-    # Check 2: Near support (within 1.3%)
-    near_support = dist_sup <= 1.3
-    # Check 3: High scanner conviction
-    high_score = score >= 92
-    
-    approved = has_runway and near_support and high_score and not btc_dumping
+    if direction == 'SELL':
+        runway = dist_sup
+        has_runway = runway >= 2.2
+        near_pivot = runway_res <= 1.8
+        high_score = score >= 90
+        approved = has_runway and near_pivot and high_score and not btc_pumping
+        sl_rec = round(cur_p * 1.0135, 4)
+        tp1_rec = round(cur_p * 0.9820, 4)
+        tp2_rec = round(cur_p * 0.9650, 4)
+        tp3_rec = round(cur_p * 0.9500, 4)
+    else:
+        runway = runway_res
+        has_runway = runway >= 2.2
+        near_support = dist_sup <= 1.8
+        high_score = score >= 90
+        approved = has_runway and near_support and high_score and not btc_dumping
+        sl_rec = round(cur_p * 0.9850, 4)
+        tp1_rec = round(cur_p * 1.0220, 4)
+        tp2_rec = round(cur_p * 1.0400, 4)
+        tp3_rec = round(cur_p * 1.0650, 4)
+        
     conviction = 92 if approved else 70
     
     reaction_summary = candlestick_reaction.get('summary', 'Normal price zone.') if candlestick_reaction else 'Normal price zone.'
@@ -660,6 +685,15 @@ def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlesti
     win_max = track_record.get('win_mfe_max', 0.0)
     mfe_eval = f"Winners on {sym} average +{win_mfe}% MFE (Max: +{win_max}%). Realistic swing clearance confirmed."
     
+    concerns = []
+    if not approved:
+        if not has_runway:
+            concerns.append("Insufficient runway (<2.2%) to major S/R barrier")
+        if direction == 'BUY' and btc_dumping:
+            concerns.append("Bitcoin is flushing")
+        if direction == 'SELL' and btc_pumping:
+            concerns.append("Bitcoin is pumping strongly")
+
     return {
         "approved": approved,
         "conviction_score": conviction,
@@ -667,15 +701,15 @@ def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlesti
         "nearest_support": sr.get('nearest_sup', cur_p * 0.985),
         "nearest_resistance": sr.get('nearest_res', cur_p * 1.04),
         "runway_pct": runway,
-        "recommended_sl": round(cur_p * 0.9850, 4),
-        "recommended_tp1": round(cur_p * 1.0220, 4),
-        "recommended_tp2": round(cur_p * 1.0400, 4),
-        "recommended_tp3": round(cur_p * 1.0650, 4),
+        "recommended_sl": sl_rec,
+        "recommended_tp1": tp1_rec,
+        "recommended_tp2": tp2_rec,
+        "recommended_tp3": tp3_rec,
         "price_level_reaction_evaluation": reaction_summary,
         "coin_mfe_and_runner_evaluation": mfe_eval,
         "compliance_note": "Validated via dual candlestick history and coin MFE track record.",
-        "concerns": [] if approved else (["Insufficient runway to resistance (<2.5%)"] if not has_runway else ["Entry too far from confirmed support"]),
-        "rationale": f"Dual quantitative evaluation: Historical reaction is '{reaction_summary}'. Winner MFE avg is +{win_mfe}%. Approved: {approved}.",
+        "concerns": concerns,
+        "rationale": f"Dual quantitative evaluation: {direction} setup on {sym}. Historical reaction is '{reaction_summary}'. Winner MFE avg is +{win_mfe}%. Approved: {approved}.",
         "source": "LOCAL_QUANT_GATEKEEPER"
     }
 

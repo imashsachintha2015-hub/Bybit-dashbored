@@ -28,6 +28,7 @@ COIN_CONFIG = {
     'NEARUSDT': {'qty': 2.9,  'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},
     'LINKUSDT': {'qty': 0.9,  'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},
     'DOGEUSDT': {'qty': 120,  'p_dec': 5, 'q_dec': 0, 'min_step': 0.00001},
+    'XRPUSDT':  {'qty': 10,   'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},
     'SUIUSDT':  {'qty': 13,   'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},
     'ADAUSDT':  {'qty': 47,   'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},
 }
@@ -206,48 +207,94 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
     last_5 = k5[-1]
     range_5 = max(0.0001, last_5['high'] - last_5['low'])
     upper_wick_5 = last_5['high'] - max(last_5['open'], last_5['close'])
+    lower_wick_5 = min(last_5['open'], last_5['close']) - last_5['low']
     u_wick_pct_5 = upper_wick_5 / range_5
+    l_wick_pct_5 = lower_wick_5 / range_5
 
     score = 0
     setup = "NONE"
     direction = "NONE"
 
-    # ── Strict Scoring Confluence (A+ Criteria Only) ──
+    # ── 1. Bullish Setup Evaluation (HTF_SWING_PULLBACK_LONG) ──
+    bull_score = 0
     if trend_1h == "BULL":
-        score += 30  # 1h Macro alignment
-
-        if 48 <= rsi_1h <= 68:
-            score += 15  # Solid trend momentum, not overbought
-
+        bull_score += 30  # 1h Macro alignment
+        if 46 <= rsi_1h <= 68:
+            bull_score += 15  # Solid trend momentum, not overbought
         if trend_15m == "BULL":
-            score += 15  # 15m trend alignment
-
-        # 15m Pullback into Value Zone (RSI 42 to 58)
-        if 42 <= rsi_15 <= 58:
-            score += 15
-
-        # 15m Wick Absorption (buyers stepping in at support)
-        if l_wick_pct_15 >= 0.25:
-            score += 10
-
-        # 15m Volume confirmation
-        if vol_ratio_15 >= 1.20:
-            score += 10
-
-        # 5m Trigger (no upper wick rejection)
+            bull_score += 15  # 15m trend alignment
+        if 40 <= rsi_15 <= 58:
+            bull_score += 15  # 15m Pullback into Value Zone
+        if l_wick_pct_15 >= 0.22:
+            bull_score += 10  # 15m Wick Absorption (buyers stepping in at support)
+        if vol_ratio_15 >= 1.15:
+            bull_score += 10  # 15m Volume confirmation
         if cur_p >= ema9_5 and u_wick_pct_5 < 0.20:
-            score += 5
+            bull_score += 5   # 5m Trigger (no upper wick rejection)
 
+    # ── 2. Bearish Setup Evaluation (HTF_SWING_BREAKDOWN_SHORT) ──
+    # Captures major range sweeps, resistance rejections & breakdowns like XRP 1.5588->1.5045 & AVAX 11.1828->10.6897
+    bear_score = 0
+    trend_1h_bear = (ema20_1h < ema50_1h or cur_p <= ema20_1h * 1.006)
+    trend_15m_bear = (ema21_15 < ema50_15 or cur_p <= ema21_15 * 1.004)
+    if trend_1h_bear:
+        bear_score += 30  # 1h Macro alignment or lower-high rejection
+        if 32 <= rsi_1h <= 56:
+            bear_score += 15  # Bearish momentum, not oversold
+        if trend_15m_bear:
+            bear_score += 15  # 15m trend alignment
+        if 42 <= rsi_15 <= 62:
+            bear_score += 15  # 15m Retest into Value Resistance Zone
+        if u_wick_pct_15 >= 0.22:
+            bear_score += 10  # 15m Upper Wick Rejection (sellers capping resistance)
+        if vol_ratio_15 >= 1.15:
+            bear_score += 10  # 15m Volume confirmation on breakdown
+        if cur_p <= ema9_5 and l_wick_pct_5 < 0.20:
+            bear_score += 5   # 5m Trigger (no lower wick bounce)
+
+    # ── Bitcoin Macro & Altcoin Sensitivity Guard ──
+    if btc_macro:
+        btc_dumping = btc_macro.get('is_dumping') or btc_macro.get('btc_chg_5m', 0) < -0.15
+        btc_pumping = btc_macro.get('regime') == 'BTC_BULL_PUMPING' or btc_macro.get('btc_chg_1h', 0) > 0.30
+        
+        # Longs: Vetoed if BTC dumping; boosted if BTC pumping
+        if btc_dumping:
+            bull_score = 0
+        elif btc_pumping:
+            bull_score = min(100, bull_score + 5)
+            
+        # Shorts: Boosted if BTC dumping (massive tailwind!); vetoed if BTC strongly pumping
+        if btc_dumping:
+            bear_score = min(100, bear_score + 10)  # Strong altcoin flush tailwind
+        elif btc_pumping:
+            bear_score = 0  # Do not short when BTC is ripping upward
+
+    # Select the highest conviction direction
+    if bull_score >= bear_score and bull_score > 0:
+        score = bull_score
         setup = "HTF_SWING_PULLBACK_LONG"
         direction = "BUY"
-
-    # ── Bitcoin Macro Up / Dump-Guard ──
-    if btc_macro:
-        # If BTC is dumping or has 5m drop <= -0.15%, strictly veto entry
-        if btc_macro.get('is_dumping') or btc_macro.get('btc_chg_5m', 0) < -0.15:
-            score = 0
-        elif btc_macro.get('regime') == 'BTC_BULL_PUMPING' or btc_macro.get('btc_chg_1h', 0) > 0.3:
-            score = min(100, score + 5)  # BTC tail-wind bonus
+        targets = {
+            "sl_pct": -1.50,
+            "tp1_pct": 2.20,
+            "tp2_pct": 4.00,
+            "tp3_pct": 6.50
+        }
+    elif bear_score > bull_score and bear_score > 0:
+        score = bear_score
+        setup = "HTF_SWING_BREAKDOWN_SHORT"
+        direction = "SELL"
+        targets = {
+            "sl_pct": 1.35,      # Invalidation pivot stop above resistance
+            "tp1_pct": -1.80,    # Risk-free partial bank
+            "tp2_pct": -3.50,    # Major range sweep (e.g. XRP 1.5045)
+            "tp3_pct": -5.00     # Deep macro waterfall (e.g. AVAX 10.6897)
+        }
+    else:
+        score = 0
+        setup = "NONE"
+        direction = "NONE"
+        targets = {}
 
     return {
         "symbol": symbol,
@@ -263,13 +310,8 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
         "score": score,
         "setup": setup,
         "direction": direction,
-        "targets": {
-            "sl_pct": -1.50,
-            "tp1_pct": 2.20,
-            "tp2_pct": 4.00,
-            "tp3_pct": 6.50
-        },
-        "recommended": score >= 92
+        "targets": targets,
+        "recommended": score >= 90
     }
 
 def get_account_status():
@@ -342,8 +384,11 @@ def run_scanner_loop():
                 top['veto_reason'] = f"BLOCKED_BY_BTC_DUMP: BTC is flushing ({btc_macro.get('btc_chg_5m')}%)"
                 
             top_rec = f"{top['symbol']} {top['direction']} (Score {top['score']}/100 - {top['setup']})" if top else "None"
-            if btc_dumping:
-                top_rec += f" [VETOED: BTC DUMPING {btc_macro.get('btc_chg_5m')}%]"
+            if btc_dumping and top:
+                if top.get('direction') == 'BUY':
+                    top_rec += f" [VETOED: BTC DUMPING {btc_macro.get('btc_chg_5m')}%]"
+                elif top.get('direction') == 'SELL':
+                    top_rec += f" [TAILWIND: BTC DUMPING {btc_macro.get('btc_chg_5m')}%]"
             
             pos_desc = f"{len(active)} active: " + ", ".join(f"{p['symbol']} {p['side']} (${p['unpnl']:+.3f})" for p in active) if active else "0 active"
             

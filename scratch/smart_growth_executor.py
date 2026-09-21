@@ -201,15 +201,26 @@ def run_single_cycle():
             if strategy_mode == "SWING_RUNNER":
                 # ── HTF SWING RUNNER MODE: $1.00+ Realistic Profit Milestones ──
                 # Give the trade room to breathe! Only ratchet SL once safely up +1.20%
-                if gain_pct >= 1.20 and pos.get('sl', 0) < entry * 1.002:
-                    be_sl = round_price(sym, entry * 1.0025)  # +0.25% guarantees fees covered
+                is_long = (side.upper() == 'BUY')
+                
+                if is_long:
+                    needs_be = (pos.get('sl', 0) < entry * 1.002)
+                    be_sl = round_price(sym, entry * 1.0025)      # +0.25% guarantees fees covered
+                    sl_stage1 = round_price(sym, entry * 1.0040)  # +0.40% guaranteed floor
+                    sl_stage2 = round_price(sym, entry * 1.0200)  # +2.00% guaranteed floor
+                else: # SHORT
+                    needs_be = (pos.get('sl', 0) == 0 or pos.get('sl', 0) > entry * 0.998)
+                    be_sl = round_price(sym, entry * 0.9975)      # +0.25% fee-proof green
+                    sl_stage1 = round_price(sym, entry * 0.9960)  # +0.40% guaranteed floor
+                    sl_stage2 = round_price(sym, entry * 0.9800)  # +2.00% guaranteed floor
+
+                if gain_pct >= 1.20 and needs_be:
                     client.set_trading_stop('linear', sym, stop_loss=str(be_sl))
                     log(f"🔒 [SWING RISK-FREE LOCK] {sym} reached +{gain_pct:.2f}%! Ratcheted SL to {be_sl} (+0.25% fee-proof green).")
 
                 # Milestone 1: +2.20% Gain (~$0.26 profit on $12 notional) -> Bank initial cash
                 if gain_pct >= 2.20 and tracked_trades[sym].get('stage', 0) < 1:
                     tracked_trades[sym]['stage'] = 1
-                    sl_stage1 = round_price(sym, entry * 1.0040)  # +0.40% guaranteed floor
                     client.set_trading_stop('linear', sym, stop_loss=str(sl_stage1))
                     log(f"🎯 [SWING MILESTONE 1 (+2.20%)] {sym} reached +{gain_pct:.2f}% (${unpnl:+.4f})! Ratcheted SL to {sl_stage1} (+0.40% green floor).")
                     claimer.evaluate_and_claim(pos, is_swing_mode=True)
@@ -217,7 +228,6 @@ def run_single_cycle():
                 # Milestone 2: +4.00% Gain (~$0.48 profit) -> Ratchet SL to +2.00%
                 elif gain_pct >= 4.00 and tracked_trades[sym].get('stage', 0) < 2:
                     tracked_trades[sym]['stage'] = 2
-                    sl_stage2 = round_price(sym, entry * 1.0200)  # +2.00% guaranteed floor
                     client.set_trading_stop('linear', sym, stop_loss=str(sl_stage2))
                     log(f"🚀 [SWING MILESTONE 2 (+4.00%)] {sym} reached +{gain_pct:.2f}% (${unpnl:+.4f})! Ratcheted SL to {sl_stage2} (+2.00% green floor).")
                     claimer.evaluate_and_claim(pos, is_swing_mode=True)
@@ -228,14 +238,13 @@ def run_single_cycle():
                     client.close_position('linear', sym, side, pos['size'])
                     continue
 
-                # ── ANTI-STAGNATION TIME-STOP (Prevents 1 month delay) ──
-                # If a trade has been open for > 3.5 hours and is trapped in dead chop (< +0.35% peak gain, sitting near flat),
-                # scratch the trade to free capital for active sprint velocity.
+                # ── ANTI-STAGNATION TIME-STOP ──
+                # Give HTF Swings 6.0 hours of breathing room so multi-hour macro moves (like AVAX $0.50 drop) mature
                 opened_at = tracked_trades[sym].get('opened_at', time.time())
                 duration_hrs = (time.time() - opened_at) / 3600.0
                 peak_g = tracked_trades[sym].get('max_gain', 0.0)
-                if duration_hrs >= 3.5:
-                    if peak_g < 0.35 and -0.50 <= gain_pct <= 0.15:
+                if duration_hrs >= 6.0:
+                    if peak_g < 0.40 and -0.60 <= gain_pct <= 0.20:
                         log(f"⏳ [STAGNATION TIME-STOP] {sym} open for {duration_hrs:.1f}h without momentum expansion (Peak: +{peak_g:.2f}%, Now: {gain_pct:+.2f}%). Scratching position to maintain target sprint pace...")
                         client.close_position('linear', sym, side, pos['size'])
                         symbol_cooldowns[sym] = time.time() + 900
@@ -281,22 +290,25 @@ def run_single_cycle():
                     log(f"⏳ [COOLDOWN ACTIVE] {sym} is cooling down ({rem}s remaining). Skipping re-entry.")
                 return True
 
-            # BTC DUMP VETO: Never enter altcoin longs when Bitcoin is dumping
-            if btc_macro and not btc_macro.get('alt_long_allowed', True) and direction == 'BUY':
-                log(f"🛑 [BTC DUMP VETO] Long entry for {sym} blocked: Bitcoin is flushing ({btc_macro.get('btc_chg_5m')}%, {btc_macro.get('regime')})!")
-                return True
+            # BTC DUMP VETO for Longs / BTC PUMP VETO for Shorts:
+            if btc_macro:
+                if not btc_macro.get('alt_long_allowed', True) and direction == 'BUY':
+                    log(f"🛑 [BTC DUMP VETO] Long entry for {sym} blocked: Bitcoin is flushing ({btc_macro.get('btc_chg_5m')}%, {btc_macro.get('regime')})!")
+                    return True
+                if btc_macro.get('regime') == 'BTC_BULL_PUMPING' and direction == 'SELL':
+                    log(f"🛑 [BTC PUMP VETO] Short entry for {sym} blocked: Bitcoin is pumping aggressively ({btc_macro.get('btc_chg_1h')}%)!")
+                    return True
 
-            # Entry threshold: 92 for SWING_RUNNER (A+ extreme caution), 90 for MICRO_SCALP
-            min_entry_score = 92 if strategy_mode == "SWING_RUNNER" else 90
+            # Entry threshold: 90 for SWING_RUNNER (A+ high caution), 85 for MICRO_SCALP
+            min_entry_score = 90 if strategy_mode == "SWING_RUNNER" else 85
 
-            if score >= min_entry_score and direction == 'BUY':
+            if score >= min_entry_score and direction in ['BUY', 'SELL']:
                 # ── DEEPSEEK AI PRE-TRADE QUANTITATIVE GATEKEEPER ──
-                # Feeds DeepSeek S/R levels, historical coin memory, past learned rules, and BTC context
                 import importlib
                 import scratch.deepseek_pre_trade_gatekeeper as dsg
                 importlib.reload(dsg)
                 evaluate_setup_with_deepseek = dsg.evaluate_setup_with_deepseek
-                log(f"🧠 [DEEPSEEK REVIEW] Evaluating {sym} candidate through DeepSeek Pre-Trade Gatekeeper...")
+                log(f"🧠 [DEEPSEEK REVIEW] Evaluating {sym} {direction} candidate through DeepSeek Pre-Trade Gatekeeper...")
                 gatekeeper_dec = evaluate_setup_with_deepseek(top, btc_macro)
                 
                 is_approved = gatekeeper_dec.get('approved', False)
@@ -310,15 +322,15 @@ def run_single_cycle():
                 
                 if not is_approved or conv_score < 90:
                     concerns = ", ".join(gatekeeper_dec.get('concerns', ['Low conviction']))
-                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} trade rejected (Score: {conv_score}/100)!")
+                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} {direction} trade rejected (Score: {conv_score}/100)!")
                     log(f"   Price History Reaction: {price_react}")
                     log(f"   MFE Runner Profile: {mfe_eval}")
-                    log(f"   Concerns: {concerns} | Runway: +{runway}% | {rationale}")
+                    log(f"   Concerns: {concerns} | Runway: {runway}% | {rationale}")
                     symbol_cooldowns[sym] = time.time() + 600  # 10m cooldown on vetoed setup
                     return True
                 
-                log(f"🌟 [DEEPSEEK APPROVED] {sym} cleared by Gatekeeper (Score: {conv_score}/100, R:R: {gatekeeper_dec.get('risk_reward_ratio')})!")
-                log(f"   S/R Context: Sup {sr_sup} | Res {sr_res} (Runway: +{runway}%) | Compliance: {gatekeeper_dec.get('compliance_note')}")
+                log(f"🌟 [DEEPSEEK APPROVED] {sym} {direction} cleared by Gatekeeper (Score: {conv_score}/100, R:R: {gatekeeper_dec.get('risk_reward_ratio')})!")
+                log(f"   S/R Context: Sup {sr_sup} | Res {sr_res} (Runway: {runway}%) | Compliance: {gatekeeper_dec.get('compliance_note')}")
                 log(f"   Price History Reaction: {price_react}")
                 log(f"   MFE Runner Profile: {mfe_eval}")
                 log(f"   DeepSeek Rationale: {rationale}")
@@ -328,18 +340,29 @@ def run_single_cycle():
                 if qty <= 0:
                     return True
                     
-                # Calculate initial Stop Loss and Take Profit brackets
-                if strategy_mode == "SWING_RUNNER":
-                    # HTF Swing: -1.50% Stop Loss (breathing room), +6.50% Broker TP bracket ($1.00+ Target)
-                    sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * 0.9850)
-                    tp_price = gatekeeper_dec.get('recommended_tp3') or round_price(sym, cur_price * 1.0650)
-                    sl_label = "-1.50%"
-                    tp_label = "+6.50% ($1+ Runner)"
-                else:
-                    sl_price = round_price(sym, cur_price * 0.9925)
-                    tp_price = round_price(sym, cur_price * 1.0090)
-                    sl_label = "-0.75%"
-                    tp_label = "+0.90%"
+                # Calculate initial Stop Loss and Take Profit brackets direction-aware
+                if direction == 'BUY':
+                    if strategy_mode == "SWING_RUNNER":
+                        sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * 0.9850)
+                        tp_price = gatekeeper_dec.get('recommended_tp3') or round_price(sym, cur_price * 1.0650)
+                        sl_label = "-1.50%"
+                        tp_label = "+6.50% ($1+ Runner)"
+                    else:
+                        sl_price = round_price(sym, cur_price * 0.9925)
+                        tp_price = round_price(sym, cur_price * 1.0100)
+                        sl_label = "-0.75%"
+                        tp_label = "+1.00%"
+                else: # SELL (Short)
+                    if strategy_mode == "SWING_RUNNER":
+                        sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * 1.0135)
+                        tp_price = gatekeeper_dec.get('recommended_tp3') or round_price(sym, cur_price * 0.9500)
+                        sl_label = "+1.35% (Pivot Stop)"
+                        tp_label = "-5.00% (Short Runner)"
+                    else:
+                        sl_price = round_price(sym, cur_price * 1.0075)
+                        tp_price = round_price(sym, cur_price * 0.9900)
+                        sl_label = "+0.75%"
+                        tp_label = "-1.00%"
                 
                 log(f"🚀 [ENTER TRADE ({strategy_mode})] Top Setup Found: {sym} {direction} (Score: {score}/100 - {top['setup']})")
                 log(f"   Size: {qty} units (~${qty * cur_price:.2f} notional @ 10x) | SL: {sl_price} ({sl_label}) | TP: {tp_price} ({tp_label})")
@@ -347,11 +370,11 @@ def run_single_cycle():
                 # Ensure 10x leverage
                 client.set_leverage(sym, 10)
                 
-                # Place order with broker-side stops
+                order_side = 'Buy' if direction == 'BUY' else 'Sell'
                 order_res = client.place_order(
                     category='linear',
                     symbol=sym,
-                    side='Buy',
+                    side=order_side,
                     order_type='Market',
                     qty=qty,
                     sl=sl_price,
