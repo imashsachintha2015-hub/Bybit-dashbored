@@ -299,8 +299,8 @@ def run_single_cycle():
                     log(f"🛑 [BTC PUMP VETO] Short entry for {sym} blocked: Bitcoin is pumping aggressively ({btc_macro.get('btc_chg_1h')}%)!")
                     return True
 
-            # Entry threshold: 90 for SWING_RUNNER (A+ high caution), 85 for MICRO_SCALP
-            min_entry_score = 90 if strategy_mode == "SWING_RUNNER" else 85
+            # Entry threshold: 78 for SWING_RUNNER, 75 for MICRO_SCALP
+            min_entry_score = 78 if strategy_mode == "SWING_RUNNER" else 75
 
             if score >= min_entry_score and direction in ['BUY', 'SELL']:
                 # ── DEEPSEEK AI PRE-TRADE QUANTITATIVE GATEKEEPER ──
@@ -320,13 +320,14 @@ def run_single_cycle():
                 price_react = gatekeeper_dec.get('price_level_reaction_evaluation', '')
                 mfe_eval = gatekeeper_dec.get('coin_mfe_and_runner_evaluation', '')
                 
-                if not is_approved or conv_score < 90:
+                req_conv = 78 if strategy_mode == "SWING_RUNNER" else 75
+                if not is_approved or conv_score < req_conv:
                     concerns = ", ".join(gatekeeper_dec.get('concerns', ['Low conviction']))
-                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} {direction} trade rejected (Score: {conv_score}/100)!")
+                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} {direction} trade rejected (Score: {conv_score}/100, Required: {req_conv})!")
                     log(f"   Price History Reaction: {price_react}")
                     log(f"   MFE Runner Profile: {mfe_eval}")
                     log(f"   Concerns: {concerns} | Runway: {runway}% | {rationale}")
-                    symbol_cooldowns[sym] = time.time() + 600  # 10m cooldown on vetoed setup
+                    symbol_cooldowns[sym] = time.time() + 300  # 5m cooldown on vetoed setup
                     return True
                 
                 log(f"🌟 [DEEPSEEK APPROVED] {sym} {direction} cleared by Gatekeeper (Score: {conv_score}/100, R:R: {gatekeeper_dec.get('risk_reward_ratio')})!")

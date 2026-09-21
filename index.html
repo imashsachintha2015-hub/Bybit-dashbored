@@ -207,7 +207,7 @@
               <div class="card-header" id="toggleAgentsHeader" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
                 <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
                   <i class="fa-solid fa-network-wired"></i> Specialist Agent Network
-                  <span id="agentsStateBadge" class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0284C7; font-size: 10px; padding: 2px 7px; border-radius: 12px; font-weight: 600;">10 Agents · Hidden</span>
+                  <span id="agentsStateBadge" class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0284C7; font-size: 10px; padding: 2px 7px; border-radius: 12px; font-weight: 600;">11 Agents · Hidden</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span class="network-badge" id="networkBadge"><span class="pulse-dot green"></span> ALL OPERATIONAL</span>
@@ -824,6 +824,65 @@
     </div>
   </div>
 
+  <!-- DIV-13: Historical Market Archaeologist Modal -->
+  <div class="day-details-backdrop" id="archaeologyModalBackdrop" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); border: 1px solid var(--border);">
+      <div style="padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #F8FAFC;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(168, 85, 247, 0.12); color: #A855F7; display: flex; align-items: center; justify-content: center; font-size: 15px;">
+            <i class="fa-solid fa-landmark-dome"></i>
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 15px; color: var(--text-primary);">DIV-13 Historical Market Archaeologist</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Deep Historical Learning & Super-Trade Anti-Pattern Guard</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" id="archaeologyReScanBtn" style="background: rgba(168, 85, 247, 0.1); border: 1px solid #A855F7; color: #A855F7; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fa-solid fa-arrows-rotate"></i> Re-Scan History
+          </button>
+          <button type="button" id="closeArchaeologyModalBtn" style="background: transparent; border: none; font-size: 20px; color: var(--text-dim); cursor: pointer; padding: 2px 8px;">&times;</button>
+        </div>
+      </div>
+      <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
+        <!-- Anti-Pattern Guard Rules -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #DC2626; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-shield-halved"></i> Active Anti-Pattern Rules (Enforced Pre-Trade)
+          </div>
+          <div id="archaeologyAntiRulesList" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Discovered Super-Trades -->
+        <div>
+          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0284C7; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-fire"></i> Discovered Historical Super-Trades (AVAX, XRP, NEAR, SOL)
+          </div>
+          <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+              <thead>
+                <tr style="background: #F8FAFC; border-bottom: 1px solid var(--border); color: var(--text-dim);">
+                  <th style="padding: 8px 10px;">Symbol</th>
+                  <th style="padding: 8px 10px;">Setup & Direction</th>
+                  <th style="padding: 8px 10px;">Window</th>
+                  <th style="padding: 8px 10px;">Price Move</th>
+                  <th style="padding: 8px 10px;">10x ROE</th>
+                  <th style="padding: 8px 10px;">Vol Expansion</th>
+                  <th style="padding: 8px 10px;">Root Cause & Invalidation</th>
+                </tr>
+              </thead>
+              <tbody id="archaeologySuperTradesBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Shared agent modules. Each is also loadable in Node, which is how the
        backtest harness exercises the exact same decision code the browser runs. -->
   <script src="agents/indicators.js?v=3.0"></script>
@@ -851,6 +910,6 @@
   <script src="chart.js?v=3.0"></script>
   <script src="masis-engine.js?v=3.0"></script>
   <script src="whale-agent.js?v=3.0"></script>
-  <script src="app.js?v=3.6"></script>
+  <script src="app.js?v=3.7"></script>
 </body>
 </html>

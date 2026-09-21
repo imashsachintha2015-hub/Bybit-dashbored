@@ -1034,6 +1034,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {"decisions": list(reversed(decisions)), "count": len(decisions)})
             return
 
+        # 3c-3. API: Historical Pattern Archaeologist (Super-Trades & Anti-Rules)
+        if self.path.startswith("/api/agent/archaeologist"):
+            super_trades_path = os.path.join(DIRECTORY, "scratch", "historical_super_trades.json")
+            data = {"super_trades": [], "anti_rules": [], "super_trades_count": 0}
+            if os.path.exists(super_trades_path):
+                try:
+                    with open(super_trades_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    pass
+            self._send_json(200, data)
+            return
+
         # 3d. API: Market Prophet Knowledge Base
         if self.path.startswith("/api/market-prophet/knowledge"):
             from backend_lib.market_knowledge import kb
@@ -1389,6 +1402,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, state)
             except Exception as e:
                 self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
+            return
+
+        # 6. API: Trigger Historical Archaeology Scan on demand
+        if self.path.startswith("/api/agent/archaeologist/scan"):
+            try:
+                from scratch.historical_pattern_archaeologist import archaeologist
+                res = archaeologist.run_archaeology_cycle()
+                self._send_json(200, {"success": True, "result": res})
+            except Exception as e:
+                self._send_json(500, {"success": False, "error": str(e)})
             return
 
         self._send_json(404, {"error": "Not Found"})

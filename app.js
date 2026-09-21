@@ -65,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'DIV-08', name: 'Risk Governor', icon: 'fa-lock', iconColor: 'var(--gold)', status: 'active', statusLabel: 'ENFORCED', meta1: 'Risk/trade: --', meta2: 'Day P&L: --' },
     { id: 'DIV-10', name: 'News Sentinel', icon: 'fa-newspaper', iconColor: 'var(--gold)', status: 'active', statusLabel: 'MONITORING', meta1: 'Headlines: --', meta2: 'Sentiment: --' },
     { id: 'DIV-11', name: 'Whale Flow Tracker', icon: 'fa-money-bill-trend-up', iconColor: 'var(--cyan)', status: 'active', statusLabel: 'TRACKING', meta1: 'Whales: 0', meta2: 'Flow: NEUTRAL' },
-    { id: 'DIV-12', name: 'Position Manager', icon: 'fa-shield', iconColor: 'var(--green)', status: 'active', statusLabel: 'IDLE', meta1: 'Open: 0', meta2: 'Mode: STRUCTURAL' }
+    { id: 'DIV-12', name: 'Position Manager', icon: 'fa-shield', iconColor: 'var(--green)', status: 'active', statusLabel: 'IDLE', meta1: 'Open: 0', meta2: 'Mode: STRUCTURAL' },
+    { id: 'DIV-13', name: 'Historical Archaeologist', icon: 'fa-landmark-dome', iconColor: '#A855F7', status: 'active', statusLabel: 'LEARNING', meta1: 'Super-Trades: 50', meta2: 'Anti-Rules: 5 ACTIVE' }
   ];
 
   const $ = id => document.getElementById(id);
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grid = $('agentsGrid');
     if (!grid) return;
     grid.innerHTML = AGENTS.map(a => `
-      <div class="agent-card status-${a.status}" data-agent="${a.id}">
+      <div class="agent-card status-${a.status}" data-agent="${a.id}" style="${a.id === 'DIV-13' ? 'cursor: pointer; border: 1px solid rgba(168,85,247,0.35);' : ''}" title="${a.id === 'DIV-13' ? 'Click to inspect Super-Trades & Anti-Pattern Rules' : ''}">
         <div class="agent-top">
           <span class="agent-id">${a.id}</span>
           <span class="agent-status ${a.status}">${a.statusLabel}</span>
@@ -86,8 +87,102 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `).join('');
+
+    const div13Card = grid.querySelector('[data-agent="DIV-13"]');
+    if (div13Card) {
+      div13Card.onclick = showArchaeologistModal;
+    }
   }
   renderAgents();
+
+  let cachedArchaeologyData = null;
+
+  async function fetchArchaeologistState() {
+    try {
+      const res = await fetch('/api/agent/archaeologist');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedArchaeologyData = data;
+      const div13 = AGENTS.find(a => a.id === 'DIV-13');
+      if (div13) {
+        div13.meta1 = `Super-Trades: ${data.super_trades_count || (data.super_trades ? data.super_trades.length : 0)}`;
+        div13.meta2 = `Anti-Rules: ${data.anti_rules ? data.anti_rules.length + ' ACTIVE' : 'ACTIVE'}`;
+        renderAgents();
+      }
+    } catch (e) {}
+  }
+  setInterval(fetchArchaeologistState, 25000);
+  setTimeout(fetchArchaeologistState, 1500);
+
+  function showArchaeologistModal() {
+    const backdrop = $('archaeologyModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+
+    const closeBtn = $('closeArchaeologyModalBtn');
+    if (closeBtn) closeBtn.onclick = () => { backdrop.style.display = 'none'; };
+    backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
+
+    const reScanBtn = $('archaeologyReScanBtn');
+    if (reScanBtn && !reScanBtn._hasListener) {
+      reScanBtn._hasListener = true;
+      reScanBtn.onclick = async () => {
+        reScanBtn.disabled = true;
+        reScanBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning History...';
+        try {
+          await fetch('/api/agent/archaeologist/scan', { method: 'POST' });
+          await fetchArchaeologistState();
+          renderArchaeologyData();
+        } catch (e) {
+        } finally {
+          reScanBtn.disabled = false;
+          reScanBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Re-Scan History';
+        }
+      };
+    }
+
+    renderArchaeologyData();
+  }
+
+  function renderArchaeologyData() {
+    if (!cachedArchaeologyData) return;
+
+    // Render Anti-Rules
+    const rulesList = $('archaeologyAntiRulesList');
+    if (rulesList && cachedArchaeologyData.anti_rules) {
+      rulesList.innerHTML = cachedArchaeologyData.anti_rules.map(r => `
+        <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 6px; padding: 8px 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <span style="font-weight: 800; color: #991B1B; font-size: 11px;">[${r.rule_id}] ${r.title}</span>
+            <span style="background: #EF4444; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">${r.action}</span>
+          </div>
+          <div style="font-size: 10.5px; color: #7F1D1D; margin-bottom: 3px;"><strong>Trigger:</strong> ${r.condition_trigger}</div>
+          <div style="font-size: 10px; color: #4B5563;"><strong>Rationale:</strong> ${r.rationale}</div>
+        </div>
+      `).join('');
+    }
+
+    // Render Super-Trades
+    const tbody = $('archaeologySuperTradesBody');
+    if (tbody && cachedArchaeologyData.super_trades) {
+      tbody.innerHTML = cachedArchaeologyData.super_trades.map(t => {
+        const isSell = (t.direction === 'SELL');
+        const color = isSell ? '#DC2626' : '#16C784';
+        const bg = isSell ? 'rgba(239, 68, 68, 0.08)' : 'rgba(22, 199, 132, 0.08)';
+        return `
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 7px 10px; font-weight: 700;">${t.symbol}</td>
+            <td style="padding: 7px 10px;"><span style="background: ${bg}; color: ${color}; font-weight: 800; padding: 2px 6px; border-radius: 4px;">${t.direction} ${t.setup_name}</span></td>
+            <td style="padding: 7px 10px; color: var(--text-dim);">${t.horizon || '1h'}</td>
+            <td style="padding: 7px 10px; font-family: var(--font-mono); font-weight: 700; color: ${color};">${t.move_pct > 0 ? '+' : ''}${t.move_pct}%</td>
+            <td style="padding: 7px 10px; font-family: var(--font-mono); font-weight: 800; color: ${color};">+${t.roe_10x_pct}%</td>
+            <td style="padding: 7px 10px; font-family: var(--font-mono);">${t.vol_expansion}x</td>
+            <td style="padding: 7px 10px; color: var(--text-dim); max-width: 250px;">${t.root_cause || '--'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
 
   function updateClock() {
     try {
@@ -2321,7 +2416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chevron) chevron.style.transform = 'rotate(180deg)';
         if (text) text.textContent = 'Collapse';
         if (badge) {
-          badge.textContent = '10 Agents · Visible';
+          badge.textContent = '11 Agents · Visible';
           badge.style.background = 'rgba(22, 199, 132, 0.12)';
           badge.style.color = '#16C784';
         }
@@ -2330,7 +2425,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chevron) chevron.style.transform = 'rotate(0deg)';
         if (text) text.textContent = 'Expand';
         if (badge) {
-          badge.textContent = '10 Agents · Hidden';
+          badge.textContent = '11 Agents · Hidden';
           badge.style.background = 'rgba(14, 165, 233, 0.1)';
           badge.style.color = '#0284C7';
         }

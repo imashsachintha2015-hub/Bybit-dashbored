@@ -121,33 +121,48 @@ def scan_symbol(symbol):
     trend_15m = "BULL" if ema9_15 > ema21_15 else "BEAR"
     trend_5m  = "BULL" if ema9_5 > ema21_5 else "BEAR"
     
-    # Quantitative scoring (0 to 100)
-    score = 0
-    setup = "NONE"
-    direction = "NONE"
-    
+    # ── Bidirectional Tactical Micro-Scalp Scanner ──
+    bull_scalp_score = 0
     if trend_15m == "BULL":
-        score += 40
+        bull_scalp_score += 35
         if trend_5m == "BULL":
-            score += 20
-        # Pullback value zone (RSI between 40 and 65)
-        if 42 <= rsi5 <= 65:
-            score += 20
-        # Wick rejection (buyers stepping in)
-        if l_wick_pct >= 0.25:
-            score += 15
-        if vol_ratio >= 1.2:
-            score += 5
-        setup = "TREND_PULLBACK_LONG"
+            bull_scalp_score += 20
+        if 40 <= rsi5 <= 65:
+            bull_scalp_score += 20  # Pullback value zone
+        if l_wick_pct >= 0.20:
+            bull_scalp_score += 15  # Buyer absorption
+        if vol_ratio >= 1.15:
+            bull_scalp_score += 10  # Momentum volume
+
+    bear_scalp_score = 0
+    if trend_15m == "BEAR":
+        bear_scalp_score += 35
+        if trend_5m == "BEAR":
+            bear_scalp_score += 20
+        if 35 <= rsi5 <= 62:
+            bear_scalp_score += 20  # Resistance retest zone
+        if u_wick_pct >= 0.20:
+            bear_scalp_score += 15  # Seller rejection
+        if vol_ratio >= 1.15:
+            bear_scalp_score += 10  # Breakdown volume
+
+    if bull_scalp_score >= bear_scalp_score and bull_scalp_score >= 50:
+        score = bull_scalp_score
+        setup = "MICRO_SCALP_LONG"
         direction = "BUY"
-    elif trend_15m == "BEAR" and rsi5 >= 68:
-        score = 75
-        setup = "OVERBOUGHT_BEAR_PULLBACK"
+    elif bear_scalp_score > bull_scalp_score and bear_scalp_score >= 50:
+        score = bear_scalp_score
+        setup = "MICRO_SCALP_SHORT"
         direction = "SELL"
-        
+    else:
+        score = max(bull_scalp_score, bear_scalp_score)
+        setup = "NONE"
+        direction = "NONE"
+
     return {
         "symbol": symbol,
         "price": cur_p,
+        "strategy_tier": "MICRO_SCALP",
         "trend_15m": trend_15m,
         "trend_5m": trend_5m,
         "rsi_5m": round(rsi5, 1),
@@ -158,15 +173,15 @@ def scan_symbol(symbol):
         "score": score,
         "setup": setup,
         "direction": direction,
-        "recommended": score >= 80
+        "recommended": score >= 75
     }
 
 def scan_symbol_htf_swing(symbol, btc_macro=None):
     """
     High-Timeframe (HTF) Swing Runner Scanner:
     Analyzes 1h (Macro Trend), 15m (Value Pullback Zone), and 5m (Entry Timing).
-    Targets $1.00+ profit per trade with extreme selectivity and caution.
-    Only recommends when conviction score >= 92.
+    Targets $1.00+ profit per trade across both Longs and Shorts.
+    Loosened from rigid 92 gate to 78+ for flexible multi-setup execution.
     """
     k1h  = fetch_klines(symbol, '60', 30)
     k15  = fetch_klines(symbol, '15', 30)
@@ -219,38 +234,43 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
     bull_score = 0
     if trend_1h == "BULL":
         bull_score += 30  # 1h Macro alignment
-        if 46 <= rsi_1h <= 68:
+        if 44 <= rsi_1h <= 68:
             bull_score += 15  # Solid trend momentum, not overbought
         if trend_15m == "BULL":
             bull_score += 15  # 15m trend alignment
-        if 40 <= rsi_15 <= 58:
+        if 38 <= rsi_15 <= 60:
             bull_score += 15  # 15m Pullback into Value Zone
-        if l_wick_pct_15 >= 0.22:
-            bull_score += 10  # 15m Wick Absorption (buyers stepping in at support)
-        if vol_ratio_15 >= 1.15:
+        if l_wick_pct_15 >= 0.18:
+            bull_score += 10  # 15m Wick Absorption
+        if vol_ratio_15 >= 1.10:
             bull_score += 10  # 15m Volume confirmation
-        if cur_p >= ema9_5 and u_wick_pct_5 < 0.20:
-            bull_score += 5   # 5m Trigger (no upper wick rejection)
+        if cur_p >= ema9_5 and u_wick_pct_5 < 0.25:
+            bull_score += 5   # 5m Trigger
+        # Super-runner volume impulse bonus
+        if vol_ratio_15 >= 1.70:
+            bull_score += 5
 
     # ── 2. Bearish Setup Evaluation (HTF_SWING_BREAKDOWN_SHORT) ──
-    # Captures major range sweeps, resistance rejections & breakdowns like XRP 1.5588->1.5045 & AVAX 11.1828->10.6897
     bear_score = 0
-    trend_1h_bear = (ema20_1h < ema50_1h or cur_p <= ema20_1h * 1.006)
-    trend_15m_bear = (ema21_15 < ema50_15 or cur_p <= ema21_15 * 1.004)
+    trend_1h_bear = (ema20_1h < ema50_1h or cur_p <= ema20_1h * 1.008)
+    trend_15m_bear = (ema21_15 < ema50_15 or cur_p <= ema21_15 * 1.005)
     if trend_1h_bear:
-        bear_score += 30  # 1h Macro alignment or lower-high rejection
-        if 32 <= rsi_1h <= 56:
+        bear_score += 30  # 1h Macro alignment
+        if 30 <= rsi_1h <= 58:
             bear_score += 15  # Bearish momentum, not oversold
         if trend_15m_bear:
             bear_score += 15  # 15m trend alignment
-        if 42 <= rsi_15 <= 62:
+        if 40 <= rsi_15 <= 65:
             bear_score += 15  # 15m Retest into Value Resistance Zone
-        if u_wick_pct_15 >= 0.22:
-            bear_score += 10  # 15m Upper Wick Rejection (sellers capping resistance)
-        if vol_ratio_15 >= 1.15:
+        if u_wick_pct_15 >= 0.18:
+            bear_score += 10  # 15m Upper Wick Rejection
+        if vol_ratio_15 >= 1.10:
             bear_score += 10  # 15m Volume confirmation on breakdown
-        if cur_p <= ema9_5 and l_wick_pct_5 < 0.20:
-            bear_score += 5   # 5m Trigger (no lower wick bounce)
+        if cur_p <= ema9_5 and l_wick_pct_5 < 0.25:
+            bear_score += 5   # 5m Trigger
+        # Super-runner volume impulse bonus
+        if vol_ratio_15 >= 1.70:
+            bear_score += 5
 
     # ── Bitcoin Macro & Altcoin Sensitivity Guard ──
     if btc_macro:
@@ -263,11 +283,11 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
         elif btc_pumping:
             bull_score = min(100, bull_score + 5)
             
-        # Shorts: Boosted if BTC dumping (massive tailwind!); vetoed if BTC strongly pumping
+        # Shorts: Boosted if BTC dumping (tailward wind!); vetoed if BTC strongly pumping
         if btc_dumping:
-            bear_score = min(100, bear_score + 10)  # Strong altcoin flush tailwind
+            bear_score = min(100, bear_score + 10)
         elif btc_pumping:
-            bear_score = 0  # Do not short when BTC is ripping upward
+            bear_score = 0
 
     # Select the highest conviction direction
     if bull_score >= bear_score and bull_score > 0:
@@ -299,6 +319,7 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
     return {
         "symbol": symbol,
         "price": cur_p,
+        "strategy_tier": "HTF_SWING",
         "timeframe": "1h+15m+5m",
         "trend_1h": trend_1h,
         "trend_15m": trend_15m,
@@ -311,7 +332,7 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
         "setup": setup,
         "direction": direction,
         "targets": targets,
-        "recommended": score >= 90
+        "recommended": score >= 78
     }
 
 def get_account_status():
@@ -417,8 +438,8 @@ def run_scanner_loop():
                 except Exception:
                     pass
 
-            # Only post new unique signals (score >= 90 in swing, >= 85 in scalp)
-            min_score = 90 if strategy_mode == "SWING_RUNNER" else 85
+            # Only post new unique signals (score >= 78 in swing, >= 75 in scalp)
+            min_score = 78 if strategy_mode == "SWING_RUNNER" else 75
             if top and top.get("score", 0) >= min_score and top.get("recommended"):
                 sig_key = f"{top['symbol']}_{top['setup']}"
                 if 'last_posted_signal' not in locals() or last_posted_signal != sig_key:

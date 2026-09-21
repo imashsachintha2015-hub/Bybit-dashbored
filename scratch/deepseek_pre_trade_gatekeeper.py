@@ -608,7 +608,7 @@ Respond strictly in valid JSON:
                     {"role": "user", "content": prompt}
                 ],
                 "response_format": {"type": "json_object"},
-                "max_tokens": 800,
+                "max_tokens": 1500,
                 "temperature": 0.1
             }).encode('utf-8')
 
@@ -653,51 +653,83 @@ def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlesti
     score = candidate.get('score', 0)
     cur_p = candidate.get('price', 0)
     sym = candidate.get('symbol', '')
+    strategy_tier = candidate.get('strategy_tier', 'HTF_SWING')
     
     btc_dumping = btc_macro and (btc_macro.get('is_dumping') or btc_macro.get('btc_chg_5m', 0) < -0.15)
     btc_pumping = btc_macro and (btc_macro.get('regime') == 'BTC_BULL_PUMPING' or btc_macro.get('btc_chg_1h', 0) > 0.35)
-    
+
+    # ── 1. HISTORICAL ARCHAEOLOGIST ANTI-PATTERN VETO GUARD ──
+    try:
+        from scratch.historical_pattern_archaeologist import archaeologist
+        is_anti_veto, rule_id, anti_reason = archaeologist.check_anti_pattern_veto(candidate, btc_macro, sr)
+    except Exception:
+        is_anti_veto, rule_id, anti_reason = False, None, ""
+
+    concerns = []
+    if is_anti_veto:
+        concerns.append(f"ARCHAEOLOGIST VETO [{rule_id}]: {anti_reason}")
+
+    # ── 2. Strategy Tier-Aware Runway & Targets ──
+    is_scalp = (strategy_tier == "MICRO_SCALP")
+    min_runway = 0.85 if is_scalp else 1.80
+    min_score = 75 if is_scalp else 78
+
     if direction == 'SELL':
         runway = dist_sup
-        has_runway = runway >= 2.2
-        near_pivot = runway_res <= 1.8
-        high_score = score >= 90
-        approved = has_runway and near_pivot and high_score and not btc_pumping
-        sl_rec = round(cur_p * 1.0135, 4)
-        tp1_rec = round(cur_p * 0.9820, 4)
-        tp2_rec = round(cur_p * 0.9650, 4)
-        tp3_rec = round(cur_p * 0.9500, 4)
+        has_runway = (runway >= min_runway)
+        high_score = (score >= min_score)
+        approved = has_runway and high_score and not btc_pumping and not is_anti_veto
+        if is_scalp:
+            sl_rec = round(cur_p * 1.0075, 4)
+            tp1_rec = round(cur_p * 0.9900, 4)
+            tp2_rec = round(cur_p * 0.9850, 4)
+            tp3_rec = round(cur_p * 0.9800, 4)
+        else:
+            sl_rec = round(cur_p * 1.0135, 4)
+            tp1_rec = round(cur_p * 0.9820, 4)
+            tp2_rec = round(cur_p * 0.9650, 4)
+            tp3_rec = round(cur_p * 0.9500, 4)
     else:
         runway = runway_res
-        has_runway = runway >= 2.2
-        near_support = dist_sup <= 1.8
-        high_score = score >= 90
-        approved = has_runway and near_support and high_score and not btc_dumping
-        sl_rec = round(cur_p * 0.9850, 4)
-        tp1_rec = round(cur_p * 1.0220, 4)
-        tp2_rec = round(cur_p * 1.0400, 4)
-        tp3_rec = round(cur_p * 1.0650, 4)
+        has_runway = (runway >= min_runway)
+        high_score = (score >= min_score)
+        approved = has_runway and high_score and not btc_dumping and not is_anti_veto
+        if is_scalp:
+            sl_rec = round(cur_p * 0.9925, 4)
+            tp1_rec = round(cur_p * 1.0100, 4)
+            tp2_rec = round(cur_p * 1.0150, 4)
+            tp3_rec = round(cur_p * 1.0200, 4)
+        else:
+            sl_rec = round(cur_p * 0.9850, 4)
+            tp1_rec = round(cur_p * 1.0220, 4)
+            tp2_rec = round(cur_p * 1.0400, 4)
+            tp3_rec = round(cur_p * 1.0650, 4)
         
-    conviction = 92 if approved else 70
+    conviction = max(80, min(95, score)) if approved else 50
     
     reaction_summary = candlestick_reaction.get('summary', 'Normal price zone.') if candlestick_reaction else 'Normal price zone.'
     win_mfe = track_record.get('win_mfe_avg', 0.0)
     win_max = track_record.get('win_mfe_max', 0.0)
-    mfe_eval = f"Winners on {sym} average +{win_mfe}% MFE (Max: +{win_max}%). Realistic swing clearance confirmed."
+    mfe_eval = f"Winners on {sym} average +{win_mfe}% MFE (Max: +{win_max}%). Realistic clearance confirmed."
     
-    concerns = []
-    if not approved:
+    if not approved and not is_anti_veto:
         if not has_runway:
-            concerns.append("Insufficient runway (<2.2%) to major S/R barrier")
+            concerns.append(f"Insufficient runway (<{min_runway}%) to major S/R barrier")
         if direction == 'BUY' and btc_dumping:
             concerns.append("Bitcoin is flushing")
         if direction == 'SELL' and btc_pumping:
             concerns.append("Bitcoin is pumping strongly")
 
+    rationale = f"[{strategy_tier}] {direction} on {sym}. Historical reaction is '{reaction_summary}'. Runway: {runway}%. "
+    if is_anti_veto:
+        rationale += f"REJECTED by Archaeologist: {anti_reason}"
+    else:
+        rationale += f"Approved: {approved}."
+
     return {
         "approved": approved,
         "conviction_score": conviction,
-        "risk_reward_ratio": "1:2.8" if approved else "1:1.2",
+        "risk_reward_ratio": "1:2.5" if approved else "1:1.0",
         "nearest_support": sr.get('nearest_sup', cur_p * 0.985),
         "nearest_resistance": sr.get('nearest_res', cur_p * 1.04),
         "runway_pct": runway,
@@ -707,9 +739,9 @@ def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlesti
         "recommended_tp3": tp3_rec,
         "price_level_reaction_evaluation": reaction_summary,
         "coin_mfe_and_runner_evaluation": mfe_eval,
-        "compliance_note": "Validated via dual candlestick history and coin MFE track record.",
+        "compliance_note": f"Validated via Archaeologist anti-rules, dual candlestick history, and coin MFE track record.",
         "concerns": concerns,
-        "rationale": f"Dual quantitative evaluation: {direction} setup on {sym}. Historical reaction is '{reaction_summary}'. Winner MFE avg is +{win_mfe}%. Approved: {approved}.",
+        "rationale": rationale,
         "source": "LOCAL_QUANT_GATEKEEPER"
     }
 
