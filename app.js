@@ -2166,6 +2166,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
+  let historyPage = 1;
+  const HISTORY_PAGE_SIZE = 50;
+
   function renderHistoryTable() {
     const histTbody = $('historyTbody');
     if (!histTbody) return;
@@ -2174,6 +2177,15 @@ document.addEventListener('DOMContentLoaded', () => {
     processed = sortTradeList(processed, historySortCol, historySortAsc);
     previewHistoryList = processed;
 
+    const totalItems = processed.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / HISTORY_PAGE_SIZE));
+    if (historyPage > totalPages) historyPage = totalPages;
+    if (historyPage < 1) historyPage = 1;
+
+    const startIdx = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    const endIdx = Math.min(totalItems, startIdx + HISTORY_PAGE_SIZE);
+    const pagedTrades = processed.slice(startIdx, endIdx);
+
     const countEl = $('tradeCount');
     if (countEl) {
       if (tableFilterText) {
@@ -2181,6 +2193,26 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         countEl.textContent = `${cachedRawHistory.length} trades`;
       }
+    }
+
+    // Update Pagination Controls
+    const pageInfo = $('historyPageInfo');
+    if (pageInfo) {
+      pageInfo.textContent = totalItems > 0 
+        ? `Showing ${startIdx + 1}–${endIdx} of ${totalItems} trades (50/page)` 
+        : '0 trades';
+    }
+    const pageBadge = $('historyPageNumBadge');
+    if (pageBadge) {
+      pageBadge.textContent = `Page ${historyPage} / ${totalPages}`;
+    }
+    const prevBtn = $('prevHistoryPageBtn');
+    if (prevBtn) {
+      prevBtn.disabled = (historyPage <= 1);
+    }
+    const nextBtn = $('nextHistoryPageBtn');
+    if (nextBtn) {
+      nextBtn.disabled = (historyPage >= totalPages);
     }
 
     // Update active header sort indicator icons
@@ -2201,12 +2233,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    histTbody.innerHTML = processed.map((t, idx) => {
+    histTbody.innerHTML = pagedTrades.map((t, localIdx) => {
+      const globalIdx = startIdx + localIdx;
       const pnlClass = t.status === 'WIN' ? 'text-green' : 'text-red';
       const reasonFull = (t.reason || '').replace(/"/g, '&quot;');
       const rTxt = typeof t.r_multiple === 'number' ? `${t.r_multiple >= 0 ? '+' : ''}${t.r_multiple}R` : '--';
-      const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === idx);
-      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${idx})" title="Click to view trade setup replay">
+      const isSelected = selectedPreviewTrade && !selectedPreviewIsOngoing && (selectedPreviewTrade.id === t.id || selectedPreviewTrade._idx === globalIdx);
+      return `<tr class="${isSelected ? 'row-selected' : ''}" onclick="window.selectHistoryTrade(${globalIdx})" title="Click to view trade setup replay">
         <td>${t.id}</td><td>${t.time}</td><td>${t.symbol}</td>
         <td><span class="badge ${String(t.side).toLowerCase() === 'buy' ? 'buy' : 'sell'}">${t.side}</span></td>
         <td>${t.entry ? t.entry.toLocaleString() : '--'}</td>
@@ -2219,15 +2252,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
+  function initAgentCollapseToggle() {
+    const toggleHeader = $('toggleAgentsHeader');
+    const toggleBtn = $('toggleAgentsBtn');
+    const grid = $('agentsGrid');
+    const chevron = $('toggleAgentsChevron');
+    const text = $('toggleAgentsText');
+    const badge = $('agentsStateBadge');
+
+    function toggle(e) {
+      if (e) e.stopPropagation();
+      if (!grid) return;
+      const isHidden = (grid.style.display === 'none' || getComputedStyle(grid).display === 'none');
+      if (isHidden) {
+        grid.style.display = 'grid';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        if (text) text.textContent = 'Collapse';
+        if (badge) {
+          badge.textContent = '10 Agents · Visible';
+          badge.style.background = 'rgba(22, 199, 132, 0.12)';
+          badge.style.color = '#16C784';
+        }
+      } else {
+        grid.style.display = 'none';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+        if (text) text.textContent = 'Expand';
+        if (badge) {
+          badge.textContent = '10 Agents · Hidden';
+          badge.style.background = 'rgba(14, 165, 233, 0.1)';
+          badge.style.color = '#0284C7';
+        }
+      }
+    }
+
+    if (toggleHeader) toggleHeader.onclick = toggle;
+    if (toggleBtn) toggleBtn.onclick = toggle;
+  }
+
   function initTableControls() {
     if (tableControlsInitialized) return;
     tableControlsInitialized = true;
+
+    initAgentCollapseToggle();
+
+    // 0. Pagination Prev/Next Handlers
+    const prevBtn = $('prevHistoryPageBtn');
+    if (prevBtn && !prevBtn._hasListener) {
+      prevBtn._hasListener = true;
+      prevBtn.addEventListener('click', () => {
+        if (historyPage > 1) {
+          historyPage--;
+          renderHistoryTable();
+        }
+      });
+    }
+
+    const nextBtn = $('nextHistoryPageBtn');
+    if (nextBtn && !nextBtn._hasListener) {
+      nextBtn._hasListener = true;
+      nextBtn.addEventListener('click', () => {
+        const totalPages = Math.max(1, Math.ceil(previewHistoryList.length / HISTORY_PAGE_SIZE));
+        if (historyPage < totalPages) {
+          historyPage++;
+          renderHistoryTable();
+        }
+      });
+    }
 
     // 1. History Table Header Click Sorting
     document.querySelectorAll('#historyTable th.sortable-header').forEach(th => {
       th.addEventListener('click', () => {
         const col = th.getAttribute('data-sort');
         if (!col) return;
+        historyPage = 1;
         if (historySortCol === col) {
           historySortAsc = !historySortAsc;
         } else {
@@ -2261,6 +2358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBtn = $('clearTableFilter');
     if (filterInput) {
       filterInput.addEventListener('input', (e) => {
+        historyPage = 1;
         tableFilterText = e.target.value;
         if (clearBtn) clearBtn.style.display = tableFilterText ? 'block' : 'none';
         renderHistoryTable();
@@ -2270,6 +2368,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
+        historyPage = 1;
         if (filterInput) filterInput.value = '';
         tableFilterText = '';
         clearBtn.style.display = 'none';
@@ -2282,6 +2381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sortSelect = $('tableSortSelect');
     if (sortSelect) {
       sortSelect.addEventListener('change', (e) => {
+        historyPage = 1;
         const val = e.target.value;
         const [col, dir] = val.split('_');
         historySortCol = col;

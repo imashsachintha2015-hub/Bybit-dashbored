@@ -144,12 +144,12 @@
           </div>
         </section>
 
-        <!-- ═══════════ TARGET SPRINT HORIZON & VELOCITY BANNER ═══════════ -->
-        <section class="card" style="margin-bottom: 16px; padding: 14px 20px; background: #FFFFFF; border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <!-- ═══════════ TARGET SPRINT HORIZON & VELOCITY BANNER (RESPONSIVE) ═══════════ -->
+        <section class="card target-sprint-card">
+          <div class="sprint-header-flex">
             <!-- Left: Target Progress & Pacing Status -->
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(14, 165, 233, 0.12); display: flex; align-items: center; justify-content: center; color: #0284C7; font-size: 18px;">
+            <div class="sprint-title-group">
+              <div style="width: 38px; height: 38px; min-width: 38px; border-radius: 10px; background: rgba(14, 165, 233, 0.12); display: flex; align-items: center; justify-content: center; color: #0284C7; font-size: 17px;">
                 <i class="fa-solid fa-bullseye"></i>
               </div>
               <div>
@@ -164,29 +164,29 @@
             </div>
 
             <!-- Center: Velocity Speedometer -->
-            <div style="display: flex; gap: 16px; align-items: center; background: #F8FAFC; padding: 7px 16px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.08);">
+            <div class="sprint-speedometer-box">
               <div>
                 <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600;">Required Velocity</span>
                 <span id="mainTargetReqVel" style="font-size: 12.5px; font-weight: 800; color: #0284C7; font-family: var(--font-mono);">+$0.21 / hr</span>
               </div>
-              <div style="border-left: 1px solid rgba(15, 23, 42, 0.1); padding-left: 14px;">
+              <div class="sprint-speedo-divider">
                 <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600;">Dynamic ETA</span>
                 <span id="mainTargetEta" style="font-size: 12.5px; font-weight: 800; color: #16C784; font-family: var(--font-mono);">18h 30m</span>
               </div>
-              <div style="border-left: 1px solid rgba(15, 23, 42, 0.1); padding-left: 14px;">
+              <div class="sprint-speedo-divider sprint-speedo-col3">
                 <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600;">Sprint Window</span>
                 <span id="mainTargetRemaining" style="font-size: 12.5px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono);">23.1h left</span>
               </div>
             </div>
 
             <!-- Right: Horizon Switcher & Anti-Stagnation Tag -->
-            <div style="display: flex; align-items: center; gap: 6px;">
+            <div class="sprint-actions-group">
               <span style="font-size: 10.5px; color: var(--text-dim); font-weight: 600;">Sprint:</span>
               <button type="button" class="sprint-horizon-btn" data-hours="24" style="background: rgba(14, 165, 233, 0.12); border: 1px solid #0EA5E9; color: #0284C7; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;">24h</button>
               <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">48h</button>
               <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;">72h</button>
-              <span style="font-size: 10px; color: #B45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Stuck trades in flat consolidation are auto-scratched after 3.5h to protect velocity.">
-                <i class="fa-solid fa-stopwatch" style="color: #D97706;"></i> 3.5h Time-Stop Guard
+              <span class="sprint-guard-badge" style="font-size: 10px; color: #B45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Stuck trades in flat consolidation are auto-scratched after 3.5h to protect velocity.">
+                <i class="fa-solid fa-stopwatch" style="color: #D97706;"></i> 3.5h Guard
               </span>
             </div>
           </div>
@@ -200,13 +200,22 @@
         <div class="content-grid">
           <div class="content-main">
 
-            <!-- AGENT STATUS GRID -->
-            <section class="card accent-cyan" id="agentsSection">
-              <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-network-wired"></i> Specialist Agent Network</div>
-                <span class="network-badge" id="networkBadge"><span class="pulse-dot green"></span> ALL OPERATIONAL</span>
+            <!-- AGENT STATUS GRID (COLLAPSED BY DEFAULT) -->
+            <section class="card accent-cyan" id="agentsSection" style="margin-bottom: 16px;">
+              <div class="card-header" id="toggleAgentsHeader" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+                <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-network-wired"></i> Specialist Agent Network
+                  <span id="agentsStateBadge" class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0284C7; font-size: 10px; padding: 2px 7px; border-radius: 12px; font-weight: 600;">10 Agents · Hidden</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="network-badge" id="networkBadge"><span class="pulse-dot green"></span> ALL OPERATIONAL</span>
+                  <button type="button" id="toggleAgentsBtn" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    <span id="toggleAgentsText">Expand</span>
+                    <i class="fa-solid fa-chevron-down" id="toggleAgentsChevron" style="transition: transform 0.2s ease;"></i>
+                  </button>
+                </div>
               </div>
-              <div class="agents-grid" id="agentsGrid">
+              <div class="agents-grid" id="agentsGrid" style="display: none; padding-top: 10px; border-top: 1px solid var(--border);">
                 <!-- Agent cards rendered here -->
               </div>
             </section>
@@ -359,6 +368,19 @@
                     <!-- Rendered dynamically -->
                   </tbody>
                 </table>
+                <!-- History Table Pagination Bar (50 Trades / Page) -->
+                <div class="table-pagination-bar" id="historyPaginationBar" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card-2, #FAFAFC); border-top: 1px solid var(--border); font-size: 11.5px; flex-wrap: wrap; gap: 8px;">
+                  <span id="historyPageInfo" style="color: var(--text-dim); font-weight: 600;">Showing 1–50 of 200 trades</span>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <button type="button" id="prevHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;" disabled>
+                      <i class="fa-solid fa-chevron-left"></i> Prev
+                    </button>
+                    <span id="historyPageNumBadge" style="padding: 4px 10px; font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); background: #FFFFFF; border: 1px solid var(--border); border-radius: 4px;">Page 1 / 4</span>
+                    <button type="button" id="nextHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;">
+                      Next <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
               </div>
             </section>
 
