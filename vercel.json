@@ -3,7 +3,6 @@
   "rewrites": [
     { "source": "/api/order/close", "destination": "/api/order/place?_action=close" },
     { "source": "/api/position/stop", "destination": "/api/order/place?_action=stop" },
-    { "source": "/api/agent/target-mode", "destination": "/api/auto-trade/state?_action=target_mode" },
     { "source": "/api/market-prophet/knowledge", "destination": "/api/trades/record?_action=knowledge" }
   ]
 }
