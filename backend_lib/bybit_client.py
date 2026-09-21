@@ -55,33 +55,31 @@ class BybitDemoClient:
         signature = hmac.new(self.secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
         url = f"{self.base_url}{path}" + (f"?{query_str}" if query_str else "")
-        try:
-            # Building the Request is not just bookkeeping: constructing it
-            # parses the URL and raises ValueError immediately for anything
-            # without a recognised scheme (e.g. a blank BYBIT_BASE_URL). That
-            # has to be inside the same try as the network call below, or a
-            # bad base_url crashes the whole request uncaught instead of
-            # coming back as a normal {retCode: -1, retMsg: ...} response.
-            req = urllib.request.Request(url, data=body_str.encode("utf-8") if body_str else None, method=method)
-            req.add_header("X-BAPI-API-KEY", self.key)
-            req.add_header("X-BAPI-TIMESTAMP", ts)
-            req.add_header("X-BAPI-SIGN", signature)
-            req.add_header("X-BAPI-RECV-WINDOW", recv_window)
-            req.add_header("User-Agent", "MASIS/3.0")
-            if body_str:
-                req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(req, timeout=10) as r:
-                return json.loads(r.read().decode())
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode()
-            print(f"[Bybit HTTPError {e.code}] {err_body}")
+        for attempt in range(3):
             try:
-                return json.loads(err_body)
-            except Exception:
-                return {"retCode": e.code, "retMsg": err_body}
-        except Exception as e:
-            print(f"[Bybit Error] {e}")
-            return {"retCode": -1, "retMsg": str(e)}
+                req = urllib.request.Request(url, data=body_str.encode("utf-8") if body_str else None, method=method)
+                req.add_header("X-BAPI-API-KEY", self.key)
+                req.add_header("X-BAPI-TIMESTAMP", ts)
+                req.add_header("X-BAPI-SIGN", signature)
+                req.add_header("X-BAPI-RECV-WINDOW", recv_window)
+                req.add_header("User-Agent", "MASIS/3.0")
+                if body_str:
+                    req.add_header("Content-Type", "application/json")
+                with urllib.request.urlopen(req, timeout=12) as r:
+                    return json.loads(r.read().decode())
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode()
+                print(f"[Bybit HTTPError {e.code}] {err_body}")
+                try:
+                    return json.loads(err_body)
+                except Exception:
+                    return {"retCode": e.code, "retMsg": err_body}
+            except Exception as e:
+                if attempt < 2:
+                    time.sleep(0.5)
+                    continue
+                print(f"[Bybit Error] {e}")
+                return {"retCode": -1, "retMsg": str(e)}
 
     def get_wallet_balance(self):
         return self.signed_request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})

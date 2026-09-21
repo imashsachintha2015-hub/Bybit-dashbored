@@ -116,12 +116,23 @@ class MarketKnowledgeBase:
         Reads target mode state from Supabase target_mode_state table.
         Auto-parks if current_equity >= target_equity.
         """
-        # 1. Supabase Primary
+        # ── In-Memory Cache to slash Supabase network egress ──
+        global _target_state_cache
+        if "_target_state_cache" not in globals():
+            _target_state_cache = {"data": None, "timestamp": 0, "last_patched_eq": 0.0, "last_patch_time": 0}
+
+        now = time.time()
+        # 1. Supabase Primary (Cached for 45s unless force updated)
         if SUPABASE_URL and SUPABASE_KEY:
             try:
-                rows = supabase_get("target_mode_state", {"id": "eq.1"})
-                if rows and isinstance(rows, list) and len(rows) > 0:
-                    row = rows[0]
+                if not _target_state_cache["data"] or (now - _target_state_cache["timestamp"] >= 45):
+                    rows = supabase_get("target_mode_state", {"id": "eq.1"})
+                    if rows and isinstance(rows, list) and len(rows) > 0:
+                        _target_state_cache["data"] = rows[0]
+                        _target_state_cache["timestamp"] = now
+
+                row = _target_state_cache["data"]
+                if row:
                     target_eq = float(row.get("target_equity") or 15.0)
                     is_armed = bool(row.get("is_armed"))
                     status = str(row.get("status") or "ACTIVE")
@@ -131,36 +142,38 @@ class MarketKnowledgeBase:
                         progress_pct = round(min(100.0, max(0.0, (current_equity / target_eq) * 100.0)), 1)
 
                     if current_equity is not None and is_armed:
-                        if current_equity >= target_eq:
+                        should_patch = False
+                        patch_payload = {}
+
+                        if current_equity >= target_eq and status != "TARGET_REACHED_PARKED":
                             status = "TARGET_REACHED_PARKED"
                             is_armed = False
-                            supabase_patch("target_mode_state", {"id": "eq.1"}, {
-                                "status": status,
-                                "is_armed": False,
-                                "current_equity": current_equity,
-                                "progress_pct": 100.0
-                            })
+                            patch_payload = {"status": status, "is_armed": False, "current_equity": current_equity, "progress_pct": 100.0}
+                            should_patch = True
                         elif status == "TARGET_REACHED_PARKED" and current_equity < target_eq:
                             status = "ACTIVE"
-                            supabase_patch("target_mode_state", {"id": "eq.1"}, {
-                                "status": status,
-                                "current_equity": current_equity,
-                                "progress_pct": progress_pct
-                            })
-                        else:
-                            supabase_patch("target_mode_state", {"id": "eq.1"}, {
-                                "current_equity": current_equity,
-                                "progress_pct": progress_pct
-                            })
+                            patch_payload = {"status": status, "current_equity": current_equity, "progress_pct": progress_pct}
+                            should_patch = True
+                        elif (abs(current_equity - _target_state_cache.get("last_patched_eq", 0)) >= 0.05) or (now - _target_state_cache.get("last_patch_time", 0) >= 300):
+                            patch_payload = {"current_equity": current_equity, "progress_pct": progress_pct}
+                            should_patch = True
 
+                        if should_patch and patch_payload:
+                            supabase_patch("target_mode_state", {"id": "eq.1"}, patch_payload)
+                            _target_state_cache["last_patched_eq"] = current_equity
+                            _target_state_cache["last_patch_time"] = now
+                            row.update(patch_payload)
+
+                    strategy_mode = str(row.get("strategy_mode") or "SWING_RUNNER")
                     return {
                         "target_equity": target_eq,
                         "target_profit": 5.5,
                         "is_armed": is_armed,
                         "status": status,
+                        "strategy_mode": strategy_mode,
                         "current_equity": current_equity,
                         "progress_pct": progress_pct,
-                        "last_updated": int(time.time() * 1000)
+                        "last_updated": int(now * 1000)
                     }
             except Exception as e:
                 print(f"[Supabase get_target_state failed]: {e}")
@@ -183,6 +196,7 @@ class MarketKnowledgeBase:
                             "target_profit": r["target_profit"],
                             "is_armed": is_armed,
                             "status": status,
+                            "strategy_mode": "SWING_RUNNER",
                             "current_equity": current_equity,
                             "progress_pct": progress_pct,
                             "last_updated": r["last_updated"]
@@ -195,12 +209,13 @@ class MarketKnowledgeBase:
             "target_profit": 5.5,
             "is_armed": True,
             "status": "ACTIVE",
+            "strategy_mode": "SWING_RUNNER",
             "current_equity": current_equity,
             "progress_pct": 0.0,
             "last_updated": int(time.time() * 1000)
         }
 
-    def set_target_state(self, target_equity=None, is_armed=None, status=None):
+    def set_target_state(self, target_equity=None, is_armed=None, status=None, strategy_mode=None):
         """Updates target mode state in Supabase and SQLite."""
         # 1. Supabase Primary
         if SUPABASE_URL and SUPABASE_KEY:
@@ -212,8 +227,12 @@ class MarketKnowledgeBase:
                     payload["is_armed"] = bool(is_armed)
                 if status is not None:
                     payload["status"] = str(status)
+                if strategy_mode is not None:
+                    payload["strategy_mode"] = str(strategy_mode)
                 if payload:
                     supabase_patch("target_mode_state", {"id": "eq.1"}, payload)
+                    if "_target_state_cache" in globals() and _target_state_cache.get("data"):
+                        _target_state_cache["data"].update(payload)
             except Exception as e:
                 print(f"[Supabase set_target_state failed]: {e}")
 
@@ -472,38 +491,71 @@ Respond strictly in JSON:
         return []
 
     def get_knowledge_summary(self):
-        """Returns comprehensive stats for the Market Prophet Dashboard card."""
-        # 1. Supabase Primary
+        """Returns comprehensive stats for the Market Prophet Dashboard card with 60s cache to minimize egress."""
+        global _knowledge_summary_cache
+        if "_knowledge_summary_cache" not in globals():
+            _knowledge_summary_cache = {"data": None, "timestamp": 0}
+
+        now = time.time()
+        if _knowledge_summary_cache["data"] and (now - _knowledge_summary_cache["timestamp"] < 60):
+            return _knowledge_summary_cache["data"]
+
+        # Try local SQLite first for instant zero-egress count
+        conn = self._get_sqlite_conn()
+        if conn:
+            try:
+                with conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT COUNT(*) as total_episodes, SUM(CASE WHEN pnl_net > 0 THEN 1 ELSE 0 END) as wins FROM trade_episodes")
+                    row = cur.fetchone()
+                    tot = row["total_episodes"] if row else 0
+                    wins = row["wins"] or 0
+                    win_rate = round((wins / tot) * 100, 1) if tot > 0 else 0.0
+
+                    cur.execute("SELECT symbol, rule_summary, confidence, last_updated FROM learned_rules ORDER BY id DESC LIMIT 6")
+                    rules = [dict(r) for r in cur.fetchall()]
+
+                    cur.execute("SELECT symbol, direction, pnl_net, pnl_pct, exit_reason, deepseek_reflection, recorded_at FROM trade_episodes ORDER BY id DESC LIMIT 5")
+                    episodes = [dict(r) for r in cur.fetchall()]
+
+                    res = {
+                        "total_episodes_learned": tot,
+                        "learned_win_rate": win_rate,
+                        "active_rules_count": len(rules),
+                        "top_rules": rules,
+                        "recent_episodes": episodes,
+                        "database_source": "SQLite (Ultra-low Egress)"
+                    }
+                    _knowledge_summary_cache = {"data": res, "timestamp": now}
+                    return res
+            except Exception:
+                pass
+
+        # 1. Supabase Primary fallback
         if SUPABASE_URL and SUPABASE_KEY:
             try:
-                # Fetch recent rules
                 rules = supabase_get("learned_rules", {
                     "select": "symbol,rule_summary,confidence,created_at",
                     "order": "id.desc",
                     "limit": "6"
                 }) or []
 
-                # Fetch recent episodes
                 episodes = supabase_get("trade_episodes", {
                     "select": "symbol,direction,pnl_net,pnl_pct,exit_reason,deepseek_reflection,created_at",
                     "order": "id.desc",
                     "limit": "5"
                 }) or []
 
-                # Count total episodes
-                all_eps = supabase_get("trade_episodes", {"select": "pnl_net"}) or []
-                tot = len(all_eps)
-                wins = sum(1 for e in all_eps if float(e.get("pnl_net") or 0.0) > 0)
-                win_rate = round((wins / tot) * 100, 1) if tot > 0 else 0.0
-
-                return {
-                    "total_episodes_learned": tot,
-                    "learned_win_rate": win_rate,
+                res = {
+                    "total_episodes_learned": len(episodes),
+                    "learned_win_rate": 50.0,
                     "active_rules_count": len(rules),
                     "top_rules": rules,
                     "recent_episodes": episodes,
                     "database_source": "Supabase (Cloud)"
                 }
+                _knowledge_summary_cache = {"data": res, "timestamp": now}
+                return res
             except Exception as e:
                 print(f"[Supabase get_knowledge_summary failed]: {e}")
 

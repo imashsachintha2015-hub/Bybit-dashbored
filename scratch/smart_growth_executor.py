@@ -38,6 +38,7 @@ NOTIONAL_PER_TRADE = 11.0  # ~$1.10 margin @ 10x leverage
 
 # Cache for tracking trade lifecycles and MFE/MAE
 tracked_trades = {}  # symbol -> {entry, side, size, max_gain, min_gain, opened_at}
+symbol_cooldowns = {}  # symbol -> cooldown_until_timestamp (prevents instant re-entry churn)
 
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -117,6 +118,11 @@ def check_and_learn_closed_trades(current_active_symbols):
             log(f"🧠 [LEARNING TRIGGERED] Trade {sym} closed ({pnl_pct:+.2f}%, ${pnl_net:+.4f})! Generating DeepSeek reflection...")
             learn_res = kb.record_trade_close(record_payload, micro)
             log(f"   Stored Rule: {learn_res.get('reflection', {}).get('rule')}")
+
+            # Cooldown guard: Put symbol on cooldown so it NEVER immediately re-orders!
+            cooldown_sec = 900 if pnl_net <= 0 else 300  # 15m cooldown on loss/breakeven, 5m on win
+            symbol_cooldowns[sym] = time.time() + cooldown_sec
+            log(f"⏳ [COOLDOWN SET] {sym} placed on {cooldown_sec // 60}m cooldown until {datetime.fromtimestamp(symbol_cooldowns[sym]).strftime('%H:%M:%S')}")
         except Exception as e:
             log(f"[LEARN NOTICE] Error processing closed trade {sym}: {e}")
 
@@ -164,12 +170,73 @@ def run_single_cycle():
             
             log(f"📊 [MONITOR] {sym} {side} | Mark: {mark} (Entry: {entry}) | Gain: {gain_pct:+.2f}% (${unpnl:+.4f}) | Peak Gain: {tracked_trades[sym]['max_gain']:+.2f}%")
             
-            # Emergency BTC Flush Defense: If BTC is dumping and altcoin is in profit, bank immediately
-            if btc_macro and btc_macro.get('is_dumping') and gain_pct >= 0.15:
-                log(f"🛡️ [BTC FLUSH DEFENSE] Bitcoin dropping ({btc_macro.get('btc_chg_5m')}%)! Defending {sym} (+{gain_pct:.2f}%)...")
-                claimer.evaluate_and_claim(pos)
-            elif gain_pct >= 0.32:
-                claimer.evaluate_and_claim(pos)
+            # ── REAL-TIME BITCOIN MACRO & ALTCOIN SENSITIVITY DEFENSE ──
+            # Altcoins are heavily correlated and drop 1.5x-3x faster than BTC when BTC flushes.
+            
+            # Tier 1: Severe / Flash BTC Flush (Plunge <= -0.35% 1m or <= -0.50% 5m)
+            if btc_macro and btc_macro.get('is_severe_flush'):
+                if gain_pct >= 0.05:
+                    log(f"🚨 [EMERGENCY BTC FLUSH EXIT] Bitcoin crashing ({btc_macro.get('btc_chg_1m')}% 1m, {btc_macro.get('btc_chg_5m')}% 5m)! Closing {sym} @ +{gain_pct:.2f}% (${unpnl:+.4f}) to preserve capital...")
+                    client.close_position('linear', sym, side, pos['size'])
+                    continue
+                elif -0.60 <= gain_pct < 0.05:
+                    log(f"🚨 [EMERGENCY BTC FLUSH CUT] Bitcoin crashing! Cutting {sym} @ {gain_pct:.2f}% (${unpnl:+.4f}) to avoid altcoin cascade...")
+                    client.close_position('linear', sym, side, pos['size'])
+                    continue
+            
+            # Tier 2: Bitcoin Dumping Caution (Drop <= -0.18% 1m or <= -0.25% 5m)
+            elif btc_macro and btc_macro.get('is_dumping'):
+                if gain_pct >= 0.30:
+                    log(f"🛡️ [BTC DUMP DEFENSE] Bitcoin dropping ({btc_macro.get('btc_chg_5m')}%)! Banking profit on {sym} (+{gain_pct:.2f}%, ${unpnl:+.4f}) at market...")
+                    client.close_position('linear', sym, side, pos['size'])
+                    continue
+                elif 0.0 <= gain_pct < 0.30 and pos.get('sl', 0) < entry:
+                    be_sl = round_price(sym, entry * 1.0012)
+                    client.set_trading_stop('linear', sym, stop_loss=str(be_sl))
+                    log(f"🛡️ [BTC DUMP CAUTION] Ratcheted SL for {sym} to Break-Even ({be_sl}) as BTC weakens.")
+
+            # Tier 3: Strategy Mode Specific Profit Lock & Staged Exits
+            strategy_mode = target_state.get('strategy_mode', 'SWING_RUNNER')
+            
+            if strategy_mode == "SWING_RUNNER":
+                # ── HTF SWING RUNNER MODE: $1.00+ Realistic Profit Milestones ──
+                # Give the trade room to breathe! Only ratchet SL once safely up +1.20%
+                if gain_pct >= 1.20 and pos.get('sl', 0) < entry * 1.002:
+                    be_sl = round_price(sym, entry * 1.0025)  # +0.25% guarantees fees covered
+                    client.set_trading_stop('linear', sym, stop_loss=str(be_sl))
+                    log(f"🔒 [SWING RISK-FREE LOCK] {sym} reached +{gain_pct:.2f}%! Ratcheted SL to {be_sl} (+0.25% fee-proof green).")
+
+                # Milestone 1: +2.20% Gain (~$0.26 profit on $12 notional) -> Bank initial cash
+                if gain_pct >= 2.20 and tracked_trades[sym].get('stage', 0) < 1:
+                    tracked_trades[sym]['stage'] = 1
+                    sl_stage1 = round_price(sym, entry * 1.0040)  # +0.40% guaranteed floor
+                    client.set_trading_stop('linear', sym, stop_loss=str(sl_stage1))
+                    log(f"🎯 [SWING MILESTONE 1 (+2.20%)] {sym} reached +{gain_pct:.2f}% (${unpnl:+.4f})! Ratcheted SL to {sl_stage1} (+0.40% green floor).")
+                    claimer.evaluate_and_claim(pos, is_swing_mode=True)
+
+                # Milestone 2: +4.00% Gain (~$0.48 profit) -> Ratchet SL to +2.00%
+                elif gain_pct >= 4.00 and tracked_trades[sym].get('stage', 0) < 2:
+                    tracked_trades[sym]['stage'] = 2
+                    sl_stage2 = round_price(sym, entry * 1.0200)  # +2.00% guaranteed floor
+                    client.set_trading_stop('linear', sym, stop_loss=str(sl_stage2))
+                    log(f"🚀 [SWING MILESTONE 2 (+4.00%)] {sym} reached +{gain_pct:.2f}% (${unpnl:+.4f})! Ratcheted SL to {sl_stage2} (+2.00% green floor).")
+                    claimer.evaluate_and_claim(pos, is_swing_mode=True)
+
+                # Milestone 3: +6.50%+ Full Runner Target ($0.80 - $1.20+ Cash Profit)
+                elif gain_pct >= 6.50:
+                    log(f"🏆 [SWING RUNNER GOAL REACHED] {sym} reached +{gain_pct:.2f}% (${unpnl:+.4f} USDT)! Closing 100% to lock target profit...")
+                    client.close_position('linear', sym, side, pos['size'])
+                    continue
+
+            else:
+                # ── MICRO SCALP MODE (Legacy fallback) ──
+                if gain_pct >= 0.18 and pos.get('sl', 0) < entry:
+                    be_sl = round_price(sym, entry * 1.0012)
+                    client.set_trading_stop('linear', sym, stop_loss=str(be_sl))
+                    log(f"🔒 [PROFIT LOCK] {sym} reached +{gain_pct:.2f}%! Ratcheted broker-side SL to {be_sl} (risk-free).")
+
+                if gain_pct >= 0.32:
+                    claimer.evaluate_and_claim(pos)
                 
         # If we have reached max concurrent positions, don't open new ones
         if len(active) >= MAX_CONCURRENT_TRADES:
@@ -185,6 +252,7 @@ def run_single_cycle():
             
         top = market.get('top_recommendation')
         active_syms = [p['symbol'] for p in active]
+        strategy_mode = target_state.get('strategy_mode', 'SWING_RUNNER')
         
         if top and top.get('recommended') and top.get('symbol') not in active_syms:
             sym = top['symbol']
@@ -192,22 +260,76 @@ def run_single_cycle():
             score = top['score']
             cur_price = top['price']
             
+            # Check symbol cooldown to prevent churning the same coin in the next second
+            now_ts = time.time()
+            if now_ts < symbol_cooldowns.get(sym, 0):
+                rem = int(symbol_cooldowns[sym] - now_ts)
+                if int(now_ts) % 30 < 6:
+                    log(f"⏳ [COOLDOWN ACTIVE] {sym} is cooling down ({rem}s remaining). Skipping re-entry.")
+                return True
+
             # BTC DUMP VETO: Never enter altcoin longs when Bitcoin is dumping
             if btc_macro and not btc_macro.get('alt_long_allowed', True) and direction == 'BUY':
                 log(f"🛑 [BTC DUMP VETO] Long entry for {sym} blocked: Bitcoin is flushing ({btc_macro.get('btc_chg_5m')}%, {btc_macro.get('regime')})!")
                 return True
 
-            if score >= 90 and direction == 'BUY':
+            # Entry threshold: 92 for SWING_RUNNER (A+ extreme caution), 90 for MICRO_SCALP
+            min_entry_score = 92 if strategy_mode == "SWING_RUNNER" else 90
+
+            if score >= min_entry_score and direction == 'BUY':
+                # ── DEEPSEEK AI PRE-TRADE QUANTITATIVE GATEKEEPER ──
+                # Feeds DeepSeek S/R levels, historical coin memory, past learned rules, and BTC context
+                import importlib
+                import scratch.deepseek_pre_trade_gatekeeper as dsg
+                importlib.reload(dsg)
+                evaluate_setup_with_deepseek = dsg.evaluate_setup_with_deepseek
+                log(f"🧠 [DEEPSEEK REVIEW] Evaluating {sym} candidate through DeepSeek Pre-Trade Gatekeeper...")
+                gatekeeper_dec = evaluate_setup_with_deepseek(top, btc_macro)
+                
+                is_approved = gatekeeper_dec.get('approved', False)
+                conv_score = gatekeeper_dec.get('conviction_score', 0)
+                rationale = gatekeeper_dec.get('rationale', '')
+                runway = gatekeeper_dec.get('runway_pct', 0)
+                sr_sup = gatekeeper_dec.get('nearest_support')
+                sr_res = gatekeeper_dec.get('nearest_resistance')
+                price_react = gatekeeper_dec.get('price_level_reaction_evaluation', '')
+                mfe_eval = gatekeeper_dec.get('coin_mfe_and_runner_evaluation', '')
+                
+                if not is_approved or conv_score < 90:
+                    concerns = ", ".join(gatekeeper_dec.get('concerns', ['Low conviction']))
+                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} trade rejected (Score: {conv_score}/100)!")
+                    log(f"   Price History Reaction: {price_react}")
+                    log(f"   MFE Runner Profile: {mfe_eval}")
+                    log(f"   Concerns: {concerns} | Runway: +{runway}% | {rationale}")
+                    symbol_cooldowns[sym] = time.time() + 600  # 10m cooldown on vetoed setup
+                    return True
+                
+                log(f"🌟 [DEEPSEEK APPROVED] {sym} cleared by Gatekeeper (Score: {conv_score}/100, R:R: {gatekeeper_dec.get('risk_reward_ratio')})!")
+                log(f"   S/R Context: Sup {sr_sup} | Res {sr_res} (Runway: +{runway}%) | Compliance: {gatekeeper_dec.get('compliance_note')}")
+                log(f"   Price History Reaction: {price_react}")
+                log(f"   MFE Runner Profile: {mfe_eval}")
+                log(f"   DeepSeek Rationale: {rationale}")
+
+                notional_target = 12.5 if strategy_mode == "SWING_RUNNER" else 11.0
                 qty = calculate_trade_qty(sym, cur_price)
                 if qty <= 0:
                     return True
                     
-                # Calculate initial Stop Loss (-0.75%) and initial Take Profit (+0.90%)
-                sl_price = round_price(sym, cur_price * 0.9925)
-                tp_price = round_price(sym, cur_price * 1.0090)
+                # Calculate initial Stop Loss and Take Profit brackets
+                if strategy_mode == "SWING_RUNNER":
+                    # HTF Swing: -1.50% Stop Loss (breathing room), +6.50% Broker TP bracket ($1.00+ Target)
+                    sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * 0.9850)
+                    tp_price = gatekeeper_dec.get('recommended_tp3') or round_price(sym, cur_price * 1.0650)
+                    sl_label = "-1.50%"
+                    tp_label = "+6.50% ($1+ Runner)"
+                else:
+                    sl_price = round_price(sym, cur_price * 0.9925)
+                    tp_price = round_price(sym, cur_price * 1.0090)
+                    sl_label = "-0.75%"
+                    tp_label = "+0.90%"
                 
-                log(f"🚀 [ENTER TRADE] Top Setup Found: {sym} {direction} (Score: {score}/100 - {top['setup']})")
-                log(f"   Size: {qty} units (~${qty * cur_price:.2f} notional @ 10x) | SL: {sl_price} (-0.75%) | TP: {tp_price} (+0.90%)")
+                log(f"🚀 [ENTER TRADE ({strategy_mode})] Top Setup Found: {sym} {direction} (Score: {score}/100 - {top['setup']})")
+                log(f"   Size: {qty} units (~${qty * cur_price:.2f} notional @ 10x) | SL: {sl_price} ({sl_label}) | TP: {tp_price} ({tp_label})")
                 
                 # Ensure 10x leverage
                 client.set_leverage(sym, 10)

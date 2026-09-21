@@ -792,11 +792,36 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         #
         # Bybit's closed-PnL feed is now the single source of truth for money.
         # The local records supply only the things Bybit cannot know: which
-        # setup produced the trade and why it was exited. They are matched to
-        # Bybit's rows by symbol, side and time rather than added to them.
-        if self.path == "/api/performance":
-            bybit_pnl = bybit_client.get_closed_pnl(limit=100)
-            closed_list = bybit_pnl.get("result", {}).get("list", []) or []
+        # 3. API: Closed PnL & performance metrics.
+        #
+        # Bybit's closed-PnL feed is the single source of truth for money.
+        # We paginate across all pages with a 15-second cache so no trades are cut off.
+        if self.path.startswith("/api/performance"):
+            global _closed_pnl_cache
+            now = time.time()
+            if "_closed_pnl_cache" not in globals():
+                _closed_pnl_cache = {"timestamp": 0, "trades": []}
+
+            if not _closed_pnl_cache["trades"] or (now - _closed_pnl_cache["timestamp"] >= 15):
+                cursor = ''
+                all_trades = []
+                for _ in range(15):
+                    params = {'category': 'linear', 'limit': '100'}
+                    if cursor:
+                        params['cursor'] = cursor
+                    bybit_pnl = bybit_client.signed_request('GET', '/v5/position/closed-pnl', params)
+                    r_res = bybit_pnl.get("result", {})
+                    items = r_res.get("list", []) or []
+                    if not items:
+                        break
+                    all_trades.extend(items)
+                    cursor = r_res.get("nextPageCursor")
+                    if not cursor:
+                        break
+                if all_trades:
+                    _closed_pnl_cache = {"timestamp": now, "trades": all_trades}
+
+            closed_list = _closed_pnl_cache.get("trades", [])
 
             with trade_stats_lock:
                 local_history = list(trade_stats["trade_history"])
@@ -818,34 +843,61 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         break
                 return best or {}
 
+            from datetime import datetime, timezone, timedelta
+            SL_TZ = timezone(timedelta(hours=5, minutes=30))
+            today_sl_str = datetime.now(tz=SL_TZ).strftime("%Y-%m-%d")
+            yesterday_sl_str = (datetime.now(tz=SL_TZ) - timedelta(days=1)).strftime("%Y-%m-%d")
+
             w_count = l_count = 0
             g_profit = g_loss = 0.0
+
+            today_w = today_l = 0
+            today_gp = today_gl = 0.0
+
+            yest_w = yest_l = 0
+            yest_gp = yest_gl = 0.0
+
             merged = []
             for row in closed_list:
                 try:
                     pnl = float(row.get("closedPnl", 0))
                 except (TypeError, ValueError):
                     continue
+
+                ts_ms = int(row.get("updatedTime") or row.get("createdTime") or 0)
+                dt_sl = datetime.fromtimestamp(ts_ms / 1000, tz=SL_TZ) if ts_ms else datetime.now(tz=SL_TZ)
+                d_str = dt_sl.strftime("%Y-%m-%d")
+
                 if pnl > 0:
                     w_count += 1
                     g_profit += pnl
+                    if d_str == today_sl_str:
+                        today_w += 1
+                        today_gp += pnl
+                    elif d_str == yesterday_sl_str:
+                        yest_w += 1
+                        yest_gp += pnl
                 elif pnl < 0:
                     l_count += 1
                     g_loss += abs(pnl)
+                    if d_str == today_sl_str:
+                        today_l += 1
+                        today_gl += abs(pnl)
+                    elif d_str == yesterday_sl_str:
+                        yest_l += 1
+                        yest_gl += abs(pnl)
+
                 extra = annotate(row)
                 entry_p = float(row.get("avgEntryPrice") or 0)
                 exit_p = float(row.get("avgExitPrice") or 0)
 
-                # In Bybit V5 closed-pnl, row.get("side") is the CLOSING order's side (Buy to close a Short).
-                # Mathematically: if exit > entry and pnl < 0, trade lost money as price rose => SHORT (SELL).
+                # In Bybit V5 closed-pnl, row.get("side") is the CLOSING order's side.
+                # Closing order "Sell" = original position was "BUY" (LONG).
+                # Closing order "Buy" = original position was "SELL" (SHORT).
                 raw_side = str(row.get("side", "")).upper()
                 pos_side = extra.get("side")
                 if not pos_side:
-                    price_delta = exit_p - entry_p
-                    if price_delta != 0 and pnl != 0:
-                        pos_side = "BUY" if (pnl * price_delta > 0) else "SELL"
-                    else:
-                        pos_side = "SELL" if raw_side == "BUY" else "BUY"
+                    pos_side = "BUY" if raw_side == "SELL" else "SELL"
 
                 is_short = pos_side.upper() in ("SELL", "SHORT")
 
@@ -853,13 +905,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 target_list = extra.get("targets") or ([] if not extra.get("target") else [extra.get("target")])
                 if not stop_val:
                     if pnl < 0 and exit_p:
-                        stop_val = exit_p  # trade stopped out at exit price
+                        stop_val = exit_p
                     else:
                         stop_val = round(entry_p * (1.018 if is_short else 0.982), 4)
 
                 if not target_list:
                     if pnl > 0 and exit_p:
-                        target_list = [exit_p]  # trade reached target at exit price
+                        target_list = [exit_p]
                     else:
                         risk_dist = abs(entry_p - stop_val) if stop_val else (entry_p * 0.015)
                         target_val = round(entry_p - risk_dist * 2.0 if is_short else entry_p + risk_dist * 2.0, 4)
@@ -867,9 +919,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
                 merged.append({
                     "id": row.get("orderId", "")[-8:] or "--",
-                    "time": time.strftime("%Y-%m-%d %H:%M", time.localtime(
-                        int(row.get("updatedTime") or row.get("createdTime") or 0) / 1000)),
-                    "exitTime": int(row.get("updatedTime") or row.get("createdTime") or 0),
+                    "time": dt_sl.strftime("%Y-%m-%d %H:%M"),
+                    "exitTime": ts_ms,
                     "createdTime": int(row.get("createdTime") or 0),
                     "symbol": row.get("symbol"),
                     "side": pos_side.upper(),
@@ -890,23 +941,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     "reason": extra.get("reason", "")
                 })
 
-            # Ensure newly trade is always on top (descending timestamp)
+            # Ensure newly closed trade is always on top (descending timestamp)
             merged.sort(key=lambda x: int(x.get("exitTime") or x.get("createdTime") or 0), reverse=True)
 
             tot_trades = w_count + l_count
             win_rate = round((w_count / tot_trades) * 100, 1) if tot_trades > 0 else 0.0
             profit_factor = round(g_profit / g_loss, 2) if g_loss > 0 else (0.0 if g_profit == 0 else 99.9)
 
-            # Expectancy in R is the figure that says whether the system makes
-            # money. A win rate without the average win and loss beside it says
-            # nothing: the old build's 1.1R target against a 1.0R stop needed
-            # about 48% winners just to break even before fees.
             r_values = [m["r_multiple"] for m in merged if isinstance(m.get("r_multiple"), (int, float))]
             r_wins = [r for r in r_values if r > 0]
             r_losses = [abs(r) for r in r_values if r <= 0]
             expectancy_r = round(sum(r_values) / len(r_values), 3) if r_values else None
 
+            tot_today = today_w + today_l
+            tot_yest = yest_w + yest_l
+
             res = {
+                "strategy_mode": "SWING_RUNNER",
                 "win_count": w_count,
                 "loss_count": l_count,
                 "total_trades": tot_trades,
@@ -915,11 +966,32 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "gross_loss": round(g_loss, 2),
                 "net_pnl": round(g_profit - g_loss, 2),
                 "profit_factor": profit_factor,
+                "today": {
+                    "total_trades": tot_today,
+                    "win_count": today_w,
+                    "loss_count": today_l,
+                    "win_rate": round((today_w / tot_today * 100), 1) if tot_today else 0.0,
+                    "gross_profit": round(today_gp, 2),
+                    "gross_loss": round(today_gl, 2),
+                    "net_pnl": round(today_gp - today_gl, 2),
+                    "profit_factor": round(today_gp / today_gl, 2) if today_gl > 0 else (0.0 if today_gp == 0 else 99.9)
+                },
+                "yesterday": {
+                    "total_trades": tot_yest,
+                    "win_count": yest_w,
+                    "loss_count": yest_l,
+                    "win_rate": round((yest_w / tot_yest * 100), 1) if tot_yest else 0.0,
+                    "gross_profit": round(yest_gp, 2),
+                    "gross_loss": round(yest_gl, 2),
+                    "net_pnl": round(yest_gp - yest_gl, 2),
+                    "profit_factor": round(yest_gp / yest_gl, 2) if yest_gl > 0 else (0.0 if yest_gp == 0 else 99.9)
+                },
                 "expectancy_r": expectancy_r,
                 "avg_win_r": round(sum(r_wins) / len(r_wins), 2) if r_wins else None,
                 "avg_loss_r": round(sum(r_losses) / len(r_losses), 2) if r_losses else None,
                 "r_sample_size": len(r_values),
                 "trade_history": merged,
+                "timezone": "Asia/Colombo (UTC+05:30)",
                 "accounting_note": "Bybit closed-PnL is the single source of truth for money; local records supply setup and exit-reason metadata only."
             }
             self._send_json(200, res)
@@ -949,6 +1021,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, state)
             return
 
+        # 3c-2. API: DeepSeek Pre-Trade Gatekeeper Decisions
+        if self.path.startswith("/api/agent/gatekeeper-decisions"):
+            decisions_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scratch', 'deepseek_pre_trade_decisions.json')
+            decisions = []
+            if os.path.exists(decisions_path):
+                try:
+                    with open(decisions_path, 'r', encoding='utf-8') as f:
+                        decisions = json.load(f)
+                except Exception:
+                    pass
+            self._send_json(200, {"decisions": list(reversed(decisions)), "count": len(decisions)})
+            return
+
         # 3d. API: Market Prophet Knowledge Base
         if self.path.startswith("/api/market-prophet/knowledge"):
             from backend_lib.market_knowledge import kb
@@ -972,6 +1057,30 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith("/api/market-overview"):
             res = get_market_overview_state()
             self._send_json(200, res)
+            return
+
+        # 6-btc. API: Real-time BTC Macro Regime & Altcoin Sensitivity Guard
+        if self.path.startswith("/api/market/btc-macro"):
+            try:
+                from scratch.btc_macro_monitor import fetch_btc_macro
+                macro = fetch_btc_macro()
+                self._send_json(200, macro or {})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
+        # 6-state. API: Live market scanner state snapshot
+        if self.path.startswith("/api/market/live-state"):
+            state_f = os.path.join(DIRECTORY, "scratch", "live_market_state.json")
+            if os.path.exists(state_f):
+                try:
+                    with open(state_f, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self._send_json(200, data)
+                    return
+                except Exception:
+                    pass
+            self._send_json(200, {})
             return
 
         # 6a. API: Kline / Candlestick feed proxy with caching

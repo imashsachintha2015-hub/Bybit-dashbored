@@ -160,6 +160,118 @@ def scan_symbol(symbol):
         "recommended": score >= 80
     }
 
+def scan_symbol_htf_swing(symbol, btc_macro=None):
+    """
+    High-Timeframe (HTF) Swing Runner Scanner:
+    Analyzes 1h (Macro Trend), 15m (Value Pullback Zone), and 5m (Entry Timing).
+    Targets $1.00+ profit per trade with extreme selectivity and caution.
+    Only recommends when conviction score >= 92.
+    """
+    k1h  = fetch_klines(symbol, '60', 30)
+    k15  = fetch_klines(symbol, '15', 30)
+    k5   = fetch_klines(symbol, '5', 20)
+    if not k1h or not k15 or not k5 or len(k1h) < 15 or len(k15) < 15 or len(k5) < 10:
+        return None
+
+    c1h = [c['close'] for c in k1h]
+    c15 = [c['close'] for c in k15]
+    c5  = [c['close'] for c in k5]
+
+    cur_p = c5[-1]
+
+    # 1. 1-Hour Macro Trend & Momentum
+    ema20_1h = calc_ema(c1h, 20)
+    ema50_1h = calc_ema(c1h, 50)
+    rsi_1h   = calc_rsi(c1h, 14)
+    trend_1h = "BULL" if (ema20_1h > ema50_1h and cur_p >= ema20_1h * 0.995) else "BEAR"
+
+    # 2. 15-Minute Structural Trend & Pullback
+    ema21_15 = calc_ema(c15, 21)
+    ema50_15 = calc_ema(c15, 50)
+    rsi_15   = calc_rsi(c15, 14)
+    trend_15m = "BULL" if ema21_15 > ema50_15 else "BEAR"
+
+    last_15 = k15[-1]
+    range_15 = max(0.0001, last_15['high'] - last_15['low'])
+    lower_wick_15 = min(last_15['open'], last_15['close']) - last_15['low']
+    upper_wick_15 = last_15['high'] - max(last_15['open'], last_15['close'])
+    l_wick_pct_15 = lower_wick_15 / range_15
+    u_wick_pct_15 = upper_wick_15 / range_15
+
+    avg_vol_15 = sum(c['vol'] for c in k15[-9:-1]) / 8.0 if len(k15) >= 9 else 1.0
+    vol_ratio_15 = last_15['vol'] / avg_vol_15 if avg_vol_15 > 0 else 1.0
+
+    # 3. 5-Minute Entry Trigger & Clean Rejection
+    ema9_5 = calc_ema(c5, 9)
+    last_5 = k5[-1]
+    range_5 = max(0.0001, last_5['high'] - last_5['low'])
+    upper_wick_5 = last_5['high'] - max(last_5['open'], last_5['close'])
+    u_wick_pct_5 = upper_wick_5 / range_5
+
+    score = 0
+    setup = "NONE"
+    direction = "NONE"
+
+    # ── Strict Scoring Confluence (A+ Criteria Only) ──
+    if trend_1h == "BULL":
+        score += 30  # 1h Macro alignment
+
+        if 48 <= rsi_1h <= 68:
+            score += 15  # Solid trend momentum, not overbought
+
+        if trend_15m == "BULL":
+            score += 15  # 15m trend alignment
+
+        # 15m Pullback into Value Zone (RSI 42 to 58)
+        if 42 <= rsi_15 <= 58:
+            score += 15
+
+        # 15m Wick Absorption (buyers stepping in at support)
+        if l_wick_pct_15 >= 0.25:
+            score += 10
+
+        # 15m Volume confirmation
+        if vol_ratio_15 >= 1.20:
+            score += 10
+
+        # 5m Trigger (no upper wick rejection)
+        if cur_p >= ema9_5 and u_wick_pct_5 < 0.20:
+            score += 5
+
+        setup = "HTF_SWING_PULLBACK_LONG"
+        direction = "BUY"
+
+    # ── Bitcoin Macro Up / Dump-Guard ──
+    if btc_macro:
+        # If BTC is dumping or has 5m drop <= -0.15%, strictly veto entry
+        if btc_macro.get('is_dumping') or btc_macro.get('btc_chg_5m', 0) < -0.15:
+            score = 0
+        elif btc_macro.get('regime') == 'BTC_BULL_PUMPING' or btc_macro.get('btc_chg_1h', 0) > 0.3:
+            score = min(100, score + 5)  # BTC tail-wind bonus
+
+    return {
+        "symbol": symbol,
+        "price": cur_p,
+        "timeframe": "1h+15m+5m",
+        "trend_1h": trend_1h,
+        "trend_15m": trend_15m,
+        "rsi_1h": round(rsi_1h, 1),
+        "rsi_15m": round(rsi_15, 1),
+        "vol_ratio": round(vol_ratio_15, 2),
+        "lower_wick_pct": round(l_wick_pct_15 * 100, 1),
+        "upper_wick_pct": round(u_wick_pct_15 * 100, 1),
+        "score": score,
+        "setup": setup,
+        "direction": direction,
+        "targets": {
+            "sl_pct": -1.50,
+            "tp1_pct": 2.20,
+            "tp2_pct": 4.00,
+            "tp3_pct": 6.50
+        },
+        "recommended": score >= 92
+    }
+
 def get_account_status():
     wb = client.get_wallet_balance()
     coins = wb.get('result', {}).get('list', [{}])[0].get('coin', [])
@@ -186,10 +298,11 @@ def get_account_status():
 def run_scanner_loop():
     log("========================================================================")
     log("  LAUNCHING PERSISTENT 24/7 LIVE MARKET SCANNER & TELEMETRY ENGINE")
-    log("  Universe: SOL, AVAX, NEAR, LINK, DOGE, SUI, ADA ($1 Micro-Scalps)")
+    log("  Universe: SOL, AVAX, NEAR, LINK, DOGE, SUI, ADA ($1.00+ HTF Swing Mode)")
     log("========================================================================")
     
     from scratch.btc_macro_monitor import fetch_btc_macro
+    from backend_lib.market_knowledge import kb
 
     scan_count = 0
     
@@ -197,16 +310,22 @@ def run_scanner_loop():
         scan_count += 1
         try:
             eq, active = get_account_status()
+            target_state = kb.get_target_state(current_equity=eq)
+            strategy_mode = target_state.get('strategy_mode', 'SWING_RUNNER')
             
             # 1. Real-time Bitcoin Macro & Altcoin Sensitivity Guard
             btc_macro = fetch_btc_macro()
             btc_dumping = btc_macro and not btc_macro.get('alt_long_allowed', True)
             btc_desc = f"BTC: ${btc_macro.get('btc_price', 0):,.1f} ({btc_macro.get('btc_chg_5m', 0):+.2f}% 5m, {btc_macro.get('regime', 'UNKNOWN')})" if btc_macro else "BTC: N/A"
 
-            # 2. Scan all symbols
+            # 2. Scan all symbols with appropriate strategy mode
             results = []
             for sym in COIN_CONFIG.keys():
-                info = scan_symbol(sym)
+                if strategy_mode == "SWING_RUNNER":
+                    info = scan_symbol_htf_swing(sym, btc_macro)
+                else:
+                    info = scan_symbol(sym)
+
                 if info:
                     if btc_dumping and info.get('direction') == 'BUY':
                         info['score'] = max(0, info['score'] - 40)
@@ -228,12 +347,14 @@ def run_scanner_loop():
             
             pos_desc = f"{len(active)} active: " + ", ".join(f"{p['symbol']} {p['side']} (${p['unpnl']:+.3f})" for p in active) if active else "0 active"
             
-            log(f"[SCAN #{scan_count}] {btc_desc} | Equity: ${eq:.4f} | {pos_desc} | Top Setup: {top_rec}")
+            mode_tag = f"[{strategy_mode}]"
+            log(f"[SCAN #{scan_count}] {mode_tag} {btc_desc} | Equity: ${eq:.4f} | {pos_desc} | Top Setup: {top_rec}")
             
             # Save complete snapshot to live_market_state.json
             payload = {
                 "timestamp": int(time.time()),
                 "scan_count": scan_count,
+                "strategy_mode": strategy_mode,
                 "equity": eq,
                 "btc_macro": btc_macro,
                 "active_positions": active,
@@ -243,32 +364,38 @@ def run_scanner_loop():
             with open(STATE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(payload, f, indent=2)
 
-            # Sync to Supabase Cloud Database every 3 scans
-            if scan_count % 3 == 0:
+            # Sync to Supabase Cloud Database: Throttled to cut network egress
+            if scan_count % 35 == 0 or (len(active) > 0 and scan_count % 10 == 0):
                 try:
-                    from backend_lib.supabase_client import supabase_kv_set, supabase_post
+                    from backend_lib.supabase_client import supabase_kv_set
                     supabase_kv_set("live_market_state", payload)
-                    if top and top.get("score", 0) >= 75:
+                except Exception:
+                    pass
+
+            # Only post new unique signals (score >= 90 in swing, >= 85 in scalp)
+            min_score = 90 if strategy_mode == "SWING_RUNNER" else 85
+            if top and top.get("score", 0) >= min_score and top.get("recommended"):
+                sig_key = f"{top['symbol']}_{top['setup']}"
+                if 'last_posted_signal' not in locals() or last_posted_signal != sig_key:
+                    try:
+                        from backend_lib.supabase_client import supabase_post
                         supabase_post("live_market_signals", {
                             "symbol": top["symbol"],
                             "direction": top["direction"],
                             "score": top["score"],
                             "setup_name": top["setup"],
-                            "rsi_5m": top["rsi_5m"],
-                            "vol_ratio": top["vol_ratio"],
-                            "lower_wick_pct": top["lower_wick_pct"],
-                            "upper_wick_pct": top["upper_wick_pct"],
+                            "rsi_5m": top.get("rsi_5m", 50.0),
+                            "vol_ratio": top.get("vol_ratio", 1.0),
+                            "lower_wick_pct": top.get("lower_wick_pct", 0.0),
+                            "upper_wick_pct": top.get("upper_wick_pct", 0.0),
                             "entry_price": top.get("price"),
                             "was_traded": False,
                             "status": "SUGGESTED",
                             "result_reason": f"Top AI setup identified: {top['setup']} with score {top['score']}/100"
                         }, prefer="return=minimal")
-                except Exception as e:
-                    pass
-                
-            # Manage active positions with DeepSeek Smart Staged Profit Claimer
-            for p in active:
-                claimer.evaluate_and_claim(p)
+                        last_posted_signal = sig_key
+                    except Exception:
+                        pass
                     
         except Exception as e:
             log(f"[SCANNER NOTICE] {e}")

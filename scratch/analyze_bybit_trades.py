@@ -1,92 +1,97 @@
-import os
 import sys
+import os
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
-# Add project root to sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scratch.smart_growth_executor import client
 
-from backend_lib.bybit_client import BybitDemoClient
+def main():
+    cursor = ''
+    all_trades = []
+    for p in range(15):
+        params = {'category': 'linear', 'limit': '100'}
+        if cursor:
+            params['cursor'] = cursor
+        res = client.signed_request('GET', '/v5/position/closed-pnl', params)
+        data = res.get('result', {})
+        items = data.get('list', [])
+        if not items:
+            break
+        all_trades.extend(items)
+        cursor = data.get('nextPageCursor')
+        if not cursor:
+            break
+        time.sleep(0.2)
 
-# Load env file manually
-env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-env_vars = {}
-if os.path.exists(env_file):
-    with open(env_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env_vars[k.strip()] = v.strip().strip("\"'")
+    print("=== TOTAL BYBIT CLOSED TRADES FETCHED ===")
+    print("Count:", len(all_trades))
 
-key = env_vars.get("BYBIT_API_KEY")
-secret = env_vars.get("BYBIT_API_SECRET")
-base_url = env_vars.get("BYBIT_BASE_URL", "https://api-demo.bybit.com")
+    if not all_trades:
+        print("No trades found!")
+        return
 
-print(f"Connecting to: {base_url} with key: {key[:4]}***")
-client = BybitDemoClient(key, secret, base_url)
+    timestamps = [int(x.get('updatedTime') or x.get('createdTime') or 0) for x in all_trades]
+    min_ts, max_ts = min(timestamps), max(timestamps)
+    print("Oldest:", datetime.fromtimestamp(min_ts/1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
+    print("Newest:", datetime.fromtimestamp(max_ts/1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
 
-# 1. Wallet Balance
-wallet = client.get_wallet_balance()
-print("\n=== WALLET BALANCE ===")
-if wallet.get("retCode") == 0:
-    coins = wallet.get("result", {}).get("list", [{}])[0].get("coin", [])
-    for c in coins:
-        equity = float(c.get("equity", 0))
-        if equity > 0 or c.get("coin") == "USDT":
-            print(f"Coin: {c.get('coin')}, Equity: {c.get('equity')}, WalletBalance: {c.get('walletBalance')}, Available: {c.get('availableToWithdraw')}")
-else:
-    print(f"Error fetching wallet: {wallet}")
+    # Group by UTC day and Local day (Asia/Colombo +05:30)
+    days_utc = {}
+    days_local = {}
+    
+    for x in all_trades:
+        ts = int(x.get('updatedTime') or x.get('createdTime') or 0)
+        dt_utc = datetime.fromtimestamp(ts/1000, tz=timezone.utc)
+        # user local is +05:30
+        dt_local = datetime.fromtimestamp(ts/1000)
+        
+        d_utc = dt_utc.strftime('%Y-%m-%d')
+        d_loc = dt_local.strftime('%Y-%m-%d')
+        pnl = float(x.get('closedPnl', 0))
 
-# 2. Current Positions
-positions = client.get_positions()
-print("\n=== CURRENT OPEN POSITIONS ===")
-pos_list = positions.get("result", {}).get("list", [])
-active_positions = [p for p in pos_list if float(p.get("size", 0)) > 0]
-print(f"Active positions count: {len(active_positions)}")
-for p in active_positions:
-    print(f"Symbol: {p.get('symbol')}, Side: {p.get('side')}, Size: {p.get('size')}, Entry: {p.get('avgPrice')}, Mark: {p.get('markPrice')}, UnrealisedPnL: {p.get('unrealisedPnl')}, LiqPrice: {p.get('liqPrice')}, Leverage: {p.get('leverage')}")
+        for d_key, d_dict in [(d_utc, days_utc), (d_loc, days_local)]:
+            if d_key not in d_dict:
+                d_dict[d_key] = {'wins': 0, 'losses': 0, 'gross_profit': 0.0, 'gross_loss': 0.0, 'trades': []}
+            if pnl > 0:
+                d_dict[d_key]['wins'] += 1
+                d_dict[d_key]['gross_profit'] += pnl
+            elif pnl < 0:
+                d_dict[d_key]['losses'] += 1
+                d_dict[d_key]['gross_loss'] += abs(pnl)
+            d_dict[d_key]['trades'].append(x)
 
-# 3. Closed PnL
-print("\n=== RECENT CLOSED PNL (Last 50) ===")
-closed_pnl = client.get_closed_pnl(limit=50)
-records = closed_pnl.get("result", {}).get("list", [])
-print(f"Total closed trades retrieved: {len(records)}")
+    print("\n=== UTC DAY-WISE BREAKDOWN ===")
+    for d in sorted(days_utc.keys()):
+        st = days_utc[d]
+        tot = st['wins'] + st['losses']
+        wr = (st['wins'] / tot * 100) if tot else 0
+        net = st['gross_profit'] - st['gross_loss']
+        gp = st['gross_profit']
+        gl = st['gross_loss']
+        print(f"{d}: Trades={tot:3d} (W={st['wins']:2d}, L={st['losses']:2d}, WR={wr:5.1f}%) | Gross Profit=+${gp:6.2f} | Gross Loss=-${gl:6.2f} | Net PnL={net:+7.2f}")
 
-trades_by_date = {}
-for r in records:
-    # updatedTime or createdTime is in ms
-    ts_ms = int(r.get("updatedTime", r.get("createdTime", 0)))
-    dt = datetime.fromtimestamp(ts_ms / 1000.0) if ts_ms else None
-    date_str = dt.strftime("%Y-%m-%d") if dt else "Unknown"
-    trades_by_date.setdefault(date_str, []).append(r)
+    print("\n=== LOCAL DAY-WISE BREAKDOWN (User Local Time) ===")
+    for d in sorted(days_local.keys()):
+        st = days_local[d]
+        tot = st['wins'] + st['losses']
+        wr = (st['wins'] / tot * 100) if tot else 0
+        net = st['gross_profit'] - st['gross_loss']
+        gp = st['gross_profit']
+        gl = st['gross_loss']
+        print(f"{d}: Trades={tot:3d} (W={st['wins']:2d}, L={st['losses']:2d}, WR={wr:5.1f}%) | Gross Profit=+${gp:6.2f} | Gross Loss=-${gl:6.2f} | Net PnL={net:+7.2f}")
 
-for date_str, tr_list in sorted(trades_by_date.items(), reverse=True):
-    print(f"\n--- Date: {date_str} (Count: {len(tr_list)}) ---")
-    daily_pnl = sum(float(x.get("closedPnl", 0)) for x in tr_list)
-    print(f"Daily Closed PnL: ${daily_pnl:.4f}")
-    for t in tr_list[:15]:
-        ts = int(t.get("updatedTime", 0)) / 1000.0
-        time_str = datetime.fromtimestamp(ts).strftime("%H:%M:%S")
-        print(f"  [{time_str}] {t.get('symbol')} {t.get('side')} | Qty: {t.get('qty')} | Entry: {t.get('avgEntryPrice')} | Exit: {t.get('avgExitPrice')} | PnL: ${float(t.get('closedPnl', 0)):.4f} | ExitType: {t.get('execType', '')}")
+    # Total all-time
+    total_w = sum(1 for x in all_trades if float(x.get('closedPnl', 0)) > 0)
+    total_l = sum(1 for x in all_trades if float(x.get('closedPnl', 0)) < 0)
+    total_gp = sum(float(x.get('closedPnl', 0)) for x in all_trades if float(x.get('closedPnl', 0)) > 0)
+    total_gl = sum(abs(float(x.get('closedPnl', 0))) for x in all_trades if float(x.get('closedPnl', 0)) < 0)
+    print(f"\n=== ALL-TIME OVERALL TOTAL ===")
+    print(f"Total Trades: {len(all_trades)} (Wins: {total_w}, Losses: {total_l}, Win Rate: {total_w/(total_w+total_l)*100:.1f}%)")
+    print(f"Gross Profit: ${total_gp:.2f}")
+    print(f"Gross Loss:   ${total_gl:.2f}")
+    print(f"Net PnL:      ${total_gp - total_gl:.2f}")
 
-# 4. Also check execution history (v5/execution/list)
-print("\n=== RECENT EXECUTIONS (Trade Fills) ===")
-exec_res = client.signed_request("GET", "/v5/execution/list", {"category": "linear", "limit": "50"})
-exec_list = exec_res.get("result", {}).get("list", [])
-print(f"Retrieved {len(exec_list)} execution records")
-for ex in exec_list[:15]:
-    ex_ts = int(ex.get("execTime", 0)) / 1000.0
-    time_str = datetime.fromtimestamp(ex_ts).strftime("%Y-%m-%d %H:%M:%S") if ex_ts else "Unknown"
-    print(f"  [{time_str}] {ex.get('symbol')} {ex.get('side')} | Price: {ex.get('execPrice')} | Qty: {ex.get('execQty')} | Fee: {ex.get('execFee')} | Type: {ex.get('execType')}")
-
-# Save full dumps to scratch for deep inspection
-with open(os.path.join(os.path.dirname(__file__), "api_dump_results.json"), "w") as f:
-    json.dump({
-        "wallet": wallet,
-        "positions": active_positions,
-        "closed_pnl": records,
-        "executions": exec_list
-    }, f, indent=2)
-print("\nFull output dumped to scratch/api_dump_results.json")
+if __name__ == '__main__':
+    main()

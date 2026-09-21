@@ -29,12 +29,12 @@ DEEPSEEK_MODEL = env.get('DEEPSEEK_MODEL', 'deepseek-chat')
 
 # Coin lot size specifications for partial closes
 COIN_SPECS = {
-    'SOLUSDT':  {'min_qty': 0.01, 'qty_step': 0.01, 'price_dec': 2},
+    'SOLUSDT':  {'min_qty': 0.1,  'qty_step': 0.1,  'price_dec': 2},
     'AVAXUSDT': {'min_qty': 0.1,  'qty_step': 0.1,  'price_dec': 3},
     'NEARUSDT': {'min_qty': 0.1,  'qty_step': 0.1,  'price_dec': 3},
     'LINKUSDT': {'min_qty': 0.1,  'qty_step': 0.1,  'price_dec': 3},
     'DOGEUSDT': {'min_qty': 1.0,  'qty_step': 1.0,  'price_dec': 5},
-    'SUIUSDT':  {'min_qty': 1.0,  'qty_step': 1.0,  'price_dec': 4},
+    'SUIUSDT':  {'min_qty': 10.0, 'qty_step': 10.0, 'price_dec': 4},
     'ADAUSDT':  {'min_qty': 1.0,  'qty_step': 1.0,  'price_dec': 4},
     'BTCUSDT':  {'min_qty': 0.001,'qty_step': 0.001,'price_dec': 2},
     'ETHUSDT':  {'min_qty': 0.01, 'qty_step': 0.01, 'price_dec': 2},
@@ -306,10 +306,11 @@ class SmartProfitClaimer:
         except Exception:
             pass
 
-    def evaluate_and_claim(self, position):
+    def evaluate_and_claim(self, position, is_swing_mode=False):
         """
         Main entrypoint: called whenever an active position has positive gain.
-        Checks if position qualifies for Stage 1 (+0.32% to +0.45%) or Stage 2 (+0.75%+).
+        In SWING_RUNNER mode: Stage 1 is at +2.20%, Stage 2 is at +4.00%, Runner to +6.50%+.
+        In MICRO_SCALP mode: Stage 1 is at +0.32%, Stage 2 is at +0.75%.
         """
         sym = position['symbol']
         side = position['side']
@@ -322,8 +323,11 @@ class SmartProfitClaimer:
         
         state = self.claimed_stages.get(key, {'stage1_done': False, 'stage2_done': False, 'entry': entry})
         
-        # STAGE 1: Hit +0.32% or higher
-        if gain_pct >= 0.32 and not state['stage1_done']:
+        thresh_stage1 = 2.20 if is_swing_mode else 0.32
+        thresh_stage2 = 4.00 if is_swing_mode else 0.75
+        
+        # STAGE 1: Hit threshold or higher
+        if gain_pct >= thresh_stage1 and not state['stage1_done']:
             # Pull microstructure
             k5 = fetch_klines(sym, '5', 12)
             k1 = fetch_klines(sym, '1', 12)
@@ -347,7 +351,8 @@ class SmartProfitClaimer:
                 "confidence": conf,
                 "source": source,
                 "rationale": rationale,
-                "stage": 1
+                "stage": 1,
+                "mode": "SWING_RUNNER" if is_swing_mode else "MICRO_SCALP"
             }
             def safe_p(text):
                 try:
@@ -355,7 +360,8 @@ class SmartProfitClaimer:
                 except UnicodeEncodeError:
                     print(text.encode('ascii', errors='replace').decode('ascii'))
 
-            safe_p(f"\n[DEEPSEEK PROFIT CLAIMER] {sym} +{gain_pct:.2f}% -> VERDICT: {verdict} ({source})")
+            mode_lbl = "[HTF SWING]" if is_swing_mode else "[MICRO SCALP]"
+            safe_p(f"\n[DEEPSEEK PROFIT CLAIMER {mode_lbl}] {sym} +{gain_pct:.2f}% -> VERDICT: {verdict} ({source})")
             safe_p(f"   Rationale: {rationale}")
             
             # Execute Staged Plan
@@ -378,17 +384,19 @@ class SmartProfitClaimer:
                 else:
                     log_entry["action_taken"] = f"CANNOT_SPLIT (size {size} too small, maintaining full)"
                 
-                # Move broker-side SL to Entry + 0.12% (guaranteed green exit covering Bybit 0.11% taker fees)
-                sl_mult = 1.0012 if side.upper() == 'BUY' else 0.9988
+                # Move broker-side SL to Entry + 0.35% (in swing) or +0.12% (in micro)
+                sl_buf = 0.0035 if is_swing_mode else 0.0012
+                sl_mult = (1.0 + sl_buf) if side.upper() == 'BUY' else (1.0 - sl_buf)
                 be_stop = round_price(sym, entry * sl_mult)
                 stop_res = self.client.set_trading_stop('linear', sym, stop_loss=str(be_stop))
                 log_entry["ratchet_sl"] = be_stop
                 state['stage1_done'] = True
-                safe_p(f"   Action: Ratcheted broker-side SL to {be_stop} (+0.12% fee-cushioned green stop)!")
+                safe_p(f"   Action: Ratcheted broker-side SL to {be_stop} (+{sl_buf*100:.2f}% guaranteed green floor)!")
             
             elif verdict == "KEEP_RUNNER":
-                # Don't close, but lock in risk-free stop at Entry + 0.12%
-                sl_mult = 1.0012 if side.upper() == 'BUY' else 0.9988
+                # Don't close, but lock in risk-free stop
+                sl_buf = 0.0035 if is_swing_mode else 0.0012
+                sl_mult = (1.0 + sl_buf) if side.upper() == 'BUY' else (1.0 - sl_buf)
                 be_stop = round_price(sym, entry * sl_mult)
                 stop_res = self.client.set_trading_stop('linear', sym, stop_loss=str(be_stop))
                 log_entry["action_taken"] = f"RUNNER_KEPT (SL ratcheted to {be_stop})"
@@ -400,8 +408,8 @@ class SmartProfitClaimer:
             self._save_history()
             return log_entry
             
-        # STAGE 2: Hit +0.75% or higher
-        elif gain_pct >= 0.75 and state['stage1_done'] and not state['stage2_done']:
+        # STAGE 2: Hit thresh_stage2 (+4.00% in swing or +0.75% in scalp)
+        elif gain_pct >= thresh_stage2 and state['stage1_done'] and not state['stage2_done']:
             try:
                 print(f"\n[STAGE 2 TARGET HIT] {sym} reached +{gain_pct:.2f}%! Locking final runner.")
             except UnicodeEncodeError:
@@ -417,8 +425,9 @@ class SmartProfitClaimer:
                 "unpnl": position['unpnl'],
                 "verdict": "STAGE_2_COMPLETE",
                 "action_taken": f"CLOSED_RUNNER ({size} units)",
-                "rationale": "Target 2 +0.75% milestone achieved. Banking maximum profit.",
-                "stage": 2
+                "rationale": f"Target 2 +{thresh_stage2:.2f}% milestone achieved. Banking maximum profit.",
+                "stage": 2,
+                "mode": "SWING_RUNNER" if is_swing_mode else "MICRO_SCALP"
             }
             self.history.append(log_entry)
             self._save_history()

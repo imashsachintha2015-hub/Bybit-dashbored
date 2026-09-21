@@ -261,8 +261,13 @@ body {
 /* ═══════════ METRICS ROW ═══════════ */
 .metrics-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 10px;
+}
+@media (max-width: 1180px) {
+  .metrics-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .metric-card {

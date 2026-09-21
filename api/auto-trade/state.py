@@ -29,6 +29,25 @@ class handler(JsonApiHandler):
             self._send_json(200, kb.get_target_state(current_equity=eq))
             return
 
+        if action == "gatekeeper_decisions":
+            decisions = []
+            try:
+                from backend_lib.supabase_client import supabase_kv_get
+                decisions = supabase_kv_get("deepseek_pre_trade_decisions") or []
+            except Exception:
+                pass
+            if not decisions:
+                dec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scratch", "deepseek_pre_trade_decisions.json")
+                if os.path.exists(dec_path):
+                    try:
+                        import json
+                        with open(dec_path, "r", encoding="utf-8") as f:
+                            decisions = json.load(f)
+                    except Exception:
+                        pass
+            self._send_json(200, {"decisions": list(reversed(decisions)), "count": len(decisions)})
+            return
+
         self._send_json(200, auto_trade_state.load())
 
     def do_POST(self):

@@ -85,7 +85,28 @@
         </section>
 
         <!-- PERFORMANCE METRICS ROW -->
+        <div class="metrics-header-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; margin-top:6px; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div style="font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-chart-pie" style="color:var(--accent);"></i> Performance Overview
+            </div>
+            <div class="status-chip font-mono" id="strategyModeBadge" style="background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
+              <i class="fa-solid fa-bullseye"></i> HTF SWING RUNNER · $1.00+ TARGET · HIGH CAUTION
+            </div>
+          </div>
+          <div class="interval-btns" id="perfTimeframeBtns" style="display:flex; gap:4px;">
+            <button class="int-btn active" id="perfBtnAll" data-perf-range="all" style="padding:3px 10px; font-size:11px;">All Time</button>
+            <button class="int-btn" id="perfBtnToday" data-perf-range="today" style="padding:3px 10px; font-size:11px;">Today</button>
+          </div>
+        </div>
         <section class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-icon blue" style="background:rgba(59,130,246,0.12); color:#3b82f6;"><i class="fa-solid fa-receipt"></i></div>
+            <div class="metric-data">
+              <span class="metric-value font-mono" id="totalTradesCard">0</span>
+              <span class="metric-label" id="totalTradesLabel">Total Trades</span>
+            </div>
+          </div>
           <div class="metric-card">
             <div class="metric-icon green"><i class="fa-solid fa-trophy"></i></div>
             <div class="metric-data">
@@ -110,14 +131,14 @@
           <div class="metric-card">
             <div class="metric-icon gold"><i class="fa-solid fa-arrow-trend-up"></i></div>
             <div class="metric-data">
-              <span class="metric-value font-mono" id="grossProfit">$0</span>
+              <span class="metric-value font-mono" id="grossProfit">$0.00</span>
               <span class="metric-label">Gross Profit</span>
             </div>
           </div>
           <div class="metric-card">
             <div class="metric-icon purple"><i class="fa-solid fa-arrow-trend-down"></i></div>
             <div class="metric-data">
-              <span class="metric-value font-mono" id="grossLoss">$0</span>
+              <span class="metric-value font-mono" id="grossLoss">$0.00</span>
               <span class="metric-label">Gross Loss</span>
             </div>
           </div>
@@ -547,6 +568,17 @@
                     </div>
                     <div id="prophetRulesContainer" style="font-size: 10.5px; color: var(--text-muted); line-height: 1.35; max-height: 80px; overflow-y: auto;">
                       Loading synthesized market lessons...
+                    </div>
+                  </div>
+
+                  <!-- DeepSeek Pre-Trade Gatekeeper Intelligence -->
+                  <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <span style="font-size: 11px; font-weight: 600; color: #38bdf8;"><i class="fa-solid fa-shield-halved"></i> DeepSeek Pre-Trade Gatekeeper</span>
+                      <span id="gatekeeperVerdictBadge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 10px; padding: 1px 6px; border-radius: 12px;">Active Dual Feed</span>
+                    </div>
+                    <div id="gatekeeperLatestContainer" style="font-size: 10.5px; color: var(--text-muted); line-height: 1.35; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 6px;">
+                      Monitoring setups via Candlestick Reaction &amp; Winner MFE profiles...
                     </div>
                   </div>
                 </div>

@@ -89,7 +89,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   renderAgents();
 
-  function updateClock() { $('clockDisplay').textContent = new Date().toTimeString().split(' ')[0]; }
+  function updateClock() {
+    try {
+      const slTime = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Colombo',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(new Date());
+      $('clockDisplay').textContent = slTime + ' SLST';
+    } catch(e) {
+      $('clockDisplay').textContent = new Date().toTimeString().split(' ')[0];
+    }
+  }
   setInterval(updateClock, 1000);
   updateClock();
 
@@ -1557,6 +1570,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function pollGatekeeperDecisions() {
+    const res = await fetchJSON('/api/agent/gatekeeper-decisions');
+    if (!res || !res.decisions || !res.decisions.length) return;
+    const container = $('gatekeeperLatestContainer');
+    const badge = $('gatekeeperVerdictBadge');
+    const latest = res.decisions[0];
+    
+    if (badge) {
+      if (latest.approved) {
+        badge.textContent = `APPROVED: ${latest.symbol} (${latest.conviction_score}/100)`;
+        badge.style.color = '#22c55e';
+        badge.style.borderColor = '#22c55e';
+        badge.style.background = 'rgba(34, 197, 94, 0.15)';
+      } else {
+        badge.textContent = `VETOED: ${latest.symbol} (${latest.conviction_score}/100)`;
+        badge.style.color = '#f87171';
+        badge.style.borderColor = '#f87171';
+        badge.style.background = 'rgba(239, 68, 68, 0.15)';
+      }
+    }
+    
+    if (container) {
+      const priceReact = latest.price_level_reaction_evaluation || 'Tested normal levels.';
+      const mfeEval = latest.coin_mfe_and_runner_evaluation || 'Standard runner profile.';
+      const recSl = latest.recommended_sl ? `$${latest.recommended_sl}` : '-1.50%';
+      const recTp = latest.recommended_tp3 ? `$${latest.recommended_tp3}` : '+6.50%';
+      
+      container.innerHTML = `
+        <div style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700; color: #f8fafc;">${latest.symbol} ${latest.direction} @ ${latest.price}</span>
+          <span style="color: ${latest.approved ? '#22c55e' : '#f87171'}; font-weight: 700; font-family: monospace;">Conviction: ${latest.conviction_score}/100</span>
+        </div>
+        <div style="color: #38bdf8; margin-bottom: 4px; font-size: 10px;">
+          <i class="fa-solid fa-chart-line"></i> <b>Historical Reaction:</b> ${priceReact}
+        </div>
+        <div style="color: #c084fc; margin-bottom: 4px; font-size: 10px;">
+          <i class="fa-solid fa-trophy"></i> <b>Winner MFE Run:</b> ${mfeEval}
+        </div>
+        <div style="color: var(--text-muted); font-size: 10px; font-style: italic; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 3px;">
+          "${latest.rationale || 'Evaluating setup structure.'}"
+        </div>
+      `;
+    }
+  }
+
   function initAnalyzeModeControls() {
     const setBtn = $('setTargetBtn');
     if (setBtn) {
@@ -1584,6 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(pollLlmStatus, 2000); setInterval(pollLlmStatus, 60000);
   setTimeout(pollTargetMode, 1000); setInterval(pollTargetMode, 5000);
   setTimeout(pollMarketProphet, 1500); setInterval(pollMarketProphet, 15000);
+  setTimeout(pollGatekeeperDecisions, 1800); setInterval(pollGatekeeperDecisions, 10000);
   initAnalyzeModeControls();
 
   // ─────────────────────────────────────────────────────────────────────
@@ -2138,6 +2197,73 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistoryTable();
       });
     }
+
+    // 5. Performance Timeframe Toggle (All Time vs Today)
+    const perfBtnAll = $('perfBtnAll');
+    const perfBtnToday = $('perfBtnToday');
+    if (perfBtnAll && perfBtnToday && !perfBtnAll._hasPerfListener) {
+      perfBtnAll._hasPerfListener = true;
+      perfBtnAll.addEventListener('click', () => {
+        currentPerfTimeframe = 'all';
+        perfBtnAll.classList.add('active');
+        perfBtnToday.classList.remove('active');
+        renderPerformanceMetrics();
+      });
+      perfBtnToday.addEventListener('click', () => {
+        currentPerfTimeframe = 'today';
+        perfBtnToday.classList.add('active');
+        perfBtnAll.classList.remove('active');
+        renderPerformanceMetrics();
+      });
+    }
+  }
+
+  let currentPerfTimeframe = 'all';
+  let cachedPerfObject = null;
+
+  function renderPerformanceMetrics() {
+    if (!cachedPerfObject) return;
+    const src = (currentPerfTimeframe === 'today' && cachedPerfObject.today) ? cachedPerfObject.today : cachedPerfObject;
+
+    if ($('totalTradesCard')) $('totalTradesCard').textContent = src.total_trades || 0;
+    if ($('totalTradesLabel')) $('totalTradesLabel').textContent = currentPerfTimeframe === 'today' ? "Today's Trades" : "Total Trades";
+    if ($('totalWins')) $('totalWins').textContent = src.win_count || 0;
+    if ($('totalLosses')) $('totalLosses').textContent = src.loss_count || 0;
+    if ($('profitFactor')) $('profitFactor').textContent = (src.profit_factor || 0).toFixed(2);
+    if ($('grossProfit')) $('grossProfit').textContent = '$' + Number(src.gross_profit || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if ($('grossLoss')) $('grossLoss').textContent = '$' + Number(src.gross_loss || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const wr = src.win_rate || 0;
+    const n = src.total_trades || 0;
+    if ($('winRateVal')) {
+      $('winRateVal').textContent = n ? `${wr.toFixed(1)}%` : '--';
+      $('winRateVal').style.color = wr >= 50 ? 'var(--green)' : 'var(--red)';
+      $('winRateVal').title = n < 30
+        ? `Only ${n} closed trades. A win rate needs a few hundred before it means anything; treat this as a running tally, not a measurement.`
+        : `${n} closed trades. Expectancy ${cachedPerfObject.expectancy_r != null ? cachedPerfObject.expectancy_r + 'R' : 'n/a'} over ${cachedPerfObject.r_sample_size || 0} R-tracked trades.`;
+    }
+
+    const netPnl = src.net_pnl || 0;
+    if ($('pnlVal')) {
+      $('pnlVal').textContent = (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      $('pnlVal').style.color = netPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+    if ($('wlVal')) {
+      $('wlVal').textContent = `${src.win_count || 0}W/${src.loss_count || 0}L`;
+    }
+
+    const mode = cachedPerfObject.strategy_mode || 'SWING_RUNNER';
+    if ($('strategyModeBadge')) {
+      if (mode === 'SWING_RUNNER') {
+        $('strategyModeBadge').innerHTML = '<i class="fa-solid fa-bullseye"></i> HTF SWING RUNNER · $1.00+ TARGET · HIGH CAUTION';
+        $('strategyModeBadge').style.background = 'rgba(16,185,129,0.12)';
+        $('strategyModeBadge').style.color = '#10b981';
+      } else {
+        $('strategyModeBadge').innerHTML = '<i class="fa-solid fa-bolt"></i> MICRO SCALP MODE (5m)';
+        $('strategyModeBadge').style.background = 'rgba(14,165,233,0.12)';
+        $('strategyModeBadge').style.color = '#0ea5e9';
+      }
+    }
   }
 
   async function updateActivePositionsAndHistory() {
@@ -2146,24 +2272,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const perf = await fetchJSON('/api/performance');
     if (perf) {
-      $('totalWins').textContent = perf.win_count || 0;
-      $('totalLosses').textContent = perf.loss_count || 0;
-      $('profitFactor').textContent = (perf.profit_factor || 0).toFixed(2);
-      $('grossProfit').textContent = '$' + (perf.gross_profit || 0).toLocaleString();
-      $('grossLoss').textContent = '$' + (perf.gross_loss || 0).toLocaleString();
-
-      const wr = perf.win_rate || 0;
-      const n = perf.total_trades || 0;
-      $('winRateVal').textContent = n ? `${wr.toFixed(1)}%` : '--';
-      $('winRateVal').style.color = wr >= 50 ? 'var(--green)' : 'var(--red)';
-      $('winRateVal').title = n < 30
-        ? `Only ${n} closed trades. A win rate needs a few hundred before it means anything; treat this as a running tally, not a measurement.`
-        : `${n} closed trades. Expectancy ${perf.expectancy_r != null ? perf.expectancy_r + 'R' : 'n/a'} over ${perf.r_sample_size} R-tracked trades.`;
-
-      const netPnl = perf.net_pnl || 0;
-      $('pnlVal').textContent = (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toLocaleString('en-US', { minimumFractionDigits: 2 });
-      $('pnlVal').style.color = netPnl >= 0 ? 'var(--green)' : 'var(--red)';
-      $('wlVal').textContent = `${perf.win_count || 0}W/${perf.loss_count || 0}L`;
+      cachedPerfObject = perf;
+      renderPerformanceMetrics();
 
       cachedRawHistory = perf.trade_history || [];
       renderHistoryTable();
