@@ -119,6 +119,13 @@ def check_and_learn_closed_trades(current_active_symbols):
             learn_res = kb.record_trade_close(record_payload, micro)
             log(f"   Stored Rule: {learn_res.get('reflection', {}).get('rule')}")
 
+            # Authoritative SQLite Measurement Journal logging
+            try:
+                from backend_lib.measurement_journal import mj
+                mj.record_completed_trade(record_payload)
+            except Exception as e_mj:
+                log(f"[MEASUREMENT JOURNAL ERROR] {e_mj}")
+
             # Cooldown guard: Put symbol on cooldown so it NEVER immediately re-orders!
             cooldown_sec = 900 if pnl_net <= 0 else 300  # 15m cooldown on loss/breakeven, 5m on win
             symbol_cooldowns[sym] = time.time() + cooldown_sec
@@ -384,6 +391,22 @@ def run_single_cycle():
                 
                 if order_res.get('retCode') == 0:
                     log(f"✅ Order Placed Successfully! OrderId: {order_res.get('result', {}).get('orderId')}")
+                    try:
+                        from backend_lib.measurement_journal import mj
+                        mj.log_decision(
+                            top,
+                            "EXECUTED",
+                            f"Live order placed: Qty {qty} @ {cur_price} | SL {sl_price}, TP {tp_price}",
+                            extra={
+                                "target_runway_pct": runway,
+                                "stop_dist_pct": 1.5 if strategy_mode == "SWING_RUNNER" else 0.75,
+                                "calibrated_win_prob": conv_score,
+                                "expected_r": gatekeeper_dec.get('expected_r', 0.0)
+                            }
+                        )
+                    except Exception as e_mj:
+                        log(f"[MEASUREMENT JOURNAL ERROR] {e_mj}")
+
                     try:
                         from backend_lib.supabase_client import supabase_patch
                         supabase_patch("live_market_signals", {"symbol": f"eq.{sym}", "status": "eq.SUGGESTED"}, {

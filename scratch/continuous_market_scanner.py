@@ -21,17 +21,40 @@ with open('.env') as f:
 client = BybitDemoClient(env['BYBIT_API_KEY'], env['BYBIT_API_SECRET'], env['BYBIT_BASE_URL'])
 claimer = SmartProfitClaimer(client)
 
-# 7 core micro-scalp coins ($1 margin = ~$10 notional)
+# 24-coin universe — Large caps, Mid caps, Memecoins (~$11 notional per trade)
 COIN_CONFIG = {
-    'SOLUSDT':  {'qty': 0.1,  'p_dec': 2, 'q_dec': 1, 'min_step': 0.01},
-    'AVAXUSDT': {'qty': 1.3,  'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},
-    'NEARUSDT': {'qty': 2.9,  'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},
-    'LINKUSDT': {'qty': 0.9,  'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},
-    'DOGEUSDT': {'qty': 120,  'p_dec': 5, 'q_dec': 0, 'min_step': 0.00001},
-    'XRPUSDT':  {'qty': 10,   'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},
-    'SUIUSDT':  {'qty': 13,   'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},
-    'ADAUSDT':  {'qty': 47,   'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},
+    # ── Large Caps ────────────────────────────────────────────────────────
+    'BTCUSDT':  {'qty': 0.00013, 'p_dec': 1, 'q_dec': 5, 'min_step': 0.00001},  # ~$11 @ $85k
+    'ETHUSDT':  {'qty': 0.004,   'p_dec': 2, 'q_dec': 3, 'min_step': 0.001},    # ~$11 @ $2700
+    'BNBUSDT':  {'qty': 0.02,    'p_dec': 2, 'q_dec': 2, 'min_step': 0.01},     # ~$11 @ $570
+    # ── Layer 1 / Layer 2 ────────────────────────────────────────────────
+    'SOLUSDT':  {'qty': 0.1,    'p_dec': 2, 'q_dec': 1, 'min_step': 0.01},      # ~$11 @ $130
+    'AVAXUSDT': {'qty': 1.3,    'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},     # ~$11 @ $25
+    'NEARUSDT': {'qty': 2.9,    'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},     # ~$11 @ $4
+    'SUIUSDT':  {'qty': 13,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.85
+    'APTUSDT':  {'qty': 1.5,    'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},     # ~$11 @ $7.5
+    'TIAUSDT':  {'qty': 2.2,    'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},     # ~$11 @ $5
+    'SEIUSDT':  {'qty': 25,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.44
+    # ── DeFi / Ecosystem ─────────────────────────────────────────────────
+    'LINKUSDT': {'qty': 0.9,    'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},     # ~$11 @ $12
+    'INJUSDT':  {'qty': 0.5,    'p_dec': 3, 'q_dec': 1, 'min_step': 0.001},     # ~$11 @ $22
+    'JUPUSDT':  {'qty': 16,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.70
+    'STRKUSDT': {'qty': 20,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.55
+    # ── L2 Ecosystem ─────────────────────────────────────────────────────
+    'OPUSDT':   {'qty': 9,      'p_dec': 3, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $1.2
+    'ARBUSDT':  {'qty': 14,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.78
+    'MATICUSDT':{'qty': 17,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.65
+    # ── Payments / Utility ───────────────────────────────────────────────
+    'XRPUSDT':  {'qty': 15,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.73
+    'ADAUSDT':  {'qty': 47,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.35
+    'DOGEUSDT': {'qty': 120,    'p_dec': 5, 'q_dec': 0, 'min_step': 0.00001},   # ~$11 @ $0.13
+    # ── Memecoins (High Volatility) ──────────────────────────────────────
+    'WIFUSDT':  {'qty': 12,     'p_dec': 4, 'q_dec': 0, 'min_step': 0.0001},    # ~$11 @ $0.93
+    'PEPEUSDT': {'qty': 2500000,'p_dec': 8, 'q_dec': 0, 'min_step': 0.0000001}, # ~$11 @ $0.0000044
+    'BONKUSDT': {'qty': 1200000,'p_dec': 8, 'q_dec': 0, 'min_step': 0.0000001}, # ~$11 @ $0.0000093
+    'FLOKIUSDT':{'qty': 450000, 'p_dec': 8, 'q_dec': 0, 'min_step': 0.0000001}, # ~$11 @ $0.000025
 }
+
 
 LOG_FILE = 'scratch/scanner_live.log'
 STATE_FILE = 'scratch/live_market_state.json'
@@ -361,8 +384,11 @@ def get_account_status():
 def run_scanner_loop():
     log("========================================================================")
     log("  LAUNCHING PERSISTENT 24/7 LIVE MARKET SCANNER & TELEMETRY ENGINE")
-    log("  Universe: SOL, AVAX, NEAR, LINK, DOGE, SUI, ADA ($1.00+ HTF Swing Mode)")
+    log("  Universe: 24 Coins — BTC, ETH, BNB, SOL, AVAX, SUI, LINK, XRP, ADA,")
+    log("            OP, ARB, APT, NEAR, INJ, TIA, SEI, JUP, STRK, MATIC,")
+    log("            DOGE, WIF, PEPE, BONK, FLOKI  ($11 notional | HTF Swing Mode)")
     log("========================================================================")
+
     
     from scratch.btc_macro_monitor import fetch_btc_macro
     from backend_lib.market_knowledge import kb
@@ -414,7 +440,10 @@ def run_scanner_loop():
             pos_desc = f"{len(active)} active: " + ", ".join(f"{p['symbol']} {p['side']} (${p['unpnl']:+.3f})" for p in active) if active else "0 active"
             
             mode_tag = f"[{strategy_mode}]"
-            log(f"[SCAN #{scan_count}] {mode_tag} {btc_desc} | Equity: ${eq:.4f} | {pos_desc} | Top Setup: {top_rec}")
+            btc_short_alert = ""
+            if btc_macro and btc_macro.get('is_btc_short_opportunity'):
+                btc_short_alert = f" ⚡[BTC SHORT OPP! -{btc_macro.get('btc_chg_5m', 0):.2f}% 5m VOLUME SPIKE]"
+            log(f"[SCAN #{scan_count}] {mode_tag} {btc_desc} | Equity: ${eq:.4f} | {pos_desc} | Top Setup: {top_rec}{btc_short_alert}")
             
             # Save complete snapshot to live_market_state.json
             payload = {

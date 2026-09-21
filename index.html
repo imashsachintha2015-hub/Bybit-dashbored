@@ -207,7 +207,7 @@
               <div class="card-header" id="toggleAgentsHeader" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
                 <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
                   <i class="fa-solid fa-network-wired"></i> Specialist Agent Network
-                  <span id="agentsStateBadge" class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0284C7; font-size: 10px; padding: 2px 7px; border-radius: 12px; font-weight: 600;">11 Agents · Hidden</span>
+                  <span id="agentsStateBadge" class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0284C7; font-size: 10px; padding: 2px 7px; border-radius: 12px; font-weight: 600;">12 Agents · Hidden</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span class="network-badge" id="networkBadge"><span class="pulse-dot green"></span> ALL OPERATIONAL</span>
@@ -874,6 +874,83 @@
                 </tr>
               </thead>
               <tbody id="archaeologySuperTradesBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIV-14: Adversarial Red Team Gatekeeper Modal -->
+  <div class="day-details-backdrop" id="redTeamModalBackdrop" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 950px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); border: 1px solid var(--border);">
+      <div style="padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #FEF2F2;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 15px;">
+            <i class="fa-solid fa-user-ninja"></i>
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 15px; color: #991B1B;">DIV-14 Adversarial Red Team Gatekeeper</div>
+            <div style="font-size: 11px; color: #B91C1C;">Structured Falsification Engine · Fee Friction Cap (&le;25%) · Mathematical EV Hurdle (&ge;+0.35R)</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="background: rgba(220, 38, 38, 0.1); border: 1px solid #DC2626; color: #DC2626; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px;">
+            <i class="fa-solid fa-shield-halved"></i> FALSIFICATION GUARD ON
+          </span>
+          <button type="button" id="closeRedTeamModalBtn" style="background: transparent; border: none; font-size: 20px; color: var(--text-dim); cursor: pointer; padding: 2px 8px;">&times;</button>
+        </div>
+      </div>
+      <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
+        <!-- Top Metrics Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">MAX FEE FRICTION CAP</div>
+            <div style="font-size: 18px; font-weight: 800; color: #DC2626; margin-top: 2px;">&le; 25.0%</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Auto-vetoes high-fee churn</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">MIN EXPECTED VALUE (EV)</div>
+            <div style="font-size: 18px; font-weight: 800; color: #16A34A; margin-top: 2px;">&ge; +0.35R</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Cost-adjusted positive edge</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">ROUNDTRIP FRICTION</div>
+            <div style="font-size: 18px; font-weight: 800; color: #D97706; margin-top: 2px;">0.150%</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">0.110% Taker + 0.040% Slip</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">TRADES VETOED (AVOIDED)</div>
+            <div style="font-size: 18px; font-weight: 800; color: #4F46E5; margin-top: 2px;" id="redTeamVetoCount">--</div>
+            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Preserving capital from traps</div>
+          </div>
+        </div>
+
+        <!-- Recent Evaluated Candidates & NO-TRADE Decisions -->
+        <div>
+          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-clipboard-list" style="color: #DC2626;"></i> Signal Decision Journal (Recent Candidates &amp; Vetoes)
+            </span>
+            <span style="font-size: 10px; color: var(--text-dim); font-weight: normal;">Authoritative SQLite Log</span>
+          </div>
+          <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+              <thead>
+                <tr style="background: #F8FAFC; border-bottom: 1px solid var(--border); color: var(--text-dim);">
+                  <th style="padding: 8px 10px;">Time</th>
+                  <th style="padding: 8px 10px;">Symbol</th>
+                  <th style="padding: 8px 10px;">Setup &amp; Side</th>
+                  <th style="padding: 8px 10px;">Decision</th>
+                  <th style="padding: 8px 10px;">Target Runway</th>
+                  <th style="padding: 8px 10px;">Fee Friction</th>
+                  <th style="padding: 8px 10px;">Expected R</th>
+                  <th style="padding: 8px 10px;">Adversarial Reason</th>
+                </tr>
+              </thead>
+              <tbody id="redTeamDecisionsBody">
                 <!-- Rendered dynamically -->
               </tbody>
             </table>

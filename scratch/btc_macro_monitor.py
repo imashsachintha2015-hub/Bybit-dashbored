@@ -107,6 +107,23 @@ def fetch_btc_macro():
             (chg_15m <= -0.50) or
             (trend_5m == "BEAR" and chg_5m <= -0.12 and rsi_5m < 42)
         )
+
+        # ── BTC Short Opportunity Detection ────────────────────────────────
+        # Identifies when BTC itself is a SHORT candidate (e.g. 87247→86469 type moves)
+        # Conditions: BTC falling + volume spike + BEAR trend alignment
+        is_btc_short_opportunity = (
+            (chg_5m <= -0.40 or chg_1m <= -0.25) and
+            trend_5m == "BEAR" and
+            rsi_5m < 55 and
+            vol_spike_1m
+        )
+        btc_short_runway_pct = round(abs(chg_5m), 2) if is_btc_short_opportunity else 0.0
+
+        # ── Range-Bound / Consolidation Detection ──────────────────────────
+        # When BTC is barely moving (tight range), relax runway requirements for ALT setups
+        btc_24_candles_range = max(c["high"] for c in candles_5m[-12:]) - min(c["low"] for c in candles_5m[-12:])
+        btc_range_pct = (btc_24_candles_range / cur_p) * 100.0 if cur_p > 0 else 0.5
+        is_btc_range_bound = (btc_range_pct < 0.60 and abs(chg_1h) < 0.35)  # < 0.6% range in 1h = tight consolidation
         
         # Macro Regime Classification
         if is_severe_flush:
@@ -125,6 +142,10 @@ def fetch_btc_macro():
             regime = "BTC_HEALTHY_BULL"
             alt_long_allowed = True
             defense_mode = "ALLOW_EXPANSION"
+        elif is_btc_range_bound:
+            regime = "BTC_RANGE_CONSOLIDATING"
+            alt_long_allowed = True
+            defense_mode = "ALLOW_TIGHT_RANGE"
         else:
             regime = "BTC_CONSOLIDATING"
             alt_long_allowed = True
@@ -141,6 +162,10 @@ def fetch_btc_macro():
             "vol_spike_1m": vol_spike_1m,
             "is_dumping": is_dumping,
             "is_severe_flush": is_severe_flush,
+            "is_btc_short_opportunity": is_btc_short_opportunity,
+            "btc_short_runway_pct": btc_short_runway_pct,
+            "is_btc_range_bound": is_btc_range_bound,
+            "btc_range_pct": round(btc_range_pct, 3),
             "regime": regime,
             "defense_mode": defense_mode,
             "alt_long_allowed": alt_long_allowed,

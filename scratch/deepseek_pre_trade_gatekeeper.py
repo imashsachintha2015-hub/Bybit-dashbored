@@ -446,6 +446,44 @@ def evaluate_setup_with_deepseek(candidate, btc_macro=None):
     from backend_lib.conditional_edge_engine import cee
     state_vector = cee.extract_state_vector(candidate, sr, btc_macro, candlestick_reaction, track_record)
     conditional_edge = cee.compute_conditional_edge(state_vector)
+
+    # ── ADVERSARIAL RED TEAM GATE (DIV-14) ──
+    from scratch.adversarial_red_team_gate import red_team
+    from backend_lib.measurement_journal import mj
+    red_check = red_team.evaluate(candidate, sr, btc_macro)
+    
+    if red_check["vetoed"]:
+        # Log to authoritative NO-TRADE decision journal
+        mj.log_decision(
+            candidate,
+            red_check["code"],
+            red_check["reason"],
+            extra={
+                "target_runway_pct": red_check["target_runway_pct"],
+                "fee_friction_pct": red_check["fee_friction_pct"],
+                "fee_to_target_ratio": red_check["fee_to_target_ratio"],
+                "calibrated_win_prob": conditional_edge.get("win_probability_pct", 50.0),
+                "expected_r": conditional_edge.get("expected_r", 0.0),
+                "regime": state_vector.get("regime", "UNKNOWN")
+            }
+        )
+        return {
+            "approved": False,
+            "conviction_score": red_check["adversarial_score"],
+            "expected_r": conditional_edge.get("expected_r", 0.0),
+            "statistical_edge_verdict": conditional_edge.get("edge_verdict"),
+            "risk_reward_ratio": "0:0",
+            "nearest_support": sr.get("nearest_sup", 0),
+            "nearest_resistance": sr.get("nearest_res", 0),
+            "runway_pct": red_check["target_runway_pct"],
+            "fee_to_target_ratio": red_check["fee_to_target_ratio"],
+            "fee_friction_pct": red_check["fee_friction_pct"],
+            "price_level_reaction_evaluation": candlestick_reaction.get("summary", ""),
+            "coin_mfe_and_runner_evaluation": "Vetoed before LLM call to preserve capital and prevent fee burn.",
+            "compliance_note": f"Adversarial Gatekeeper VETO [{red_check['code']}]: {red_check['reason']}",
+            "concerns": [red_check["reason"]],
+            "rationale": f"RED TEAM VETO: {red_check['reason']}"
+        }
     
     rules_text = "\n".join(f"- {r}" for r in rules) if rules else "- No specific historical mistakes recorded yet."
     
@@ -643,6 +681,23 @@ Respond strictly in valid JSON:
 
     # Log to persistent file
     _save_gatekeeper_decision(decision)
+
+    # Log to authoritative measurement journal
+    try:
+        from backend_lib.measurement_journal import mj
+        dec_type = "APPROVED_GATEKEEPER" if decision.get("approved") else "VETO_GATEKEEPER"
+        mj.log_decision(
+            candidate,
+            dec_type,
+            decision.get("rationale") or ", ".join(decision.get("concerns", [])),
+            extra={
+                "target_runway_pct": decision.get("runway_pct", 0.0),
+                "calibrated_win_prob": conditional_edge.get("win_probability_pct", 50.0),
+                "expected_r": decision.get("expected_r", conditional_edge.get("expected_r", 0.0))
+            }
+        )
+    except Exception:
+        pass
 
     return decision
 

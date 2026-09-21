@@ -175,9 +175,11 @@ class ConditionalEdgeEngine:
                     
                     # Convert to R-multiple assuming 1.50% standard risk unit
                     risk_pct = 1.50
-                    realized_r = round(pnl_p / risk_pct, 2)
-                    mfe_r = round(mfe / risk_pct, 2)
-                    mae_r = round(mae / risk_pct, 2)
+                    # Clip realized_r to realistic bounds [-1.2R, +5.0R] so outliers don't skew expectancy
+                    raw_r = pnl_p / risk_pct
+                    realized_r = round(max(-1.25, min(5.0, raw_r)), 2)
+                    mfe_r = round(max(0.0, min(6.0, mfe / risk_pct)), 2)
+                    mae_r = round(max(-2.0, min(0.0, mae / risk_pct)), 2)
                     
                     comparable_trades.append({
                         "id": r['id'],
@@ -229,24 +231,36 @@ class ConditionalEdgeEngine:
         median_mfe = round(mfes[len(mfes) // 2], 2)
         median_mae = round(maes[len(maes) // 2], 2)
         
-        # Expected R: E[R] = (WinRate * AvgWinR) - (LossRate * AvgLossR)
+        # Expected R: Deduct Bybit Taker Fees & Slippage (0.150% roundtrip)
+        risk_pct = 1.50
+        friction_r = round(0.150 / risk_pct, 3)  # ~0.10R friction per roundtrip trade
+        
         r_list = [t['realized_r'] for t in comparable_trades]
         win_rs = [t['realized_r'] for t in wins]
         loss_rs = [abs(t['realized_r']) for t in losses]
         
-        avg_win_r = sum(win_rs) / len(win_rs) if win_rs else 1.2
+        avg_win_r = sum(win_rs) / len(win_rs) if win_rs else 1.5
         avg_loss_r = sum(loss_rs) / len(loss_rs) if loss_rs else 1.0
         
-        expected_r = round(((win_prob / 100.0) * avg_win_r) - ((stop_prob / 100.0) * avg_loss_r), 3)
+        gross_expected_r = round(((win_prob / 100.0) * avg_win_r) - ((stop_prob / 100.0) * avg_loss_r), 3)
+        net_expected_r = round(gross_expected_r - friction_r, 3)
         
         confidence = "HIGH" if tot >= 40 else ("MODERATE" if tot >= 15 else "LOW")
         
-        if expected_r >= 0.25 and win_prob >= 35.0:
+        # Institutional EV Hurdle: Minimum +0.35R Net after fees
+        MIN_EV_HURDLE = 0.35
+        if net_expected_r >= MIN_EV_HURDLE and win_prob >= 35.0:
             edge_verdict = "POSITIVE_ASYMMETRIC_EDGE"
-        elif expected_r > 0.0:
-            edge_verdict = "MARGINAL_EDGE"
+            ev_approved = True
+        elif net_expected_r >= 0.15:
+            edge_verdict = "MARGINAL_EDGE_BELOW_HURDLE"
+            ev_approved = False
+        elif net_expected_r > 0.0:
+            edge_verdict = "SUBPAR_EV_FEE_BLEED_RISK"
+            ev_approved = False
         else:
             edge_verdict = "NEGATIVE_EDGE_CHURN_RISK"
+            ev_approved = False
 
         return {
             "comparable_sample_size": tot,
@@ -258,7 +272,12 @@ class ConditionalEdgeEngine:
             "median_mae_pct": median_mae,
             "median_mfe_r": round(median_mfe / 1.5, 2),
             "median_mae_r": round(median_mae / 1.5, 2),
-            "expected_r": expected_r,
+            "gross_expected_r": gross_expected_r,
+            "fee_friction_r": friction_r,
+            "expected_r": net_expected_r,
+            "net_expected_r": net_expected_r,
+            "ev_hurdle_met": ev_approved,
+            "min_ev_hurdle": MIN_EV_HURDLE,
             "avg_win_r": round(avg_win_r, 2),
             "avg_loss_r": round(avg_loss_r, 2),
             "confidence": f"{confidence} (N={tot} episodes)",

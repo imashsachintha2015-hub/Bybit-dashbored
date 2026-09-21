@@ -994,6 +994,31 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "timezone": "Asia/Colombo (UTC+05:30)",
                 "accounting_note": "Bybit closed-PnL is the single source of truth for money; local records supply setup and exit-reason metadata only."
             }
+
+            try:
+                from backend_lib.measurement_journal import mj
+                auth_perf = mj.get_authoritative_performance()
+                res["authoritative_journal"] = {
+                    "total_trades": auth_perf.get("total_trades", 0),
+                    "win_count": auth_perf.get("win_count", 0),
+                    "loss_count": auth_perf.get("loss_count", 0),
+                    "win_rate": auth_perf.get("win_rate", 0.0),
+                    "gross_profit": auth_perf.get("gross_profit", 0.0),
+                    "gross_loss": auth_perf.get("gross_loss", 0.0),
+                    "net_pnl_after_fees": auth_perf.get("net_pnl", 0.0),
+                    "total_fees_paid": auth_perf.get("total_fees_paid", 0.0),
+                    "profit_factor": auth_perf.get("profit_factor", 1.0),
+                    "expectancy_r": auth_perf.get("expectancy_r", 0.0),
+                    "avg_mfe_pct": auth_perf.get("avg_mfe_pct", 0.0),
+                    "avg_mae_pct": auth_perf.get("avg_mae_pct", 0.0),
+                    "decisions_evaluated": auth_perf.get("decisions_evaluated", 0),
+                    "decisions_vetoed": auth_perf.get("decisions_vetoed", 0),
+                    "fee_friction_vetoes": auth_perf.get("fee_friction_vetoes", 0),
+                    "red_team_vetoes": auth_perf.get("red_team_vetoes", 0)
+                }
+            except Exception:
+                pass
+
             self._send_json(200, res)
             return
 
@@ -1045,6 +1070,41 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 except Exception:
                     pass
             self._send_json(200, data)
+            return
+
+        # 3c-4. API: Adversarial Red Team Gatekeeper (DIV-14)
+        if self.path.startswith("/api/agent/redteam"):
+            from backend_lib.measurement_journal import mj
+            perf = mj.get_authoritative_performance()
+            recent_vetoes = mj.get_recent_decisions(limit=15)
+            self._send_json(200, {
+                "status": "ACTIVE",
+                "mode": "FALSIFICATION_GUARD_ON",
+                "fee_cap_pct": 25.0,
+                "friction_roundtrip_pct": 0.150,
+                "min_ev_hurdle_r": 0.35,
+                "decisions_evaluated": perf.get("decisions_evaluated", 0),
+                "decisions_executed": perf.get("decisions_executed", 0),
+                "decisions_vetoed": perf.get("decisions_vetoed", 0),
+                "fee_friction_vetoes": perf.get("fee_friction_vetoes", 0),
+                "negative_ev_vetoes": perf.get("negative_ev_vetoes", 0),
+                "red_team_vetoes": perf.get("red_team_vetoes", 0),
+                "recent_decisions": recent_vetoes
+            })
+            return
+
+        # 3c-5. API: Authoritative Signal Decision Journal (NO-TRADE & Executed decisions)
+        if self.path.startswith("/api/journal/decisions"):
+            from backend_lib.measurement_journal import mj
+            decisions = mj.get_recent_decisions(limit=60)
+            self._send_json(200, {"decisions": decisions, "count": len(decisions)})
+            return
+
+        # 3c-6. API: Authoritative Measurement Journal Performance
+        if self.path.startswith("/api/journal/performance"):
+            from backend_lib.measurement_journal import mj
+            perf = mj.get_authoritative_performance()
+            self._send_json(200, perf)
             return
 
         # 3d. API: Market Prophet Knowledge Base

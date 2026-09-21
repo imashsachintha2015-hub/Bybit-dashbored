@@ -66,7 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'DIV-10', name: 'News Sentinel', icon: 'fa-newspaper', iconColor: 'var(--gold)', status: 'active', statusLabel: 'MONITORING', meta1: 'Headlines: --', meta2: 'Sentiment: --' },
     { id: 'DIV-11', name: 'Whale Flow Tracker', icon: 'fa-money-bill-trend-up', iconColor: 'var(--cyan)', status: 'active', statusLabel: 'TRACKING', meta1: 'Whales: 0', meta2: 'Flow: NEUTRAL' },
     { id: 'DIV-12', name: 'Position Manager', icon: 'fa-shield', iconColor: 'var(--green)', status: 'active', statusLabel: 'IDLE', meta1: 'Open: 0', meta2: 'Mode: STRUCTURAL' },
-    { id: 'DIV-13', name: 'Historical Archaeologist', icon: 'fa-landmark-dome', iconColor: '#A855F7', status: 'active', statusLabel: 'LEARNING', meta1: 'Super-Trades: 50', meta2: 'Anti-Rules: 5 ACTIVE' }
+    { id: 'DIV-13', name: 'Historical Archaeologist', icon: 'fa-landmark-dome', iconColor: '#A855F7', status: 'active', statusLabel: 'LEARNING', meta1: 'Super-Trades: 50', meta2: 'Anti-Rules: 5 ACTIVE' },
+    { id: 'DIV-14', name: 'Adversarial Red Team', icon: 'fa-user-ninja', iconColor: '#EF4444', status: 'active', statusLabel: 'FALSIFYING', meta1: 'Fee Cap: <=25%', meta2: 'EV Hurdle: >=0.35R' }
   ];
 
   const $ = id => document.getElementById(id);
@@ -75,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grid = $('agentsGrid');
     if (!grid) return;
     grid.innerHTML = AGENTS.map(a => `
-      <div class="agent-card status-${a.status}" data-agent="${a.id}" style="${a.id === 'DIV-13' ? 'cursor: pointer; border: 1px solid rgba(168,85,247,0.35);' : ''}" title="${a.id === 'DIV-13' ? 'Click to inspect Super-Trades & Anti-Pattern Rules' : ''}">
+      <div class="agent-card status-${a.status}" data-agent="${a.id}" style="${a.id === 'DIV-13' ? 'cursor: pointer; border: 1px solid rgba(168,85,247,0.35);' : (a.id === 'DIV-14' ? 'cursor: pointer; border: 1px solid rgba(239,68,68,0.45);' : '')}" title="${a.id === 'DIV-13' ? 'Click to inspect Super-Trades & Anti-Pattern Rules' : (a.id === 'DIV-14' ? 'Click to inspect Adversarial Red Team Veto Journal' : '')}">
         <div class="agent-top">
           <span class="agent-id">${a.id}</span>
           <span class="agent-status ${a.status}">${a.statusLabel}</span>
@@ -91,6 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const div13Card = grid.querySelector('[data-agent="DIV-13"]');
     if (div13Card) {
       div13Card.onclick = showArchaeologistModal;
+    }
+    const div14Card = grid.querySelector('[data-agent="DIV-14"]');
+    if (div14Card) {
+      div14Card.onclick = showRedTeamModal;
     }
   }
   renderAgents();
@@ -178,6 +183,72 @@ document.addEventListener('DOMContentLoaded', () => {
             <td style="padding: 7px 10px; font-family: var(--font-mono); font-weight: 800; color: ${color};">+${t.roe_10x_pct}%</td>
             <td style="padding: 7px 10px; font-family: var(--font-mono);">${t.vol_expansion}x</td>
             <td style="padding: 7px 10px; color: var(--text-dim); max-width: 250px;">${t.root_cause || '--'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  let cachedRedTeamData = null;
+
+  async function fetchRedTeamState() {
+    try {
+      const res = await fetch('/api/agent/redteam');
+      if (!res.ok) return;
+      const data = await res.json();
+      cachedRedTeamData = data;
+      const div14 = AGENTS.find(a => a.id === 'DIV-14');
+      if (div14) {
+        div14.meta1 = `Vetoed: ${data.decisions_vetoed || 0}`;
+        div14.meta2 = `Fee Vetoes: ${data.fee_friction_vetoes || 0}`;
+        renderAgents();
+      }
+    } catch (e) {}
+  }
+  setInterval(fetchRedTeamState, 15000);
+  setTimeout(fetchRedTeamState, 2000);
+
+  function showRedTeamModal() {
+    const backdrop = $('redTeamModalBackdrop');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+
+    const closeBtn = $('closeRedTeamModalBtn');
+    if (closeBtn) closeBtn.onclick = () => { backdrop.style.display = 'none'; };
+    backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; };
+
+    renderRedTeamData();
+  }
+
+  function renderRedTeamData() {
+    if (!cachedRedTeamData) return;
+
+    if ($('redTeamVetoCount')) {
+      $('redTeamVetoCount').textContent = cachedRedTeamData.decisions_vetoed || 0;
+    }
+
+    const tbody = $('redTeamDecisionsBody');
+    if (tbody && cachedRedTeamData.recent_decisions) {
+      if (cachedRedTeamData.recent_decisions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding: 16px; text-align: center; color: var(--text-dim);">No signal decisions logged yet. The Red Team will audit all candidates in real time.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = cachedRedTeamData.recent_decisions.map(d => {
+        const isVeto = d.decision !== 'EXECUTED';
+        const badgeColor = isVeto ? '#DC2626' : '#16A34A';
+        const badgeBg = isVeto ? 'rgba(239, 68, 68, 0.1)' : 'rgba(22, 163, 74, 0.1)';
+        const feeRatio = (Number(d.fee_to_target_ratio || 0) * 100).toFixed(1);
+        const feeColor = Number(d.fee_to_target_ratio || 0) > 0.25 ? '#DC2626' : '#16A34A';
+        return `
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 7px 10px; color: var(--text-dim); font-family: var(--font-mono);">${d.time || '--'}</td>
+            <td style="padding: 7px 10px; font-weight: 700;">${d.symbol}</td>
+            <td style="padding: 7px 10px;"><b>${d.direction}</b> ${d.setup_type || 'SETUP'}</td>
+            <td style="padding: 7px 10px;"><span style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${d.decision}</span></td>
+            <td style="padding: 7px 10px; font-family: var(--font-mono);">+${(Number(d.target_runway_pct) || 0).toFixed(2)}%</td>
+            <td style="padding: 7px 10px; font-family: var(--font-mono); color: ${feeColor}; font-weight: 700;">${feeRatio}%</td>
+            <td style="padding: 7px 10px; font-family: var(--font-mono); font-weight: 700;">${Number(d.expected_r) > 0 ? '+' : ''}${(Number(d.expected_r) || 0).toFixed(2)}R</td>
+            <td style="padding: 7px 10px; color: var(--text-dim); max-width: 320px;">${d.veto_reason || '--'}</td>
           </tr>
         `;
       }).join('');
@@ -2416,7 +2487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chevron) chevron.style.transform = 'rotate(180deg)';
         if (text) text.textContent = 'Collapse';
         if (badge) {
-          badge.textContent = '11 Agents · Visible';
+          badge.textContent = '12 Agents · Visible';
           badge.style.background = 'rgba(22, 199, 132, 0.12)';
           badge.style.color = '#16C784';
         }
@@ -2425,7 +2496,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chevron) chevron.style.transform = 'rotate(0deg)';
         if (text) text.textContent = 'Expand';
         if (badge) {
-          badge.textContent = '11 Agents · Hidden';
+          badge.textContent = '12 Agents · Hidden';
           badge.style.background = 'rgba(14, 165, 233, 0.1)';
           badge.style.color = '#0284C7';
         }
