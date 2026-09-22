@@ -98,6 +98,9 @@ class handler(JsonApiHandler):
                 target_notional=body.get("targetNotional"),
                 virtual_equity=body.get("virtualEquity"),
                 max_concurrent_positions=body.get("maxConcurrentPositions"),
+                strategy_mode=body.get("strategyMode"),
+                scalp_mode=body.get("scalpMode"),
+                sure_shot_mode=body.get("sureShotMode"),
             )
             self._send_json(200, state)
         except Exception as e:
