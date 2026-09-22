@@ -120,14 +120,23 @@ class MarketKnowledgeBase:
         # ── In-Memory Cache to slash Supabase network egress ──
         global _target_state_cache
         if "_target_state_cache" not in globals():
-            _target_state_cache = {"data": None, "timestamp": 0, "last_patched_eq": 0.0, "last_patch_time": 0}
+            _target_state_cache = {
+                "data": None, "timestamp": 0,
+                "last_patched_eq": 0.0, "last_patch_time": 0,
+                # pacing KV cached separately — only changes when user sets horizon
+                "pacing": None, "pacing_ts": 0,
+            }
 
         now = time.time()
         # 1. Supabase Primary (Cached for 45s unless force updated)
         if SUPABASE_URL and SUPABASE_KEY:
             try:
                 if not _target_state_cache["data"] or (now - _target_state_cache["timestamp"] >= 45):
-                    rows = supabase_get("target_mode_state", {"id": "eq.1"})
+                    # Only select the 6 columns we actually use — avoids pulling heavy jsonb cols
+                    rows = supabase_get("target_mode_state", {
+                        "id": "eq.1",
+                        "select": "id,target_equity,is_armed,status,strategy_mode,current_equity"
+                    })
                     if rows and isinstance(rows, list) and len(rows) > 0:
                         _target_state_cache["data"] = rows[0]
                         _target_state_cache["timestamp"] = now
@@ -168,8 +177,12 @@ class MarketKnowledgeBase:
                     strategy_mode = str(row.get("strategy_mode") or "SWING_RUNNER")
                     
                     # ── Target Horizon, Velocity & ETA Engine ──
+                    # Cache pacing KV for 5 minutes — it only changes when user sets a new horizon
                     from .supabase_client import supabase_kv_get
-                    pacing_kv = supabase_kv_get("target_pacing_state") or {}
+                    if not _target_state_cache["pacing"] or (now - _target_state_cache["pacing_ts"] >= 300):
+                        _target_state_cache["pacing"] = supabase_kv_get("target_pacing_state") or {}
+                        _target_state_cache["pacing_ts"] = now
+                    pacing_kv = _target_state_cache["pacing"]
                     time_horizon_hours = float(pacing_kv.get("time_horizon_hours") or 24.0)
                     start_time = float(pacing_kv.get("start_time") or (now - 3600))
                     start_eq = float(pacing_kv.get("start_equity") or (target_eq - 5.0))

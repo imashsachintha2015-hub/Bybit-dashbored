@@ -15,7 +15,23 @@ from .supabase_client import supabase_kv_get, supabase_kv_set, SUPABASE_URL, SUP
 KV_URL = os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL")
 KV_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
 
+import time
+
 _memory_store = {}
+_memory_ts = {}
+CACHE_TTL = 30  # 30-second memory cache to eliminate repetitive network polling
+
+# Keys that must NEVER be written to Supabase KV (they are heavy blobs with dedicated tables or local files)
+EXCLUDE_FROM_CLOUD_KV = {
+    "signal_log",
+    "deepseek_pre_trade_decisions",
+    "historical_super_trades",
+    "live_market_state",
+    "deepseek_claimer_decisions",
+}
+
+SCRATCH_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scratch")
+os.makedirs(SCRATCH_DIR, exist_ok=True)
 
 
 def kv_configured():
@@ -23,22 +39,71 @@ def kv_configured():
     return bool(SUPABASE_URL and SUPABASE_KEY) or bool(KV_URL and KV_TOKEN)
 
 
+def _get_local_file(key):
+    # Try scratch/ first, then /tmp/
+    scratch_p = os.path.join(SCRATCH_DIR, f"{key}.json")
+    if os.path.exists(scratch_p):
+        try:
+            with open(scratch_p, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    tmp_path = f"/tmp/{key}.json"
+    if os.path.exists(tmp_path):
+        try:
+            with open(tmp_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return None
+
+
+def _set_local_file(key, value):
+    scratch_p = os.path.join(SCRATCH_DIR, f"{key}.json")
+    try:
+        with open(scratch_p, "w", encoding="utf-8") as f:
+            json.dump(value, f)
+    except Exception:
+        pass
+    try:
+        with open(f"/tmp/{key}.json", "w", encoding="utf-8") as f:
+            json.dump(value, f)
+    except Exception:
+        pass
+
+
 def kv_get_json(key, default):
     """
     Retrieve JSON data by key.
-    Checks Supabase cloud database first, then Redis, then in-memory/tmp.
+    Uses memory cache first, then local scratch file for large blobs, then Supabase.
     """
-    # 1. Supabase Cloud Database (Primary)
+    now = time.time()
+
+    # 1. In-memory cache hit (0ms, 0 bytes egress)
+    if key in _memory_store and (now - _memory_ts.get(key, 0) < CACHE_TTL):
+        return _memory_store[key]
+
+    # 2. Excluded heavy keys: read local scratch file (0 egress)
+    if key in EXCLUDE_FROM_CLOUD_KV:
+        val = _get_local_file(key)
+        if val is not None:
+            _memory_store[key] = val
+            _memory_ts[key] = now
+            return val
+        return _memory_store.get(key, default)
+
+    # 3. Supabase Cloud Database (for small configs only)
     if SUPABASE_URL and SUPABASE_KEY:
         try:
             val = supabase_kv_get(key, default=None)
             if val is not None:
                 _memory_store[key] = val
+                _memory_ts[key] = now
                 return val
         except Exception as e:
             print(f"[Supabase KV] get({key}) failed: {e}")
 
-    # 2. Redis KV (Secondary fallback)
+    # 4. Redis KV (Secondary fallback)
     if KV_URL and KV_TOKEN:
         try:
             req = urllib.request.Request(
@@ -51,38 +116,38 @@ def kv_get_json(key, default):
             if raw:
                 parsed = json.loads(raw)
                 _memory_store[key] = parsed
+                _memory_ts[key] = now
                 return parsed
         except Exception as e:
             print(f"[Redis KV] get({key}) failed: {e}")
 
-    # 3. Process memory or local /tmp cache
-    if key in _memory_store:
-        return _memory_store[key]
-    tmp_path = f"/tmp/{key}.json"
-    if os.path.exists(tmp_path):
-        try:
-            with open(tmp_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    # 5. Local file fallback
+    val = _get_local_file(key)
+    if val is not None:
+        _memory_store[key] = val
+        _memory_ts[key] = now
+        return val
+
     return default
 
 
 def kv_set_json(key, value):
     """
     Persist JSON data by key.
-    Writes to Supabase cloud database, Redis (if configured), and in-memory cache.
+    Writes to memory, local scratch file, and cloud KV (only for lightweight configs).
     """
+    now = time.time()
     _memory_store[key] = value
+    _memory_ts[key] = now
 
-    # Write to local tmp file as emergency backup
-    try:
-        with open(f"/tmp/{key}.json", "w", encoding="utf-8") as f:
-            json.dump(value, f)
-    except Exception:
-        pass
+    # Write to local file
+    _set_local_file(key, value)
 
-    # 1. Supabase Cloud Database (Primary)
+    # Do NOT write heavy blobs to Cloud KV
+    if key in EXCLUDE_FROM_CLOUD_KV:
+        return
+
+    # 1. Supabase Cloud Database (Primary for small configs)
     if SUPABASE_URL and SUPABASE_KEY:
         try:
             supabase_kv_set(key, value)

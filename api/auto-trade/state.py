@@ -31,20 +31,24 @@ class handler(JsonApiHandler):
 
         if action == "gatekeeper_decisions":
             decisions = []
-            try:
-                from backend_lib.supabase_client import supabase_kv_get
-                decisions = supabase_kv_get("deepseek_pre_trade_decisions") or []
-            except Exception:
-                pass
+            # 1. Local scratch file (instant, 0 egress on Railway)
+            dec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scratch", "deepseek_pre_trade_decisions.json")
+            if os.path.exists(dec_path):
+                try:
+                    import json
+                    with open(dec_path, "r", encoding="utf-8") as f:
+                        decisions = json.load(f)
+                except Exception:
+                    pass
+            # 2. Supabase journal table fallback (compact rows, ~2KB total)
             if not decisions:
-                dec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scratch", "deepseek_pre_trade_decisions.json")
-                if os.path.exists(dec_path):
-                    try:
-                        import json
-                        with open(dec_path, "r", encoding="utf-8") as f:
-                            decisions = json.load(f)
-                    except Exception:
-                        pass
+                try:
+                    from backend_lib.supabase_client import supabase_get
+                    rows = supabase_get("signal_decision_journal", {"order": "recorded_at.desc", "limit": "20"})
+                    if rows and isinstance(rows, list):
+                        decisions = rows
+                except Exception:
+                    pass
             self._send_json(200, {"decisions": list(reversed(decisions)), "count": len(decisions)})
             return
 

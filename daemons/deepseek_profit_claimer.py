@@ -276,17 +276,7 @@ class SmartProfitClaimer:
         self._load_history()
 
     def _load_history(self):
-        # 1. Try Supabase Cloud Database
-        try:
-            from backend_lib.supabase_client import supabase_kv_get
-            cloud_history = supabase_kv_get("deepseek_claimer_decisions", None)
-            if cloud_history and isinstance(cloud_history, list):
-                self.history = cloud_history
-                return
-        except Exception:
-            pass
-
-        # 2. Local file fallback
+        # Local file persistence
         if os.path.exists(DECISION_LOG_FILE):
             try:
                 with open(DECISION_LOG_FILE, 'r', encoding='utf-8') as f:
@@ -298,11 +288,6 @@ class SmartProfitClaimer:
         try:
             with open(DECISION_LOG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.history[-100:], f, indent=2)
-        except Exception:
-            pass
-        try:
-            from backend_lib.supabase_client import supabase_kv_set
-            supabase_kv_set("deepseek_claimer_decisions", self.history[-100:])
         except Exception:
             pass
 

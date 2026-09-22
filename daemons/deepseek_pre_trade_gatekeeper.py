@@ -815,10 +815,22 @@ def _save_gatekeeper_decision(decision):
     except Exception:
         pass
         
-    # Also sync to Supabase KV if available
+    # Sync single structured decision to Supabase journal table (replaces 100KB KV dump with ~300 bytes)
     try:
-        from backend_lib.supabase_client import supabase_kv_set
-        supabase_kv_set("deepseek_pre_trade_decisions", decisions[-25:])
+        from backend_lib.supabase_client import supabase_post
+        row = {
+            "symbol": decision.get("symbol"),
+            "direction": decision.get("direction"),
+            "entry_price": decision.get("entry_price") or decision.get("price"),
+            "score": decision.get("score"),
+            "setup_type": decision.get("setup") or decision.get("setup_type"),
+            "regime": decision.get("regime"),
+            "decision": decision.get("action") or decision.get("decision"),
+            "adversarial_veto_reason": decision.get("reason"),
+            "recorded_at": int(time.time() * 1000)
+        }
+        row = {k: v for k, v in row.items() if v is not None}
+        supabase_post("signal_decision_journal", row)
     except Exception:
         pass
 

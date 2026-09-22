@@ -58,7 +58,7 @@ def supabase_get(table, query_params=None, timeout=6):
         return None
 
 
-def supabase_post(table, data, prefer="resolution=merge-duplicates,return=representation", timeout=6):
+def supabase_post(table, data, prefer="resolution=merge-duplicates,return=minimal", timeout=6):
     """
     Perform an INSERT or UPSERT against a Supabase table.
     data can be a dict (single row) or list of dicts (batch rows).
@@ -79,7 +79,7 @@ def supabase_post(table, data, prefer="resolution=merge-duplicates,return=repres
         return None
 
 
-def supabase_patch(table, filter_param, data, prefer="return=representation", timeout=6):
+def supabase_patch(table, filter_param, data, prefer="return=minimal", timeout=6):
     """
     Perform an UPDATE/PATCH on matching rows.
     filter_param should be a dict like {'id': 'eq.1'} or a querystring.

@@ -462,13 +462,7 @@ def run_scanner_loop():
             with open(STATE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(payload, f, indent=2)
 
-            # Sync to Supabase Cloud Database: Throttled to cut network egress
-            if scan_count % 35 == 0 or (len(active) > 0 and scan_count % 10 == 0):
-                try:
-                    from backend_lib.supabase_client import supabase_kv_set
-                    supabase_kv_set("live_market_state", payload)
-                except Exception:
-                    pass
+            # Snapshot saved locally to scratch/live_market_state.json for server & executor (0 egress)
 
             # Only post new unique signals (score >= 78 in swing, >= 75 in scalp)
             min_score = 78 if strategy_mode == "SWING_RUNNER" else 75

@@ -572,11 +572,7 @@ class HistoricalPatternArchaeologist:
             }
             with open(SUPER_TRADES_FILE, 'w', encoding='utf-8') as f:
                 json.dump(payload, f, indent=2)
-            try:
-                from backend_lib.supabase_client import supabase_kv_set
-                supabase_kv_set("historical_super_trades", payload)
-            except Exception:
-                pass
+            log(f"Synced {len(rows)} super-trades to {SUPER_TRADES_FILE} (0 cloud egress)")
         except Exception as e:
             log(f"JSON save error: {e}")
 
