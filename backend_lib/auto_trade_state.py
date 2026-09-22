@@ -88,13 +88,16 @@ def save(
         else None
     )
 
+    # IMPORTANT: Only an explicit strategy_mode, or an explicit positive
+    # scalp/sureshot flag, may change the persisted strategy. Legacy callers
+    # often POST sizing/arm/thesis fields without strategyMode. Those calls
+    # must preserve the user's selected mode instead of silently reverting to
+    # Swing/standard.
     if requested_mode not in VALID_STRATEGY_MODES:
         if sure_shot_mode is True:
             requested_mode = "sureshot"
         elif scalp_mode is True:
             requested_mode = "scalp"
-        elif scalp_mode is False and sure_shot_mode is False:
-            requested_mode = "standard"
         else:
             requested_mode = current.get("strategyMode", "standard")
 
