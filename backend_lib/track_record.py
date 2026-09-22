@@ -1,128 +1,497 @@
-"""What actually happened, summarised for the supervisor.
+"""Measured trading history used by the supervisor.
 
-The supervisor was stateless: every call re-read one candidate cold, with no
-knowledge of how similar setups had gone or whether its own past verdicts were
-any good. It could repeat the same mistake indefinitely and never know.
+Historical losses are learning evidence, NOT a permanent blacklist.
 
-This assembles the record it was missing, from data the system already keeps:
-closed trades (trade_stats) and the suggestion log with its settled shadow
-outcomes (signal_log). Five things go in, in descending order of usefulness:
+The important distinction is:
+    failed trade != failed coin/setup
 
- 1. The supervisor's OWN calibration -- did trades it confirmed do better than
-    trades it downgraded? If they did not, its verdicts carry no information
-    and it should know that about itself.
- 2. How this specific setup type has actually performed.
- 3. The most recent losses on this symbol, as concrete cases rather than rates.
- 4. Actual dollar P&L per verdict type -- the money consequence of each decision.
- 5. Position manager forced exits (THESIS_FLIP, TIME_STOP, STRUCTURE_BROKEN)
-    counted explicitly as losses, with their reasons.
-
-Everything is capped and rounded: this rides in a prompt on every call, so it
-has to stay small, and precision beyond whole percents would be false anyway at
-these sample sizes. Sample sizes are always shown, because a 100% win rate on
-three trades should not read like a fact.
+The supervisor should learn the conditions associated with previous losses and
+compare those conditions with the current candidate.
 """
+
 from . import signal_log as signal_log_mod
 from . import trade_stats as trade_stats_mod
 
-MIN_SAMPLE = 5          # below this, report the count and draw no conclusion
-RECENT_LOSSES = 3
+MIN_SAMPLE = 5
+RECENT_LOSSES = 4
+REPEAT_SAMPLE = 3
 
 
 def _rate(rows):
     if not rows:
         return None
-    wins = sum(1 for r in rows if (r.get("r_multiple") or 0) > 0)
-    rs = [r.get("r_multiple") or 0 for r in rows]
-    return {"n": len(rows), "wr": round(100 * wins / len(rows)), "avg_r": round(sum(rs) / len(rs), 2)}
+
+    wins = sum(
+        1 for r in rows
+        if (r.get("r_multiple") or 0) > 0
+    )
+
+    rs = [
+        r.get("r_multiple") or 0
+        for r in rows
+    ]
+
+    return {
+        "n": len(rows),
+        "wr": round(100 * wins / len(rows)),
+        "avg_r": round(sum(rs) / len(rs), 2),
+    }
 
 
-def build(symbol, setup):
-    """Returns a short plain-text block, or '' when there is nothing to say."""
+def _text_values(value):
+    """Flatten recorded context into compact searchable text."""
+
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        return [value]
+
+    if isinstance(value, (list, tuple)):
+        output = []
+
+        for item in value:
+            output.extend(_text_values(item))
+
+        return output
+
+    if isinstance(value, dict):
+        output = []
+
+        for key, val in value.items():
+            if isinstance(val, (str, int, float, bool)):
+                output.append(f"{key}={val}")
+
+        return output
+
+    return [str(value)]
+
+
+def _failure_context(trade):
+    """
+    Extract conditions that were actually recorded with the losing trade.
+
+    IMPORTANT:
+    We do NOT invent reasons for losses.
+    """
+
+    fields = (
+        "failure_reason",
+        "exit_reason",
+        "regime",
+        "bias",
+        "direction",
+        "side",
+        "setup_type",
+        "market_regime",
+        "timeframe",
+        "entry_reason",
+        "invalidation_reason",
+        "veto_reason",
+        "risk_reason",
+        "evidence",
+        "features",
+        "conditions",
+        "signals",
+    )
+
+    values = []
+
+    for field in fields:
+        value = trade.get(field)
+
+        if value not in (None, "", [], {}):
+            values.extend(_text_values(value))
+
+    seen = set()
+    result = []
+
+    for value in values:
+        value = str(value).strip()
+
+        if not value:
+            continue
+
+        key = value.lower()
+
+        if key not in seen:
+            seen.add(key)
+            result.append(value)
+
+    return result[:12]
+
+
+def _context_similarity(
+    current_setup,
+    current_direction,
+    current_regime,
+    loss,
+):
+    """
+    Compare only information that exists on both sides.
+
+    Returns:
+        score, known_fields
+    """
+
+    comparisons = (
+        (
+            current_setup,
+            loss.get("setup_type"),
+        ),
+        (
+            current_direction,
+            loss.get("side") or loss.get("direction"),
+        ),
+        (
+            current_regime,
+            loss.get("regime") or loss.get("market_regime"),
+        ),
+    )
+
+    score = 0
+    known = 0
+
+    for current, previous in comparisons:
+
+        if current in (None, "", "UNKNOWN"):
+            continue
+
+        if previous in (None, "", "UNKNOWN"):
+            continue
+
+        known += 1
+
+        if str(current).upper() == str(previous).upper():
+            score += 1
+
+    return score, known
+
+
+def build(
+    symbol,
+    setup,
+    direction="UNKNOWN",
+    regime="UNKNOWN",
+):
+    """
+    Build measured learning evidence for the current candidate.
+
+    IMPORTANT:
+
+    Previous losses are warnings.
+
+    They are NOT automatic VETO instructions.
+    """
+
     lines = []
 
+    # ---------------------------------------------------------
+    # LOAD HISTORY
+    # ---------------------------------------------------------
+
     try:
-        history = trade_stats_mod.load().get("trade_history", []) or []
+        history = (
+            trade_stats_mod
+            .load()
+            .get("trade_history", [])
+            or []
+        )
     except Exception:
         history = []
+
     try:
-        signals = signal_log_mod.load().get("signals", []) or []
+        signals = (
+            signal_log_mod
+            .load()
+            .get("signals", [])
+            or []
+        )
     except Exception:
         signals = []
 
-    # 1. Is the supervisor's own opinion worth anything so far?
-    by_verdict = {"CONFIRM": [], "DOWNGRADE": [], "VETO": []}
+    # ---------------------------------------------------------
+    # 1. SUPERVISOR CALIBRATION
+    # ---------------------------------------------------------
+
+    by_verdict = {
+        "CONFIRM": [],
+        "DOWNGRADE": [],
+        "VETO": [],
+    }
+
     for row in signals:
-        v = ((row.get("supervisor") or {}).get("verdict") or "").upper()
-        out = row.get("shadow_outcome")
-        if v in by_verdict and out in ("WIN", "LOSS"):
-            by_verdict[v].append(1 if out == "WIN" else 0)
-    scored = {k: v for k, v in by_verdict.items() if v}
+
+        verdict = (
+            (row.get("supervisor") or {})
+            .get("verdict")
+            or ""
+        ).upper()
+
+        outcome = row.get("shadow_outcome")
+
+        if verdict in by_verdict and outcome in (
+            "WIN",
+            "LOSS",
+        ):
+            by_verdict[verdict].append(
+                1 if outcome == "WIN" else 0
+            )
+
+    scored = {
+        key: value
+        for key, value in by_verdict.items()
+        if value
+    }
+
     if scored:
-        parts = [f"{k} {round(100*sum(v)/len(v))}% (n={len(v)})" for k, v in scored.items()]
-        lines.append("Your own past verdicts, by what the setup then did: " + ", ".join(parts))
-        c, d = by_verdict["CONFIRM"], by_verdict["DOWNGRADE"] + by_verdict["VETO"]
-        if len(c) >= MIN_SAMPLE and len(d) >= MIN_SAMPLE:
-            cw, dw = sum(c) / len(c), sum(d) / len(d)
-            if cw <= dw:
-                lines.append("NOTE: setups you confirmed have NOT done better than ones you doubted. "
-                             "Treat your prior confidence with suspicion here.")
 
-    # 2. How this setup type has actually gone.
-    same = [t for t in history if t.get("setup_type") == setup]
-    st = _rate(same)
-    if st:
-        if st["n"] >= MIN_SAMPLE:
-            lines.append(f"{setup} history: {st['n']} closed trades, {st['wr']}% won, average {st['avg_r']}R")
-        else:
-            lines.append(f"{setup} history: only {st['n']} closed trades so far — too few to draw on")
-    overall = _rate(history)
-    if overall and overall["n"] >= MIN_SAMPLE:
-        lines.append(f"All setups: {overall['n']} closed trades, {overall['wr']}% won, average {overall['avg_r']}R")
+        parts = []
 
-    # 3. Concrete recent failures on this symbol beat any aggregate.
-    losses = [t for t in history if t.get("symbol") == symbol and (t.get("r_multiple") or 0) <= 0]
-    if losses:
-        recent = losses[:RECENT_LOSSES]
-        desc = "; ".join(
-            f"{t.get('setup_type') or '?'} {t.get('side') or ''} exited {t.get('exit_reason') or '?'} at {t.get('r_multiple')}R"
-            for t in recent
+        for key, values in scored.items():
+
+            parts.append(
+                f"{key} "
+                f"{round(100 * sum(values) / len(values))}% "
+                f"(n={len(values)})"
+            )
+
+        lines.append(
+            "Past supervisor verdict outcomes: "
+            + ", ".join(parts)
         )
-        lines.append(f"Recent losses on {symbol}: {desc}")
 
-    # 4. ACTUAL dollar P&L by exit reason — the money consequence of each decision.
-    # Position manager forced exits (THESIS_FLIP, TIME_STOP, STRUCTURE_BROKEN)
-    # with negative PnL are LOSSES, even if the position manager closed them
-    # "to protect" — the user's money still decreased.
-    pm_exits = [t for t in history if t.get("exit_reason") in
-                ("THESIS_FLIP", "TIME_STOP", "STRUCTURE_BROKEN", "EMERGENCY")]
-    if pm_exits:
-        pm_losses = [t for t in pm_exits if (t.get("pnl") or 0) < 0]
-        pm_wins = [t for t in pm_exits if (t.get("pnl") or 0) > 0]
-        pm_loss_total = sum(abs(t.get("pnl") or 0) for t in pm_losses)
-        reasons = {}
-        for t in pm_exits:
-            r = t.get("exit_reason", "?")
-            reasons.setdefault(r, {"count": 0, "pnl": 0.0})
-            reasons[r]["count"] += 1
-            reasons[r]["pnl"] += (t.get("pnl") or 0)
-        reason_parts = [f"{k}: {v['count']}x, ${v['pnl']:.2f}" for k, v in reasons.items()]
-        lines.append(f"Position manager exits: {len(pm_exits)} total ({len(pm_losses)} at a loss "
-                     f"= -${pm_loss_total:.2f}, {len(pm_wins)} in profit). "
-                     f"By reason: {', '.join(reason_parts)}")
+    # ---------------------------------------------------------
+    # 2. SETUP PERFORMANCE
+    # ---------------------------------------------------------
 
-    # 5. MISTAKE PATTERNS — if the same setup+symbol combo keeps losing, name it.
+    same_setup = [
+        trade
+        for trade in history
+        if trade.get("setup_type") == setup
+    ]
+
+    setup_stats = _rate(same_setup)
+
+    if setup_stats:
+
+        if setup_stats["n"] >= MIN_SAMPLE:
+
+            lines.append(
+                f"{setup} history: "
+                f"{setup_stats['n']} closed trades, "
+                f"{setup_stats['wr']}% won, "
+                f"average {setup_stats['avg_r']}R"
+            )
+
+        else:
+
+            lines.append(
+                f"{setup} history: "
+                f"{setup_stats['n']} closed trades — "
+                f"insufficient sample for a conclusion"
+            )
+
+    # ---------------------------------------------------------
+    # 3. SYMBOL HISTORY
+    # ---------------------------------------------------------
+
+    symbol_history = [
+        trade
+        for trade in history
+        if trade.get("symbol") == symbol
+    ]
+
+    symbol_losses = [
+        trade
+        for trade in symbol_history
+        if (
+            (trade.get("r_multiple") or 0) <= 0
+            or
+            (trade.get("pnl") or 0) < 0
+        )
+    ]
+
+    if symbol_losses:
+
+        recent = symbol_losses[:RECENT_LOSSES]
+
+        descriptions = []
+
+        for trade in recent:
+
+            context = _failure_context(trade)
+
+            setup_name = (
+                trade.get("setup_type")
+                or "?"
+            )
+
+            side = (
+                trade.get("side")
+                or trade.get("direction")
+                or ""
+            )
+
+            exit_reason = (
+                trade.get("exit_reason")
+                or "unknown exit"
+            )
+
+            description = (
+                f"{setup_name} {side} "
+                f"-> {exit_reason} "
+                f"({trade.get('r_multiple')}R)"
+            )
+
+            if context:
+
+                description += (
+                    " | context: "
+                    + "; ".join(context[:5])
+                )
+
+            descriptions.append(description)
+
+        lines.append(
+            f"Recent losses on {symbol}: "
+            + " || ".join(descriptions)
+        )
+
+    # ---------------------------------------------------------
+    # 4. REPEATED FAILURE PATTERN
+    #
+    # IMPORTANT:
+    # This is now diagnostic only.
+    # ---------------------------------------------------------
+
     combo_losses = {}
-    for t in history:
-        if (t.get("r_multiple") or 0) <= 0 or (t.get("pnl") or 0) < 0:
-            key = f"{t.get('setup_type', '?')} on {t.get('symbol', '?')}"
-            combo_losses.setdefault(key, 0)
-            combo_losses[key] += 1
-    repeat_fails = {k: v for k, v in combo_losses.items() if v >= 3}
-    if repeat_fails:
-        top = sorted(repeat_fails.items(), key=lambda x: -x[1])[:3]
-        lines.append("REPEATED FAILURES (do NOT repeat these): " +
-                     "; ".join(f"{k}: lost {v} times" for k, v in top))
 
-    return "\n".join(f"- {l}" for l in lines)
+    for trade in history:
 
+        if trade.get("symbol") != symbol:
+            continue
+
+        if trade.get("setup_type") != setup:
+            continue
+
+        if (
+            (trade.get("r_multiple") or 0) <= 0
+            or
+            (trade.get("pnl") or 0) < 0
+        ):
+
+            combo_losses.setdefault(
+                setup,
+                [],
+            ).append(trade)
+
+    repeated = combo_losses.get(setup, [])
+
+    if len(repeated) >= REPEAT_SAMPLE:
+
+        lines.append(
+            f"REPEATED FAILURE PATTERN: "
+            f"{symbol} + {setup} lost "
+            f"{len(repeated)} times. "
+            "This is a warning to compare the current "
+            "conditions with previous failures; "
+            "it is NOT an automatic veto."
+        )
+
+        contexts = []
+
+        for loss in repeated[-REPEAT_SAMPLE:]:
+
+            context = _failure_context(loss)
+
+            if context:
+                contexts.append(
+                    "; ".join(context[:6])
+                )
+
+        if contexts:
+
+            lines.append(
+                "Recorded failure conditions: "
+                + " || ".join(contexts)
+            )
+
+    # ---------------------------------------------------------
+    # 5. CURRENT CONDITION MATCHING
+    # ---------------------------------------------------------
+
+    matching = []
+
+    for loss in symbol_losses[:12]:
+
+        score, known = _context_similarity(
+            setup,
+            direction,
+            regime,
+            loss,
+        )
+
+        if score > 0:
+            matching.append(
+                (score, known, loss)
+            )
+
+    strong_matches = [
+        item
+        for item in matching
+        if item[0] >= 2 and item[1] >= 2
+    ]
+
+    if strong_matches:
+
+        lines.append(
+            "Current-condition comparison: "
+            f"{len(strong_matches)} recent loss(es) "
+            "share at least 2 known context fields "
+            "with this candidate."
+        )
+
+    else:
+
+        lines.append(
+            "Current-condition comparison: "
+            "no measured evidence that this candidate "
+            "repeats a prior loss context."
+        )
+
+    # ---------------------------------------------------------
+    # 6. POSITION MANAGER EXITS
+    # ---------------------------------------------------------
+
+    pm_exits = [
+        trade
+        for trade in history
+        if trade.get("exit_reason") in (
+            "THESIS_FLIP",
+            "TIME_STOP",
+            "STRUCTURE_BROKEN",
+            "EMERGENCY",
+        )
+    ]
+
+    if pm_exits:
+
+        pm_losses = [
+            trade
+            for trade in pm_exits
+            if (trade.get("pnl") or 0) < 0
+        ]
+
+        lines.append(
+            "Position-manager exits: "
+            f"{len(pm_exits)} total, "
+            f"{len(pm_losses)} negative. "
+            "Use their recorded conditions to detect "
+            "repetition; do not veto solely from the count."
+        )
+
+    return "\n".join(
+        f"- {line}"
+        for line in lines
+     )
