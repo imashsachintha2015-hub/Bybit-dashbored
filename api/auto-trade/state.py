@@ -37,7 +37,8 @@ class handler(JsonApiHandler):
                 try:
                     import json
                     with open(dec_path, "r", encoding="utf-8") as f:
-                        decisions = json.load(f)
+                        raw = json.load(f)
+                    decisions = raw[-20:] if isinstance(raw, list) else []
                 except Exception:
                     pass
             # 2. Supabase journal table fallback (compact rows, ~2KB total)
@@ -46,7 +47,18 @@ class handler(JsonApiHandler):
                     from backend_lib.supabase_client import supabase_get
                     rows = supabase_get("signal_decision_journal", {"order": "recorded_at.desc", "limit": "20"})
                     if rows and isinstance(rows, list):
-                        decisions = rows
+                        for r in rows:
+                            approved = (r.get("decision") == "EXECUTED")
+                            decisions.append({
+                                "approved": approved,
+                                "conviction_score": r.get("score") or 75,
+                                "symbol": r.get("symbol", ""),
+                                "direction": r.get("direction", "BUY"),
+                                "price": float(r.get("entry_price") or 0.0),
+                                "setup": r.get("setup_type", "SWING_PULLBACK"),
+                                "rationale": r.get("adversarial_veto_reason") or ("Approved by gatekeeper" if approved else "Vetoed"),
+                                "timestamp": int(r.get("recorded_at") or 0) // 1000
+                            })
                 except Exception:
                     pass
             self._send_json(200, {"decisions": list(reversed(decisions)), "count": len(decisions)})
