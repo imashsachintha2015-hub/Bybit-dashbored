@@ -24,16 +24,17 @@ from backend_lib.market_knowledge import kb
 
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 env = {}
-with open(ENV_PATH, 'r', encoding='utf-8') as f:
-    for line in f:
-        line = line.strip()
-        if line and not line.startswith('#') and '=' in line:
-            k, v = line.split('=', 1)
-            env[k.strip()] = v.strip().strip("'\"")
+if os.path.exists(ENV_PATH):
+    with open(ENV_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                k, v = line.split('=', 1)
+                env[k.strip()] = v.strip().strip("'\"")
 
-DEEPSEEK_API_KEY = env.get('DEEPSEEK_API_KEY', '')
-DEEPSEEK_URL = env.get('DEEPSEEK_URL', 'https://api.deepseek.com/v1/chat/completions')
-DEEPSEEK_MODEL = env.get('DEEPSEEK_MODEL', 'deepseek-chat')
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY') or env.get('DEEPSEEK_API_KEY', '')
+DEEPSEEK_URL = os.environ.get('DEEPSEEK_URL') or env.get('DEEPSEEK_URL', 'https://api.deepseek.com/v1/chat/completions')
+DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL') or env.get('DEEPSEEK_MODEL', 'deepseek-chat')
 
 DECISIONS_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deepseek_pre_trade_decisions.json')
 DB_PATH       = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'market_knowledge.db')

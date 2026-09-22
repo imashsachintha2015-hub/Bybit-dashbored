@@ -22,14 +22,19 @@ from backend_lib.order_failure_journal import failure_journal
 # Load environment
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 env = {}
-with open(ENV_PATH, 'r', encoding='utf-8') as f:
-    for line in f:
-        line = line.strip()
-        if line and not line.startswith('#') and '=' in line:
-            k, v = line.split('=', 1)
-            env[k.strip()] = v.strip().strip("'\"")
+if os.path.exists(ENV_PATH):
+    with open(ENV_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                k, v = line.split('=', 1)
+                env[k.strip()] = v.strip().strip("'\"")
 
-client = BybitDemoClient(env['BYBIT_API_KEY'], env['BYBIT_API_SECRET'], env['BYBIT_BASE_URL'])
+bybit_key = os.environ.get('BYBIT_API_KEY') or env.get('BYBIT_API_KEY', '')
+bybit_secret = os.environ.get('BYBIT_API_SECRET') or env.get('BYBIT_API_SECRET', '')
+bybit_base = os.environ.get('BYBIT_BASE_URL') or env.get('BYBIT_BASE_URL', 'https://api-demo.bybit.com')
+
+client = BybitDemoClient(bybit_key, bybit_secret, bybit_base)
 claimer = SmartProfitClaimer(client)
 
 STATE_FILE   = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scratch', 'live_market_state.json')

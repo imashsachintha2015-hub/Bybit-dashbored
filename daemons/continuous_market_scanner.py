@@ -20,7 +20,11 @@ if os.path.exists(_ENV_PATH):
                 k, v = line.split('=', 1)
                 env[k.strip()] = v.strip().strip("'\"")
 
-client = BybitDemoClient(env['BYBIT_API_KEY'], env['BYBIT_API_SECRET'], env['BYBIT_BASE_URL'])
+bybit_key = os.environ.get('BYBIT_API_KEY') or env.get('BYBIT_API_KEY', '')
+bybit_secret = os.environ.get('BYBIT_API_SECRET') or env.get('BYBIT_API_SECRET', '')
+bybit_base = os.environ.get('BYBIT_BASE_URL') or env.get('BYBIT_BASE_URL', 'https://api-demo.bybit.com')
+
+client = BybitDemoClient(bybit_key, bybit_secret, bybit_base)
 claimer = SmartProfitClaimer(client)
 
 # 24-coin universe — Large caps, Mid caps, Memecoins (~$11 notional per trade)
