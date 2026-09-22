@@ -1,1 +1,1 @@
-web: ./start_all.sh
+web: python launcher.py

@@ -26,4 +26,4 @@ RUN chmod +x start_all.sh
 EXPOSE 8080
 
 # Run unified launcher
-CMD ["./start_all.sh"]
+CMD ["python", "launcher.py"]

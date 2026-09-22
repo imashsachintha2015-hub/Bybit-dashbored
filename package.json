@@ -9,7 +9,7 @@
     "backtest": "node backtest/run-backtest.js",
     "fetch-data": "node backtest/fetch-klines.js",
     "live": "node --max-old-space-size=192 server/live-engine.js",
-    "start": "bash start_all.sh"
+    "start": "python launcher.py"
   },
   "dependencies": {
     "ws": "^8.18.0"
