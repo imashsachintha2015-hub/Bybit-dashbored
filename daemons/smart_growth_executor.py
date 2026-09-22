@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend_lib.bybit_client import BybitDemoClient
 from backend_lib.market_knowledge import kb
 from daemons.deepseek_profit_claimer import SmartProfitClaimer, round_price, round_qty, COIN_SPECS, fetch_klines, extract_microstructure
+from daemons.deepseek_pre_trade_gatekeeper import evaluate_setup_with_deepseek
 
 # Load environment
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
@@ -30,7 +31,7 @@ with open(ENV_PATH, 'r', encoding='utf-8') as f:
 client = BybitDemoClient(env['BYBIT_API_KEY'], env['BYBIT_API_SECRET'], env['BYBIT_BASE_URL'])
 claimer = SmartProfitClaimer(client)
 
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'live_market_state.json')
+STATE_FILE   = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scratch', 'live_market_state.json')
 EXECUTOR_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'smart_executor.log')
 
 MAX_CONCURRENT_TRADES = 1  # Sequential execution for maximum safety
@@ -310,11 +311,6 @@ def run_single_cycle():
             min_entry_score = 78 if strategy_mode == "SWING_RUNNER" else 75
 
             if score >= min_entry_score and direction in ['BUY', 'SELL']:
-                # ── DEEPSEEK AI PRE-TRADE QUANTITATIVE GATEKEEPER ──
-                import importlib
-                import scratch.deepseek_pre_trade_gatekeeper as dsg
-                importlib.reload(dsg)
-                evaluate_setup_with_deepseek = dsg.evaluate_setup_with_deepseek
                 log(f"🧠 [DEEPSEEK REVIEW] Evaluating {sym} {direction} candidate through DeepSeek Pre-Trade Gatekeeper...")
                 gatekeeper_dec = evaluate_setup_with_deepseek(top, btc_macro)
                 

@@ -58,8 +58,9 @@ COIN_CONFIG = {
 }
 
 
-LOG_FILE = 'scratch/scanner_live.log'
-STATE_FILE = 'scratch/live_market_state.json'
+_ROOT     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_FILE  = os.path.join(_ROOT, 'scratch', 'scanner_live.log')
+STATE_FILE = os.path.join(_ROOT, 'scratch', 'live_market_state.json')
 
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

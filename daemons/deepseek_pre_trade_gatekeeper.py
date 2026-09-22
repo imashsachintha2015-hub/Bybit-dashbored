@@ -36,7 +36,7 @@ DEEPSEEK_URL = env.get('DEEPSEEK_URL', 'https://api.deepseek.com/v1/chat/complet
 DEEPSEEK_MODEL = env.get('DEEPSEEK_MODEL', 'deepseek-chat')
 
 DECISIONS_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deepseek_pre_trade_decisions.json')
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'market_knowledge.db')
+DB_PATH       = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'market_knowledge.db')
 
 def fetch_klines(symbol, interval, limit=30):
     url = f"https://api-demo.bybit.com/v5/market/kline?category=linear&symbol={symbol}&interval={interval}&limit={limit}"
@@ -448,7 +448,7 @@ def evaluate_setup_with_deepseek(candidate, btc_macro=None):
     conditional_edge = cee.compute_conditional_edge(state_vector)
 
     # ── ADVERSARIAL RED TEAM GATE (DIV-14) ──
-    from scratch.adversarial_red_team_gate import red_team
+    from daemons.adversarial_red_team_gate import red_team
     from backend_lib.measurement_journal import mj
     red_check = red_team.evaluate(candidate, sr, btc_macro)
     
@@ -715,7 +715,7 @@ def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlesti
 
     # ── 1. HISTORICAL ARCHAEOLOGIST ANTI-PATTERN VETO GUARD ──
     try:
-        from scratch.historical_pattern_archaeologist import archaeologist
+        from daemons.historical_pattern_archaeologist import archaeologist
         is_anti_veto, rule_id, anti_reason = archaeologist.check_anti_pattern_veto(candidate, btc_macro, sr)
     except Exception:
         is_anti_veto, rule_id, anti_reason = False, None, ""
