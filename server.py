@@ -1135,7 +1135,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # 6-btc. API: Real-time BTC Macro Regime & Altcoin Sensitivity Guard
         if self.path.startswith("/api/market/btc-macro"):
             try:
-                from scratch.btc_macro_monitor import fetch_btc_macro
+                from daemons.btc_macro_monitor import fetch_btc_macro
                 macro = fetch_btc_macro()
                 self._send_json(200, macro or {})
             except Exception as e:
@@ -1467,7 +1467,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # 6. API: Trigger Historical Archaeology Scan on demand
         if self.path.startswith("/api/agent/archaeologist/scan"):
             try:
-                from scratch.historical_pattern_archaeologist import archaeologist
+                from daemons.historical_pattern_archaeologist import archaeologist
                 res = archaeologist.run_archaeology_cycle()
                 self._send_json(200, {"success": True, "result": res})
             except Exception as e:

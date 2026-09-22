@@ -15,7 +15,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend_lib.bybit_client import BybitDemoClient
 from backend_lib.market_knowledge import kb
-from scratch.deepseek_profit_claimer import SmartProfitClaimer, round_price, round_qty, COIN_SPECS, fetch_klines, extract_microstructure
+from daemons.deepseek_profit_claimer import SmartProfitClaimer, round_price, round_qty, COIN_SPECS, fetch_klines, extract_microstructure
 
 # Load environment
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
@@ -155,7 +155,7 @@ def run_single_cycle():
     active_syms = [p['symbol'] for p in active]
     check_and_learn_closed_trades(active_syms)
         
-    from scratch.btc_macro_monitor import fetch_btc_macro
+    from daemons.btc_macro_monitor import fetch_btc_macro
     btc_macro = fetch_btc_macro()
 
     # 2. Manage all active positions with DeepSeek Smart Profit Claimer

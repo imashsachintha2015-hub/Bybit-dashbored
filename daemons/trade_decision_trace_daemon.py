@@ -16,8 +16,8 @@ from datetime import datetime, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCANNER_LOG = os.path.join(ROOT, "scratch", "scanner_live.log")
 EXECUTOR_LOG = os.path.join(ROOT, "scratch", "smart_executor.log")
-TRACE_FILE = os.path.join(ROOT, "scratch", "trade_decision_traces.jsonl")
-STATE_FILE = os.path.join(ROOT, "scratch", "trade_decision_trace_state.json")
+TRACE_FILE = os.path.join(ROOT, "daemons", "trade_decision_traces.jsonl")
+STATE_FILE = os.path.join(ROOT, "daemons", "trade_decision_trace_state.json")
 
 traces = {}
 log_offsets = {SCANNER_LOG: 0, EXECUTOR_LOG: 0}

@@ -8,15 +8,17 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend_lib.bybit_client import BybitDemoClient
-from scratch.deepseek_profit_claimer import SmartProfitClaimer
+from daemons.deepseek_profit_claimer import SmartProfitClaimer
 
-with open('.env') as f:
-    env = {}
-    for line in f:
-        line = line.strip()
-        if '=' in line and not line.startswith('#'):
-            k, v = line.split('=', 1)
-            env[k.strip()] = v.strip().strip("'\"")
+_ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+env = {}
+if os.path.exists(_ENV_PATH):
+    with open(_ENV_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if '=' in line and not line.startswith('#'):
+                k, v = line.split('=', 1)
+                env[k.strip()] = v.strip().strip("'\"")
 
 client = BybitDemoClient(env['BYBIT_API_KEY'], env['BYBIT_API_SECRET'], env['BYBIT_BASE_URL'])
 claimer = SmartProfitClaimer(client)
@@ -390,7 +392,7 @@ def run_scanner_loop():
     log("========================================================================")
 
     
-    from scratch.btc_macro_monitor import fetch_btc_macro
+    from daemons.btc_macro_monitor import fetch_btc_macro
     from backend_lib.market_knowledge import kb
 
     scan_count = 0
