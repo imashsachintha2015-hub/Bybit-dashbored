@@ -31,7 +31,10 @@ EXCLUDE_FROM_CLOUD_KV = {
 }
 
 SCRATCH_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scratch")
-os.makedirs(SCRATCH_DIR, exist_ok=True)
+try:
+    os.makedirs(SCRATCH_DIR, exist_ok=True)
+except Exception:
+    pass
 
 
 def kv_configured():
