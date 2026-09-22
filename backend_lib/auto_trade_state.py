@@ -3,24 +3,15 @@
 The dashboard has no login/session system -- it's a single shared demo
 account, and the entire decision engine (regime read, setup grading, the
 analyst panel, position management) runs client-side in whichever browser
-tab has the page open. Before this, whether auto-trading was ARMED or
-STOPPED lived only in that one tab's JS memory (a plain `let`), so opening
-the dashboard on a different device, or even just reloading, always came
-back up STOPPED regardless of what was armed a moment ago elsewhere.
+tab has the page open.
 
-This persists the arm flag and the position-sizing configuration (risk % of
-equity, or a fixed USDT notional per trade -- see agents/risk-governor.js's
-two sizing modes) through kv.py, so every device shows the same, current
-state. It does NOT make it safe to have two tabs both actively armed at
-once: each tab's engine runs and places orders independently, with no
-shared lock between them, so two tabs seeing the same signal in the same
-cycle can both fire an order. Treat this as "which device is currently
-driving trades, sized how" staying visible and consistent across devices,
-not as multi-device coordination.
+This persists the arm flag, position-sizing configuration, and strategy mode
+through kv.py so every browser tab/device sees the same selected strategy.
 """
 from .kv import kv_get_json, kv_set_json
 
 STATE_KEY = "auto_trade_state"
+VALID_STRATEGY_MODES = {"standard", "scalp", "sureshot"}
 
 DEFAULT_STATE = {
     "armed": False,
@@ -33,26 +24,79 @@ DEFAULT_STATE = {
     "maxConcurrentPositions": 1,
     "leverage": 10,
     "marginMode": "cross",
+    "strategyMode": "standard",
+    "scalpMode": False,
+    "sureShotMode": False,
     "theses": {},
 }
+
+
+def _normalize_strategy_mode(state):
+    mode = str(state.get("strategyMode") or "").lower().strip()
+
+    if mode not in VALID_STRATEGY_MODES:
+        if state.get("sureShotMode"):
+            mode = "sureshot"
+        elif state.get("scalpMode"):
+            mode = "scalp"
+        else:
+            mode = "standard"
+
+    state["strategyMode"] = mode
+    state["scalpMode"] = mode in ("scalp", "sureshot")
+    state["sureShotMode"] = mode == "sureshot"
+    return state
 
 
 def load():
     state = kv_get_json(STATE_KEY, None)
     if not state:
         return dict(DEFAULT_STATE)
-    return {**DEFAULT_STATE, **state}
+
+    return _normalize_strategy_mode({**DEFAULT_STATE, **state})
 
 
-def save(armed=None, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=None, leverage=None, margin_mode=None, theses=None, daily_gross_target=None, target_notional=None, virtual_equity=None, max_concurrent_positions=None):
+def save(
+    armed=None,
+    risk_per_trade_pct=None,
+    sizing_mode=None,
+    fixed_usdt_size=None,
+    leverage=None,
+    margin_mode=None,
+    theses=None,
+    daily_gross_target=None,
+    target_notional=None,
+    virtual_equity=None,
+    max_concurrent_positions=None,
+    strategy_mode=None,
+    scalp_mode=None,
+    sure_shot_mode=None,
+):
     current = load()
+
     merged_theses = dict(current.get("theses", {}) or {})
     if isinstance(theses, dict):
-        for k, v in theses.items():
-            if v is None:
-                merged_theses.pop(k, None)
+        for key, value in theses.items():
+            if value is None:
+                merged_theses.pop(key, None)
             else:
-                merged_theses[k] = v
+                merged_theses[key] = value
+
+    requested_mode = (
+        str(strategy_mode).lower().strip()
+        if strategy_mode is not None
+        else None
+    )
+
+    if requested_mode not in VALID_STRATEGY_MODES:
+        if sure_shot_mode is True:
+            requested_mode = "sureshot"
+        elif scalp_mode is True:
+            requested_mode = "scalp"
+        elif scalp_mode is False and sure_shot_mode is False:
+            requested_mode = "standard"
+        else:
+            requested_mode = current.get("strategyMode", "standard")
 
     state = {
         "armed": bool(armed) if armed is not None else current.get("armed", False),
@@ -65,7 +109,11 @@ def save(armed=None, risk_per_trade_pct=None, sizing_mode=None, fixed_usdt_size=
         "maxConcurrentPositions": int(max_concurrent_positions) if max_concurrent_positions is not None else current.get("maxConcurrentPositions", 1),
         "leverage": int(leverage) if leverage and int(leverage) > 0 else current.get("leverage", 10),
         "marginMode": str(margin_mode).lower() if str(margin_mode).lower() in ("cross", "isolated") else current.get("marginMode", "cross"),
+        "strategyMode": requested_mode,
+        "scalpMode": requested_mode in ("scalp", "sureshot"),
+        "sureShotMode": requested_mode == "sureshot",
         "theses": merged_theses,
     }
+
     kv_set_json(STATE_KEY, state)
     return state
