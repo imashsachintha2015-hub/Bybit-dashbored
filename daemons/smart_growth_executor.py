@@ -17,6 +17,7 @@ from backend_lib.bybit_client import BybitDemoClient
 from backend_lib.market_knowledge import kb
 from daemons.deepseek_profit_claimer import SmartProfitClaimer, round_price, round_qty, COIN_SPECS, fetch_klines, extract_microstructure
 from daemons.deepseek_pre_trade_gatekeeper import evaluate_setup_with_deepseek
+from backend_lib.order_failure_journal import failure_journal
 
 # Load environment
 ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
@@ -311,26 +312,59 @@ def run_single_cycle():
             min_entry_score = 78 if strategy_mode == "SWING_RUNNER" else 75
 
             if score >= min_entry_score and direction in ['BUY', 'SELL']:
+
+                # ── FAILURE HISTORY RISK SCAN (pre-gatekeeper) ───────────────
+                # Before calling DeepSeek, check if this symbol/setup has a
+                # history of order failures and raise the conviction bar if so.
+                ms_snapshot = {
+                    "btc_macro":  btc_macro,
+                    "rsi_5m":     top.get("rsi_5m", 50.0),
+                    "vol_ratio":  top.get("vol_ratio", 1.0),
+                }
+                failure_risk = failure_journal.get_failure_risk(
+                    symbol=sym,
+                    direction=direction,
+                    setup=top.get("setup", ""),
+                    market_snapshot=ms_snapshot,
+                )
+                if failure_risk["has_risk"]:
+                    log(f"📋 [FAILURE HISTORY] {sym} {direction} | Risk: {failure_risk['risk_level']} (score {failure_risk['risk_score']}) | Patterns: {len(failure_risk['failure_patterns'])}")
+                    for w in failure_risk["warnings"]:
+                        log(f"   ⚠️  {w}")
+                    if failure_risk["preflight_checks"]:
+                        log(f"   🔍 Preflight checks required: {', '.join(failure_risk['preflight_checks'])}")
+
+                if failure_risk["risk_level"] == "CRITICAL":
+                    log(f"🚨 [FAILURE JOURNAL BLOCK] {sym} {direction} blocked — CRITICAL failure pattern detected (auth error or 3+ margin failures). Investigate immediately.")
+                    symbol_cooldowns[sym] = time.time() + 1800  # 30m block
+                    return True
+
+                # Raise required conviction score based on failure history risk
+                base_conv = 78 if strategy_mode == "SWING_RUNNER" else 75
+                req_conv  = base_conv + failure_risk["conviction_penalty"]
+                if failure_risk["conviction_penalty"] > 0:
+                    log(f"   📈 Conviction threshold raised from {base_conv} → {req_conv} due to {failure_risk['risk_level']} failure history.")
+                # ─────────────────────────────────────────────────────────────
+
                 log(f"🧠 [DEEPSEEK REVIEW] Evaluating {sym} {direction} candidate through DeepSeek Pre-Trade Gatekeeper...")
                 gatekeeper_dec = evaluate_setup_with_deepseek(top, btc_macro)
-                
+
                 is_approved = gatekeeper_dec.get('approved', False)
-                conv_score = gatekeeper_dec.get('conviction_score', 0)
-                rationale = gatekeeper_dec.get('rationale', '')
-                runway = gatekeeper_dec.get('runway_pct', 0)
-                sr_sup = gatekeeper_dec.get('nearest_support')
-                sr_res = gatekeeper_dec.get('nearest_resistance')
+                conv_score  = gatekeeper_dec.get('conviction_score', 0)
+                rationale   = gatekeeper_dec.get('rationale', '')
+                runway      = gatekeeper_dec.get('runway_pct', 0)
+                sr_sup      = gatekeeper_dec.get('nearest_support')
+                sr_res      = gatekeeper_dec.get('nearest_resistance')
                 price_react = gatekeeper_dec.get('price_level_reaction_evaluation', '')
-                mfe_eval = gatekeeper_dec.get('coin_mfe_and_runner_evaluation', '')
-                
-                req_conv = 78 if strategy_mode == "SWING_RUNNER" else 75
+                mfe_eval    = gatekeeper_dec.get('coin_mfe_and_runner_evaluation', '')
+
                 if not is_approved or conv_score < req_conv:
                     concerns = ", ".join(gatekeeper_dec.get('concerns', ['Low conviction']))
-                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} {direction} trade rejected (Score: {conv_score}/100, Required: {req_conv})!")
+                    log(f"🛑 [DEEPSEEK GATEKEEPER VETO] {sym} {direction} rejected (Score: {conv_score}/100, Required: {req_conv})!")
                     log(f"   Price History Reaction: {price_react}")
                     log(f"   MFE Runner Profile: {mfe_eval}")
                     log(f"   Concerns: {concerns} | Runway: {runway}% | {rationale}")
-                    symbol_cooldowns[sym] = time.time() + 300  # 5m cooldown on vetoed setup
+                    symbol_cooldowns[sym] = time.time() + 300
                     return True
                 
                 log(f"🌟 [DEEPSEEK APPROVED] {sym} {direction} cleared by Gatekeeper (Score: {conv_score}/100, R:R: {gatekeeper_dec.get('risk_reward_ratio')})!")
@@ -384,9 +418,17 @@ def run_single_cycle():
                     sl=sl_price,
                     tp=tp_price
                 )
-                
+
                 if order_res.get('retCode') == 0:
                     log(f"✅ Order Placed Successfully! OrderId: {order_res.get('result', {}).get('orderId')}")
+
+                    # Mark any prior failures for this symbol as resolved
+                    failure_journal.mark_resolved(
+                        symbol=sym,
+                        direction=direction,
+                        notes=f"Resolved by successful order @ {cur_price}"
+                    )
+
                     try:
                         from backend_lib.measurement_journal import mj
                         mj.log_decision(
@@ -409,17 +451,61 @@ def run_single_cycle():
                             "was_traded": True,
                             "status": "EXECUTED",
                             "entry_price": cur_price,
-                            "result_reason": f"Executed live on Bybit demo @ {cur_price} with SL {sl_price} (-0.75%), TP {tp_price} (+0.90%)"
+                            "result_reason": f"Executed live on Bybit demo @ {cur_price} with SL {sl_price}, TP {tp_price}"
                         })
                     except Exception:
                         pass
+
                 else:
-                    log(f"❌ Order Failed: {order_res.get('retMsg')}")
+                    ret_msg = order_res.get('retMsg', '')
+                    log(f"❌ Order Failed: [{order_res.get('retCode')}] {ret_msg}")
+
+                    # ── Record failure with full context ──────────────────────
+                    order_info_for_journal = {
+                        "symbol":           sym,
+                        "direction":        direction,
+                        "setup":            top.get("setup", ""),
+                        "strategy_mode":    strategy_mode,
+                        "score":            score,
+                        "conviction_score": conv_score,
+                        "price":            cur_price,
+                        "qty":              qty,
+                        "sl":               sl_price,
+                        "tp":               tp_price,
+                        "leverage":         10,
+                    }
+                    failure_journal.record_failure(
+                        order_info=order_info_for_journal,
+                        broker_response=order_res,
+                        market_snapshot=ms_snapshot,
+                    )
+
+                    # Add cooldown proportional to failure severity
+                    from backend_lib.order_failure_journal import categorize_failure
+                    fail_cat = categorize_failure(
+                        order_res.get('retCode', -1),
+                        ret_msg
+                    )
+                    cooldown_map = {
+                        "INSUFFICIENT_MARGIN":   600,  # 10m — wait for margin to recover
+                        "INVALID_QTY":           180,  # 3m  — recalc qty and retry
+                        "PRICE_ERROR":            60,  # 1m  — re-fetch price
+                        "LEVERAGE_ERROR":        180,  # 3m
+                        "POSITION_LIMIT":        900,  # 15m — wait for position to close
+                        "RATE_LIMIT":            120,  # 2m  — back-off
+                        "NETWORK_ERROR":          90,  # 90s — transient, retry soon
+                        "AUTH_ERROR":           3600,  # 1h  — needs human intervention
+                        "BROKER_REJECTION":      300,  # 5m
+                    }
+                    cd_sec = cooldown_map.get(fail_cat, 300)
+                    symbol_cooldowns[sym] = time.time() + cd_sec
+                    log(f"   ⏳ [{fail_cat}] Cooldown set: {cd_sec}s on {sym}")
+
                     try:
                         from backend_lib.supabase_client import supabase_patch
                         supabase_patch("live_market_signals", {"symbol": f"eq.{sym}", "status": "eq.SUGGESTED"}, {
                             "status": "FAILED_EXECUTION",
-                            "result_reason": f"Order rejected by broker: {order_res.get('retMsg')}"
+                            "result_reason": f"[{fail_cat}] {ret_msg}"
                         })
                     except Exception:
                         pass
