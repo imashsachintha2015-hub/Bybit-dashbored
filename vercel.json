@@ -1,13 +1,9 @@
 {
   "regions": ["sin1"],
   "rewrites": [
-    { "source": "/api/order/close", "destination": "/api/order/place?_action=close" },
-    { "source": "/api/position/stop", "destination": "/api/order/place?_action=stop" },
-    { "source": "/api/agent/target-mode", "destination": "/api/auto-trade/state?_action=target_mode" },
-    { "source": "/api/agent/gatekeeper-decisions", "destination": "/api/auto-trade/state?_action=gatekeeper_decisions" },
-    { "source": "/api/market-prophet/knowledge", "destination": "/api/trades/record?_action=knowledge" },
-    { "source": "/api/agent/archaeologist", "destination": "/api/agent/archaeologist" },
-    { "source": "/api/agent/archaeologist/scan", "destination": "/api/agent/archaeologist" },
-    { "source": "/api/agent/redteam", "destination": "/api/agent/redteam" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://masis-runner-production.up.railway.app/api/:path*"
+    }
   ]
 }

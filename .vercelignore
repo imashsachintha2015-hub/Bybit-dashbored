@@ -1,6 +1,7 @@
 # Vercel deployment ignore file
 # Exclude heavy assets, historical data, and server scripts from Serverless Function bundles
 
+api/
 backtest/
 research/
 scratch/

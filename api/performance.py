@@ -15,8 +15,23 @@ class handler(JsonApiHandler):
     def do_GET(self):
         client, err = get_client()
         if err:
-            self._send_json(500, {"retCode": -1, "retMsg": err})
-            return
+                stats = trade_stats_mod.load()
+                local_history = list(stats.get("trade_history", []))
+                self._send_json(200, {
+                    "win_count": 0,
+                    "loss_count": 0,
+                    "total_trades": len(local_history),
+                    "win_rate": 0.0,
+                    "gross_profit": 0.0,
+                    "gross_loss": 0.0,
+                    "net_pnl": 0.0,
+                    "profit_factor": 0.0,
+                    "today": {"date": "", "total_trades": 0, "win_count": 0, "loss_count": 0, "win_rate": 0, "gross_profit": 0, "gross_loss": 0, "net_pnl": 0, "profit_factor": 0},
+                    "yesterday": {"date": "", "total_trades": 0, "win_count": 0, "loss_count": 0, "win_rate": 0, "gross_profit": 0, "gross_loss": 0, "net_pnl": 0, "profit_factor": 0},
+                    "trade_history": local_history,
+                    "notice": err
+                })
+                return
 
         # Fetch Bybit closed trades (paginate to get all available historical trades up to 200+)
         closed_list = []

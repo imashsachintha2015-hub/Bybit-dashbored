@@ -30,8 +30,17 @@ python daemons/historical_pattern_archaeologist.py &
 ARCHAEOLOGIST_PID=$!
 echo "  Historical Archaeologist PID: $ARCHAEOLOGIST_PID"
 
+# 5. Launch Node.js Live WebSocket Engine in background if node is present
+NODE_PID=""
+if command -v node >/dev/null 2>&1 && [ -f "server/live-engine.js" ]; then
+    echo "[DAEMON] Launching Node.js Live WebSocket Engine..."
+    node --max-old-space-size=192 server/live-engine.js &
+    NODE_PID=$!
+    echo "  Live Engine PID: $NODE_PID"
+fi
+
 # Trap shutdown signals to terminate child background processes cleanly
-trap "echo 'Terminating daemons...'; kill -TERM $SCANNER_PID $EXECUTOR_PID $TRACE_PID $ARCHAEOLOGIST_PID 2>/dev/null || true; exit 0" SIGINT SIGTERM
+trap "echo 'Terminating daemons...'; kill -TERM $SCANNER_PID $EXECUTOR_PID $TRACE_PID $ARCHAEOLOGIST_PID $NODE_PID 2>/dev/null || true; exit 0" SIGINT SIGTERM
 
 # 6. Launch Unified HTTP Server & API Gateway in foreground
 echo "[WEB] Starting Unified Dashboard & API Gateway on port ${PORT:-8080}..."
