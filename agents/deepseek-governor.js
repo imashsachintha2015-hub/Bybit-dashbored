@@ -1,35 +1,9 @@
 /**
  * DIV-07 — LLM Call Governor.
  *
- * WHY CREDIT WAS BURNING
- * The old client called DeepSeek from three places, none of them gated on
- * whether the call could change any decision:
- *   1. Every time a symbol's decision changed to BUY or SELL. The decision was
- *      recomputed every 3 seconds from 1-minute data, so it oscillated
- *      WAIT→BUY→WAIT→BUY; each re-entry fired a fresh 700-token synthesis, for
- *      five symbols in parallel.
- *   2. A blind 60-second "keep-fresh" refresh of the focused symbol — ~1,440
- *      calls a day that nobody asked for and that changed nothing.
- *   3. The news sentinel re-scored all 15 Benzinga headlines every 90 seconds,
- *      re-sending headlines it had already scored — ~960 calls a day, almost
- *      all of them duplicates.
- *
- * And the output was prose. A 700-token essay that no code reads cannot change
- * an outcome; it is pure cost.
- *
- * THE POLICY HERE
- * The model is used as a second opinion on a candidate that has ALREADY passed
- * every local gate — the one moment where its answer can actually change what
- * happens. It returns a compact structured verdict (CONFIRM / VETO / DOWNGRADE)
- * that the engine consumes, not an essay. Everything else is refused locally:
- *
- *   - candidate must be grade A or better, and locally authorised;
- *   - per-symbol cooldown;
- *   - the market state must have materially changed since the last call for
- *     that symbol (fingerprint comparison), so a re-fire on the same setup is
- *     served from cache;
- *   - a hard daily call budget, after which the engine runs purely on local
- *     logic rather than degrading.
+ * The model is used as a second opinion on candidates that have already passed
+ * local gates. The governor limits duplicate/costly consultations without
+ * serialising unrelated symbols behind one global request.
  */
 (function (root, factory) {
   const api = factory();
@@ -38,11 +12,12 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 
   const DEFAULTS = {
-    dailyBudget: 2000,              // 2,000 calls/day (0 = uncapped)
-    perSymbolCooldownMs: 2 * 60 * 1000,  // 2 minutes cooldown instead of 10 minutes
-    minGradeRank: 1,                // Grade B or better (A+ = 3, A = 2, B = 1)
-    cacheTtlMs: 3 * 60 * 1000,      // 3 minutes cache instead of 15 minutes
-    reserveForOpenPositions: 20     // budget held back so open trades can always ask
+    dailyBudget: 2000,
+    perSymbolCooldownMs: 2 * 60 * 1000,
+    minGradeRank: 1,
+    cacheTtlMs: 3 * 60 * 1000,
+    reserveForOpenPositions: 20,
+    inFlightTimeoutMs: 90 * 1000
   };
 
   const GRADE_RANK = { 'A+': 3, 'A': 2, 'B': 1, 'C': 0, 'D': 0 };
@@ -53,10 +28,14 @@
       this.dayKey = this._dayKey();
       this.callsToday = 0;
       this.skipped = { grade: 0, cooldown: 0, unchanged: 0, budget: 0, inFlight: 0 };
-      this.lastCallAt = {};       // symbol -> ts
-      this.lastFingerprint = {};  // symbol -> string
-      this.cache = {};            // fingerprint -> { at, result }
-      this.inFlight = false;
+      this.lastCallAt = {};
+      this.lastFingerprint = {};
+      this.cache = {};
+
+      // IMPORTANT: consultations are independent per symbol. A slow DeepSeek
+      // request for BTC must never make ARB wait forever for its own verdict.
+      // Kept as a map for backward compatibility with beginCall(symbol).
+      this.inFlightBySymbol = {};
     }
 
     _dayKey(d = new Date()) {
@@ -72,11 +51,14 @@
       }
     }
 
-    /**
-     * A coarse fingerprint of the tradeable state. Deliberately coarse: it must
-     * change when the *situation* changes, and must NOT change when price
-     * wiggles by a tick, otherwise we are back to paying for every oscillation.
-     */
+    _clearStaleInFlight(now = Date.now()) {
+      for (const [symbol, startedAt] of Object.entries(this.inFlightBySymbol)) {
+        if (now - startedAt > this.config.inFlightTimeoutMs) {
+          delete this.inFlightBySymbol[symbol];
+        }
+      }
+    }
+
     fingerprint(candidate, context) {
       if (!candidate) return `${context.symbol}|none`;
       const bucketedScore = Math.round(candidate.score / 5) * 5;
@@ -94,36 +76,52 @@
       ].join('|');
     }
 
-    /**
-     * @returns {{allowed:boolean, reason:string, cached?:object}}
-     */
     shouldConsult(candidate, context) {
       this._roll();
       const now = Date.now();
+      this._clearStaleInFlight(now);
 
-      if (this.inFlight) {
-        this.skipped.inFlight++;
-        return { allowed: false, reason: 'A consultation is already in flight' };
-      }
       if (!candidate) {
         return { allowed: false, reason: 'No candidate setup — nothing worth asking about' };
       }
+
+      const symbol = context.symbol;
+      if (this.inFlightBySymbol[symbol]) {
+        this.skipped.inFlight++;
+        const ageMs = now - this.inFlightBySymbol[symbol];
+        return {
+          allowed: false,
+          reason: `${symbol} already has a supervisor consultation in flight (${Math.round(ageMs / 1000)}s)`
+        };
+      }
+
       if ((GRADE_RANK[candidate.grade] || 0) < this.config.minGradeRank) {
         this.skipped.grade++;
-        return { allowed: false, reason: `Candidate is grade ${candidate.grade}; the model is only consulted on grade A or better` };
+        return {
+          allowed: false,
+          reason: `Candidate is grade ${candidate.grade}; the model is only consulted on grade A or better`
+        };
       }
 
       const fp = this.fingerprint(candidate, context);
       const cached = this.cache[fp];
       if (cached && now - cached.at < this.config.cacheTtlMs) {
         this.skipped.unchanged++;
-        return { allowed: false, reason: 'Identical setup state already analysed — serving the cached verdict', cached: cached.result };
+        return {
+          allowed: false,
+          reason: 'Identical setup state already analysed — serving the cached verdict',
+          cached: cached.result,
+          fingerprint: fp
+        };
       }
 
-      const last = this.lastCallAt[context.symbol] || 0;
+      const last = this.lastCallAt[symbol] || 0;
       if (now - last < this.config.perSymbolCooldownMs && !context.hasOpenPosition) {
         this.skipped.cooldown++;
-        return { allowed: false, reason: `${context.symbol} consulted ${Math.round((now - last) / 60000)} min ago; cooldown is ${this.config.perSymbolCooldownMs / 60000} min` };
+        return {
+          allowed: false,
+          reason: `${symbol} consulted ${Math.round((now - last) / 60000)} min ago; cooldown is ${this.config.perSymbolCooldownMs / 60000} min`
+        };
       }
 
       const effectiveBudget = context.hasOpenPosition
@@ -131,35 +129,49 @@
         : this.config.dailyBudget - this.config.reserveForOpenPositions;
       if (this.config.dailyBudget > 0 && this.callsToday >= effectiveBudget) {
         this.skipped.budget++;
-        return { allowed: false, reason: `Daily consultation budget spent (${this.callsToday}/${this.config.dailyBudget}) — running on local logic only, which is the design, not a degradation` };
+        return {
+          allowed: false,
+          reason: `Daily consultation budget spent (${this.callsToday}/${this.config.dailyBudget}) — running on local logic only`
+        };
       }
 
-      return { allowed: true, reason: 'Grade-A candidate with materially changed state', fingerprint: fp };
+      return {
+        allowed: true,
+        reason: 'Grade-A candidate with materially changed state',
+        fingerprint: fp
+      };
     }
 
     beginCall(symbol) {
-      this.inFlight = true;
+      this.inFlightBySymbol[symbol] = Date.now();
       this.callsToday++;
       this.lastCallAt[symbol] = Date.now();
     }
 
     completeCall(fingerprint, result) {
-      this.inFlight = false;
-      if (fingerprint) this.cache[fingerprint] = { at: Date.now(), result };
-      // Keep the cache from growing unbounded over a long session.
+      if (fingerprint) {
+        const symbol = String(fingerprint).split('|')[0];
+        if (symbol) delete this.inFlightBySymbol[symbol];
+        this.cache[fingerprint] = { at: Date.now(), result };
+      }
       const keys = Object.keys(this.cache);
       if (keys.length > 200) delete this.cache[keys[0]];
     }
 
-    failCall() { this.inFlight = false; }
+    failCall(symbol) {
+      if (symbol) delete this.inFlightBySymbol[symbol];
+    }
 
     status() {
       this._roll();
+      this._clearStaleInFlight();
       const totalSkipped = Object.values(this.skipped).reduce((a, b) => a + b, 0);
       return {
         callsToday: this.callsToday,
         dailyBudget: this.config.dailyBudget,
         remaining: Math.max(0, this.config.dailyBudget - this.callsToday),
+        inFlightSymbols: Object.keys(this.inFlightBySymbol),
+        inFlightCount: Object.keys(this.inFlightBySymbol).length,
         skipped: Object.assign({}, this.skipped),
         totalSkipped,
         savedRatio: (this.callsToday + totalSkipped) > 0
