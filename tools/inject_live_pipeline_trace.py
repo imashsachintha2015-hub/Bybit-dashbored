@@ -4,7 +4,7 @@ execution path explicitly visible in the Live Data Analysis log.
 The repository keeps app.js large and actively edited, so this is deliberately
 an assertion-based patch rather than a second copy of app.js. Railway applies
 it to the freshly copied source during Docker build. If an expected anchor
-moves, the build fails instead of silently shipping a partial trace.
+moves, the build fails instead of silently shipping an incomplete trace.
 """
 from pathlib import Path
 
@@ -24,7 +24,22 @@ if anchor not in text:
     raise SystemExit("Missing supervisor function anchor")
 text = text.replace(anchor, helper + anchor, 1)
 
-# 2) Mark supervisor entry and all meaningful exit paths.
+# 2) Mark the candidate's supervisor routing decision, including candidates
+# that never qualify for a supervisor call.
+old = """      logEvent(`HTF SWING CANDIDATE ${sym} ${candidate.direction}: ${movePct.toFixed(2)}% target | mode=${currentStrategyMode.toUpperCase()} | routing through supervisor/risk`);\n\n      if (candidate.grade && candidate.grade !== 'C' && candidate.grade !== 'D' && candidate.stopLoss) {\n        maybeConsultSupervisor(sym, candidate);\n        // The supervisor is async; executeEntry on the next scan/tick will only\n        // submit after the exact candidate verdict is present.\n"""
+new = """      logEvent(`HTF SWING CANDIDATE ${sym} ${candidate.direction}: ${movePct.toFixed(2)}% target | mode=${currentStrategyMode.toUpperCase()} | routing through supervisor/risk`);\n\n      if (candidate.grade && candidate.grade !== 'C' && candidate.grade !== 'D' && candidate.stopLoss) {\n        logHtfPipeline(sym, candidate.direction, 'SUPERVISOR', 'QUEUED', `grade=${candidate.grade} score=${candidate.score || '--'}`);\n        maybeConsultSupervisor(sym, candidate);\n        // The supervisor is async; executeEntry on the next scan/tick will only\n        // submit after the exact candidate verdict is present.\n"""
+if old not in text:
+    raise SystemExit("Missing HTF candidate routing anchor")
+text = text.replace(old, new, 1)
+
+# If the candidate is below the supervisor-call requirements, say so explicitly.
+old = """        // submit after the exact candidate verdict is present.\n      }\n"""
+new = """        // submit after the exact candidate verdict is present.\n      } else {\n        const why = !candidate.grade\n          ? 'missing grade'\n          : (candidate.grade === 'C' || candidate.grade === 'D')\n            ? `grade=${candidate.grade}`\n            : 'missing stopLoss';\n        logHtfPipeline(sym, candidate.direction, 'SUPERVISOR', 'SKIPPED', why);\n      }\n"""
+if old not in text:
+    raise SystemExit("Missing HTF candidate else anchor")
+text = text.replace(old, new, 1)
+
+# 3) Mark supervisor entry and all meaningful exit paths.
 old = """  async function maybeConsultSupervisor(sym, s) {\n    const candidateKey = executionCandidateKey(sym, s);\n"""
 new = """  async function maybeConsultSupervisor(sym, s) {\n    const candidateKey = executionCandidateKey(sym, s);\n    if (s.htfSwing === true || s.strategy === 'HTF_SWING') {\n      logHtfPipeline(sym, s.direction, 'SUPERVISOR', 'START', `candidate=${candidateKey}`);\n    }\n"""
 if old not in text:
@@ -38,8 +53,6 @@ if old not in text:
 text = text.replace(old, new, 1)
 
 old = """        const verdict = Object.assign({}, res, {\n          symbol: sym, direction: s.direction, at: Date.now(), candidateKey\n        });\n"""
-new = """        const verdict = Object.assign({}, res, {\n          symbol: sym, direction: s.direction, at: Date.now(), candidateKey\n        });\n"""
-# Keep this anchor unchanged; the logging is inserted after the existing logEvent below.
 if old not in text:
     raise SystemExit("Missing supervisor verdict anchor")
 
@@ -55,7 +68,7 @@ if old not in text:
     raise SystemExit("Missing supervisor error anchor")
 text = text.replace(old, new, 1)
 
-# 3) Make risk + execution stages explicit in executeEntry.
+# 4) Make risk + execution stages explicit in executeEntry.
 old = """    const gate = riskGovernor.canOpen({ symbol: sym, openPositions: openPositionsSnapshot });\n    if (!gate.allowed) {\n      logEvent(`${s.decision} ${sym} (${s.setupType}, grade ${s.grade}) not taken — ${gate.reasons[0]}`);\n"""
 new = """    if (s.htfSwing === true || s.strategy === 'HTF_SWING') {\n      logHtfPipeline(sym, s.direction, 'RISK', 'CHECK', `candidate=${candidateKey}`);\n    }\n    const gate = riskGovernor.canOpen({ symbol: sym, openPositions: openPositionsSnapshot });\n    if (!gate.allowed) {\n      if (s.htfSwing === true || s.strategy === 'HTF_SWING') {\n        logHtfPipeline(sym, s.direction, 'RISK', 'BLOCK', gate.reasons[0] || 'risk governor blocked');\n      }\n      logEvent(`${s.decision} ${sym} (${s.setupType}, grade ${s.grade}) not taken — ${gate.reasons[0]}`);\n"""
 if old not in text:
@@ -74,7 +87,7 @@ if old not in text:
     raise SystemExit("Missing execution success anchor")
 text = text.replace(old, new, 1)
 
-# 4) Make supervisor wait/veto/non-confirm visible for HTF candidates.
+# 5) Make supervisor wait/veto visible for HTF candidates.
 old = """        supervisorLogged.add(pendingKey);\n        logEvent(`EXECUTION WAIT ${sym} ${s.direction} ${s.setupType}: waiting for supervisor verdict for this exact candidate`);\n"""
 new = """        supervisorLogged.add(pendingKey);\n        if (s.htfSwing === true || s.strategy === 'HTF_SWING') {\n          logHtfPipeline(sym, s.direction, 'SUPERVISOR', 'PENDING', 'execution waits for exact candidate verdict');\n        }\n        logEvent(`EXECUTION WAIT ${sym} ${s.direction} ${s.setupType}: waiting for supervisor verdict for this exact candidate`);\n"""
 if old not in text:
