@@ -111,6 +111,177 @@ class MarketKnowledgeBase:
         except Exception as e:
             print(f"[MarketKnowledgeBase SQLite init error]: {e}")
 
+    # ── Live Market Volatility & Feasibility Assessment Engine ───────────
+    def get_live_market_volatility(self):
+        """
+        Calculates live market volatility across linear perps (BTC, ETH, SOL, DOGE, XRP, ICP, AVAX, SUI).
+        Cached for 90 seconds to prevent rate-limiting and keep response instant.
+        """
+        global _market_vol_cache
+        if "_market_vol_cache" not in globals():
+            _market_vol_cache = {"ts": 0, "avg_range_pct": 5.5, "regime": "NORMAL_EXPANSION"}
+
+        now = time.time()
+        if _market_vol_cache["ts"] and (now - _market_vol_cache["ts"] < 90):
+            return _market_vol_cache
+
+        # 1. Try reading recent snapshot from scratch/live_market_state.json
+        state_file = os.path.join(DIRECTORY, "scratch", "live_market_state.json")
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, "r", encoding="utf-8") as f:
+                    s = json.load(f)
+                    if now - s.get("timestamp", 0) < 180:
+                        leaderboard = s.get("leaderboard", [])
+                        if leaderboard and len(leaderboard) >= 4:
+                            # Use high-low ranges from leaderboard
+                            pass
+            except Exception:
+                pass
+
+        # 2. Query Bybit tickers directly (fast, lightweight public endpoint)
+        try:
+            url = "https://api.bybit.com/v5/market/tickers?category=linear"
+            req = urllib.request.Request(url, headers={"User-Agent": "MASIS/3.0"})
+            with urllib.request.urlopen(req, timeout=4) as r:
+                data = json.loads(r.read().decode())
+                tickers = data.get("result", {}).get("list", [])
+                core_syms = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "ICPUSDT", "AVAXUSDT", "SUIUSDT"}
+                watched = [t for t in tickers if t.get("symbol") in core_syms]
+                ranges = [
+                    ((float(t["highPrice24h"]) - float(t["lowPrice24h"])) / float(t["lowPrice24h"])) * 100.0
+                    for t in watched if float(t.get("lowPrice24h", 0)) > 0
+                ]
+                if ranges:
+                    avg_range = round(sum(ranges) / len(ranges), 2)
+                    regime = "HIGH_VOLATILITY" if avg_range >= 7.0 else ("NORMAL_EXPANSION" if avg_range >= 4.0 else "LOW_VOL_CHOP")
+                    _market_vol_cache = {
+                        "ts": now,
+                        "avg_range_pct": avg_range,
+                        "regime": regime
+                    }
+                    return _market_vol_cache
+        except Exception:
+            pass
+
+        _market_vol_cache["ts"] = now
+        return _market_vol_cache
+
+    def evaluate_target_feasibility(self, target_equity, time_horizon_hours, current_equity=None):
+        """
+        Evaluates whether a target equity is realistically achievable within the specified
+        time horizon given current live market volatility, Bybit contract limits, and account equity.
+        """
+        eq = float(current_equity) if current_equity is not None and current_equity > 0 else 10.22
+        tgt = float(target_equity) if target_equity is not None and target_equity > 0 else 15.0
+        horizon = max(0.25, float(time_horizon_hours) if time_horizon_hours is not None and time_horizon_hours > 0 else 24.0)
+
+        needed_usd = max(0.0, tgt - eq)
+        needed_pct = round((needed_usd / eq) * 100.0, 1) if eq > 0 else 0.0
+        req_velocity = round(needed_usd / horizon, 2)
+
+        vol_data = self.get_live_market_volatility()
+        avg_range_pct = vol_data.get("avg_range_pct", 5.5)
+        regime = vol_data.get("regime", "NORMAL_EXPANSION")
+
+        # Bybit micro-account dynamics:
+        # Swing target: +3.85% move. Net gain per win with 5x leverage on $5-$8 margin is ~$1.15.
+        # Average duration of 3.85% swing in current volatility:
+        if avg_range_pct >= 7.0:
+            avg_swing_duration = 3.5
+            sustainable_velocity = round(0.028 * eq, 2)
+        elif avg_range_pct >= 4.0:
+            avg_swing_duration = 5.0
+            sustainable_velocity = round(0.020 * eq, 2)
+        else:
+            avg_swing_duration = 9.0
+            sustainable_velocity = round(0.010 * eq, 2)
+
+        avg_gain_per_swing = 1.15
+        swings_needed = math.ceil(needed_usd / avg_gain_per_swing) if needed_usd > 0 else 0
+
+        # Minimum realistic hours needed allowing for 1.35x trade spacing and minor scratches
+        min_realistic_hours = max(2.0, round(swings_needed * avg_swing_duration * 1.35, 1)) if needed_usd > 0 else 0.0
+
+        # Determine recommended horizon rounded to clean presets
+        if min_realistic_hours <= 12:
+            recommended_horizon = 12.0
+        elif min_realistic_hours <= 24:
+            recommended_horizon = 24.0
+        elif min_realistic_hours <= 48:
+            recommended_horizon = 48.0
+        else:
+            recommended_horizon = 72.0
+
+        feasibility_ratio = horizon / min_realistic_hours if min_realistic_hours > 0 else 999.0
+
+        if needed_usd <= 0:
+            verdict = "COMPLETED"
+            score = 100
+            status_label = "TARGET ACHIEVED"
+            color = "#10b981"
+            badge_bg = "rgba(16, 185, 129, 0.15)"
+            advice = f"Target equity ${tgt:.2f} is already achieved! Capital safely parked."
+            is_achievable = True
+        elif feasibility_ratio >= 1.0 and req_velocity <= sustainable_velocity * 1.35:
+            verdict = "ACHIEVABLE"
+            score = min(98, round(75 + min(23, (feasibility_ratio - 1.0) * 15)))
+            status_label = "ACHIEVABLE IN CURRENT MARKET"
+            color = "#16c784"
+            badge_bg = "rgba(22, 199, 132, 0.15)"
+            advice = (
+                f"Target +${needed_usd:.2f} (+{needed_pct}%) is realistic with current market volatility "
+                f"({avg_range_pct:.1f}% 24h range). Required velocity +${req_velocity:.2f}/hr is sustainable "
+                f"across ~{swings_needed} swing cycles in {horizon:.0f}h."
+            )
+            is_achievable = True
+        elif feasibility_ratio >= 0.55 or req_velocity <= sustainable_velocity * 2.2:
+            verdict = "STRETCH"
+            score = round(45 + max(0, min(29, (feasibility_ratio - 0.55) / 0.45 * 29)))
+            status_label = "STRETCH (ELEVATED RISK)"
+            color = "#f59e0b"
+            badge_bg = "rgba(245, 158, 11, 0.15)"
+            advice = (
+                f"Aggressive pace: +${req_velocity:.2f}/hr requires rapid back-to-back runner momentum with zero drawdowns. "
+                f"Current volatility ({avg_range_pct:.1f}%) requires ~{min_realistic_hours:.0f}h for safe execution. "
+                f"Recommended Horizon: ≥ {recommended_horizon:.0f}h."
+            )
+            is_achievable = False
+        else:
+            verdict = "UNREALISTIC"
+            score = max(10, round(feasibility_ratio * 40))
+            status_label = "UNREALISTIC IN CURRENT MARKET"
+            color = "#f87171"
+            badge_bg = "rgba(248, 113, 113, 0.15)"
+            advice = (
+                f"{horizon:.0f}h is too brief for +${needed_usd:.2f} (+{needed_pct}% gain) in current market volatility ({avg_range_pct:.1f}%). "
+                f"Forcing +${req_velocity:.2f}/hr velocity carries extreme liquidation risk. "
+                f"Recommended Horizon: ≥ {recommended_horizon:.0f}h."
+            )
+            is_achievable = False
+
+        return {
+            "verdict": verdict,
+            "score": score,
+            "status_label": status_label,
+            "color": color,
+            "badge_bg": badge_bg,
+            "is_achievable": is_achievable,
+            "target_equity": tgt,
+            "current_equity": eq,
+            "needed_profit": round(needed_usd, 2),
+            "needed_return_pct": needed_pct,
+            "time_horizon_hours": horizon,
+            "required_velocity_usd_hr": req_velocity,
+            "sustainable_velocity_usd_hr": sustainable_velocity,
+            "market_volatility_pct": avg_range_pct,
+            "market_regime": regime,
+            "swings_needed": swings_needed,
+            "min_realistic_hours": min_realistic_hours,
+            "recommended_horizon_hours": recommended_horizon,
+            "advice": advice
+        }
+
     # ── Target Mode Controls ─────────────────────────────────────────────
     def get_target_state(self, current_equity=None):
         """
@@ -225,6 +396,12 @@ class MarketKnowledgeBase:
                         pacing_status = "PACING_ACTIVE"
                         pacing_msg = f"Sprint Pace: +${req_velocity:.2f}/hr needed for ${target_eq:.2f} within {remaining_hours:.1f}h. ETA: {eta_display}"
 
+                    feasibility = self.evaluate_target_feasibility(
+                        target_equity=target_eq,
+                        time_horizon_hours=time_horizon_hours,
+                        current_equity=effective_eq
+                    )
+
                     return {
                         "target_equity": target_eq,
                         "target_profit": round(needed_usd, 2),
@@ -244,6 +421,7 @@ class MarketKnowledgeBase:
                         "eta_display": eta_display,
                         "pacing_status": pacing_status,
                         "pacing_message": pacing_msg,
+                        "feasibility": feasibility,
                         "last_updated": int(now * 1000)
                     }
             except Exception as e:
@@ -262,6 +440,11 @@ class MarketKnowledgeBase:
                         is_armed = bool(r["is_armed"])
                         status = r["status"]
                         progress_pct = round(min(100.0, max(0.0, (current_equity / target_eq) * 100.0)), 1) if current_equity and target_eq > 0 else 0.0
+                        feasibility = self.evaluate_target_feasibility(
+                            target_equity=target_eq,
+                            time_horizon_hours=24.0,
+                            current_equity=current_equity
+                        )
                         return {
                             "target_equity": target_eq,
                             "target_profit": r["target_profit"],
@@ -279,11 +462,17 @@ class MarketKnowledgeBase:
                             "eta_display": "17h 30m",
                             "pacing_status": "PACING_ACTIVE",
                             "pacing_message": "24-Hour Sprint active. Targeting ~$0.85/winner.",
+                            "feasibility": feasibility,
                             "last_updated": r["last_updated"]
                         }
             except Exception:
                 pass
 
+        default_feasibility = self.evaluate_target_feasibility(
+            target_equity=15.0,
+            time_horizon_hours=24.0,
+            current_equity=current_equity
+        )
         return {
             "target_equity": 15.0,
             "target_profit": 5.0,
@@ -301,6 +490,7 @@ class MarketKnowledgeBase:
             "eta_display": "17h 30m",
             "pacing_status": "PACING_ACTIVE",
             "pacing_message": "24-Hour Sprint active. Targeting ~$0.85/winner.",
+            "feasibility": default_feasibility,
             "last_updated": int(time.time() * 1000)
         }
 

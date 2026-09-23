@@ -30,6 +30,28 @@ class handler(JsonApiHandler):
                 self._send_json(200, kb.get_target_state(current_equity=eq))
                 return
 
+            if action == "target_feasibility":
+                eq = None
+                client, err = get_client()
+                if not err and client:
+                    try:
+                        wb = client.get_wallet_balance()
+                        coins = wb.get("result", {}).get("list", [{}])[0].get("coin", [])
+                        usdt = next((c for c in coins if c.get("coin") == "USDT"), {})
+                        if usdt:
+                            eq = float(usdt.get("equity") or 0.0)
+                    except Exception:
+                        pass
+                tgt_q = (q.get("target_equity") or [None])[0]
+                hrs_q = (q.get("time_horizon_hours") or [None])[0]
+                feas = kb.evaluate_target_feasibility(
+                    target_equity=float(tgt_q) if tgt_q else 15.0,
+                    time_horizon_hours=float(hrs_q) if hrs_q else 24.0,
+                    current_equity=eq
+                )
+                self._send_json(200, feas)
+                return
+
             if action == "gatekeeper_decisions":
                 decisions = []
                 # 1. Local scratch file (instant, 0 egress on Railway)

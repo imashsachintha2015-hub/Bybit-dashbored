@@ -228,6 +228,14 @@ def run_single_cycle():
                     sl_stage1 = round_price(sym, entry * 0.9960)  # +0.40% guaranteed floor
                     sl_stage2 = round_price(sym, entry * 0.9800)  # +2.00% guaranteed floor
 
+                # ── SPRINT TARGET COMPLETION LOCK ──
+                # If current trade profit reaches or exceeds the remaining target equity,
+                # immediately bank 100% at market to secure target completion within the time period!
+                if unpnl > 0.10 and (eq + unpnl) >= target_equity:
+                    log(f"🎯 [TARGET GOAL HIT] {sym} unpnl ${unpnl:+.4f} brings total equity (${eq + unpnl:.2f}) >= Target (${target_equity:.2f})! Banking 100% profit at market to complete sprint!")
+                    client.close_position('linear', sym, side, pos['size'])
+                    continue
+
                 if gain_pct >= 1.20 and needs_be:
                     client.set_trading_stop('linear', sym, stop_loss=str(be_sl))
                     log(f"🔒 [SWING RISK-FREE LOCK] {sym} reached +{gain_pct:.2f}%! Ratcheted SL to {be_sl} (+0.25% fee-proof green).")
@@ -252,14 +260,19 @@ def run_single_cycle():
                     client.close_position('linear', sym, side, pos['size'])
                     continue
 
-                # ── ANTI-STAGNATION TIME-STOP ──
-                # Give HTF Swings 6.0 hours of breathing room so multi-hour macro moves (like AVAX $0.50 drop) mature
+                # ── DYNAMIC ANTI-STAGNATION TIME-STOP ACCORDING TO SPRINT HORIZON ──
+                # Adapt stagnation limit to remaining time in sprint:
+                # Plentiful time (rem > 14h): 5.5h breathing room for multi-hour swing expansion
+                # Moderate time (6h < rem <= 14h): 3.5h limit
+                # Tight time (rem <= 6h): 2.5h limit — recycle stagnant capital quickly into moving runners
+                rem_hrs = float(target_state.get('remaining_hours') or 24.0)
+                stagnation_limit = 2.5 if rem_hrs <= 6.0 else (3.5 if rem_hrs <= 14.0 else 5.5)
                 opened_at = tracked_trades[sym].get('opened_at', time.time())
                 duration_hrs = (time.time() - opened_at) / 3600.0
                 peak_g = tracked_trades[sym].get('max_gain', 0.0)
-                if duration_hrs >= 6.0:
-                    if peak_g < 0.40 and -0.60 <= gain_pct <= 0.20:
-                        log(f"⏳ [STAGNATION TIME-STOP] {sym} open for {duration_hrs:.1f}h without momentum expansion (Peak: +{peak_g:.2f}%, Now: {gain_pct:+.2f}%). Scratching position to maintain target sprint pace...")
+                if duration_hrs >= stagnation_limit:
+                    if peak_g < 0.40 and -0.60 <= gain_pct <= 0.25:
+                        log(f"⏳ [SPRINT TIME-STOP] {sym} open for {duration_hrs:.1f}h (Sprint Limit: {stagnation_limit:.1f}h, Rem: {rem_hrs:.1f}h) in flat consolidation (Peak: +{peak_g:.2f}%, Now: {gain_pct:+.2f}%). Scratching to recycle capital for target runner...")
                         client.close_position('linear', sym, side, pos['size'])
                         symbol_cooldowns[sym] = time.time() + 900
                         continue
@@ -314,7 +327,13 @@ def run_single_cycle():
                     return True
 
             # Entry threshold: 78 for SWING_RUNNER, 75 for MICRO_SCALP
+            # When sprint window is tight (remaining <= 4h) and target profit is needed,
+            # demand top-tier momentum setups (score >= 80) to maximize win probability within deadline.
+            rem_hrs = float(target_state.get('remaining_hours') or 24.0)
+            needed_usd = float(target_state.get('target_profit') or 0.0)
             min_entry_score = 78 if strategy_mode == "SWING_RUNNER" else 75
+            if rem_hrs <= 4.0 and needed_usd > 1.5:
+                min_entry_score = 80
 
             if score >= min_entry_score and direction in ['BUY', 'SELL']:
 

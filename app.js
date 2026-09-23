@@ -1800,6 +1800,68 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mainRemaining) {
       mainRemaining.textContent = `${(res.remaining_hours || 24.0).toFixed(1)}h left`;
     }
+
+    if (res.feasibility) {
+      renderFeasibilityUI(res.feasibility, currentHorizon);
+    }
+  }
+
+  function renderFeasibilityUI(feas, currentHorizon) {
+    if (!feas) return;
+    const feasBadge = $('feasibilityVerdictBadge');
+    const feasScore = $('feasibilityScoreText');
+    const volTag = $('marketVolatilityTag');
+    const adviceText = $('feasibilityAdviceText');
+    const actionRow = $('feasibilityActionRow');
+    const recBtn = $('applyRecommendedHorizonBtn');
+    const mainFeasBadge = $('mainTargetFeasibilityBadge');
+
+    if (feasBadge && feas.verdict) {
+      const v = feas.verdict;
+      const isAchievable = (v === 'ACHIEVABLE' || v === 'COMPLETED');
+      const isStretch = (v === 'STRETCH');
+      const icon = isAchievable ? 'fa-circle-check' : (isStretch ? 'fa-triangle-exclamation' : 'fa-circle-xmark');
+      feasBadge.innerHTML = `<i class="fa-solid ${icon}"></i> ${feas.status_label || v}`;
+      feasBadge.style.color = feas.color || '#16c784';
+      feasBadge.style.borderColor = feas.color || '#16c784';
+      feasBadge.style.background = feas.badge_bg || 'rgba(22, 199, 132, 0.15)';
+    }
+
+    if (mainFeasBadge && feas.verdict) {
+      mainFeasBadge.textContent = feas.verdict;
+      mainFeasBadge.style.color = feas.color || '#16c784';
+      mainFeasBadge.style.borderColor = feas.color || '#16c784';
+      mainFeasBadge.style.background = feas.badge_bg || 'rgba(22, 199, 132, 0.12)';
+    }
+
+    if (feasScore) {
+      feasScore.textContent = feas.score ? `${feas.score}/100 Score` : '--';
+    }
+
+    if (volTag) {
+      const vol = feas.market_volatility_pct != null ? feas.market_volatility_pct.toFixed(1) : '5.5';
+      const reg = (feas.market_regime || 'EXPANSION').replace(/_/g, ' ');
+      volTag.innerHTML = `<i class="fa-solid fa-fire"></i> Vol: ${vol}% (${reg})`;
+    }
+
+    if (adviceText && feas.advice) {
+      adviceText.textContent = feas.advice;
+    }
+
+    if (actionRow && recBtn) {
+      const recH = feas.recommended_horizon_hours || 24;
+      const curH = currentHorizon || (targetModeState && targetModeState.time_horizon_hours) || 24;
+      if (Math.abs(recH - curH) > 0.5 && !feas.is_achievable && feas.verdict !== 'COMPLETED') {
+        actionRow.style.display = 'flex';
+        recBtn.textContent = `Set to ${recH.toFixed(0)}h Safe Horizon`;
+        recBtn.onclick = async () => {
+          await postJSON('/api/agent/target-mode', { time_horizon_hours: recH });
+          await pollTargetMode();
+        };
+      } else {
+        actionRow.style.display = 'none';
+      }
+    }
   }
 
   async function pollMarketProphet() {
@@ -1867,10 +1929,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initAnalyzeModeControls() {
+    const input = $('targetEquityInput');
+    let feasDebounce = null;
+    if (input) {
+      input.addEventListener('input', () => {
+        clearTimeout(feasDebounce);
+        feasDebounce = setTimeout(async () => {
+          const val = parseFloat(input.value);
+          const currentHorizon = (targetModeState && targetModeState.time_horizon_hours) || 24;
+          if (!isNaN(val) && val > 0) {
+            const feas = await fetchJSON(`/api/agent/target-feasibility?target_equity=${val}&time_horizon_hours=${currentHorizon}`);
+            if (feas) {
+              renderFeasibilityUI(feas, currentHorizon);
+            }
+          }
+        }, 300);
+      });
+    }
+
     const setBtn = $('setTargetBtn');
     if (setBtn) {
       setBtn.onclick = async () => {
-        const input = $('targetEquityInput');
         const val = input ? parseFloat(input.value) : 15.0;
         if (!isNaN(val) && val > 0) {
           await postJSON('/api/agent/target-mode', { target_equity: val, is_armed: true });

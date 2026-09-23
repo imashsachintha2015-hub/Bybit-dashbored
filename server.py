@@ -1046,6 +1046,25 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, state)
             return
 
+        # 3c-1. API: Dynamic Market Feasibility Determination
+        if self.path.startswith("/api/agent/target-feasibility"):
+            from backend_lib.market_knowledge import kb
+            parsed = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed.query)
+            tgt_q = q.get("target_equity", [None])[0]
+            hrs_q = q.get("time_horizon_hours", [None])[0]
+            wb = bybit_client.get_wallet_balance()
+            coins = wb.get("result", {}).get("list", [{}])[0].get("coin", [])
+            usdt = next((c for c in coins if c.get("coin") == "USDT"), {})
+            eq = float(usdt.get("equity", 0)) if usdt else None
+            feasibility = kb.evaluate_target_feasibility(
+                target_equity=float(tgt_q) if tgt_q else 15.0,
+                time_horizon_hours=float(hrs_q) if hrs_q else 24.0,
+                current_equity=eq
+            )
+            self._send_json(200, feasibility)
+            return
+
         # 3c-2. API: DeepSeek Pre-Trade Gatekeeper Decisions
         if self.path.startswith("/api/agent/gatekeeper-decisions"):
             decisions_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scratch', 'deepseek_pre_trade_decisions.json')
