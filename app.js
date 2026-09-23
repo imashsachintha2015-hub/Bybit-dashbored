@@ -872,8 +872,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ].join('|');
   }
 
+  // HTF_PIPELINE_TRACE_PATCH_V1
+  // Keep HTF candidates auditable in Live Data Analysis. This is observability
+  // only; it does not change the supervisor/risk decision itself.
+  function logHtfPipeline(sym, direction, stage, status, reason = '') {
+    const suffix = reason ? ` — ${reason}` : '';
+    logEvent(`[HTF PIPELINE] ${sym} ${direction} | ${stage} -> ${status}${suffix}`);
+  }
+
   async function maybeConsultSupervisor(sym, s) {
     const candidateKey = executionCandidateKey(sym, s);
+    if (s.htfSwing === true || s.strategy === 'HTF_SWING') {
+      logHtfPipeline(sym, s.direction, 'SUPERVISOR', 'START', `candidate=${candidateKey}`);
+    }
     const candidate = s.grade ? { name: s.setupType, direction: s.direction, grade: s.grade, score: s.score, geometry: { entry: s.entry, riskDist: Math.abs((s.entry || 0) - (s.stopLoss || 0)) } } : null;
     const ctx = {
       symbol: sym, regime: s.regime, bias: s.bias,
@@ -894,6 +905,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         engines[sym].setLlmVerdict(cached);
         supervisorCompleted.set(candidateKey, cached);
+        if (s.htfSwing === true || s.strategy === 'HTF_SWING') {
+          logHtfPipeline(sym, s.direction, 'SUPERVISOR', String(cached.verdict || 'CACHED').toUpperCase(), cached.rationale || 'cached supervisor verdict');
+        }
         return cached;
       }
       return null;
@@ -915,10 +929,16 @@ document.addEventListener('DOMContentLoaded', () => {
         engines[sym].setLlmVerdict(verdict);
         supervisorCompleted.set(candidateKey, verdict);
         logEvent(`Supervisor on ${sym} ${s.direction} ${s.setupType}: ${res.verdict}${res.rationale ? ' — ' + res.rationale : ''}${res.is_fallback ? ' (local fallback)' : ''}`);
+        if (s.htfSwing === true || s.strategy === 'HTF_SWING') {
+          logHtfPipeline(sym, s.direction, 'SUPERVISOR', String(res.verdict || 'UNKNOWN').toUpperCase(), res.rationale || '');
+        }
         renderSupervisorPanel(sym, res, { setup: s.setupType, direction: s.direction });
         return verdict;
       } catch (e) {
         llmGovernor.failCall();
+        if (s.htfSwing === true || s.strategy === 'HTF_SWING') {
+          logHtfPipeline(sym, s.direction, 'SUPERVISOR', 'ERROR', e.message);
+        }
         logEvent(`Supervisor call failed for ${sym}: ${e.message} — execution blocked until a valid supervisor verdict is available`);
         return null;
       } finally {
@@ -2047,6 +2067,7 @@ document.addEventListener('DOMContentLoaded', () => {
       logEvent(`HTF SWING CANDIDATE ${sym} ${candidate.direction}: ${movePct.toFixed(2)}% target | mode=${currentStrategyMode.toUpperCase()} | routing through supervisor/risk`);
 
       if (candidate.grade && candidate.grade !== 'C' && candidate.grade !== 'D' && candidate.stopLoss) {
+        logHtfPipeline(sym, candidate.direction, 'SUPERVISOR', 'QUEUED', `grade=${candidate.grade} score=${candidate.score || '--'}`);
         maybeConsultSupervisor(sym, candidate);
         // The supervisor is async; executeEntry on the next scan/tick will only
         // submit after the exact candidate verdict is present.
