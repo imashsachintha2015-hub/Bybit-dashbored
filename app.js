@@ -1025,132 +1025,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const pendingEntries = {};
 
   async function executeEntry(sym, s) {
+    // ═════════════════════════════════════════════════════════════════════════
+    // 24/7 HEADLESS SERVER-SIDE ARCHITECTURE:
+    // Order execution and position management are 100% authoritative on Railway
+    // via daemons/smart_growth_executor.py. The browser dashboard is strictly
+    // an observability & telemetry window. You can safely close the browser tab!
+    // ═════════════════════════════════════════════════════════════════════════
     if (!autoTradingArmed) return;
     if (s.decision !== 'BUY' && s.decision !== 'SELL') return;
-    if (!s.stopLoss || !s.takeProfit || !s.takeProfit.length) return;
-    if (pendingEntries[sym]) return; // already have a resting order out on this symbol
-
-    // NEVER execute a candidate before its own supervisor verdict is available.
-    // The previous implementation launched maybeConsultSupervisor() and then
-    // immediately called executeEntry(), so the async model response could arrive
-    // after the order had already been submitted.
-    const candidateKey = executionCandidateKey(sym, s);
-    const verdict = supervisorCompleted.get(candidateKey);
-    if (!verdict) {
-      const pendingKey = `waiting-supervisor-${candidateKey}`;
-      if (!supervisorLogged.has(pendingKey)) {
-        supervisorLogged.add(pendingKey);
-        logEvent(`EXECUTION WAIT ${sym} ${s.direction} ${s.setupType}: waiting for supervisor verdict for this exact candidate`);
-      }
-      return;
+    const entryKey = `cloud-delegated-${sym}-${s.direction}-${s.setupType}`;
+    if (!supervisorLogged.has(entryKey)) {
+      supervisorLogged.add(entryKey);
+      logEvent(`[HEADLESS CLOUD ENGINE] ${sym} ${s.direction} (${s.setupType}) confirmed. Execution & position management active 24/7 on Railway.`);
     }
-
-    if (verdict.candidateKey !== candidateKey || verdict.symbol !== sym || verdict.direction !== s.direction) {
-      logEvent(`EXECUTION BLOCKED ${sym}: supervisor/candidate mismatch — no order submitted`);
-      return;
-    }
-
-    const normalizedVerdict = String(verdict.verdict || '').toUpperCase();
-    if (normalizedVerdict === 'VETO') {
-      const vetoKey = `veto-${candidateKey}`;
-      if (!supervisorLogged.has(vetoKey)) {
-        supervisorLogged.add(vetoKey);
-        logEvent(`EXECUTION VETO ${sym} ${s.direction} ${s.setupType}: ${verdict.rationale || 'Supervisor vetoed this exact candidate'}`);
-        logSignal(sym, s, 'REJECTED_SUPERVISOR', verdict.rationale || 'Supervisor VETO');
-      }
-      return;
-    }
-
-    if (normalizedVerdict !== 'CONFIRM') {
-      const downgradeKey = `nonconfirm-${candidateKey}`;
-      if (!supervisorLogged.has(downgradeKey)) {
-        supervisorLogged.add(downgradeKey);
-        logEvent(`EXECUTION BLOCKED ${sym} ${s.direction}: supervisor verdict=${normalizedVerdict || 'UNKNOWN'} — waiting for CONFIRM`);
-        logSignal(sym, s, 'REJECTED_SUPERVISOR', `Supervisor verdict ${normalizedVerdict || 'UNKNOWN'}`);
-      }
-      return;
-    }
-
-    const key = `entry-${sym}`;
-    if (inFlightActions.has(key)) return;
-
-    const gate = riskGovernor.canOpen({ symbol: sym, openPositions: openPositionsSnapshot });
-    if (!gate.allowed) {
-      logEvent(`${s.decision} ${sym} (${s.setupType}, grade ${s.grade}) not taken — ${gate.reasons[0]}`);
-      logSignal(sym, s, 'REJECTED_RISK', gate.reasons[0]);
-      return;
-    }
-
-    const price = lastKnown[sym] ? lastKnown[sym].price : 0;
-    if (!price) return;
-
-    const side = s.decision === 'BUY' ? 'Buy' : 'Sell';
-    // Anchored on the engine's own entry reference so the widening is measured
-    // from where the setup was framed, matching how the backtest applied it.
-    const ref = s.entry || price;
-    const wideStop = s.stopLoss != null
-      ? ref - Math.sign(ref - s.stopLoss) * Math.abs(ref - s.stopLoss) * STOP_MULT
-      : s.stopLoss;
-    const wideInvalidation = s.invalidation != null
-      ? ref - Math.sign(ref - s.invalidation) * Math.abs(ref - s.invalidation) * INVALIDATION_MULT
-      : s.invalidation;
-    const offsetBps = makerOffsetFor(sym);
-    // Priced BELOW market for a long, ABOVE market for a short -- it only
-    // fills if price comes back to a better level than it's at right now,
-    // which is what makes this a maker (rebate-side) fill instead of a
-    // taker (fee-side) one.
-    const rawLimit = side === 'Buy'
-      ? price * (1 - offsetBps / 10000)
-      : price * (1 + offsetBps / 10000);
-    const limitPrice = roundPrice(sym, rawLimit);
-
-    const meta = COIN_META[sym] || {};
-    const sized = riskGovernor.sizePosition({
-      entry: limitPrice, stop: wideStop, equity: accountEquity, symbol: sym,
-      qtyStep: meta.qtyStep, minQty: meta.minQty,
-      maxLeverage: riskGovernor.config.leverage || 10
-    });
-    if (!sized.qty) {
-      logEvent(`${sym} entry skipped — ${sized.rejected}`);
-      return;
-    }
-    const qty = roundQty(sym, sized.qty);
-
-    inFlightActions.add(key);
-    try {
-      // Only the STOP is attached broker-side. The old build also attached
-      // takeProfit[0] at full size, which closed the whole position at 1.1R and
-      // made the three-level ladder below unreachable. The stop is the one order
-      // that must survive a browser crash; the targets are managed here.
-      const res = await postJSON('/api/order/place', {
-        category: 'linear', symbol: sym, side, orderType: 'Limit',
-        price: limitPrice, qty, stopLoss: wideStop,
-        leverage: riskGovernor.config.leverage || 10,
-        marginMode: riskGovernor.config.marginMode || 'cross'
-      });
-      if (res.retCode === 0 && res.result && res.result.orderId) {
-        pendingEntries[sym] = {
-          orderId: res.result.orderId, side, limitPrice, qty,
-          stopLoss: wideStop, invalidation: wideInvalidation, targets: s.takeProfit,
-          riskAmount: sized.riskAmount, setupName: s.setupType, grade: s.grade,
-          score: s.score, regime: s.regime, narrative: s.narrative,
-          isScalp: !!s.isScalp,
-          horizon: s.horizon || (s.isScalp ? '5m-10m' : '15m-1h'),
-          placedAt: Date.now(), expiresAt: Date.now() + (s.isScalp ? 10 * 60 * 1000 : MAKER_TIMEOUT_MS), offsetBps
-        };
-        logEvent(`LIMIT ${side.toUpperCase()} ${sym} qty=${qty} @ ${limitPrice.toLocaleString()} (${offsetBps}bps better than ${price.toLocaleString()}) placed — awaiting fill within ${Math.round(MAKER_TIMEOUT_MS / 60000)}m | ${s.setupType} grade ${s.grade} (${s.score}/100) | SL ${wideStop} (${STOP_MULT}x) · invalidation ${wideInvalidation} (${INVALIDATION_MULT}x) | R:R ${s.riskReward}`);
-        pendingEntries[sym].signalState = s;
-        logSignal(sym, s, 'ORDER_PLACED', '', { offsetBps });
-      } else {
-        logEvent(`Order rejected for ${sym}: ${res.retMsg || 'unknown error'}`);
-        logSignal(sym, s, 'REJECTED_EXCHANGE', res.retMsg || 'unknown error');
-      }
-      setTimeout(pollDemoData, 900);
-    } catch (e) {
-      logEvent(`Entry failed for ${sym}: ${e.message}`);
-    } finally {
-      inFlightActions.delete(key);
-    }
+    return;
   }
 
   /** Resolves every resting entry order each poll cycle: opens the position
@@ -1340,43 +1228,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (action.action === 'CLOSE_ALL') {
         pillClass = 'risk'; verdict = `CLOSING — ${action.reason}`;
         reasons.push(action.detail);
-        if (autoTradingArmed) await closePositionSlice(pos, trade, parseFloat(pos.size), action.reason, action.detail);
       } else if (action.action === 'SCALE_OUT') {
         const isSrBank = action.reason === 'SR_COLLISION';
         verdict = isSrBank ? 'S/R PROFIT COVERAGE' : `TAKING TP${action.tpIndex + 1}`;
         reasons.push(action.detail);
-        if (autoTradingArmed) {
-          const sliceQty = trade.originalQty * action.fraction;
-          positionManager.markTpFilled(trade, action.tpIndex, mark);
-          saveThesesLocally();
-          syncThesisToServer(trade);
-          await closePositionSlice(pos, trade, sliceQty, isSrBank ? 'SR_COVERAGE' : `TP${action.tpIndex + 1}`, action.detail);
-
-          // If first slice (TP1 or S/R wall bank) was taken, immediately ratchet stop to Break-Even on Bybit!
-          if (action.tpIndex === 0 && !trade.stopMovedToBreakEven) {
-            positionManager.markStopMoved(trade, trade.entryPrice, 'BREAK_EVEN');
-            saveThesesLocally();
-            syncThesisToServer(trade);
-            try {
-              await postJSON('/api/position/stop', { category: 'linear', symbol: pos.symbol, stopLoss: trade.entryPrice });
-              logEvent(`${pos.symbol} Stop loss ratcheted to break-even at ${trade.entryPrice}`);
-            } catch (e) {}
-          }
-        }
       } else if (action.action === 'MOVE_STOP') {
         verdict = action.reason === 'BREAK_EVEN' ? 'STOP → BREAK-EVEN' : 'TRAILING STOP';
         reasons.push(action.detail);
-        if (autoTradingArmed) {
-          positionManager.markStopMoved(trade, action.newStop, action.reason);
-          saveThesesLocally();
-          syncThesisToServer(trade);
-          try {
-            await postJSON('/api/position/stop', { category: 'linear', symbol: pos.symbol, stopLoss: action.newStop });
-            logEvent(`${pos.symbol} ${action.detail}`);
-          } catch (e) {
-            logEvent(`Stop update failed for ${pos.symbol}: ${e.message}`);
-          }
-        }
       } else {
         reasons.push(...(action.reasons || []));
       }
@@ -3827,8 +3685,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dot && txt) {
       dot.className = armed ? 'cloud-status-dot armed' : 'cloud-status-dot stopped';
       txt.textContent = armed
-        ? 'Railway 24/7 Engine: ARMED · Auto-Execution Active'
-        : 'Railway 24/7 Engine: STANDBY · Monitoring Only (Execution Stopped)';
+        ? 'Railway 24/7 Engine: ARMED · Server-Side Cloud Execution (Safe to Close Browser)'
+        : 'Railway 24/7 Engine: STANDBY · Server-Side Execution Paused';
     }
     $('marginInput').disabled = armed;
     $('usdtSizeInput').disabled = armed;

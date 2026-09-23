@@ -259,87 +259,114 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
     score = 0
     setup = "NONE"
     direction = "NONE"
+    targets = {}
 
-    # ── 1. Bullish Setup Evaluation (HTF_SWING_PULLBACK_LONG) ──
-    bull_score = 0
+    # ── 1. Bullish Trend Setup (HTF_SWING_PULLBACK_LONG) ──
+    pullback_long_score = 0
     if trend_1h == "BULL":
-        bull_score += 30  # 1h Macro alignment
+        pullback_long_score += 30  # 1h Macro alignment
         if 44 <= rsi_1h <= 68:
-            bull_score += 15  # Solid trend momentum, not overbought
+            pullback_long_score += 15  # Solid trend momentum, not overbought
         if trend_15m == "BULL":
-            bull_score += 15  # 15m trend alignment
+            pullback_long_score += 15  # 15m trend alignment
         if 38 <= rsi_15 <= 60:
-            bull_score += 15  # 15m Pullback into Value Zone
+            pullback_long_score += 15  # 15m Pullback into Value Zone
         if l_wick_pct_15 >= 0.18:
-            bull_score += 10  # 15m Wick Absorption
+            pullback_long_score += 10  # 15m Wick Absorption
         if vol_ratio_15 >= 1.10:
-            bull_score += 10  # 15m Volume confirmation
+            pullback_long_score += 10  # 15m Volume confirmation
         if cur_p >= ema9_5 and u_wick_pct_5 < 0.25:
-            bull_score += 5   # 5m Trigger
-        # Super-runner volume impulse bonus
+            pullback_long_score += 5   # 5m Trigger
         if vol_ratio_15 >= 1.70:
-            bull_score += 5
+            pullback_long_score += 5
 
-    # ── 2. Bearish Setup Evaluation (HTF_SWING_BREAKDOWN_SHORT) ──
-    bear_score = 0
+    # ── 2. Bullish Reversal Setup (HTF_SWING_OVERSOLD_BOUNCE_LONG) ──
+    # Identifies deep bottoms/dips where price is oversold and buyers absorb liquidity for a +3.5% to +5.0% swing bounce
+    reversal_long_score = 0
+    if rsi_15 <= 36 or rsi_1h <= 38:
+        reversal_long_score += 30  # Deep oversold condition
+        if l_wick_pct_15 >= 0.20:
+            reversal_long_score += 20  # Strong buyer wick defense
+        if l_wick_pct_5 >= 0.25 or cur_p >= ema9_5:
+            reversal_long_score += 15  # 5m bottom stabilization
+        if vol_ratio_15 >= 1.15:
+            reversal_long_score += 15  # Volume absorption at support
+        if rsi_15 < 28:
+            reversal_long_score += 10  # Extreme exhaustion bonus
+        if u_wick_pct_15 < 0.25:
+            reversal_long_score += 10  # Clean floor with minimal upper resistance
+
+    # ── 3. Bearish Trend Setup (HTF_SWING_BREAKDOWN_SHORT) ──
+    breakdown_short_score = 0
     trend_1h_bear = (ema20_1h < ema50_1h or cur_p <= ema20_1h * 1.008)
     trend_15m_bear = (ema21_15 < ema50_15 or cur_p <= ema21_15 * 1.005)
     if trend_1h_bear:
-        bear_score += 30  # 1h Macro alignment
+        breakdown_short_score += 30  # 1h Macro alignment
         if 30 <= rsi_1h <= 58:
-            bear_score += 15  # Bearish momentum, not oversold
+            breakdown_short_score += 15  # Bearish momentum, not oversold
         if trend_15m_bear:
-            bear_score += 15  # 15m trend alignment
+            breakdown_short_score += 15  # 15m trend alignment
         if 40 <= rsi_15 <= 65:
-            bear_score += 15  # 15m Retest into Value Resistance Zone
+            breakdown_short_score += 15  # 15m Retest into Value Resistance Zone
         if u_wick_pct_15 >= 0.18:
-            bear_score += 10  # 15m Upper Wick Rejection
+            breakdown_short_score += 10  # 15m Upper Wick Rejection
         if vol_ratio_15 >= 1.10:
-            bear_score += 10  # 15m Volume confirmation on breakdown
+            breakdown_short_score += 10  # 15m Volume confirmation on breakdown
         if cur_p <= ema9_5 and l_wick_pct_5 < 0.25:
-            bear_score += 5   # 5m Trigger
-        # Super-runner volume impulse bonus
+            breakdown_short_score += 5   # 5m Trigger
         if vol_ratio_15 >= 1.70:
-            bear_score += 5
+            breakdown_short_score += 5
+
+    # ── 4. Bearish Exhaustion Setup (HTF_SWING_OVERBOUGHT_REJECTION_SHORT) ──
+    reversal_short_score = 0
+    if rsi_15 >= 66 or rsi_1h >= 64:
+        reversal_short_score += 30  # Overbought exhaustion
+        if u_wick_pct_15 >= 0.20:
+            reversal_short_score += 20  # Seller overhang rejection wick
+        if u_wick_pct_5 >= 0.25 or cur_p <= ema9_5:
+            reversal_short_score += 15  # 5m top rollover
+        if vol_ratio_15 >= 1.15:
+            reversal_short_score += 15  # Selling volume expansion
+        if rsi_15 > 72:
+            reversal_short_score += 10  # Blow-off top bonus
+        if l_wick_pct_15 < 0.25:
+            reversal_short_score += 10  # Minimal buyer absorption
 
     # ── Bitcoin Macro & Altcoin Sensitivity Guard ──
+    # Modulates confidence based on BTC tailwinds/headwinds without blanket wiping independent setups
     if btc_macro:
-        btc_dumping = btc_macro.get('is_dumping') or btc_macro.get('btc_chg_5m', 0) < -0.15
+        btc_severe_flush = btc_macro.get('is_severe_flush') or btc_macro.get('btc_chg_5m', 0) < -0.35
+        btc_soft_dip = btc_macro.get('btc_chg_5m', 0) < -0.15
         btc_pumping = btc_macro.get('regime') == 'BTC_BULL_PUMPING' or btc_macro.get('btc_chg_1h', 0) > 0.30
-        
-        # Longs: Vetoed if BTC dumping; boosted if BTC pumping
-        if btc_dumping:
-            bull_score = 0
-        elif btc_pumping:
-            bull_score = min(100, bull_score + 5)
-            
-        # Shorts: Boosted if BTC dumping (tailward wind!); vetoed if BTC strongly pumping
-        if btc_dumping:
-            bear_score = min(100, bear_score + 10)
-        elif btc_pumping:
-            bear_score = 0
 
-    # Select the highest conviction direction
-    if bull_score >= bear_score and bull_score > 0:
-        score = bull_score
-        setup = "HTF_SWING_PULLBACK_LONG"
-        direction = "BUY"
-        targets = {
-            "sl_pct": -1.50,
-            "tp1_pct": 2.20,
-            "tp2_pct": 4.00,
-            "tp3_pct": 6.50
-        }
-    elif bear_score > bull_score and bear_score > 0:
-        score = bear_score
-        setup = "HTF_SWING_BREAKDOWN_SHORT"
-        direction = "SELL"
-        targets = {
-            "sl_pct": 1.35,      # Invalidation pivot stop above resistance
-            "tp1_pct": -1.80,    # Risk-free partial bank
-            "tp2_pct": -3.50,    # Major range sweep (e.g. XRP 1.5045)
-            "tp3_pct": -5.00     # Deep macro waterfall (e.g. AVAX 10.6897)
-        }
+        if btc_severe_flush:
+            pullback_long_score = max(0, pullback_long_score - 30)
+            reversal_long_score = max(0, reversal_long_score - 20)
+            breakdown_short_score = min(100, breakdown_short_score + 15)
+        elif btc_soft_dip:
+            pullback_long_score = max(0, pullback_long_score - 10)
+            breakdown_short_score = min(100, breakdown_short_score + 5)
+
+        if btc_pumping:
+            pullback_long_score = min(100, pullback_long_score + 10)
+            reversal_long_score = min(100, reversal_long_score + 10)
+            breakdown_short_score = max(0, breakdown_short_score - 20)
+            reversal_short_score = max(0, reversal_short_score - 15)
+
+    # ── Select the highest-probability candidate based on market data ──
+    candidates_scored = [
+        (pullback_long_score, "HTF_SWING_PULLBACK_LONG", "BUY", {"sl_pct": -1.50, "tp1_pct": 2.20, "tp2_pct": 4.00, "tp3_pct": 6.50}),
+        (reversal_long_score, "HTF_SWING_OVERSOLD_BOUNCE_LONG", "BUY", {"sl_pct": -1.35, "tp1_pct": 2.00, "tp2_pct": 3.85, "tp3_pct": 5.50}),
+        (breakdown_short_score, "HTF_SWING_BREAKDOWN_SHORT", "SELL", {"sl_pct": 1.35, "tp1_pct": -1.80, "tp2_pct": -3.50, "tp3_pct": -5.00}),
+        (reversal_short_score, "HTF_SWING_OVERBOUGHT_REJECTION_SHORT", "SELL", {"sl_pct": 1.35, "tp1_pct": -1.80, "tp2_pct": -3.85, "tp3_pct": -5.50}),
+    ]
+
+    best_cand = max(candidates_scored, key=lambda c: c[0])
+    if best_cand[0] > 0:
+        score = best_cand[0]
+        setup = best_cand[1]
+        direction = best_cand[2]
+        targets = best_cand[3]
     else:
         score = 0
         setup = "NONE"

@@ -386,10 +386,12 @@ def run_single_cycle():
                 # Calculate initial Stop Loss and Take Profit brackets direction-aware
                 if direction == 'BUY':
                     if strategy_mode == "SWING_RUNNER":
-                        sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * 0.9850)
-                        tp_price = gatekeeper_dec.get('recommended_tp3') or round_price(sym, cur_price * 1.0650)
-                        sl_label = "-1.50%"
-                        tp_label = "+6.50% ($1+ Runner)"
+                        target_tp = (top.get('targets') or {}).get('tp2_pct', 3.85) / 100.0
+                        target_sl = abs((top.get('targets') or {}).get('sl_pct', -1.35)) / 100.0
+                        sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * (1.0 - target_sl))
+                        tp_price = round_price(sym, cur_price * (1.0 + target_tp))
+                        sl_label = f"-{target_sl*100:.2f}%"
+                        tp_label = f"+{target_tp*100:.2f}% (Swing Target)"
                     else:
                         sl_price = round_price(sym, cur_price * 0.9925)
                         tp_price = round_price(sym, cur_price * 1.0100)
@@ -397,10 +399,12 @@ def run_single_cycle():
                         tp_label = "+1.00%"
                 else: # SELL (Short)
                     if strategy_mode == "SWING_RUNNER":
-                        sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * 1.0135)
-                        tp_price = gatekeeper_dec.get('recommended_tp3') or round_price(sym, cur_price * 0.9500)
-                        sl_label = "+1.35% (Pivot Stop)"
-                        tp_label = "-5.00% (Short Runner)"
+                        target_tp = abs((top.get('targets') or {}).get('tp2_pct', -3.85)) / 100.0
+                        target_sl = (top.get('targets') or {}).get('sl_pct', 1.35) / 100.0
+                        sl_price = gatekeeper_dec.get('recommended_sl') or round_price(sym, cur_price * (1.0 + target_sl))
+                        tp_price = round_price(sym, cur_price * (1.0 - target_tp))
+                        sl_label = f"+{target_sl*100:.2f}% (Pivot Stop)"
+                        tp_label = f"-{target_tp*100:.2f}% (Swing Target)"
                     else:
                         sl_price = round_price(sym, cur_price * 1.0075)
                         tp_price = round_price(sym, cur_price * 0.9900)
