@@ -19,6 +19,12 @@ RUN npm install --omit=dev --no-audit || true
 # Copy entire project
 COPY . .
 
+# Make the large client controller observable without replacing the live
+# source file in git. The patcher is assertion-based: if its anchors no longer
+# match the current app.js, the image build fails instead of silently shipping
+# an incomplete supervisor/risk trace.
+RUN python tools/inject_live_pipeline_trace.py
+
 # Ensure entrypoint is executable
 RUN chmod +x start_all.sh
 
