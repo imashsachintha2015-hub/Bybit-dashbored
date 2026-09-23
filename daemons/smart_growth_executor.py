@@ -161,6 +161,23 @@ def run_single_cycle():
         
     active_syms = [p['symbol'] for p in active]
     check_and_learn_closed_trades(active_syms)
+
+    # 1b. Stale Limit Order Purge: Cancel resting entry orders older than 15 minutes to prevent toxic fills
+    try:
+        open_orders_res = client.signed_request('GET', '/v5/order/realtime', {'category': 'linear', 'settleCoin': 'USDT'})
+        open_orders = open_orders_res.get('result', {}).get('list', [])
+        now_ms = time.time() * 1000
+        for o in open_orders:
+            stop_type = o.get('stopOrderType', '')
+            created_ms = float(o.get('createdTime') or now_ms)
+            age_mins = (now_ms - created_ms) / 60000.0
+            if not stop_type and age_mins > 15.0:
+                sym_o = o.get('symbol')
+                oid = o.get('orderId')
+                log(f"🧹 [STALE ORDER PURGE] Cancelling resting limit order {sym_o} {o.get('side')} @ {o.get('price')} (Age: {age_mins:.1f}m > 15m limit) to prevent toxic dump fills.")
+                client.cancel_order('linear', sym_o, oid)
+    except Exception as e:
+        pass
         
     from daemons.btc_macro_monitor import fetch_btc_macro
     btc_macro = fetch_btc_macro()
