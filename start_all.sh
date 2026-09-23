@@ -22,15 +22,24 @@ python scratch/smart_growth_executor.py &
 EXECUTOR_PID=$!
 echo "  Smart Growth Executor PID: $EXECUTOR_PID"
 
-# 4. Launch 24/7 Historical Archaeologist Daemon in background (runs every 30m)
+# 4. Launch live decision trace observer. This does NOT change trading logic;
+#    it correlates scanner/executor logs so every candidate has a trace ID and
+#    explicit Supervisor/Risk/Execution status. Missing gates are reported as
+#    NOT_IN_EXECUTION_PATH rather than being falsely marked as passed.
+echo "[DAEMON] Launching Live Trade Decision Trace..."
+python scratch/trade_decision_trace_daemon.py &
+TRACE_PID=$!
+echo "  Trade Decision Trace PID: $TRACE_PID"
+
+# 5. Launch 24/7 Historical Archaeologist Daemon in background (runs every 30m)
 echo "[DAEMON] Launching Historical Archaeologist Background Learner..."
 python -c "from scratch.historical_pattern_archaeologist import run_archaeologist_daemon; run_archaeologist_daemon()" &
 ARCHAEOLOGIST_PID=$!
 echo "  Historical Archaeologist PID: $ARCHAEOLOGIST_PID"
 
 # Trap shutdown signals to terminate child background processes cleanly
-trap "echo 'Terminating daemons...'; kill -TERM $SCANNER_PID $EXECUTOR_PID $ARCHAEOLOGIST_PID 2>/dev/null || true; exit 0" SIGINT SIGTERM
+trap "echo 'Terminating daemons...'; kill -TERM $SCANNER_PID $EXECUTOR_PID $TRACE_PID $ARCHAEOLOGIST_PID 2>/dev/null || true; exit 0" SIGINT SIGTERM
 
-# 5. Launch Unified HTTP Server & API Gateway in foreground
+# 6. Launch Unified HTTP Server & API Gateway in foreground
 echo "[WEB] Starting Unified Dashboard & API Gateway on port ${PORT:-8080}..."
 exec python server.py
