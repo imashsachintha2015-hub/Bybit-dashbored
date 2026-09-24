@@ -716,19 +716,35 @@ Respond strictly in JSON:
                         "deepseek_reflection": full_reflection,
                         "outcome_analysis": f"{'Won' if pnl > 0 else 'Failed'}: {rule_summary} ({lesson_text})"
                     })
-                supabase_post("learned_rules", {
-                    "symbol": sym,
-                    "pattern_name": "TREND_PULLBACK",
-                    "rule_summary": rule_summary,
-                    "sample_count": 1,
-                    "win_rate": 100.0 if pnl > 0 else 0.0,
-                    "confidence": confidence,
-                    "is_active": True
-                })
+                # Check if rule exists to aggregate sample count
+                existing = supabase_get("learned_rules", {"symbol": f"eq.{sym}", "pattern_name": "eq.TREND_PULLBACK", "limit": "1"})
+                if existing and isinstance(existing, list) and len(existing) > 0:
+                    r_id = existing[0].get("id")
+                    cur_samples = int(existing[0].get("sample_count", 1)) + 1
+                    cur_wr = float(existing[0].get("win_rate", 50.0))
+                    new_wr = round(((cur_wr * (cur_samples - 1)) + (100.0 if pnl > 0 else 0.0)) / cur_samples, 1)
+                    is_active = (cur_samples >= 15 and confidence >= 0.85)
+                    supabase_patch("learned_rules", {"id": f"eq.{r_id}"}, {
+                        "rule_summary": rule_summary,
+                        "sample_count": cur_samples,
+                        "win_rate": new_wr,
+                        "confidence": confidence,
+                        "is_active": is_active
+                    })
+                else:
+                    supabase_post("learned_rules", {
+                        "symbol": sym,
+                        "pattern_name": "TREND_PULLBACK",
+                        "rule_summary": rule_summary,
+                        "sample_count": 1,
+                        "win_rate": 100.0 if pnl > 0 else 0.0,
+                        "confidence": confidence,
+                        "is_active": False  # Preliminary until N >= 15 samples
+                    })
             except Exception as e:
                 print(f"[Supabase reflection update failed]: {e}")
 
-        # 2. SQLite Mirror
+        # 2. SQLite Mirror with Statistical Aggregation
         conn = self._get_sqlite_conn()
         if conn:
             try:
@@ -736,31 +752,53 @@ Respond strictly in JSON:
                     cur = conn.cursor()
                     if episode_id:
                         cur.execute("UPDATE trade_episodes SET deepseek_reflection = ? WHERE id = ?", (full_reflection, episode_id))
-                    cur.execute("""
-                        INSERT INTO learned_rules (symbol, pattern_name, rule_summary, confidence, last_updated)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (sym, "TREND_PULLBACK", rule_summary, confidence, int(time.time() * 1000)))
+                    
+                    cur.execute("SELECT id, sample_count, win_rate FROM learned_rules WHERE symbol = ? AND pattern_name = ?", (sym, "TREND_PULLBACK"))
+                    row = cur.fetchone()
+                    if row:
+                        r_id, s_cnt, wr = row["id"], row["sample_count"] or 1, row["win_rate"] or 50.0
+                        new_cnt = s_cnt + 1
+                        new_wr = round(((wr * s_cnt) + (100.0 if pnl > 0 else 0.0)) / new_cnt, 1)
+                        cur.execute("""
+                            UPDATE learned_rules 
+                            SET rule_summary = ?, sample_count = ?, win_rate = ?, confidence = ?, last_updated = ?
+                            WHERE id = ?
+                        """, (rule_summary, new_cnt, new_wr, confidence, int(time.time() * 1000), r_id))
+                    else:
+                        cur.execute("""
+                            INSERT INTO learned_rules (symbol, pattern_name, rule_summary, sample_count, win_rate, confidence, last_updated)
+                            VALUES (?, ?, ?, 1, ?, ?, ?)
+                        """, (sym, "TREND_PULLBACK", rule_summary, 100.0 if pnl > 0 else 0.0, confidence, int(time.time() * 1000)))
                     conn.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[SQLite rule mirror error]: {e}")
 
         return {"lesson": lesson_text, "rule": rule_summary}
 
     def get_relevant_knowledge(self, symbol=None, limit=4):
-        """Retrieves past learned rules to inject into DeepSeek's prompt context."""
+        """
+        Retrieves statistically validated learned rules to inject into DeepSeek's prompt context.
+        Enforces N >= 15 sample size or clearly annotates single-trade observations as non-binding hypotheses.
+        """
         # 1. Supabase Primary
         if SUPABASE_URL and SUPABASE_KEY:
             try:
                 params = {
-                    "select": "symbol,pattern_name,rule_summary,confidence",
-                    "order": "id.desc",
+                    "select": "symbol,pattern_name,rule_summary,confidence,sample_count,win_rate",
+                    "order": "sample_count.desc,id.desc",
                     "limit": str(limit)
                 }
                 if symbol:
                     params["symbol"] = f"in.({symbol},ALL)"
                 rows = supabase_get("learned_rules", params)
                 if rows is not None and isinstance(rows, list):
-                    return rows
+                    validated = []
+                    for r in rows:
+                        n = r.get("sample_count", 1)
+                        if n < 15:
+                            r["rule_summary"] = f"[PRELIMINARY HYPOTHESIS: N={n} trades, {r.get('win_rate', 0):.0f}% WR - advisory only]: {r.get('rule_summary')}"
+                        validated.append(r)
+                    return validated
             except Exception as e:
                 print(f"[Supabase get_relevant_knowledge failed]: {e}")
 
@@ -772,18 +810,25 @@ Respond strictly in JSON:
                     cur = conn.cursor()
                     if symbol:
                         cur.execute("""
-                            SELECT symbol, pattern_name, rule_summary, confidence
+                            SELECT symbol, pattern_name, rule_summary, confidence, sample_count, win_rate
                             FROM learned_rules
                             WHERE symbol = ? OR symbol = 'ALL'
-                            ORDER BY id DESC LIMIT ?
+                            ORDER BY sample_count DESC, id DESC LIMIT ?
                         """, (symbol, limit))
                     else:
                         cur.execute("""
-                            SELECT symbol, pattern_name, rule_summary, confidence
+                            SELECT symbol, pattern_name, rule_summary, confidence, sample_count, win_rate
                             FROM learned_rules
-                            ORDER BY id DESC LIMIT ?
+                            ORDER BY sample_count DESC, id DESC LIMIT ?
                         """, (limit,))
-                    return [dict(r) for r in cur.fetchall()]
+                    rows = [dict(r) for r in cur.fetchall()]
+                    validated = []
+                    for r in rows:
+                        n = r.get("sample_count", 1)
+                        if n < 15:
+                            r["rule_summary"] = f"[PRELIMINARY HYPOTHESIS: N={n} trades, {r.get('win_rate', 0):.0f}% WR - advisory only]: {r.get('rule_summary')}"
+                        validated.append(r)
+                    return validated
             except Exception:
                 pass
         return []

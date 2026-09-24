@@ -115,6 +115,26 @@ class BybitDemoClient:
             params["symbol"] = symbol
         return self.signed_request("GET", "/v5/order/realtime", params)
 
+    def get_orderbook(self, symbol, limit=25):
+        """Fetches real-time L2 orderbook snapshot (bids and asks)."""
+        url = f"{self.base_url}/v5/market/orderbook?category=linear&symbol={symbol}&limit={limit}"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "MASIS/3.0"})
+            with urllib.request.urlopen(req, timeout=4) as r:
+                return json.loads(r.read().decode())
+        except Exception as e:
+            return {"retCode": -1, "retMsg": str(e), "result": {"b": [], "a": []}}
+
+    def get_recent_trades(self, symbol, limit=50):
+        """Fetches recent executed public taker trades."""
+        url = f"{self.base_url}/v5/market/recent-trade?category=linear&symbol={symbol}&limit={limit}"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "MASIS/3.0"})
+            with urllib.request.urlopen(req, timeout=4) as r:
+                return json.loads(r.read().decode())
+        except Exception as e:
+            return {"retCode": -1, "retMsg": str(e), "result": {"list": []}}
+
     def set_leverage(self, symbol, leverage):
         """Sets buy and sell leverage for a linear perp symbol.
 

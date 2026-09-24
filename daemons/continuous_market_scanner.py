@@ -121,6 +121,100 @@ def calc_rsi(closes, period=14):
     rs = avg_gain / avg_loss
     return 100.0 - (100.0 / (1.0 + rs))
 
+def calc_displacement_efficiency(open_p, high_p, low_p, close_p, direction):
+    """
+    Directional Displacement Efficiency (D):
+    D = (Directional Displacement) / (Total Candle Range).
+    For BUY:  (close - open) / (high - low)
+    For SELL: (open - close) / (high - low)
+    Values: -1.0 to +1.0.
+    High value (> 0.40): Strong directional continuation.
+    Low value (< 0.20) with high volume: Absorption trap (heavy struggle, zero progress).
+    """
+    c_range = max(1e-5, high_p - low_p)
+    if direction == "BUY":
+        return (close_p - open_p) / c_range
+    elif direction == "SELL":
+        return (open_p - close_p) / c_range
+    return 0.0
+
+def calc_volume_persistence(klines):
+    """
+    Calculates Volume Persistence across recent 3 candles (V0 = latest, V1 = prev, V2 = two back):
+    persistence = min(V0 / V1, V1 / V2)
+    Distinguishes genuine volume momentum from one-off spike anomalies.
+    """
+    if len(klines) < 3:
+        return 1.0
+    v0 = max(1e-5, klines[-1]['vol'])
+    v1 = max(1e-5, klines[-2]['vol'])
+    v2 = max(1e-5, klines[-3]['vol'])
+    return round(min(v0 / v1, v1 / v2), 2)
+
+def check_5m_confirmation(k5, direction):
+    """
+    5-Minute Post-Signal Confirmation Gate:
+    Requires the market to actively confirm continuation after the setup candle printed.
+    
+    SHORT Confirmation:
+    - Close < previous close OR close in lower half of 5m candle range
+    - 5m candle body is bearish (close <= open * 1.0005)
+    - No large lower-wick rejection (l_wick_pct_5 < 0.25)
+    
+    LONG Confirmation:
+    - Close > previous close OR close in upper half of 5m candle range
+    - 5m candle body is bullish (close >= open * 0.9995)
+    - No large upper-wick rejection (u_wick_pct_5 < 0.25)
+    """
+    if not k5 or len(k5) < 3:
+        return True, "INSUFFICIENT_5M_DATA"
+
+    last_5 = k5[-1]
+    prev_5 = k5[-2]
+    c_range = max(1e-5, last_5['high'] - last_5['low'])
+    lower_wick = min(last_5['open'], last_5['close']) - last_5['low']
+    upper_wick = last_5['high'] - max(last_5['open'], last_5['close'])
+    l_wick_pct = lower_wick / c_range
+    u_wick_pct = upper_wick / c_range
+
+    if direction == "SELL":
+        close_in_lower = (last_5['high'] - last_5['close']) / c_range >= 0.50
+        close_below_prev = last_5['close'] <= prev_5['close']
+        bearish_body = last_5['close'] <= last_5['open'] * 1.0005
+        clean_bottom = l_wick_pct < 0.25
+
+        if (close_below_prev or close_in_lower) and bearish_body and clean_bottom:
+            return True, "5M_BEARISH_CONFIRMED"
+        else:
+            reasons = []
+            if not (close_below_prev or close_in_lower):
+                reasons.append("close_not_in_lower_half")
+            if not bearish_body:
+                reasons.append("candle_body_is_bullish_green")
+            if not clean_bottom:
+                reasons.append(f"lower_wick_absorption_{l_wick_pct*100:.0f}%")
+            return False, "SHORT_WAITING_5M_CONFIRMATION: " + ", ".join(reasons)
+
+    elif direction == "BUY":
+        close_in_upper = (last_5['close'] - last_5['low']) / c_range >= 0.50
+        close_above_prev = last_5['close'] >= prev_5['close']
+        bullish_body = last_5['close'] >= last_5['open'] * 0.9995
+        clean_top = u_wick_pct < 0.25
+
+        if (close_above_prev or close_in_upper) and bullish_body and clean_top:
+            return True, "5M_BULLISH_CONFIRMED"
+        else:
+            reasons = []
+            if not (close_above_prev or close_in_upper):
+                reasons.append("close_not_in_upper_half")
+            if not bullish_body:
+                reasons.append("candle_body_is_bearish_red")
+            if not clean_top:
+                reasons.append(f"upper_wick_resistance_{u_wick_pct*100:.0f}%")
+            return False, "LONG_WAITING_5M_CONFIRMATION: " + ", ".join(reasons)
+
+    return False, "UNKNOWN_DIRECTION"
+
 def scan_symbol(symbol):
     k15 = fetch_klines(symbol, '15', 25)
     k5  = fetch_klines(symbol, '5', 25)
@@ -189,6 +283,22 @@ def scan_symbol(symbol):
         setup = "NONE"
         direction = "NONE"
 
+    disp_5m = calc_displacement_efficiency(last_5['open'], last_5['high'], last_5['low'], last_5['close'], direction) if direction != "NONE" else 0.0
+    vol_persist = calc_volume_persistence(k5)
+    
+    # Absorption Trap Detection: High Volume + Low Displacement Efficiency
+    is_absorption_trap = (vol_ratio >= 1.60 and disp_5m < 0.20 and direction != "NONE")
+    trap_warning = ""
+    if is_absorption_trap:
+        score = max(0, score - 35)
+        trap_warning = f"ABSORPTION_TRAP: Volume {vol_ratio:.1f}x with zero displacement ({disp_5m:.2f})"
+
+    is_confirmed, conf_note = check_5m_confirmation(k5, direction) if direction != "NONE" else (False, "NO_SETUP")
+    if direction != "NONE" and not is_confirmed:
+        score = min(score, 70)
+
+    recommended = (score >= 75 and is_confirmed and not is_absorption_trap)
+
     return {
         "symbol": symbol,
         "price": cur_p,
@@ -198,12 +308,18 @@ def scan_symbol(symbol):
         "rsi_5m": round(rsi5, 1),
         "rsi_15m": round(rsi15, 1),
         "vol_ratio": round(vol_ratio, 2),
+        "vol_persistence": vol_persist,
+        "disp_5m": round(disp_5m, 2),
         "lower_wick_pct": round(l_wick_pct * 100, 1),
         "upper_wick_pct": round(u_wick_pct * 100, 1),
         "score": score,
+        "is_confirmed": is_confirmed,
+        "confirmation_note": conf_note,
+        "is_absorption_trap": is_absorption_trap,
+        "trap_warning": trap_warning,
         "setup": setup,
         "direction": direction,
-        "recommended": score >= 75
+        "recommended": recommended
     }
 
 def scan_symbol_htf_swing(symbol, btc_macro=None):
@@ -373,6 +489,33 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
         direction = "NONE"
         targets = {}
 
+    disp_15m = calc_displacement_efficiency(last_15['open'], last_15['high'], last_15['low'], last_15['close'], direction) if direction != "NONE" else 0.0
+    disp_5m = calc_displacement_efficiency(last_5['open'], last_5['high'], last_5['low'], last_5['close'], direction) if direction != "NONE" else 0.0
+    vol_persist_15m = calc_volume_persistence(k15)
+
+    # 1. Absorption Trap Detection (Attacks LINK/XRP false breakout failures)
+    # High volume (>= 1.60x) with near-zero displacement (< 0.20) = absorption/exhaustion trap
+    is_absorption_trap = (vol_ratio_15 >= 1.60 and disp_15m < 0.20 and direction != "NONE")
+    trap_warning = ""
+    if is_absorption_trap:
+        score = max(0, score - 35)
+        trap_warning = f"ABSORPTION_TRAP: Volume {vol_ratio_15:.1f}x with zero displacement ({disp_15m:.2f})"
+
+    # 2. 5-Minute Post-Signal Confirmation Gate
+    is_confirmed, conf_note = check_5m_confirmation(k5, direction) if direction != "NONE" else (False, "NO_SETUP")
+    if direction != "NONE" and not is_confirmed:
+        # Candidate has setup but has NOT yet confirmed continuation on 5m bar
+        score = min(score, 74)  # Hard cap below recommendation threshold (78) until 5m confirms!
+
+    # 3. Trade Readiness Score (Separates Setup Score from Execution Readiness)
+    readiness_score = score
+    if is_confirmed and not is_absorption_trap and vol_persist_15m >= 0.70 and disp_15m >= 0.30:
+        readiness_score = min(100, score + 10)
+    elif not is_confirmed or is_absorption_trap:
+        readiness_score = min(readiness_score, 60)
+
+    recommended = (score >= 78 and is_confirmed and not is_absorption_trap)
+
     return {
         "symbol": symbol,
         "price": cur_p,
@@ -383,13 +526,21 @@ def scan_symbol_htf_swing(symbol, btc_macro=None):
         "rsi_1h": round(rsi_1h, 1),
         "rsi_15m": round(rsi_15, 1),
         "vol_ratio": round(vol_ratio_15, 2),
+        "vol_persistence": vol_persist_15m,
+        "disp_15m": round(disp_15m, 2),
+        "disp_5m": round(disp_5m, 2),
         "lower_wick_pct": round(l_wick_pct_15 * 100, 1),
         "upper_wick_pct": round(u_wick_pct_15 * 100, 1),
         "score": score,
+        "readiness_score": readiness_score,
+        "is_confirmed": is_confirmed,
+        "confirmation_note": conf_note,
+        "is_absorption_trap": is_absorption_trap,
+        "trap_warning": trap_warning,
         "setup": setup,
         "direction": direction,
         "targets": targets,
-        "recommended": score >= 78
+        "recommended": recommended
     }
 
 def get_account_status():
@@ -464,7 +615,10 @@ def run_scanner_loop():
                 top['recommended'] = False
                 top['veto_reason'] = f"BLOCKED_BY_BTC_DUMP: BTC is flushing ({btc_macro.get('btc_chg_5m')}%)"
                 
-            top_rec = f"{top['symbol']} {top['direction']} (Score {top['score']}/100 - {top['setup']})" if top else "None"
+            conf_tag = "✓ 5M CONFIRMED" if (top and top.get('is_confirmed')) else f"⏳ WAIT 5M"
+            trap_tag = " ⚠️ ABSORPTION TRAP" if (top and top.get('is_absorption_trap')) else ""
+            disp_str = f" [D:{top.get('disp_15m', 0):+.2f}, V_Persist:{top.get('vol_persistence', 1.0)}]" if top else ""
+            top_rec = f"{top['symbol']} {top['direction']} (Score {top['score']}/100 [{conf_tag}]{trap_tag}{disp_str} - {top['setup']})" if top else "None"
             if btc_dumping and top:
                 if top.get('direction') == 'BUY':
                     top_rec += f" [VETOED: BTC DUMPING {btc_macro.get('btc_chg_5m')}%]"

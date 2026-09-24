@@ -277,6 +277,21 @@ def run_single_cycle():
                     client.close_position('linear', sym, side, pos['size'])
                     continue
 
+                # ── IMMEDIATE ACTIVATION TIMEOUT (Post-Entry Failure Detector) ──
+                # If after 3.5 to 12 minutes the setup never activated (MFE < +0.12%)
+                # and price is drifting negatively (gain_pct <= -0.45%),
+                # the trade has failed activation (e.g. SOL pattern: MFE +0.004%, MAE -0.35%).
+                # Scratch immediately instead of waiting for full stop loss!
+                opened_at = tracked_trades[sym].get('opened_at', time.time())
+                duration_mins = (time.time() - opened_at) / 60.0
+                peak_g = tracked_trades[sym].get('max_gain', 0.0)
+                if 3.5 <= duration_mins <= 12.0:
+                    if peak_g < 0.12 and gain_pct <= -0.45:
+                        log(f"🚨 [FAILED ACTIVATION CUT] {sym} failed to activate after {duration_mins:.1f}m (MFE: +{peak_g:.2f}%, Drawdown: {gain_pct:+.2f}% <= -0.45%). Cutting early to save capital from full SL!")
+                        client.close_position('linear', sym, side, pos['size'])
+                        symbol_cooldowns[sym] = time.time() + 900
+                        continue
+
                 # ── DYNAMIC ANTI-STAGNATION TIME-STOP ACCORDING TO SPRINT HORIZON ──
                 # Adapt stagnation limit to remaining time in sprint:
                 # Plentiful time (rem > 14h): 5.5h breathing room for multi-hour swing expansion
@@ -284,9 +299,7 @@ def run_single_cycle():
                 # Tight time (rem <= 6h): 2.5h limit — recycle stagnant capital quickly into moving runners
                 rem_hrs = float(target_state.get('remaining_hours') or 24.0)
                 stagnation_limit = 2.5 if rem_hrs <= 6.0 else (3.5 if rem_hrs <= 14.0 else 5.5)
-                opened_at = tracked_trades[sym].get('opened_at', time.time())
                 duration_hrs = (time.time() - opened_at) / 3600.0
-                peak_g = tracked_trades[sym].get('max_gain', 0.0)
                 if duration_hrs >= stagnation_limit:
                     if peak_g < 0.40 and -0.60 <= gain_pct <= 0.25:
                         log(f"⏳ [SPRINT TIME-STOP] {sym} open for {duration_hrs:.1f}h (Sprint Limit: {stagnation_limit:.1f}h, Rem: {rem_hrs:.1f}h) in flat consolidation (Peak: +{peak_g:.2f}%, Now: {gain_pct:+.2f}%). Scratching to recycle capital for target runner...")
@@ -447,6 +460,69 @@ def run_single_cycle():
                         sl_label = "+0.75%"
                         tp_label = "-1.00%"
                 
+                # ── REAL-TIME EXECUTION MICROSTRUCTURE GATE (Orderbook + Taker Flow + Spread) ──
+                # Fetches live L2 orderbook & recent taker trade flow immediately before order placement
+                ob_data = client.get_orderbook(sym, limit=25)
+                ob_res = ob_data.get('result', {})
+                bids = ob_res.get('b', [])
+                asks = ob_res.get('a', [])
+
+                trades_data = client.get_recent_trades(sym, limit=50)
+                recent_trades_list = trades_data.get('result', {}).get('list', [])
+
+                spread_pct = 0.0
+                book_ratio = 1.0
+                taker_buy_pct = 50.0
+                taker_sell_pct = 50.0
+
+                if bids and asks:
+                    try:
+                        best_bid = float(bids[0][0])
+                        best_ask = float(asks[0][0])
+                        spread_pct = ((best_ask - best_bid) / best_bid) * 100.0 if best_bid > 0 else 0.0
+
+                        # 1. Spread Check: Illiquid / wide spread veto
+                        if spread_pct > 0.12:
+                            log(f"🛑 [PRE-EXECUTION VETO: SPREAD] {sym} spread is {spread_pct:.3f}% > 0.12% cap (slippage hazard). Entry vetoed.")
+                            symbol_cooldowns[sym] = time.time() + 60
+                            return True
+
+                        # 2. Depth Imbalance (Top 10 levels)
+                        bid_depth = sum(float(b[1]) for b in bids[:10])
+                        ask_depth = sum(float(a[1]) for a in asks[:10])
+                        book_ratio = bid_depth / max(1e-6, ask_depth)
+
+                        # 3. Taker Flow Imbalance (Last 50 trades)
+                        taker_buy_vol = sum(float(t.get('size', 0)) for t in recent_trades_list if t.get('side') == 'Buy')
+                        taker_sell_vol = sum(float(t.get('size', 0)) for t in recent_trades_list if t.get('side') == 'Sell')
+                        tot_taker = taker_buy_vol + taker_sell_vol
+                        taker_buy_pct = (taker_buy_vol / tot_taker * 100.0) if tot_taker > 0 else 50.0
+                        taker_sell_pct = 100.0 - taker_buy_pct
+
+                        # 4. Hard Blockers for Contradictory Microstructure
+                        if direction == 'BUY':
+                            if taker_sell_pct >= 68.0:
+                                log(f"🛑 [PRE-EXECUTION VETO: TAKER SELL PRESSURE] {sym} taker sell aggression is {taker_sell_pct:.1f}% (sellers dominating flow). Aborting Long.")
+                                symbol_cooldowns[sym] = time.time() + 180
+                                return True
+                            if book_ratio <= 0.40:
+                                log(f"🛑 [PRE-EXECUTION VETO: SELL WALL] {sym} ask depth is {1.0/book_ratio:.1f}x larger than bid depth ({ask_depth:.1f} vs {bid_depth:.1f}). Aborting Long.")
+                                symbol_cooldowns[sym] = time.time() + 180
+                                return True
+                        else: # SELL
+                            if taker_buy_pct >= 68.0:
+                                log(f"🛑 [PRE-EXECUTION VETO: TAKER BUY PRESSURE] {sym} taker buy aggression is {taker_buy_pct:.1f}% (buyers dominating flow). Aborting Short.")
+                                symbol_cooldowns[sym] = time.time() + 180
+                                return True
+                            if book_ratio >= 2.50:
+                                log(f"🛑 [PRE-EXECUTION VETO: BUY WALL] {sym} bid depth is {book_ratio:.1f}x larger than ask depth ({bid_depth:.1f} vs {ask_depth:.1f}). Aborting Short.")
+                                symbol_cooldowns[sym] = time.time() + 180
+                                return True
+
+                        log(f"⚡ [MICROSTRUCTURE CLEARED] {sym} {direction} | Spread: {spread_pct:.3f}% | Book Ratio: {book_ratio:.2f} | Taker Buy: {taker_buy_pct:.1f}% / Sell: {taker_sell_pct:.1f}%")
+                    except Exception as e_ms:
+                        log(f"[MICROSTRUCTURE CHECK NOTICE] {e_ms}")
+
                 log(f"🚀 [ENTER TRADE ({strategy_mode})] Top Setup Found: {sym} {direction} (Score: {score}/100 - {top['setup']})")
                 log(f"   Size: {qty} units (~${qty * cur_price:.2f} notional @ 10x) | SL: {sl_price} ({sl_label}) | TP: {tp_price} ({tp_label})")
                 
