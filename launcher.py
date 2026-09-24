@@ -20,6 +20,9 @@ def main():
         ("Smart Growth Executor", [sys.executable, "daemons/smart_growth_executor.py"]),
         ("Decision Trace", [sys.executable, "daemons/trade_decision_trace_daemon.py"]),
         ("Pattern Archaeologist", [sys.executable, "daemons/historical_pattern_archaeologist.py"]),
+        # Research-only: collects public Bybit Demo market state and forward
+        # barrier outcomes. It never places, modifies, or cancels orders.
+        ("CME-X4 Live Research", [sys.executable, "daemons/cme_x4_live_research.py"]),
     ]
 
     import shutil
