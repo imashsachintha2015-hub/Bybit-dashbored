@@ -1169,6 +1169,33 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, comp)
             return
 
+        # 3e-4. API: CME-X4 V4 Real-Time Live Trade Simulator
+        if self.path.startswith("/api/cme-x4/live-simulation"):
+            sim_file = os.path.join(DIRECTORY, "scratch", "cme_x4_live_simulation.json")
+            if os.path.exists(sim_file):
+                try:
+                    with open(sim_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self._send_json(200, data)
+                    return
+                except Exception as e:
+                    self._send_json(500, {"error": f"Failed reading live simulation state: {e}"})
+                    return
+            else:
+                self._send_json(200, {
+                    "status": "INITIALIZING",
+                    "account_config": {
+                        "initial_capital_usd": 10.0,
+                        "current_equity_usd": 10.0,
+                        "leverage": "10.0x (Isolated)",
+                        "margin_per_trade_usd": 1.0,
+                        "notional_per_trade_usd": 10.0
+                    },
+                    "active_trades": [],
+                    "recent_closed_trades": []
+                })
+                return
+
         # 4. API: DIV-10 Benzinga News Sentinel feed
         if self.path.startswith("/api/news"):
             res = get_news_state()

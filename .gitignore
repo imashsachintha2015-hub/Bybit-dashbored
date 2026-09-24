@@ -14,6 +14,7 @@ __pycache__/
 # Research data: regenerable from the fetchers, and the live collector's output
 # grows without bound.
 research/data/
+research/cme_x4/data/
 backtest/data-15m-research/
 node_modules/
 commit_msg.txt

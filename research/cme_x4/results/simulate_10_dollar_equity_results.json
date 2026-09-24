@@ -1,0 +1,120 @@
+{
+  "title": "CME-X4 V4: $10.00 Starting Equity Feasibility & 500-Trade Simulation",
+  "timestamp": "2026-09-24 18:33:52 UTC",
+  "initial_capital_usd": 10.0,
+  "model_a_micro_cap": {
+    "name": "Model A: Micro-Allocation ($1.00 Margin x 10x = $10.00 Notional)",
+    "margin_per_trade_usd": 1.0,
+    "notional_per_trade_usd": 10.0,
+    "dollar_risk_per_trade_usd": 0.048,
+    "risk_pct_of_account": 0.48,
+    "final_equity_usd": 11.08,
+    "net_profit_usd": 1.08,
+    "roi_pct": 10.76,
+    "max_drawdown_usd": 1.17,
+    "max_drawdown_pct": 10.89,
+    "ruined": false,
+    "verdict": "SAFEST & HIGHLY RECOMMENDED FOR $10 ACCOUNT"
+  },
+  "model_b_dynamic_compounding": {
+    "name": "Model B: Dynamic 2% Risk Compounding",
+    "initial_risk_usd": 0.2,
+    "risk_pct_of_account": 2.0,
+    "final_equity_usd": 12.35,
+    "net_profit_usd": 2.35,
+    "roi_pct": 23.48,
+    "max_drawdown_usd": 5.35,
+    "max_drawdown_pct": 41.13,
+    "ruined": false,
+    "verdict": "OPTIMAL COMPOUNDING BALANCE"
+  },
+  "model_c_aggressive_all_in": {
+    "name": "Model C: Aggressive All-In Margin ($10 Margin x 10x = $100 Notional)",
+    "margin_per_trade_usd": 10.0,
+    "notional_per_trade_usd": 100.0,
+    "dollar_risk_per_trade_usd": 0.48,
+    "risk_pct_of_account": 4.8,
+    "final_equity_usd": 20.75,
+    "net_profit_usd": 10.75,
+    "roi_pct": 107.49,
+    "max_drawdown_usd": 11.73,
+    "max_drawdown_pct": 66.31,
+    "ruined": false,
+    "ruin_trade_number": null,
+    "verdict": "EXTREME RISK / DANGEROUS DRAWDOWN"
+  },
+  "bybit_min_sizes": [
+    {
+      "symbol": "BTCUSDT",
+      "min_qty": "0.001 BTC",
+      "price_approx": 65000,
+      "min_notional_usd": 65.0,
+      "can_trade_1x": false,
+      "can_trade_10x": true,
+      "notes": "Requires $6.50 margin at 10x"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "min_qty": "0.01 ETH",
+      "price_approx": 2500,
+      "min_notional_usd": 25.0,
+      "can_trade_1x": false,
+      "can_trade_10x": true,
+      "notes": "Requires $2.50 margin at 10x"
+    },
+    {
+      "symbol": "SOLUSDT",
+      "min_qty": "0.1 SOL",
+      "price_approx": 135,
+      "min_notional_usd": 13.5,
+      "can_trade_1x": false,
+      "can_trade_10x": true,
+      "notes": "Requires $1.35 margin at 10x"
+    },
+    {
+      "symbol": "XRPUSDT",
+      "min_qty": "1 XRP",
+      "price_approx": 0.58,
+      "min_notional_usd": 1.0,
+      "can_trade_1x": true,
+      "can_trade_10x": true,
+      "notes": "Bybit min notional $1.00"
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "min_qty": "10 DOGE",
+      "price_approx": 0.11,
+      "min_notional_usd": 1.1,
+      "can_trade_1x": true,
+      "can_trade_10x": true,
+      "notes": "Bybit min notional $1.10"
+    },
+    {
+      "symbol": "ADAUSDT",
+      "min_qty": "2 ADA",
+      "price_approx": 0.35,
+      "min_notional_usd": 1.0,
+      "can_trade_1x": true,
+      "can_trade_10x": true,
+      "notes": "Bybit min notional $1.00"
+    },
+    {
+      "symbol": "SUIUSDT",
+      "min_qty": "1 SUI",
+      "price_approx": 1.5,
+      "min_notional_usd": 1.5,
+      "can_trade_1x": true,
+      "can_trade_10x": true,
+      "notes": "Bybit min notional $1.50"
+    },
+    {
+      "symbol": "PEPEUSDT",
+      "min_qty": "10000 PEPE",
+      "price_approx": 1e-05,
+      "min_notional_usd": 1.0,
+      "can_trade_1x": true,
+      "can_trade_10x": true,
+      "notes": "Bybit min notional $1.00"
+    }
+  ]
+}

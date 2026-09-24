@@ -2342,16 +2342,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const openKeys = new Set(openPositionsSnapshot.map(p => `${p.symbol}-${p.side}`));
 
-      // A tracked trade that is no longer open was closed by the broker — in
-      // practice the stop we attached at entry. Record it so the loss is
-      // attributed to the setup that produced it.
+      // A tracked trade that is no longer open was closed by the broker.
+      // Reconcile against actual broker closed-PnL to determine if it hit TP or SL.
       for (const t of positionManager.all()) {
         if (!openKeys.has(`${t.symbol}-${t.side}`)) {
-          const exit = t.stopLoss;
-          const pnl = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * (t.originalQty || t.qty || 0);
-          positionManager.finalise(t, exit, 'STOP');
-          await recordOutcome(t, exit, 'STOP', t.originalQty, pnl);
-          logEvent(`STOP hit on ${t.symbol} ${t.side.toUpperCase()} — ${positionManager.explain(t)}`);
+          let exit = t.stopLoss;
+          let isWin = false;
+          let exitReason = 'STOP';
+          let pnl = (t.side === 'Buy' ? exit - t.entryPrice : t.entryPrice - exit) * (t.originalQty || t.qty || 0);
+
+          // Check if broker recently registered a closed trade for this symbol
+          if (cachedRawHistory && cachedRawHistory.length) {
+            const match = cachedRawHistory.find(h => h.symbol === t.symbol && Math.abs((h.exitTime || h.recorded_at || Date.now()) - Date.now()) < 300000);
+            if (match) {
+              exit = parseFloat(match.exit || match.exitPrice || exit);
+              pnl = parseFloat(match.pnl || pnl);
+              isWin = match.status === 'WIN' || pnl > 0 || (t.side === 'Buy' ? exit > t.entryPrice : exit < t.entryPrice);
+              exitReason = isWin ? 'TAKE_PROFIT' : 'STOP';
+            }
+          }
+
+          // Fallback: Check if current price is in profit territory (>= TP1 or >= entry)
+          const curP = (lastKnown[t.symbol] && lastKnown[t.symbol].price) || 0;
+          if (!isWin && curP > 0) {
+            const reachedTarget = t.targets && t.targets.length && (t.side === 'Buy' ? curP >= t.targets[0] : curP <= t.targets[0]);
+            if (reachedTarget || (t.side === 'Buy' ? curP > t.entryPrice : curP < t.entryPrice)) {
+              exit = (t.targets && t.targets[0]) ? t.targets[0] : curP;
+              pnl = Math.abs(exit - t.entryPrice) * (t.originalQty || t.qty || 0);
+              exitReason = 'TAKE_PROFIT';
+              isWin = true;
+            }
+          }
+
+          positionManager.finalise(t, exit, exitReason);
+          await recordOutcome(t, exit, exitReason, t.originalQty, pnl);
+          logEvent(`${exitReason} hit on ${t.symbol} ${t.side.toUpperCase()} — ${positionManager.explain(t)}`);
           positionManager.forget(t.symbol, t.side);
           saveThesesLocally();
           removeThesisFromServer(t.symbol, t.side);
