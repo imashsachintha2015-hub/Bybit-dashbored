@@ -610,26 +610,37 @@ INSTITUTIONAL QUANTITATIVE DIRECTIVES:
 3. Stop Loss Confluence:
    - For BUY: Stop loss should be below support (~1.50% below entry).
    - For SELL: Stop loss should be above resistance pivot (~1.35% above entry).
-4. Rule Compliance: Verify candidate does not trigger stored learned rules on {sym}.
-5. Bitcoin Confirmation:
+4. Culprit Forensic Audit (Reject setups matching known loss culprits):
+   - Culprit A (ABSORPTION TRAP): Reject if upper wick >= 35% on Long or lower wick >= 35% on Short with elevated volume.
+   - Culprit B (DEFENDED S/R WALL): Reject if shorting into lower support floor or buying directly into resistance ceiling.
+   - Culprit C (CHOP STAGNATION BLEED): Reject if market is in low-displacement consolidation (D < 0.25).
+5. Dynamic Positioning & Exit Directives:
+   - Recommend dynamic sizing notional ($7.00 - $12.50) based on conviction and regime.
+   - Define exact early invalidation conditions (when to exit early instead of waiting for SL).
+   - Define staged profit milestones (when to take profit and ratchet SL).
+6. Bitcoin Confirmation:
    - For BUY: Reject altcoin longs if BTC is flushing or 5m delta is < -0.12%.
    - For SELL: Reject altcoin shorts if BTC is strongly pumping or 1h delta is > +0.35%. A dumping BTC is a TAILWIND for shorts!
-6. Conviction Threshold: Only grant "approved": true if conviction_score is >= 90.
+7. Conviction Threshold: Only grant "approved": true if conviction_score is >= 90.
 
 Respond strictly in valid JSON:
 {{
   "approved": true | false,
   "conviction_score": 93,
+  "culprit_audit": "PASS" | "VETO_ABSORPTION_TRAP" | "VETO_DEFENDED_WALL" | "VETO_CHOP_STAGNATION",
   "expected_r": {conditional_edge.get('expected_r', 0.0)},
   "statistical_edge_verdict": "{conditional_edge.get('edge_verdict')}",
   "risk_reward_ratio": "1:3.2",
   "nearest_support": {sr.get('nearest_sup', 0)},
   "nearest_resistance": {sr.get('nearest_res', 0)},
   "runway_pct": {sr.get('runway_to_res_pct', 0)},
+  "recommended_size_notional": 12.00,
   "recommended_sl": float,
   "recommended_tp1": float,
   "recommended_tp2": float,
   "recommended_tp3": float,
+  "when_to_exit_early": "Concrete invalidation condition to scratch or exit before full SL",
+  "when_to_get_profit": "Specific staged profit scaling protocol",
   "price_level_reaction_evaluation": "Analysis of what happened historically when price was at this level",
   "coin_mfe_and_runner_evaluation": "Analysis of how far winners typically run on this coin and whether TP targets are realistic",
   "compliance_note": "How this trade respects past learned rules and statistical edge",
@@ -782,9 +793,18 @@ def local_heuristic_gatekeeper(candidate, sr, track_record, btc_macro, candlesti
     else:
         rationale += f"Approved: {approved}."
 
+    culprit_audit = "VETO_ARCHAEOLOGIST" if is_anti_veto else ("PASS" if approved else "VETO_RUNWAY_OR_MOMENTUM")
+    rec_notional = 12.50 if (approved and conviction >= 92) else (10.00 if approved else 7.50)
+    exit_early_rule = "Cut trade immediately if after 5 minutes price fails to push forward (MFE < +0.12%) or if counter-wick exceeds 35%."
+    profit_rule = f"Bank 50% partial at TP1 ({tp1_rec}), ratchet SL to breakeven + 0.25%, and let remaining run to TP2/TP3."
+
     return {
         "approved": approved,
         "conviction_score": conviction,
+        "culprit_audit": culprit_audit,
+        "recommended_size_notional": rec_notional,
+        "when_to_exit_early": exit_early_rule,
+        "when_to_get_profit": profit_rule,
         "risk_reward_ratio": "1:2.5" if approved else "1:1.0",
         "nearest_support": sr.get('nearest_sup', cur_p * 0.985),
         "nearest_resistance": sr.get('nearest_res', cur_p * 1.04),

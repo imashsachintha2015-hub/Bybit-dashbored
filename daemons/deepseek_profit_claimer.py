@@ -173,7 +173,7 @@ Respond strictly in valid JSON:
   "confidence": 0.85,
   "rationale": "One-sentence concise institutional explanation",
   "close_pct": 50,
-  "ratchet_sl_offset_pct": 0.12,
+  "ratchet_sl_offset_pct": 0.25,
   "stage2_target_offset_pct": 0.85
 }}"""
 
@@ -225,25 +225,25 @@ def local_heuristic_claimer(gain_pct, micro, side):
                 "confidence": 0.82,
                 "rationale": f"High upper rejection wick ({u_wick}%) indicates local resistance stall; taking full profit.",
                 "close_pct": 100,
-                "ratchet_sl_offset_pct": 0.12,
+                "ratchet_sl_offset_pct": 0.25,
                 "stage2_target_offset_pct": 0.80
             }
         elif vol_ratio >= 1.5 and u_wick < 25.0:
             return {
                 "verdict": "KEEP_RUNNER",
                 "confidence": 0.85,
-                "rationale": f"Volume breakout ({vol_ratio}x) with solid body; trailing stop to fee-cushion +0.12% and letting runner ride.",
+                "rationale": f"Volume breakout ({vol_ratio}x) with solid body; trailing stop to fee-cushion +0.25% and letting runner ride.",
                 "close_pct": 0,
-                "ratchet_sl_offset_pct": 0.12,
+                "ratchet_sl_offset_pct": 0.25,
                 "stage2_target_offset_pct": 1.00
             }
         else:
             return {
                 "verdict": "TAKE_PARTIAL",
                 "confidence": 0.90,
-                "rationale": "Standard Stage-1 milestone: secure 50% cash profit and lock remaining 50% at risk-free +0.12%.",
+                "rationale": "Standard Stage-1 milestone: secure 50% cash profit and lock remaining 50% at fee-proof +0.25% green.",
                 "close_pct": 50,
-                "ratchet_sl_offset_pct": 0.12,
+                "ratchet_sl_offset_pct": 0.25,
                 "stage2_target_offset_pct": 0.85
             }
     else:
@@ -255,16 +255,16 @@ def local_heuristic_claimer(gain_pct, micro, side):
                 "confidence": 0.82,
                 "rationale": f"Lower rejection wick ({l_wick}%) indicates buyer absorption; banking full short profit.",
                 "close_pct": 100,
-                "ratchet_sl_offset_pct": 0.12,
+                "ratchet_sl_offset_pct": 0.25,
                 "stage2_target_offset_pct": 0.80
             }
         else:
             return {
                 "verdict": "TAKE_PARTIAL",
                 "confidence": 0.90,
-                "rationale": "Secure 50% profit and trail remaining stop to entry - 0.12% risk-free.",
+                "rationale": "Secure 50% profit and trail remaining stop to entry - 0.25% fee-proof green.",
                 "close_pct": 50,
-                "ratchet_sl_offset_pct": 0.12,
+                "ratchet_sl_offset_pct": 0.25,
                 "stage2_target_offset_pct": 0.85
             }
 

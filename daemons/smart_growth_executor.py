@@ -79,8 +79,9 @@ def get_account_state():
             })
     return eq, active
 
-def calculate_trade_qty(symbol, price):
-    raw_qty = NOTIONAL_PER_TRADE / price
+def calculate_trade_qty(symbol, price, notional=None):
+    use_notional = notional if (notional and notional > 0) else NOTIONAL_PER_TRADE
+    raw_qty = use_notional / price
     qty = round_qty(symbol, raw_qty)
     min_q = COIN_SPECS.get(symbol, {}).get('min_qty', 0)
     if qty < min_q:
@@ -122,9 +123,14 @@ def check_and_learn_closed_trades(current_active_symbols):
                 "mae_pct": trade_info.get('min_gain', 0),
                 "exit_reason": "TAKE_PROFIT_OR_CLAIM" if pnl_net > 0 else "STOP_LOSS"
             }
-            log(f"🧠 [LEARNING TRIGGERED] Trade {sym} closed ({pnl_pct:+.2f}%, ${pnl_net:+.4f})! Generating DeepSeek reflection...")
+            log(f"🧠 [FORENSIC POST-MORTEM] Trade {sym} closed ({pnl_pct:+.2f}%, ${pnl_net:+.4f})! MFE: +{record_payload['mfe_pct']:.2f}%, MAE: {record_payload['mae_pct']:.2f}%")
             learn_res = kb.record_trade_close(record_payload, micro)
-            log(f"   Stored Rule: {learn_res.get('reflection', {}).get('rule')}")
+            ref = learn_res.get('reflection', {})
+            log(f"   🔎 [CULPRIT CAUSE] {ref.get('culprit', 'Unknown')}")
+            log(f"   📡 [HOW TO IDENTIFY] {ref.get('how_to_identify', 'N/A')}")
+            log(f"   🎯 [HOW TO EXECUTE] {ref.get('how_to_execute', 'N/A')}")
+            log(f"   🛡️ [RISK & POSITIONING] {ref.get('how_to_reduce_risk', 'N/A')}")
+            log(f"   📜 [STORED RULE ({ref.get('pattern_name', 'RULE')})] {ref.get('rule', '')}")
 
             # Authoritative SQLite Measurement Journal logging
             try:
@@ -427,8 +433,18 @@ def run_single_cycle():
                 log(f"   MFE Runner Profile: {mfe_eval}")
                 log(f"   DeepSeek Rationale: {rationale}")
 
-                notional_target = 12.5 if strategy_mode == "SWING_RUNNER" else 11.0
-                qty = calculate_trade_qty(sym, cur_price)
+                # Dynamic Position Sizing based on Conviction, Regime, and Expected R
+                rec_notional = float(gatekeeper_dec.get('recommended_size_notional') or 0.0)
+                if rec_notional >= 5.0:
+                    notional_target = rec_notional
+                elif conv_score >= 93 and strategy_mode == "SWING_RUNNER":
+                    notional_target = 12.50
+                elif conv_score >= 90:
+                    notional_target = 10.50
+                else:
+                    notional_target = 8.00  # Defensive sizing for marginal setups
+                
+                qty = calculate_trade_qty(sym, cur_price, notional=notional_target)
                 if qty <= 0:
                     return True
                     

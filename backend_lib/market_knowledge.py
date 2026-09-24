@@ -642,44 +642,102 @@ class MarketKnowledgeBase:
         return {"episode_id": episode_id, "reflection": reflection}
 
     def generate_post_mortem_reflection(self, episode_id, trade_data, micro_data):
-        """Asks DeepSeek to analyze why trade won or lost, and synthesizes a permanent rule."""
+        """
+        Conducts an authoritative 5-Point Forensic Root-Cause Post-Mortem on every completed trade:
+        1. WHAT HAPPENED: Realized PnL, PnL %, MFE, MAE, Duration, Exit Reason.
+        2. WHY IT HAPPENED (THE CULPRIT): Pinpoint the exact market failure or edge driver.
+        3. HOW TO IDENTIFY: Concrete quantitative markers (wick %, volume ratio, displacement D, S/R).
+        4. HOW TO EXECUTE: Actionable entry and execution playbook (candle close, limit vs market).
+        5. HOW TO REDUCE RISK & DYNAMIC POSITIONING: Risk controls, dynamic sizing, when to exit early, and when to get profit.
+        """
         sym = trade_data.get("symbol", "COIN")
+        direction = trade_data.get("direction") or trade_data.get("side") or "BUY"
         pnl = float(trade_data.get("pnl_net") or trade_data.get("pnl") or 0.0)
         pnl_pct = float(trade_data.get("pnl_pct") or 0.0)
         mfe = float(trade_data.get("mfe_pct") or 0.0)
+        mae = float(trade_data.get("mae_pct") or 0.0)
+        exit_reason = str(trade_data.get("exit_reason", "MARKET"))
+        micro = micro_data or {}
         outcome = "PROFITABLE_WIN" if pnl > 0 else "LOSS"
 
-        prompt = f"""You are the Chief Quantitative Learning Officer at MASIS Trading.
-A demo micro-scalp trade just closed. Analyze the outcome and extract an institutional lesson:
-- Coin: {sym}
-- Outcome: {outcome} (${pnl:+.4f} USDT, {pnl_pct:+.2f}%)
-- Max Favorable Excursion (Highest Gain Reached): +{mfe:.2f}%
-- Exit Reason: {trade_data.get('exit_reason', 'N/A')}
-- 5m Upper Wick: {micro_data.get('upper_wick_pct_5m', 0)}%
-- 5m Volume Ratio: {micro_data.get('vol_ratio_5m', 1.0)}x
+        u_wick = float(micro.get("upper_wick_pct_5m", 0.0))
+        l_wick = float(micro.get("lower_wick_pct_5m", 0.0))
+        vol_ratio = float(micro.get("vol_ratio_5m", 1.0))
+        body_pct = float(micro.get("body_pct_5m", 0.0))
+        displacement_d = float(micro.get("displacement_d", 0.35))
 
-Synthesize one permanent rule for the knowledge base so the agent acts as an adaptive market prophet.
-Respond strictly in JSON:
+        # Heuristic Pattern & Culprit Classifier
+        if direction.upper() in ("BUY", "LONG") and u_wick >= 35.0:
+            deduced_pattern = "ABSORPTION_TRAP"
+            default_culprit = f"Absorption Trap: Buyer breakout attempt absorbed into resting ask walls, generating {u_wick:.1f}% upper wick."
+            default_identify = f"Upper wick >= 35% ({u_wick:.1f}%) with elevated volume ({vol_ratio:.1f}x) at local resistance."
+            default_execute = "Wait for 5m candle close confirmation; never buy market orders into high upper wicks."
+            default_risk = "Scratch position immediately if 2 consecutive 1m bars fail to reclaim the wick high; ratchet SL to breakeven at +1R."
+        elif direction.upper() in ("SELL", "SHORT") and l_wick >= 30.0:
+            deduced_pattern = "SUPPORT_FLOOR_DEFENSE"
+            default_culprit = f"Support Floor Defense: Short executed into defended buyer liquidity floor, producing {l_wick:.1f}% lower wick."
+            default_identify = f"Lower wick >= 25% ({l_wick:.1f}%) within 1.5% of 1h/15m support floor."
+            default_execute = "Veto shorting into support wicks; wait for clean breakdown candle close and retest."
+            default_risk = "Keep SL tightly above the breakdown pivot; exit immediately if price bounces above support."
+        elif vol_ratio < 0.85 and displacement_d < 0.25:
+            deduced_pattern = "CHOP_STAGNATION"
+            default_culprit = f"Chop Stagnation Decay: Trade entered during low-displacement consolidation (D={displacement_d:.2f}), bleeding into fees."
+            default_identify = f"Displacement efficiency D < 0.25 and volume ratio < 0.9x."
+            default_execute = "Do not enter range-bound consolidation; wait for range expansion breakout."
+            default_risk = "Enforce 15-minute stagnation time-stop; exit flat if MFE remains < +0.15%."
+        elif u_wick < 25.0 and l_wick < 25.0 and vol_ratio >= 1.4:
+            deduced_pattern = "MOMENTUM_EXPANSION"
+            default_culprit = f"Momentum Expansion: Genuine directional displacement (vol {vol_ratio:.1f}x, body {body_pct:.1f}%)."
+            default_identify = f"Body > 50%, volume >= 1.4x, wicks < 25%."
+            default_execute = "Enter on first pullback to 5m EMA9; ride trend runner."
+            default_risk = "Stage 1 exit: lock 50% at +1.2R, trail stop behind previous 5m candle low."
+        elif pnl > 0:
+            deduced_pattern = "PULLBACK_VALUE_RETEST"
+            default_culprit = f"Pullback Value Retest: Order placed at key EMA value zone with macro trend confluence."
+            default_identify = f"Price touches 15m EMA21 with low rejection wicks."
+            default_execute = "Limit order at value zone rather than chasing market."
+            default_risk = "Initial SL 0.3% below EMA; ratchet to +0.25% fee-proof green upon +1.0% gain."
+        else:
+            deduced_pattern = "FAILED_ACTIVATION_CUT"
+            default_culprit = f"Failed Activation: Setup failed to generate forward momentum after entry."
+            default_identify = f"MFE remained under +0.12% with adverse displacement."
+            default_execute = "Execute only with confirmed orderbook imbalance and taker aggression."
+            default_risk = "Enforce early activation timeout (3.5-12m); cut trade at -0.45% before full SL."
+
+        prompt = f"""You are the Chief Quantitative Learning Officer at MASIS Institutional Trading.
+A trade just closed on {sym}. Conduct an authoritative 5-Point Forensic Root-Cause Post-Mortem:
+1. Trade Facts: {direction} on {sym} | PnL: ${pnl:+.4f} ({pnl_pct:+.2f}%) | MFE: +{mfe:.2f}% | MAE: {mae:.2f}% | Exit: {exit_reason}
+2. Microstructure: Upper Wick {u_wick}%, Lower Wick {l_wick}%, Vol Ratio {vol_ratio}x, Displacement D {displacement_d:.2f}
+
+Respond strictly in valid JSON:
 {{
-  "lesson": "One concise sentence summarizing the root cause of the win/loss",
-  "actionable_rule": "A specific, measurable rule for future trades on this coin/setup",
-  "confidence": 0.88
+  "culprit_category": "{deduced_pattern}",
+  "why_it_happened": "Clear explanation of the market driver/trap that caused the outcome",
+  "how_to_identify": "Specific quantitative indicators and thresholds to spot this in real time",
+  "how_to_execute": "Exact operational execution instructions (entry type, confirmation candle, limit placement)",
+  "how_to_reduce_risk": "Risk controls and positioning: optimal size calibration, when to exit early on stall, when to get profit",
+  "actionable_rule": "One permanent institutional rule for future trades",
+  "confidence": 0.90
 }}"""
 
-        rule_summary = ""
-        lesson_text = ""
-        confidence = 0.85
+        culprit = default_culprit
+        how_identify = default_identify
+        how_execute = default_execute
+        how_risk = default_risk
+        actionable_rule = f"On {sym}, ensure 5m confirmation close and scale out 50% at +1.0R."
+        confidence = 0.88
+        pattern_name = deduced_pattern
 
         if DEEPSEEK_API_KEY:
             try:
                 body = json.dumps({
                     "model": DEEPSEEK_MODEL,
                     "messages": [
-                        {"role": "system", "content": "You are an institutional crypto quantitative researcher. Output strict JSON only."},
+                        {"role": "system", "content": "You are a senior quantitative crypto risk researcher. Output strict JSON only."},
                         {"role": "user", "content": prompt}
                     ],
                     "response_format": {"type": "json_object"},
-                    "max_tokens": 200,
+                    "max_tokens": 400,
                     "temperature": 0.1
                 }).encode("utf-8")
 
@@ -695,18 +753,24 @@ Respond strictly in JSON:
                 with urllib.request.urlopen(req, timeout=6) as r:
                     res = json.loads(r.read().decode())
                     parsed = json.loads(res["choices"][0]["message"]["content"])
-                    lesson_text = parsed.get("lesson", "")
-                    rule_summary = parsed.get("actionable_rule", "")
-                    confidence = float(parsed.get("confidence", 0.85))
+                    culprit = parsed.get("why_it_happened", default_culprit)
+                    how_identify = parsed.get("how_to_identify", default_identify)
+                    how_execute = parsed.get("how_to_execute", default_execute)
+                    how_risk = parsed.get("how_to_reduce_risk", default_risk)
+                    actionable_rule = parsed.get("actionable_rule", actionable_rule)
+                    confidence = float(parsed.get("confidence", 0.90))
+                    pattern_name = parsed.get("culprit_category", deduced_pattern)
             except Exception as e:
-                lesson_text = f"Empirical reflection: MFE reached +{mfe:.2f}%. Fee-adjusted profit claiming preserves edge."
-                rule_summary = f"On {sym}, lock Stage 1 profit at +0.32% to prevent retracement."
+                pass
 
-        if not lesson_text:
-            lesson_text = f"Trade exited with {pnl_pct:+.2f}%. Bank profit at +0.35%."
-            rule_summary = f"On {sym}, ensure 50% partial take profit when gain reaches +0.35%."
-
-        full_reflection = f"{lesson_text} | Rule: {rule_summary}"
+        full_reflection = (
+            f"[CULPRIT: {pattern_name}] {culprit} | "
+            f"IDENTIFY: {how_identify} | "
+            f"EXECUTE: {how_execute} | "
+            f"RISK & POSITIONING: {how_risk} | "
+            f"RULE: {actionable_rule}"
+        )
+        outcome_analysis = f"{'Won' if pnl > 0 else 'Failed'}: {culprit} (Rule: {actionable_rule})"
 
         # 1. Supabase Primary
         if SUPABASE_URL and SUPABASE_KEY:
@@ -714,10 +778,10 @@ Respond strictly in JSON:
                 if episode_id:
                     supabase_patch("trade_episodes", {"id": f"eq.{episode_id}"}, {
                         "deepseek_reflection": full_reflection,
-                        "outcome_analysis": f"{'Won' if pnl > 0 else 'Failed'}: {rule_summary} ({lesson_text})"
+                        "outcome_analysis": outcome_analysis
                     })
-                # Check if rule exists to aggregate sample count
-                existing = supabase_get("learned_rules", {"symbol": f"eq.{sym}", "pattern_name": "eq.TREND_PULLBACK", "limit": "1"})
+                # Check if rule exists for this specific pattern_name
+                existing = supabase_get("learned_rules", {"symbol": f"eq.{sym}", "pattern_name": f"eq.{pattern_name}", "limit": "1"})
                 if existing and isinstance(existing, list) and len(existing) > 0:
                     r_id = existing[0].get("id")
                     cur_samples = int(existing[0].get("sample_count", 1)) + 1
@@ -725,7 +789,7 @@ Respond strictly in JSON:
                     new_wr = round(((cur_wr * (cur_samples - 1)) + (100.0 if pnl > 0 else 0.0)) / cur_samples, 1)
                     is_active = (cur_samples >= 15 and confidence >= 0.85)
                     supabase_patch("learned_rules", {"id": f"eq.{r_id}"}, {
-                        "rule_summary": rule_summary,
+                        "rule_summary": actionable_rule,
                         "sample_count": cur_samples,
                         "win_rate": new_wr,
                         "confidence": confidence,
@@ -734,12 +798,12 @@ Respond strictly in JSON:
                 else:
                     supabase_post("learned_rules", {
                         "symbol": sym,
-                        "pattern_name": "TREND_PULLBACK",
-                        "rule_summary": rule_summary,
+                        "pattern_name": pattern_name,
+                        "rule_summary": actionable_rule,
                         "sample_count": 1,
                         "win_rate": 100.0 if pnl > 0 else 0.0,
                         "confidence": confidence,
-                        "is_active": False  # Preliminary until N >= 15 samples
+                        "is_active": False
                     })
             except Exception as e:
                 print(f"[Supabase reflection update failed]: {e}")
@@ -753,7 +817,7 @@ Respond strictly in JSON:
                     if episode_id:
                         cur.execute("UPDATE trade_episodes SET deepseek_reflection = ? WHERE id = ?", (full_reflection, episode_id))
                     
-                    cur.execute("SELECT id, sample_count, win_rate FROM learned_rules WHERE symbol = ? AND pattern_name = ?", (sym, "TREND_PULLBACK"))
+                    cur.execute("SELECT id, sample_count, win_rate FROM learned_rules WHERE symbol = ? AND pattern_name = ?", (sym, pattern_name))
                     row = cur.fetchone()
                     if row:
                         r_id, s_cnt, wr = row["id"], row["sample_count"] or 1, row["win_rate"] or 50.0
@@ -763,17 +827,25 @@ Respond strictly in JSON:
                             UPDATE learned_rules 
                             SET rule_summary = ?, sample_count = ?, win_rate = ?, confidence = ?, last_updated = ?
                             WHERE id = ?
-                        """, (rule_summary, new_cnt, new_wr, confidence, int(time.time() * 1000), r_id))
+                        """, (actionable_rule, new_cnt, new_wr, confidence, int(time.time() * 1000), r_id))
                     else:
                         cur.execute("""
                             INSERT INTO learned_rules (symbol, pattern_name, rule_summary, sample_count, win_rate, confidence, last_updated)
                             VALUES (?, ?, ?, 1, ?, ?, ?)
-                        """, (sym, "TREND_PULLBACK", rule_summary, 100.0 if pnl > 0 else 0.0, confidence, int(time.time() * 1000)))
+                        """, (sym, pattern_name, actionable_rule, 100.0 if pnl > 0 else 0.0, confidence, int(time.time() * 1000)))
                     conn.commit()
             except Exception as e:
                 print(f"[SQLite rule mirror error]: {e}")
 
-        return {"lesson": lesson_text, "rule": rule_summary}
+        return {
+            "culprit": culprit,
+            "how_to_identify": how_identify,
+            "how_to_execute": how_execute,
+            "how_to_reduce_risk": how_risk,
+            "pattern_name": pattern_name,
+            "rule": actionable_rule,
+            "reflection": full_reflection
+        }
 
     def get_relevant_knowledge(self, symbol=None, limit=4):
         """
