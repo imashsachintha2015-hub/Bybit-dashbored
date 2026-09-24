@@ -30,6 +30,7 @@
 
       <nav class="sidebar-nav">
         <a href="#topAnchor" class="nav-item active" data-target="topAnchor"><i class="fa-solid fa-grid-2"></i> Dashboard</a>
+        <a href="#cmeX4ShadowSection" class="nav-item" data-target="cmeX4ShadowSection"><i class="fa-solid fa-ghost"></i> V4 Shadow Mode</a>
         <a href="#agentsSection" class="nav-item" data-target="agentsSection"><i class="fa-solid fa-network-wired"></i> Agent Network</a>
         <a href="#chartSection" class="nav-item" data-target="chartSection"><i class="fa-solid fa-chart-line"></i> Market Chart</a>
         <a href="#newsWhaleSection" class="nav-item" data-target="newsWhaleSection"><i class="fa-solid fa-newspaper"></i> News &amp; Whales</a>
@@ -65,6 +66,7 @@
             <div class="acct-divider"></div>
             <div class="acct-item compact"><span class="acct-label">W/L</span><span class="acct-val font-mono" id="wlVal">--</span></div>
           </div>
+          <button class="int-btn" id="openCmeShadowBtn" title="Jump directly to CME-X4 V4 Shadow Operations Center" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; border: 1px solid #0ea5e9; font-weight: 800; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-ghost"></i> V4 Shadow Mode <span id="topbarShadowBadge" style="background:#0ea5e9; color:#fff; border-radius:10px; font-size:9.5px; padding:1px 6px; font-weight:800;">LIVE</span></button>
           <button class="int-btn" id="openPnlCalendarBtn" title="View Day-wise PnL Calendar Heatmap"><i class="fa-solid fa-calendar-days" style="color:#10b981;"></i> Calendar</button>
           <button class="int-btn" id="openMonitorBtn" title="Open the signal monitor in a separate window"><i class="fa-solid fa-up-right-from-square"></i> Monitor</button>
           <div class="time-display font-mono" id="clockDisplay">00:00:00</div>
@@ -72,6 +74,39 @@
       </header>
 
       <main class="content-scroll">
+
+        <!-- CME-X4 V4 SHADOW MODE MAIN QUICK ACCESS BAR -->
+        <div class="cme-main-quickbar" id="cmeMainQuickBar" style="cursor: pointer;" title="Click to jump directly to CME-X4 V4 Shadow Operations Center">
+          <div class="cme-quick-left">
+            <span class="cme-pulse-icon"><i class="fa-solid fa-ghost"></i></span>
+            <div>
+              <div class="cme-quick-title">
+                CME-X4 V4 SHADOW OPERATIONS CENTER
+                <span class="badge" style="background: rgba(34, 197, 94, 0.14); color: #16a34a; font-size: 9.5px; padding: 2px 7px; border-radius: 10px; font-weight: 800;"><span class="pulse-dot green" style="display:inline-block; width:6px; height:6px; margin-right:4px;"></span>LIVE 24/7 OBSERVATIONAL</span>
+              </div>
+              <div class="cme-quick-sub">
+                Real Bybit Orderbooks · State &rarr; Loss Veto &rarr; Supervisor &rarr; Risk &rarr; 15m EMA21 Limit &rarr; Staged Harvest (+0.40% / +0.25%)
+              </div>
+            </div>
+          </div>
+          <div class="cme-quick-metrics">
+            <div class="cme-qm-item">
+              <span class="cme-qm-label">Candidates</span>
+              <span class="cme-qm-val" id="quickBarCandidates">--</span>
+            </div>
+            <div class="cme-qm-item">
+              <span class="cme-qm-label">Veto Refusal</span>
+              <span class="cme-qm-val text-amber font-mono" id="quickBarRejection">--%</span>
+            </div>
+            <div class="cme-qm-item">
+              <span class="cme-qm-label">Graduation</span>
+              <span class="cme-qm-val font-mono" id="quickBarProgress" style="color: #0284c7;">--%</span>
+            </div>
+            <button type="button" class="cme-filter-btn" style="background: #0EA5E9; color: #fff; font-weight: 700; border: none; padding: 6px 14px; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              Focus Shadow Center <i class="fa-solid fa-arrow-down"></i>
+            </button>
+          </div>
+        </div>
 
         <!-- COIN KPI SPARKLINE CARDS -->
         <div class="coin-search-bar">
@@ -202,6 +237,143 @@
 
         <div class="content-grid">
           <div class="content-main">
+
+            <!-- CME-X4 V4 SHADOW OPERATIONS CENTER -->
+            <section class="card accent-cyan cme-shadow-panel" id="cmeX4ShadowSection">
+              <div class="cme-shadow-header">
+                <div>
+                  <div class="cme-shadow-title">
+                    <i class="fa-solid fa-ghost"></i> CME-X4 V4 Shadow Operations Center
+                    <span class="badge" style="background: rgba(14, 165, 233, 0.12); color: #0284C7; font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Zero Real Orders · Pure Observational</span>
+                  </div>
+                  <div class="cme-shadow-sub">
+                    Live Public Bybit Feeds · State &rarr; Loss Veto &rarr; Supervisor &rarr; Risk &rarr; 15m EMA21 Limit &rarr; Staged Harvest (+0.40% / +0.25%)
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button type="button" id="toggleCmeComparisonBtn" class="cme-filter-btn" style="background: #F8FAFC; border-color: #0EA5E9; color: #0284C7;">
+                    <i class="fa-solid fa-chart-simple"></i> Research vs Live Scorecard
+                  </button>
+                  <span class="network-badge" id="cmeShadowStatusBadge" style="background: rgba(34, 197, 94, 0.12); color: #16a34a; border-color: rgba(34, 197, 94, 0.3);">
+                    <span class="pulse-dot green"></span> SHADOW ARMED
+                  </span>
+                </div>
+              </div>
+
+              <!-- Graduation Progress & Completion Tracker -->
+              <div id="cmeGraduationBanner" style="margin-top: 12px; background: #F8FAFC; border: 1px solid rgba(14, 165, 233, 0.2); border-radius: 8px; padding: 10px 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11.5px; font-weight: 800; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-flag-checkered" style="color: #0284C7;"></i>
+                    Shadow Mode Graduation Tracker
+                    <span id="cmeGradStatusBadge" class="badge" style="background: rgba(14, 165, 233, 0.12); color: #0284C7; font-size: 9.5px; padding: 2px 6px; font-weight: 700;">COLLECTING LIVE SAMPLES</span>
+                  </span>
+                  <span id="cmeGradProgressText" style="font-size: 11px; font-weight: 800; font-family: var(--font-mono, monospace); color: #0284C7;">0.0% Complete (0/5 Gates Cleared)</span>
+                </div>
+                <!-- Progress bar container -->
+                <div style="width: 100%; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                  <div id="cmeGradProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0EA5E9, #10B981); transition: width 0.4s ease;"></div>
+                </div>
+                <!-- 5 Gates mini status grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; font-size: 10px;">
+                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
+                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">1. CLOSED TRADES</div>
+                    <div id="cmeGateTrades" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">0 / 100</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
+                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">2. CANDIDATES</div>
+                    <div id="cmeGateCandidates" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- / 500</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
+                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">3. TIME ELAPSED</div>
+                    <div id="cmeGateDays" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- / 5.0d</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
+                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">4. NET EV (R)</div>
+                    <div id="cmeGateEv" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- &ge; +0.08R</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
+                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">5. WIN RATE</div>
+                    <div id="cmeGateWr" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- &ge; 60%</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Speedometer / KPI Row -->
+              <div class="cme-shadow-kpis">
+                <div class="cme-kpi-item">
+                  <div class="cme-kpi-lbl">Candidates</div>
+                  <div class="cme-kpi-val" id="cmeKpiTotal">--</div>
+                </div>
+                <div class="cme-kpi-item">
+                  <div class="cme-kpi-lbl">Veto Refusal Rate</div>
+                  <div class="cme-kpi-val text-amber font-mono" id="cmeKpiRejection">--%</div>
+                </div>
+                <div class="cme-kpi-item">
+                  <div class="cme-kpi-lbl">Simulated Trades</div>
+                  <div class="cme-kpi-val" id="cmeKpiSimTrades">--</div>
+                </div>
+                <div class="cme-kpi-item">
+                  <div class="cme-kpi-lbl">Win Rate</div>
+                  <div class="cme-kpi-val text-green font-mono" id="cmeKpiWinRate">--%</div>
+                </div>
+                <div class="cme-kpi-item">
+                  <div class="cme-kpi-lbl">Net Expected R</div>
+                  <div class="cme-kpi-val font-mono" id="cmeKpiNetEv">--R</div>
+                </div>
+                <div class="cme-kpi-item">
+                  <div class="cme-kpi-lbl">Avg Slippage</div>
+                  <div class="cme-kpi-val font-mono" id="cmeKpiSlippage">4.0 bps</div>
+                </div>
+              </div>
+
+              <!-- Research vs Live Comparison Scorecard (Collapsible) -->
+              <div id="cmeComparisonBox" style="display: none; margin-bottom: 14px; background: #F8FAFC; border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 8px; padding: 12px 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase;">
+                    <i class="fa-solid fa-scale-balanced" style="color: #0EA5E9;"></i> Research Expected vs. Live Observed Audit Matrix
+                  </span>
+                  <span style="font-size: 10px; color: var(--text-dim);">Frozen V4 Configuration</span>
+                </div>
+                <table class="cme-comp-table">
+                  <thead>
+                    <tr>
+                      <th>Metric</th>
+                      <th>Research Expected (Holdout)</th>
+                      <th>Live Shadow Observed</th>
+                      <th>Variance / Health</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cmeComparisonTableBody">
+                    <tr><td>Win Rate</td><td>74.0%</td><td id="cmpWrObs">--</td><td id="cmpWrVar">--</td></tr>
+                    <tr><td>Expected Net R (EV/trade)</td><td>+0.167R</td><td id="cmpEvObs">--</td><td id="cmpEvVar">--</td></tr>
+                    <tr><td>Profit Factor</td><td>1.75</td><td id="cmpPfObs">--</td><td id="cmpPfVar">--</td></tr>
+                    <tr><td>Execution Slippage</td><td>4.0 bps</td><td id="cmpSlipObs">--</td><td id="cmpSlipVar">--</td></tr>
+                    <tr><td>Limit Order Fill Rate</td><td>28.5%</td><td id="cmpFillObs">--</td><td id="cmpFillVar">--</td></tr>
+                    <tr><td>Veto Refusal Rate</td><td>80.0%</td><td id="cmpRejObs">--</td><td id="cmpRejVar">--</td></tr>
+                    <tr><td>Reversal Win Rate</td><td>71.4%</td><td id="cmpRevWrObs">--</td><td id="cmpRevWrVar">--</td></tr>
+                    <tr><td>Staged Harvest Win Rate</td><td>77.4%</td><td id="cmpHarvWrObs">--</td><td id="cmpHarvWrVar">--</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Filter Tabs -->
+              <div class="cme-shadow-filters">
+                <button type="button" class="cme-filter-btn active" data-cme-filter="ALL">All Candidates</button>
+                <button type="button" class="cme-filter-btn" data-cme-filter="WAITING_FOR_VALUE_ZONE">Waiting Value-Zone</button>
+                <button type="button" class="cme-filter-btn" data-cme-filter="ACTIVE_SIMULATED">Active Simulated</button>
+                <button type="button" class="cme-filter-btn" data-cme-filter="ACTIVE_HARVESTED">Harvested (+0.40%)</button>
+                <button type="button" class="cme-filter-btn" data-cme-filter="REVERSED">Reversals</button>
+                <button type="button" class="cme-filter-btn" data-cme-filter="VETOED">Vetoed &amp; Rejected</button>
+              </div>
+
+              <!-- Candidate Observability Cards Grid -->
+              <div class="cme-candidate-grid" id="cmeCandidateGrid">
+                <div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-dim); font-size: 12px;">
+                  <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Loading live candidate stream from V4 Shadow Engine...
+                </div>
+              </div>
+            </section>
 
             <!-- AGENT STATUS GRID (COLLAPSED BY DEFAULT) -->
             <section class="card accent-cyan" id="agentsSection" style="margin-bottom: 16px;">

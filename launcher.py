@@ -23,6 +23,7 @@ def main():
         # Research-only: collects public Bybit Demo market state and forward
         # barrier outcomes. It never places, modifies, or cancels orders.
         ("CME-X4 Live Research", [sys.executable, "daemons/cme_x4_live_research.py"]),
+        ("CME-X4 V4 Shadow Engine", [sys.executable, "daemons/cme_x4_shadow_engine.py"]),
     ]
 
     import shutil

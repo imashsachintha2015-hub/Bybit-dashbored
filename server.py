@@ -1133,6 +1133,42 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, summary)
             return
 
+        # 3e-1. API: CME-X4 V4 Shadow Mode Candidates
+        if self.path.startswith("/api/cme-x4/shadow/candidates"):
+            from backend_lib.cme_x4_shadow_db import shadow_db
+            candidates = shadow_db.get_recent_candidates(limit=60)
+            self._send_json(200, {"candidates": candidates, "count": len(candidates)})
+            return
+
+        # 3e-2. API: CME-X4 V4 Shadow Mode Live Performance & Stats
+        if self.path.startswith("/api/cme-x4/shadow/stats"):
+            from backend_lib.cme_x4_shadow_db import shadow_db
+            perf = shadow_db.get_shadow_performance()
+            self._send_json(200, perf)
+            return
+
+        # 3e-3. API: CME-X4 V4 Research Expected vs Live Observed Comparison
+        if self.path.startswith("/api/cme-x4/shadow/comparison"):
+            from backend_lib.cme_x4_shadow_db import shadow_db
+            live_perf = shadow_db.get_shadow_performance()
+            comp = {
+                "research_expected": {
+                    "win_rate": 74.0,
+                    "net_ev_r": 0.167,
+                    "profit_factor": 1.75,
+                    "slippage_bps": 4.0,
+                    "latency_ms": 100,
+                    "limit_fill_rate_pct": 28.5,
+                    "veto_rejection_rate_pct": 80.0,
+                    "reversal_win_rate": 71.4,
+                    "reversal_ev_r": 0.993,
+                    "harvest_win_rate": 77.4
+                },
+                "live_observed": live_perf
+            }
+            self._send_json(200, comp)
+            return
+
         # 4. API: DIV-10 Benzinga News Sentinel feed
         if self.path.startswith("/api/news"):
             res = get_news_state()

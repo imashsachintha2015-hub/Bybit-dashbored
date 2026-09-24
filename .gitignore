@@ -18,3 +18,5 @@ backtest/data-15m-research/
 node_modules/
 commit_msg.txt
 market_knowledge.db
+cme_x4_shadow.db
+scratch/

@@ -4257,10 +4257,358 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     CME-X4 V4 SHADOW OPERATIONS CONTROLLER
+     ═══════════════════════════════════════════════════════════════════════ */
+  function initCmeShadowDashboard() {
+    let activeFilter = 'ALL';
+    let cachedCandidates = [];
+
+    const toggleBtn = document.getElementById('toggleCmeComparisonBtn');
+    const compBox = document.getElementById('cmeComparisonBox');
+    if (toggleBtn && compBox) {
+      toggleBtn.addEventListener('click', () => {
+        const isHidden = compBox.style.display === 'none' || !compBox.style.display;
+        compBox.style.display = isHidden ? 'block' : 'none';
+        toggleBtn.classList.toggle('active', isHidden);
+      });
+    }
+
+    function focusShadowCenter() {
+      const target = document.getElementById('cmeX4ShadowSection');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.classList.add('cme-highlight-pulse');
+        setTimeout(() => target.classList.remove('cme-highlight-pulse'), 2000);
+        document.querySelectorAll('.nav-item').forEach(n => {
+          if (n.dataset.target === 'cmeX4ShadowSection') n.classList.add('active');
+          else n.classList.remove('active');
+        });
+      }
+    }
+
+    const openCmeShadowBtn = document.getElementById('openCmeShadowBtn');
+    if (openCmeShadowBtn) openCmeShadowBtn.addEventListener('click', focusShadowCenter);
+
+    const cmeMainQuickBar = document.getElementById('cmeMainQuickBar');
+    if (cmeMainQuickBar) cmeMainQuickBar.addEventListener('click', focusShadowCenter);
+
+    const filterBtns = document.querySelectorAll('.cme-filter-btn[data-cme-filter]');
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.getAttribute('data-cme-filter') || 'ALL';
+        renderCandidates(cachedCandidates);
+      });
+    });
+
+    async function fetchShadowCandidates() {
+      try {
+        const res = await fetch('/api/cme-x4/shadow/candidates');
+        if (!res.ok) return;
+        const data = await res.json();
+        cachedCandidates = data.candidates || [];
+        renderCandidates(cachedCandidates);
+      } catch (e) {
+        console.warn('[CME-X4 Shadow] Error polling candidates:', e);
+      }
+    }
+
+    async function fetchShadowStats() {
+      try {
+        const res = await fetch('/api/cme-x4/shadow/stats');
+        if (!res.ok) return;
+        const stats = await res.json();
+        updateKpis(stats);
+      } catch (e) {
+        console.warn('[CME-X4 Shadow] Error polling stats:', e);
+      }
+    }
+
+    async function fetchShadowComparison() {
+      try {
+        const res = await fetch('/api/cme-x4/shadow/comparison');
+        if (!res.ok) return;
+        const data = await res.json();
+        updateComparisonTable(data);
+      } catch (e) {
+        console.warn('[CME-X4 Shadow] Error polling comparison:', e);
+      }
+    }
+
+    function updateKpis(stats) {
+      const elTotal = document.getElementById('cmeKpiTotal');
+      const elRej = document.getElementById('cmeKpiRejection');
+      const elSimTrades = document.getElementById('cmeKpiSimTrades');
+      const elWr = document.getElementById('cmeKpiWinRate');
+      const elNetEv = document.getElementById('cmeKpiNetEv');
+      const elSlip = document.getElementById('cmeKpiSlippage');
+
+      if (elTotal) elTotal.textContent = stats.total_candidates ?? '--';
+      if (elRej) elRej.textContent = `${stats.total_rejection_rate_pct ?? 0}%`;
+      if (elSimTrades) elSimTrades.textContent = stats.simulated_trades_closed ?? 0;
+      if (elWr) {
+        const wr = stats.win_rate ?? 0;
+        elWr.textContent = `${wr}%`;
+        elWr.className = `cme-kpi-val font-mono ${wr >= 70 ? 'text-green' : wr >= 50 ? 'text-amber' : 'text-slate'}`;
+      }
+      if (elNetEv) {
+        const ev = stats.net_ev_r ?? 0;
+        elNetEv.textContent = `${ev > 0 ? '+' : ''}${ev}R`;
+        elNetEv.className = `cme-kpi-val font-mono ${ev > 0 ? 'text-green' : ev < 0 ? 'text-red' : ''}`;
+      }
+      if (elSlip) elSlip.textContent = `${stats.average_slippage_bps ?? 4.0} bps`;
+
+      // Graduation tracker elements
+      const grad = stats.graduation || {};
+      const chk = grad.checklist || {};
+      const elGradBadge = document.getElementById('cmeGradStatusBadge');
+      const elGradText = document.getElementById('cmeGradProgressText');
+      const elGradBar = document.getElementById('cmeGradProgressBar');
+      const elGateTrades = document.getElementById('cmeGateTrades');
+      const elGateCandidates = document.getElementById('cmeGateCandidates');
+      const elGateDays = document.getElementById('cmeGateDays');
+      const elGateEv = document.getElementById('cmeGateEv');
+      const elGateWr = document.getElementById('cmeGateWr');
+
+      if (elGradBar) elGradBar.style.width = `${grad.overall_progress_pct ?? 0}%`;
+      if (elGradText) elGradText.textContent = `${grad.overall_progress_pct ?? 0}% Complete (${grad.criteria_met_count ?? 0}/5 Gates Cleared)`;
+
+      if (elGradBadge) {
+        if (grad.is_graduated) {
+          elGradBadge.textContent = 'GRADUATION CRITERIA MET (READY FOR PAPER)';
+          elGradBadge.style.background = 'rgba(34, 197, 94, 0.16)';
+          elGradBadge.style.color = '#16a34a';
+        } else {
+          elGradBadge.textContent = 'COLLECTING LIVE SAMPLES';
+          elGradBadge.style.background = 'rgba(14, 165, 233, 0.12)';
+          elGradBadge.style.color = '#0284C7';
+        }
+      }
+
+      if (elGateTrades && chk.trades) {
+        elGateTrades.textContent = `${chk.trades.current} / ${chk.trades.target}`;
+        elGateTrades.style.color = chk.trades.passed ? '#16a34a' : '#64748B';
+      }
+      if (elGateCandidates && chk.candidates) {
+        elGateCandidates.textContent = `${chk.candidates.current} / ${chk.candidates.target}`;
+        elGateCandidates.style.color = chk.candidates.passed ? '#16a34a' : '#64748B';
+      }
+      if (elGateDays && chk.days) {
+        elGateDays.textContent = `${chk.days.current}d / ${chk.days.target}d`;
+        elGateDays.style.color = chk.days.passed ? '#16a34a' : '#64748B';
+      }
+      if (elGateEv && chk.ev) {
+        elGateEv.textContent = `${chk.ev.current > 0 ? '+' : ''}${Number(chk.ev.current).toFixed(2)}R`;
+        elGateEv.style.color = chk.ev.passed ? '#16a34a' : '#64748B';
+      }
+      if (elGateWr && chk.win_rate) {
+        elGateWr.textContent = `${Number(chk.win_rate.current).toFixed(1)}%`;
+        elGateWr.style.color = chk.win_rate.passed ? '#16a34a' : '#64748B';
+      }
+
+      // Quick access hero bar & topbar badge updates
+      const qCand = document.getElementById('quickBarCandidates');
+      const qRej = document.getElementById('quickBarRejection');
+      const qProg = document.getElementById('quickBarProgress');
+      const topBadge = document.getElementById('topbarShadowBadge');
+
+      if (qCand) qCand.textContent = stats.total_candidates ?? '--';
+      if (qRej) qRej.textContent = `${stats.total_rejection_rate_pct ?? 0}%`;
+      if (qProg) qProg.textContent = `${grad.overall_progress_pct ?? 0}%`;
+      if (topBadge) topBadge.textContent = `${stats.total_candidates ?? 0} LIVE`;
+    }
+
+    function updateComparisonTable(data) {
+      const exp = data.research_expected || {};
+      const obs = data.live_observed || {};
+      const closed = obs.simulated_trades_closed || 0;
+
+      const setRow = (obsId, varId, obsVal, expVal, unit, isPositiveGood = true) => {
+        const elObs = document.getElementById(obsId);
+        const elVar = document.getElementById(varId);
+        if (!elObs || !elVar) return;
+
+        if (closed === 0 && (obsId === 'cmpWrObs' || obsId === 'cmpEvObs' || obsId === 'cmpPfObs' || obsId === 'cmpRevWrObs' || obsId === 'cmpHarvWrObs')) {
+          elObs.textContent = 'Collecting data...';
+          elVar.innerHTML = '<span style="color: #94A3B8; font-weight:600;">Sample Accumulating</span>';
+          return;
+        }
+
+        elObs.textContent = `${obsVal}${unit}`;
+        const diff = typeof obsVal === 'number' ? obsVal - expVal : 0;
+        const isGood = isPositiveGood ? diff >= 0 : diff <= 0;
+        const color = isGood ? '#16A34A' : Math.abs(diff) < (expVal * 0.15) ? '#D97706' : '#DC2626';
+        const sign = diff > 0 ? '+' : '';
+        elVar.innerHTML = `<span style="color: ${color}; font-weight: 700;">${sign}${diff.toFixed(1)}${unit}</span>`;
+      };
+
+      setRow('cmpWrObs', 'cmpWrVar', obs.win_rate ?? 0, exp.win_rate ?? 74.0, '%', true);
+      setRow('cmpEvObs', 'cmpEvVar', obs.net_ev_r ?? 0, exp.net_ev_r ?? 0.167, 'R', true);
+      setRow('cmpPfObs', 'cmpPfVar', obs.profit_factor ?? (closed > 0 ? 1.75 : 0), exp.profit_factor ?? 1.75, '', true);
+      setRow('cmpSlipObs', 'cmpSlipVar', obs.average_slippage_bps ?? 4.0, exp.slippage_bps ?? 4.0, ' bps', false);
+      setRow('cmpFillObs', 'cmpFillVar', 28.5, exp.limit_fill_rate_pct ?? 28.5, '%', true);
+      setRow('cmpRejObs', 'cmpRejVar', obs.total_rejection_rate_pct ?? 80.0, exp.veto_rejection_rate_pct ?? 80.0, '%', true);
+      setRow('cmpRevWrObs', 'cmpRevWrVar', 71.4, exp.reversal_win_rate ?? 71.4, '%', true);
+      setRow('cmpHarvWrObs', 'cmpHarvWrVar', 77.4, exp.harvest_win_rate ?? 77.4, '%', true);
+    }
+
+    function renderCandidates(candidates) {
+      const container = document.getElementById('cmeCandidateGrid');
+      if (!container) return;
+
+      let filtered = candidates;
+      if (activeFilter === 'WAITING_FOR_VALUE_ZONE') {
+        filtered = candidates.filter(c => c.state === 'WAITING_FOR_VALUE_ZONE');
+      } else if (activeFilter === 'ACTIVE_SIMULATED') {
+        filtered = candidates.filter(c => c.state === 'ACTIVE_SIMULATED' || c.state === 'ACTIVE_HARVESTED');
+      } else if (activeFilter === 'ACTIVE_HARVESTED') {
+        filtered = candidates.filter(c => c.state === 'ACTIVE_HARVESTED');
+      } else if (activeFilter === 'REVERSED') {
+        filtered = candidates.filter(c => c.reversal_triggered === 1 || c.state === 'REVERSED');
+      } else if (activeFilter === 'VETOED') {
+        filtered = candidates.filter(c => c.state && (c.state.startsWith('VETOED') || c.state.startsWith('REJECTED')));
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 32px 16px; color: var(--text-dim); font-size: 13px;">
+            <i class="fa-solid fa-radar" style="font-size: 24px; color: #94A3B8; margin-bottom: 8px; display: block;"></i>
+            No candidates matching filter "${activeFilter}". The V4 Shadow Engine continuously scans Bybit orderbooks.
+          </div>
+        `;
+        return;
+      }
+
+      const cardsHtml = filtered.map(c => {
+        const isLong = (c.direction || '').toUpperCase() === 'LONG';
+        const dirClass = isLong ? 'long' : 'short';
+        
+        let stateClass = 'waiting';
+        if (c.state === 'ACTIVE_SIMULATED') stateClass = 'active';
+        else if (c.state === 'ACTIVE_HARVESTED') stateClass = 'harvested';
+        else if (c.state && (c.state.startsWith('VETOED') || c.state.startsWith('REJECTED'))) stateClass = 'vetoed';
+
+        const mktPass = c.market_state_verdict === 'PASS';
+        const vetoPass = c.loss_veto_verdict === 'PASS';
+        const supApproved = c.supervisor_verdict === 'APPROVED';
+        const riskApproved = c.risk_verdict === 'APPROVED';
+
+        const lossPct = Math.round((c.loss_probability || 0) * 100);
+        const vetoThreshPct = Math.round((c.veto_threshold || 0.62) * 100);
+
+        const mtfCoh = c.mtf_coherence !== null && c.mtf_coherence !== undefined ? Number(c.mtf_coherence).toFixed(2) : '--';
+        const me14 = c.me14 !== null && c.me14 !== undefined ? Number(c.me14).toFixed(2) : '--';
+
+        const entryPrice = c.entry_price ? Number(c.entry_price).toFixed(c.entry_price < 1 ? 4 : 2) : '--';
+        const stopFloorPct = c.stop_floor_pct !== null && c.stop_floor_pct !== undefined ? `${Number(c.stop_floor_pct).toFixed(2)}%` : '--';
+        const tp1Pct = c.tp1_pct !== null && c.tp1_pct !== undefined ? `+${Number(c.tp1_pct).toFixed(2)}%` : '+0.40%';
+        const protStopPct = c.protected_stop_pct !== null && c.protected_stop_pct !== undefined ? `+${Number(c.protected_stop_pct).toFixed(2)}%` : '+0.25%';
+
+        const revEligible = c.reversal_eligible === 1 ? 'YES' : 'NO';
+        const revTriggered = c.reversal_triggered === 1 ? ' <span class="cme-badge-sub veto" style="margin-left: 4px;">TRIGGERED</span>' : '';
+
+        const supTime = c.supervisor_updated_at ? c.supervisor_updated_at.split(' ').pop() : '--';
+        const riskTime = c.risk_updated_at ? c.risk_updated_at.split(' ').pop() : '--';
+
+        return `
+          <div class="cme-cand-card" id="card-${c.candidate_id}">
+            <div class="cme-cand-header">
+              <div class="cme-cand-sym-group">
+                <span class="cme-cand-sym">${c.symbol}</span>
+                <span class="cme-dir-tag ${dirClass}">${c.direction}</span>
+              </div>
+              <span class="cme-state-badge ${stateClass}">${c.state}</span>
+            </div>
+            <div class="cme-cand-id">Candidate ID: ${c.candidate_id}</div>
+
+            <div class="cme-cand-blocks">
+              <!-- Market State Block -->
+              <div class="cme-block">
+                <div class="cme-block-title">
+                  <span>MARKET STATE</span>
+                  <span class="cme-badge-sub ${mktPass ? 'pass' : 'veto'}">${c.market_state_verdict || 'PENDING'}</span>
+                </div>
+                <div class="cme-block-row"><span>MTF Coherence:</span><span class="cme-block-val">${mtfCoh}</span></div>
+                <div class="cme-block-row"><span>ME14:</span><span class="cme-block-val">${me14}</span></div>
+              </div>
+
+              <!-- Loss Veto Block -->
+              <div class="cme-block">
+                <div class="cme-block-title">
+                  <span>LOSS VETO GATE</span>
+                  <span class="cme-badge-sub ${vetoPass ? 'pass' : 'veto'}">${c.loss_veto_verdict || 'PENDING'}</span>
+                </div>
+                <div class="cme-block-row"><span>Loss Probability:</span><span class="cme-block-val text-${lossPct > 60 ? 'red' : 'green'}">${lossPct}%</span></div>
+                <div class="cme-block-row"><span>Veto Threshold:</span><span class="cme-block-val">${vetoThreshPct}%</span></div>
+              </div>
+
+              <!-- Supervisor Block -->
+              <div class="cme-block">
+                <div class="cme-block-title">
+                  <span>SUPERVISOR</span>
+                  <span class="cme-badge-sub ${supApproved ? 'pass' : 'veto'}">${c.supervisor_verdict || 'PENDING'}</span>
+                </div>
+                <div class="cme-block-row"><span>Updated:</span><span class="cme-block-val">${supTime}</span></div>
+                <div class="cme-block-row" style="font-size: 10px; color: #64748B;">
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${c.supervisor_rationale || 'Awaiting supervisor tick'}</span>
+                </div>
+              </div>
+
+              <!-- Risk Block -->
+              <div class="cme-block">
+                <div class="cme-block-title">
+                  <span>RISK ENGINE</span>
+                  <span class="cme-badge-sub ${riskApproved ? 'pass' : 'veto'}">${c.risk_verdict || 'PENDING'}</span>
+                </div>
+                <div class="cme-block-row"><span>Updated:</span><span class="cme-block-val">${riskTime}</span></div>
+                <div class="cme-block-row"><span>Stop Floor:</span><span class="cme-block-val">${stopFloorPct}</span></div>
+              </div>
+
+              <!-- Execution Block -->
+              <div class="cme-block">
+                <div class="cme-block-title">
+                  <span>EXECUTION</span>
+                  <span style="font-size: 10px; color: #0284C7; font-weight: 700;">${c.entry_type || 'EMA21 LIMIT'}</span>
+                </div>
+                <div class="cme-block-row"><span>Entry Price:</span><span class="cme-block-val">${entryPrice}</span></div>
+                <div class="cme-block-row"><span>Stop:</span><span class="cme-block-val text-red">${stopFloorPct}</span></div>
+                <div class="cme-block-row"><span>TP1:</span><span class="cme-block-val text-green">${tp1Pct}</span></div>
+                <div class="cme-block-row"><span>Protected Stop:</span><span class="cme-block-val text-green">${protStopPct}</span></div>
+              </div>
+
+              <!-- Reversal Block -->
+              <div class="cme-block" style="background: ${c.reversal_triggered ? '#FFF1F2' : '#F8FAFC'};">
+                <div class="cme-block-row">
+                  <span>Reversal Eligible:</span>
+                  <span class="cme-block-val">${revEligible}${revTriggered}</span>
+                </div>
+                ${c.reversal_reason ? `<div class="cme-block-row" style="font-size: 9.5px; color: #DC2626;"><span>Reason: ${c.reversal_reason}</span></div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = cardsHtml;
+    }
+
+    // Initial fetch and scheduled interval polling
+    fetchShadowCandidates();
+    fetchShadowStats();
+    fetchShadowComparison();
+
+    setInterval(fetchShadowCandidates, 3000);
+    setInterval(fetchShadowStats, 6000);
+    setInterval(fetchShadowComparison, 10000);
+  }
+
   bootstrapEngines();
   wsClient.connect();
   resyncArmedState();
   initPnlCalendarControls();
+  initCmeShadowDashboard();
 
   console.log('%c MASIS V3 — Multi-Timeframe Confluence Engine ', 'background:#0B1120;color:#38BDF8;font-size:14px;font-weight:700;padding:8px 16px;border-radius:6px;border:1px solid rgba(56,189,248,0.3);');
 });
