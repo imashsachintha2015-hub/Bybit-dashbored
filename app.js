@@ -2779,6 +2779,29 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPerformanceMetrics();
       });
     }
+
+    // 5b. Reset Performance Scorecard (Preserves all historical trade data)
+    const perfBtnReset = $('perfBtnReset');
+    if (perfBtnReset && !perfBtnReset._hasResetListener) {
+      perfBtnReset._hasResetListener = true;
+      perfBtnReset.addEventListener('click', async () => {
+        if (confirm('Reset scorecard (Win Rate, Net P&L, Wins/Losses) starting clean from current moment?\n\nNote: All past trade history, charts, and reasoning records will remain 100% intact.')) {
+          perfBtnReset.disabled = true;
+          perfBtnReset.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resetting...';
+          try {
+            const res = await fetch('/api/performance/reset', { method: 'POST' });
+            if (res.ok) {
+              await updateActivePositionsAndHistory();
+            }
+          } catch (e) {
+            console.error('Reset error:', e);
+          } finally {
+            perfBtnReset.disabled = false;
+            perfBtnReset.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Reset Scorecard';
+          }
+        }
+      });
+    }
   }
 
   let currentPerfTimeframe = 'all';

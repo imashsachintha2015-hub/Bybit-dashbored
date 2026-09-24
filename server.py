@@ -289,6 +289,8 @@ def save_trade_stats():
         print(f"[Stats] Failed to save stats: {e}")
 
 
+_closed_pnl_cache = {"timestamp": 0, "trades": []}
+
 # ─────────────────────────────────────────────────────────────────────────
 # Kline / Candlestick Cache & Multi-Exchange Proxy
 # ─────────────────────────────────────────────────────────────────────────
@@ -765,6 +767,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        global _closed_pnl_cache
         if self.path == "/favicon.ico":
             self.send_response(204)
             self.end_headers()
@@ -792,12 +795,39 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         #
         # Bybit's closed-PnL feed is now the single source of truth for money.
         # The local records supply only the things Bybit cannot know: which
+        # 3-reset. API: Reset Performance Scorecard (Preserves 100% of all trade history data)
+        if self.path.startswith("/api/performance/reset"):
+            with trade_stats_lock:
+                if hasattr(bybit_client, "sync_time"):
+                    bybit_client.sync_time()
+                bybit_server_ms = int(time.time() * 1000) + getattr(bybit_client, 'time_offset', 0)
+                latest_closed_ts = 0
+                if _closed_pnl_cache.get("trades"):
+                    for t in _closed_pnl_cache["trades"][:10]:
+                        t_ts = int(t.get("updatedTime") or t.get("createdTime") or 0)
+                        if t_ts > latest_closed_ts:
+                            latest_closed_ts = t_ts
+                now_anchor = max(bybit_server_ms, latest_closed_ts + 1000)
+                trade_stats["reset_anchor_time"] = now_anchor
+                trade_stats["win_count"] = 0
+                trade_stats["loss_count"] = 0
+                trade_stats["gross_profit"] = 0.0
+                trade_stats["gross_loss"] = 0.0
+                save_trade_stats()
+            _closed_pnl_cache["timestamp"] = 0
+            _closed_pnl_cache["trades"] = []
+            self._send_json(200, {
+                "success": True,
+                "reset_anchor_time": now_anchor,
+                "message": "Performance metrics reset to 0 (all trade history data preserved)."
+            })
+            return
+
         # 3. API: Closed PnL & performance metrics.
         #
         # Bybit's closed-PnL feed is the single source of truth for money.
         # We paginate across all pages with a 15-second cache so no trades are cut off.
         if self.path.startswith("/api/performance"):
-            global _closed_pnl_cache
             now = time.time()
             if "_closed_pnl_cache" not in globals():
                 _closed_pnl_cache = {"timestamp": 0, "trades": []}
@@ -818,13 +848,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     cursor = r_res.get("nextPageCursor")
                     if not cursor:
                         break
-                if all_trades:
-                    _closed_pnl_cache = {"timestamp": now, "trades": all_trades}
+                    if all_trades:
+                        _closed_pnl_cache = {"timestamp": now, "trades": all_trades}
 
             closed_list = _closed_pnl_cache.get("trades", [])
 
             with trade_stats_lock:
                 local_history = list(trade_stats["trade_history"])
+                reset_anchor = trade_stats.get("reset_anchor_time", 0)
 
             def annotate(row):
                 """Attaches the local reasoning snapshot to a Bybit closed-PnL row."""
@@ -868,24 +899,28 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 dt_sl = datetime.fromtimestamp(ts_ms / 1000, tz=SL_TZ) if ts_ms else datetime.now(tz=SL_TZ)
                 d_str = dt_sl.strftime("%Y-%m-%d")
 
-                if pnl > 0:
-                    w_count += 1
-                    g_profit += pnl
-                    if d_str == today_sl_str:
-                        today_w += 1
-                        today_gp += pnl
-                    elif d_str == yesterday_sl_str:
-                        yest_w += 1
-                        yest_gp += pnl
-                elif pnl < 0:
-                    l_count += 1
-                    g_loss += abs(pnl)
-                    if d_str == today_sl_str:
-                        today_l += 1
-                        today_gl += abs(pnl)
-                    elif d_str == yesterday_sl_str:
-                        yest_l += 1
-                        yest_gl += abs(pnl)
+                # Metrics reset anchor: only aggregate metrics for trades closed after reset
+                is_after_reset = (ts_ms >= reset_anchor) if reset_anchor else True
+
+                if is_after_reset:
+                    if pnl > 0:
+                        w_count += 1
+                        g_profit += pnl
+                        if d_str == today_sl_str:
+                            today_w += 1
+                            today_gp += pnl
+                        elif d_str == yesterday_sl_str:
+                            yest_w += 1
+                            yest_gp += pnl
+                    elif pnl < 0:
+                        l_count += 1
+                        g_loss += abs(pnl)
+                        if d_str == today_sl_str:
+                            today_l += 1
+                            today_gl += abs(pnl)
+                        elif d_str == yesterday_sl_str:
+                            yest_l += 1
+                            yest_gl += abs(pnl)
 
                 extra = annotate(row)
                 entry_p = float(row.get("avgEntryPrice") or 0)
@@ -948,7 +983,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             win_rate = round((w_count / tot_trades) * 100, 1) if tot_trades > 0 else 0.0
             profit_factor = round(g_profit / g_loss, 2) if g_loss > 0 else (0.0 if g_profit == 0 else 99.9)
 
-            r_values = [m["r_multiple"] for m in merged if isinstance(m.get("r_multiple"), (int, float))]
+            r_values = [m["r_multiple"] for m in merged if isinstance(m.get("r_multiple"), (int, float)) and ((m.get("exitTime") or 0) >= reset_anchor if reset_anchor else True)]
             r_wins = [r for r in r_values if r > 0]
             r_losses = [abs(r) for r in r_values if r <= 0]
             expectancy_r = round(sum(r_values) / len(r_values), 3) if r_values else None
@@ -966,6 +1001,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "gross_loss": round(g_loss, 2),
                 "net_pnl": round(g_profit - g_loss, 2),
                 "profit_factor": profit_factor,
+                "reset_anchor_time": reset_anchor,
                 "today": {
                     "total_trades": tot_today,
                     "win_count": today_w,
@@ -1462,6 +1498,34 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "model": "MASIS local",
                 "analysis": "The free-text synthesis endpoint has been retired. It generated ~700 tokens per call on a timer, no code parsed the result, and it could not change any decision. See /api/llm/status for current model spend.",
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+            })
+            return
+
+        # 3b-reset. API: Reset Performance Scorecard (Preserves 100% of all trade history data)
+        if self.path.startswith("/api/performance/reset"):
+            with trade_stats_lock:
+                if hasattr(bybit_client, "sync_time"):
+                    bybit_client.sync_time()
+                bybit_server_ms = int(time.time() * 1000) + getattr(bybit_client, 'time_offset', 0)
+                latest_closed_ts = 0
+                if _closed_pnl_cache.get("trades"):
+                    for t in _closed_pnl_cache["trades"][:10]:
+                        t_ts = int(t.get("updatedTime") or t.get("createdTime") or 0)
+                        if t_ts > latest_closed_ts:
+                            latest_closed_ts = t_ts
+                now_anchor = max(bybit_server_ms, latest_closed_ts + 1000)
+                trade_stats["reset_anchor_time"] = now_anchor
+                trade_stats["win_count"] = 0
+                trade_stats["loss_count"] = 0
+                trade_stats["gross_profit"] = 0.0
+                trade_stats["gross_loss"] = 0.0
+                save_trade_stats()
+            _closed_pnl_cache["timestamp"] = 0
+            _closed_pnl_cache["trades"] = []
+            self._send_json(200, {
+                "success": True,
+                "reset_anchor_time": now_anchor,
+                "message": "Performance metrics reset to 0 (all trade history data preserved)."
             })
             return
 
