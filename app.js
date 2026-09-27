@@ -4091,7 +4091,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let pnlCalendarMonth = new Date().getMonth(); // 0-indexed
 
   function openPnlCalendar() {
-    const modal = $('pnlCalendarModal');
+    const modal = document.getElementById('pnlCalendarModal') || document.getElementById('pnlModalBackdrop');
     if (!modal) return;
 
     // 1. Update live equity and timestamps
@@ -4160,8 +4160,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closePnlCalendar() {
-    const modal = $('pnlCalendarModal');
+    const modal = document.getElementById('pnlCalendarModal') || document.getElementById('pnlModalBackdrop');
     if (modal) modal.style.display = 'none';
+    const m2 = document.getElementById('pnlModalBackdrop');
+    if (m2) m2.style.display = 'none';
   }
 
   function renderPnlCalendar(year, month) {
@@ -4285,8 +4287,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function initPnlCalendarControls() {
     const openBtn = $('openPnlCalendarBtn');
     const netPnlItem = $('netPnlAcctItem');
-    const closeBtn = $('closePnlCalendarBtn');
-    const modal = $('pnlCalendarModal');
+    const closeBtn = document.getElementById('closePnlCalendarBtn') || document.getElementById('closePnlModalBtn');
+    const modal = document.getElementById('pnlCalendarModal') || document.getElementById('pnlModalBackdrop');
     const prevBtn = $('pnlPrevMonthBtn');
     const nextBtn = $('pnlNextMonthBtn');
 
@@ -4301,7 +4303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal && modal.style.display !== 'none') {
+      if (e.key === 'Escape') {
         closePnlCalendar();
       }
     });

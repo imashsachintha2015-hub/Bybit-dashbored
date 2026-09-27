@@ -563,14 +563,14 @@
   </div>
 
   <!-- PNL CALENDAR MODAL -->
-  <div class="pnl-modal-backdrop" id="pnlModalBackdrop">
+  <div class="pnl-modal-backdrop" id="pnlCalendarModal" style="display:none;" onclick="if(event.target===this) this.style.display='none'">
     <div class="pnl-modal-window">
       <div class="pnl-modal-header">
         <div class="pnl-modal-title">
           <i class="fa-solid fa-calendar-days" style="color:#10b981;"></i>
           <span>Day-wise PnL Calendar</span>
         </div>
-        <button class="pnl-modal-close" id="closePnlModalBtn"><i class="fa-solid fa-xmark"></i></button>
+        <button class="pnl-modal-close" id="closePnlCalendarBtn" onclick="var m=document.getElementById('pnlCalendarModal'); if(m) m.style.display='none'; var b=document.getElementById('pnlModalBackdrop'); if(b) b.style.display='none';"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="pnl-modal-summary">
