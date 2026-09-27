@@ -10,7 +10,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="index.css?v=3.5">
 </head>
@@ -789,62 +789,6 @@
           <span id="dayDetailsPnl" class="font-mono">--</span>
         </div>
         <div class="day-details-list" id="dayDetailsList"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Top Metrics Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
-          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
-            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">MAX FEE FRICTION CAP</div>
-            <div style="font-size: 18px; font-weight: 800; color: #DC2626; margin-top: 2px;">&le; 25.0%</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Auto-vetoes high-fee churn</div>
-          </div>
-          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
-            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">MIN EXPECTED VALUE (EV)</div>
-            <div style="font-size: 18px; font-weight: 800; color: #16A34A; margin-top: 2px;">&ge; +0.35R</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Cost-adjusted positive edge</div>
-          </div>
-          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
-            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">ROUNDTRIP FRICTION</div>
-            <div style="font-size: 18px; font-weight: 800; color: #D97706; margin-top: 2px;">0.150%</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">0.110% Taker + 0.040% Slip</div>
-          </div>
-          <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
-            <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">TRADES VETOED (AVOIDED)</div>
-            <div style="font-size: 18px; font-weight: 800; color: #4F46E5; margin-top: 2px;" id="redTeamVetoCount">--</div>
-            <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Preserving capital from traps</div>
-          </div>
-        </div>
-
-        <!-- Recent Evaluated Candidates & NO-TRADE Decisions -->
-        <div>
-          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-            <span style="display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-clipboard-list" style="color: #DC2626;"></i> Signal Decision Journal (Recent Candidates &amp; Vetoes)
-            </span>
-            <span style="font-size: 10px; color: var(--text-dim); font-weight: normal;">Authoritative SQLite Log</span>
-          </div>
-          <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
-              <thead>
-                <tr style="background: #F8FAFC; border-bottom: 1px solid var(--border); color: var(--text-dim);">
-                  <th style="padding: 8px 10px;">Time</th>
-                  <th style="padding: 8px 10px;">Symbol</th>
-                  <th style="padding: 8px 10px;">Setup &amp; Side</th>
-                  <th style="padding: 8px 10px;">Decision</th>
-                  <th style="padding: 8px 10px;">Target Runway</th>
-                  <th style="padding: 8px 10px;">Fee Friction</th>
-                  <th style="padding: 8px 10px;">Expected R</th>
-                  <th style="padding: 8px 10px;">Adversarial Reason</th>
-                </tr>
-              </thead>
-              <tbody id="redTeamDecisionsBody">
-                <!-- Rendered dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   </div>
