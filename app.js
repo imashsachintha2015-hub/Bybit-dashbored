@@ -130,8 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) {}
   }
-  setInterval(fetchArchaeologistState, 25000);
-  setTimeout(fetchArchaeologistState, 1500);
+  // Disabled: /api/agent/archaeologist endpoint is not active in this deployment
+  // setInterval(fetchArchaeologistState, 25000);
+  // setTimeout(fetchArchaeologistState, 1500);
 
   function showArchaeologistModal() {
     const backdrop = $('archaeologyModalBackdrop');
@@ -219,8 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) {}
   }
-  setInterval(fetchRedTeamState, 15000);
-  setTimeout(fetchRedTeamState, 2000);
+  // Disabled: /api/agent/redteam endpoint is not active in this deployment
+  // setInterval(fetchRedTeamState, 15000);
+  // setTimeout(fetchRedTeamState, 2000);
 
   function showRedTeamModal() {
     const backdrop = $('redTeamModalBackdrop');
@@ -473,7 +475,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // One shared meta-learner across symbols: analyst reliability is a property
   // of the analyst and the regime, not of the ticker.
-  const metaLearner = new SwarmMetaLearner.MetaLearner();
+  const metaLearner = (typeof SwarmMetaLearner !== 'undefined' && SwarmMetaLearner.MetaLearner)
+    ? new SwarmMetaLearner.MetaLearner()
+    : null;
 
   // swarmMode 'observe' -- the panel runs and is reported, but decides nothing.
   //

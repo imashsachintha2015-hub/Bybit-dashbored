@@ -1,0 +1,308 @@
+//@version=6
+indicator("AMD FVG Trade Setup + Volume Profile POC", shorttitle="AMD FVG + VP POC", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// =============================================================================
+// 1. SETTINGS & INPUTS
+// =============================================================================
+
+// --- AMD Logic ---
+accLen       = input.int(30, "Accumulation Length", minval=5, group="AMD Logic", tooltip="Number of bars evaluated for tight accumulation range.")
+accWidth     = input.float(0.2, "Accumulation Range Max %", minval=0.05, step=0.05, group="AMD Logic", tooltip="Maximum % spread between highest high and lowest low.")
+manLook      = input.int(10, "Max Search Window", minval=1, group="AMD Logic", tooltip="Max bars after accumulation to search for liquidity sweep manipulation.")
+fvgThreshold = input.float(0.1, "Min FVG Gap (ATR Multiplier)", minval=0.0, step=0.05, group="AMD Logic", tooltip="Minimum size of Fair Value Gap relative to ATR.")
+
+// --- Trade Settings ---
+atrLen       = input.int(14, "ATR Length", group="Trade Settings")
+atrMult      = input.float(2.0, "ATR SL Multiplier", step=0.1, group="Trade Settings")
+rrr          = input.float(2.0, "Reward-to-Risk Ratio", step=0.1, group="Trade Settings")
+
+// --- Session Settings ---
+useSydney    = input.bool(false, "🌏 Sydney Session (17:00-02:00 EST)", group="Sessions")
+useTokyo     = input.bool(false, "🌏 Tokyo Session (19:00-04:00 EST)", group="Sessions")
+useLondon    = input.bool(false, "🌍 London Session (03:00-12:00 EST)", group="Sessions")
+useNY        = input.bool(true,  "🌎 New York Session (08:00-17:00 EST)", group="Sessions")
+showSess     = input.bool(true,  "Highlight Active Session Time", group="Sessions")
+
+// --- Volume Profile (VP) & POC Settings ---
+showVP       = input.bool(true,  "Enable Volume Profile & POC", group="Volume Profile (POC)")
+vpLookback   = input.int(100,    "VP Lookback Bars", minval=20, maxval=300, group="Volume Profile (POC)")
+vpBins       = input.int(35,     "Price Levels (Bins)", minval=10, maxval=100, group="Volume Profile (POC)")
+vaPercent    = input.float(70.0, "Value Area %", minval=50.0, maxval=90.0, step=5.0, group="Volume Profile (POC)")
+showHist     = input.bool(true,  "Draw Profile Histogram", group="Volume Profile (POC)")
+extendPoc    = input.bool(true,  "Extend POC Line Forward", group="Volume Profile (POC)")
+pocColor     = input.color(#ffb300, "POC Line Color (Point of Control)", group="Volume Profile (POC)")
+vahColor     = input.color(#0ea5e9, "VAH Line Color (Value Area High)", group="Volume Profile (POC)")
+valColor     = input.color(#38bdf8, "VAL Line Color (Value Area Low)", group="Volume Profile (POC)")
+pocHistColor = input.color(color.new(#ffb300, 40), "POC Histogram Bar", group="Volume Profile (POC)")
+
+// --- Colors & Visuals ---
+accColor     = input.color(color.new(color.gray, 80), "Accumulation Box", group="Colors")
+manColor     = input.color(color.new(#f23645, 75),    "Manipulation Bear Sweep", group="Colors")
+manColorB    = input.color(color.new(#089981, 75),    "Manipulation Bull Sweep", group="Colors")
+tpColor      = input.color(color.new(#089981, 75),    "Take Profit Box", group="Colors")
+slColor      = input.color(color.new(#f23645, 75),    "Stop Loss Box", group="Colors")
+fvgColor     = input.color(color.new(color.white, 60),"FVG Gap Box", group="Colors")
+labelOffset  = input.float(1.0, "Label Offset (ATR Multiplier)", group="Colors")
+
+// =============================================================================
+// 2. SESSION TIMING LOGIC
+// =============================================================================
+inSession(sess) => not na(time(timeframe.period, sess, "America/New_York"))
+
+isInAnySession = (useSydney and inSession("1700-0200")) or 
+                 (useTokyo  and inSession("1900-0400")) or 
+                 (useLondon and inSession("0300-1200")) or 
+                 (useNY     and inSession("0800-1700"))
+
+bgcolor(showSess and isInAnySession ? color.new(#0ea5e9, 96) : na, title="Session Background")
+
+// =============================================================================
+// 3. AMD ACCUMULATION & MANIPULATION STATE
+// =============================================================================
+var float accHigh = na
+var float accLow  = na
+var int   accStartBar = na
+var int   accEndBar = na
+var bool  manipOccurredHigh = false
+var bool  manipOccurredLow  = false
+var float manipExtremum = na
+
+// Trade State Management
+var box   tpBox = na
+var box   slBox = na
+var float tpLevel = na
+var float slLevel = na
+var bool  isTradeActive = false
+var bool  isBullishTrade = false
+
+// Detect Accumulation Range
+highs    = ta.highest(high, accLen)
+lows     = ta.lowest(low, accLen)
+rangePct = (highs - lows) / lows * 100
+isAccumulating = rangePct <= accWidth and isInAnySession
+
+if isAccumulating
+    accHigh           := highs
+    accLow            := lows
+    accStartBar       := bar_index - accLen + 1
+    accEndBar         := bar_index
+    manipOccurredHigh := false
+    manipOccurredLow  := false
+    manipExtremum     := na
+
+// ATR Calculation
+atr = ta.atr(atrLen)
+
+// Update Active Trade Boxes
+if isTradeActive
+    tpBox.set_right(bar_index)
+    slBox.set_right(bar_index)
+    
+    // Check Exit Conditions
+    if isBullishTrade
+        if low <= slLevel or high >= tpLevel
+            isTradeActive := false
+    else
+        if high >= slLevel or low <= tpLevel
+            isTradeActive := false
+
+// =============================================================================
+// 4. SEARCH FOR MANIPULATION & FAIR VALUE GAP (FVG)
+// =============================================================================
+if not isAccumulating and not na(accHigh) and bar_index <= accEndBar + manLook and isInAnySession
+    // ── Bearish Case (Sweep Above Acc High -> Bear FVG -> Short Entry) ────────
+    if not manipOccurredHigh and not manipOccurredLow and high > accHigh
+        manipOccurredHigh := true
+        manipExtremum     := high
+    
+    if manipOccurredHigh
+        manipExtremum := math.max(manipExtremum, high)
+        fvgGap  = low[2] - high
+        bearFVG = fvgGap > (atr * fvgThreshold) and close < accHigh
+        
+        if bearFVG and not isTradeActive
+            // Visual Boxes
+            box.new(accStartBar, accHigh, accEndBar, accLow, bgcolor=accColor, border_color=na)
+            box.new(accEndBar, manipExtremum, bar_index - 2, accHigh, bgcolor=manColor, border_color=na)
+            box.new(bar_index - 2, low[2], bar_index, high, bgcolor=fvgColor, border_color=fvgColor, border_style=line.style_dotted)
+            
+            // Trade Levels
+            slDist        = atr * atrMult
+            slLevel       := close + slDist
+            tpLevel       := close - (slDist * rrr)
+            isTradeActive  := true
+            isBullishTrade := false
+            
+            tpBox := box.new(bar_index, close, bar_index, tpLevel, bgcolor=tpColor, border_color=na)
+            slBox := box.new(bar_index, close, bar_index, slLevel, bgcolor=slColor, border_color=na)
+            
+            label.new(bar_index, high + (atr * labelOffset), "AMD Bearish FVG\nSL: " + str.tostring(slLevel, "#.##") + " | TP: " + str.tostring(tpLevel, "#.##"), 
+                      color=color.red, style=label.style_label_down, textcolor=color.white, size=size.small)
+            alert("Bearish AMD FVG Signal on " + syminfo.ticker, alert.freq_once_per_bar)
+            accHigh           := na
+            manipOccurredHigh := false
+
+    // ── Bullish Case (Sweep Below Acc Low -> Bull FVG -> Long Entry) ─────────
+    if not manipOccurredLow and not manipOccurredHigh and low < accLow
+        manipOccurredLow := true
+        manipExtremum    := low
+    
+    if manipOccurredLow
+        manipExtremum := math.min(manipExtremum, low)
+        fvgGap  = low - high[2]
+        bullFVG = fvgGap > (atr * fvgThreshold) and close > accLow
+        
+        if bullFVG and not isTradeActive
+            // Visual Boxes
+            box.new(accStartBar, accHigh, accEndBar, accLow, bgcolor=accColor, border_color=na)
+            box.new(accEndBar, accLow, bar_index - 2, manipExtremum, bgcolor=manColorB, border_color=na)
+            box.new(bar_index - 2, high[2], bar_index, low, bgcolor=fvgColor, border_color=fvgColor, border_style=line.style_dotted)
+            
+            // Trade Levels
+            slDist        = atr * atrMult
+            slLevel       := close - slDist
+            tpLevel       := close + (slDist * rrr)
+            isTradeActive  := true
+            isBullishTrade := true
+            
+            tpBox := box.new(bar_index, close, bar_index, tpLevel, bgcolor=tpColor, border_color=na)
+            slBox := box.new(bar_index, close, bar_index, slLevel, bgcolor=slColor, border_color=na)
+            
+            label.new(bar_index, low - (atr * labelOffset), "AMD Bullish FVG\nSL: " + str.tostring(slLevel, "#.##") + " | TP: " + str.tostring(tpLevel, "#.##"), 
+                      color=color.green, style=label.style_label_up, textcolor=color.white, size=size.small)
+            alert("Bullish AMD FVG Signal on " + syminfo.ticker, alert.freq_once_per_bar)
+            accHigh          := na
+            manipOccurredLow := false
+
+// =============================================================================
+// 5. VOLUME PROFILE & POC (POINT OF CONTROL) ENGINE
+// =============================================================================
+var line  pocLine  = na
+var line  vahLine  = na
+var line  valLine  = na
+var label pocLabel = na
+var label vahLabel = na
+var label valLabel = na
+var box[] vpBoxes  = array.new_box()
+
+if showVP and barstate.islast
+    // Clear previous histogram boxes
+    if array.size(vpBoxes) > 0
+        for i = 0 to array.size(vpBoxes) - 1
+            box.delete(array.get(vpBoxes, i))
+        array.clear(vpBoxes)
+    
+    // Find absolute High and Low across lookback window
+    float vpHigh = high
+    float vpLow  = low
+    for i = 0 to vpLookback - 1
+        vpHigh := math.max(vpHigh, high[i])
+        vpLow  := math.min(vpLow, low[i])
+    
+    float binSpan = (vpHigh - vpLow) / vpBins
+    if binSpan > 0
+        var float[] binVols = array.new_float(vpBins, 0.0)
+        array.fill(binVols, 0.0)
+        float totalVol = 0.0
+        
+        // Distribute volume into price bins proportional to range overlap
+        for i = 0 to vpLookback - 1
+            float bH = high[i]
+            float bL = low[i]
+            float bV = volume[i]
+            float bRange = math.max(bH - bL, syminfo.mintick)
+            totalVol += bV
+            
+            for b = 0 to vpBins - 1
+                float lvlBot = vpLow + b * binSpan
+                float lvlTop = lvlBot + binSpan
+                float oBot   = math.max(bL, lvlBot)
+                float oTop   = math.min(bH, lvlTop)
+                
+                if oTop > oBot
+                    float fraction = (oTop - oBot) / bRange
+                    array.set(binVols, b, array.get(binVols, b) + (bV * fraction))
+        
+        // Find Point of Control (POC = Bin with Maximum Volume)
+        int   pocBin = 0
+        float maxVol = 0.0
+        for b = 0 to vpBins - 1
+            float v = array.get(binVols, b)
+            if v > maxVol
+                maxVol := v
+                pocBin := b
+        
+        float pocPrice = vpLow + (pocBin + 0.5) * binSpan
+        
+        // Calculate Value Area (VAH & VAL) covering vaPercent of total volume
+        float targetVAVol  = totalVol * (vaPercent / 100.0)
+        float currentVAVol = maxVol
+        int   upIdx        = pocBin
+        int   downIdx      = pocBin
+        
+        while currentVAVol < targetVAVol and (upIdx < vpBins - 1 or downIdx > 0)
+            float upVol   = (upIdx < vpBins - 1) ? array.get(binVols, upIdx + 1) : 0.0
+            float downVol = (downIdx > 0)         ? array.get(binVols, downIdx - 1) : 0.0
+            
+            if upVol >= downVol and upIdx < vpBins - 1
+                upIdx += 1
+                currentVAVol += upVol
+            else if downIdx > 0
+                downIdx -= 1
+                currentVAVol += downVol
+            else if upIdx < vpBins - 1
+                upIdx += 1
+                currentVAVol += upVol
+            else
+                break
+        
+        float vahPrice = vpLow + (upIdx + 1) * binSpan
+        float valPrice = vpLow + downIdx * binSpan
+        
+        // ── Render POC Line & Label ──────────────────────────────────────────
+        int startX = bar_index - vpLookback + 1
+        int endX   = extendPoc ? bar_index + 20 : bar_index
+        
+        line.delete(pocLine)
+        pocLine := line.new(startX, pocPrice, endX, pocPrice, xloc=xloc.bar_index, color=pocColor, width=2, style=line.style_solid)
+        
+        label.delete(pocLabel)
+        pocLabel := label.new(endX, pocPrice, "POC: " + str.tostring(pocPrice, "#.##"), 
+                              xloc=xloc.bar_index, color=pocColor, textcolor=color.black, style=label.style_label_left, size=size.small)
+        
+        // ── Render VAH Line & Label ──────────────────────────────────────────
+        line.delete(vahLine)
+        vahLine := line.new(startX, vahPrice, endX, vahPrice, xloc=xloc.bar_index, color=vahColor, width=1, style=line.style_dashed)
+        
+        label.delete(vahLabel)
+        vahLabel := label.new(endX, vahPrice, "VAH (70%): " + str.tostring(vahPrice, "#.##"), 
+                              xloc=xloc.bar_index, color=color.new(vahColor, 50), textcolor=color.white, style=label.style_label_left, size=size.tiny)
+        
+        // ── Render VAL Line & Label ──────────────────────────────────────────
+        line.delete(valLine)
+        valLine := line.new(startX, valPrice, endX, valPrice, xloc=xloc.bar_index, color=valColor, width=1, style=line.style_dashed)
+        
+        label.delete(valLabel)
+        valLabel := label.new(endX, valPrice, "VAL (70%): " + str.tostring(valPrice, "#.##"), 
+                              xloc=xloc.bar_index, color=color.new(valColor, 50), textcolor=color.white, style=label.style_label_left, size=size.tiny)
+        
+        // ── Render Volume Profile Horizontal Histogram ───────────────────────
+        if showHist and maxVol > 0
+            int maxHistBars = 25
+            for b = 0 to vpBins - 1
+                float v = array.get(binVols, b)
+                if v > 0
+                    int barLen = math.round((v / maxVol) * maxHistBars)
+                    if barLen > 0
+                        float topLvl = vpLow + (b + 1) * binSpan
+                        float botLvl = vpLow + b * binSpan
+                        color bColor = (b == pocBin) ? pocHistColor : 
+                                      ((b >= downIdx and b <= upIdx) ? color.new(vahColor, 80) : color.new(color.gray, 85))
+                        box hBox = box.new(startX, topLvl, startX + barLen, botLvl, bgcolor=bColor, border_color=na)
+                        array.push(vpBoxes, hBox)
+
+// =============================================================================
+// 6. LIVE CONFLUENCE ALERTS (CME-X5 + AMD + POC)
+// =============================================================================
+alertcondition(bullFVG and not isTradeActive, title="Bullish AMD FVG Setup", message="Bullish AMD FVG: Liquidity sweep below accumulation + Fair Value Gap confirmed!")
+alertcondition(bearFVG and not isTradeActive, title="Bearish AMD FVG Setup", message="Bearish AMD FVG: Liquidity sweep above accumulation + Fair Value Gap confirmed!")

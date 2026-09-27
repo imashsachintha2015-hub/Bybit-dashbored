@@ -12,20 +12,34 @@ import signal
 
 
 def main():
-    port = os.environ.get("PORT", "8080")
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip("\"'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+    port = os.environ.get("PORT", "8070")
+    os.environ["PORT"] = port
     print("=" * 70)
-    print(f"  CME-X5 PURE PROFITABLE PLATFORM  (PORT: {port})")
-    print("  S2 POC Reclaim +0.683R  |  S7 Gated +0.34R  |  Zero LLM overhead")
+    print(f"  CME-X5 24/7 AUTONOMOUS PLATFORM & EXECUTOR  (PORT: {port})")
+    print("  S2 POC Reclaim +0.683R  |  AMD FVG  |  S7 Gated +0.34R")
+    print("  Zero Browser Tab Dependency -- Full Cloud Headless Execution")
     print("=" * 70)
 
     # Background daemons -- only proven positive-EV processes
     daemon_cmds = [
-        # PRIMARY: CME-X5 Pure Engine (S2 +0.683R, S7 +0.34R at 14bps friction)
-        ("CME-X5 Pure Engine",    [sys.executable, "daemons/cme_x5_pure_engine.py"]),
-        # Execution layer (real order placement, unchanged)
-        ("Smart Growth Executor", [sys.executable, "daemons/smart_growth_executor.py"]),
+        # PRIMARY: CME-X5 Pure Engine & 24/7 Bybit Autonomous Executor
+        ("CME-X5 Pure Engine & 24H Executor", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
         # Lightweight forensic audit trail
-        ("Decision Trace",        [sys.executable, "daemons/trade_decision_trace_daemon.py"]),
+        ("Decision Trace",                    [sys.executable, "daemons/trade_decision_trace_daemon.py"]),
     ]
 
     import shutil

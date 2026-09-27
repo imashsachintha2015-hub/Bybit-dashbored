@@ -23,7 +23,7 @@ import sys
 import threading
 import xml.etree.ElementTree as ET
 
-PORT = int(os.environ.get("PORT", 8080))
+PORT = int(os.environ.get("PORT", 8070))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -779,8 +779,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, res)
             return
 
-        # 2. API: Live Open Positions
+        # 2. API: Live Open Positions & Closed Positions
         if self.path.startswith("/api/positions"):
+            if "type=closed" in self.path or "/closed" in self.path:
+                res = bybit_client.get_closed_pnl(limit=50)
+                self._send_json(200, res)
+                return
             res = bybit_client.get_positions()
             self._send_json(200, res)
             return
@@ -961,6 +965,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     "side": pos_side.upper(),
                     "entry": entry_p,
                     "exit": exit_p,
+                    "qty": float(row.get("qty") or 0),
                     "stop": stop_val,
                     "targets": target_list,
                     "nextSupport": extra.get("nextSupport"),
@@ -1370,6 +1375,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path in ("/advanced-chart", "/chart", "/advanced-chart/"):
             self.path = "/advanced-chart.html"
 
+        if self.path in ("/monitor", "/monitor/"):
+            self.path = "/monitor.html"
+
         # Default: Serve static files
         super().do_GET()
 
@@ -1418,6 +1426,93 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             usdt = next((c for c in coins if c.get("coin") == "USDT"), {})
             eq = float(usdt.get("equity", 0)) if usdt else None
             self._send_json(200, kb.get_target_state(current_equity=eq))
+            return
+
+        # 0B. API: CME-X5 Direct Signal Execution
+        if self.path == "/api/cme_x5/execute":
+            from backend_lib.trading_utils import round_qty, round_price, compute_order_sizing
+            from backend_lib import auto_trade_state
+            
+            symbol = body.get("symbol", "BTCUSDT")
+            direction = body.get("direction", "LONG").upper()
+            side = "Buy" if direction == "LONG" else "Sell"
+            cur_p = float(body.get("entry_p") or 0)
+            if cur_p <= 0:
+                cur_p = float(body.get("price") or 0)
+            
+            # Fetch current ticker if price not supplied
+            if cur_p <= 0:
+                tk = bybit_client.signed_request("GET", "/v5/market/tickers", {"category": "linear", "symbol": symbol})
+                cur_p = float(tk.get("result", {}).get("list", [{}])[0].get("lastPrice", 0))
+
+            qty = compute_order_sizing(symbol, cur_p, target_notional=50.0)
+            
+            sl_raw = float(body.get("stop_p") or 0)
+            tp_raw = float(body.get("target_p") or 0)
+            if sl_raw <= 0:
+                sl_raw = cur_p * 0.985 if direction == "LONG" else cur_p * 1.015
+            if tp_raw <= 0:
+                tp_raw = cur_p * 1.030 if direction == "LONG" else cur_p * 0.970
+
+            sl_rounded = round_price(symbol, sl_raw)
+            tp_rounded = round_price(symbol, tp_raw)
+
+            # Safety check
+            if direction == "LONG":
+                if sl_rounded >= cur_p: sl_rounded = round_price(symbol, cur_p * 0.985)
+                if tp_rounded <= cur_p: tp_rounded = round_price(symbol, cur_p * 1.030)
+            else:
+                if sl_rounded <= cur_p: sl_rounded = round_price(symbol, cur_p * 1.015)
+                if tp_rounded >= cur_p: tp_rounded = round_price(symbol, cur_p * 0.970)
+
+            # Ensure 10x leverage
+            try:
+                bybit_client.set_leverage(symbol, 10)
+            except Exception:
+                pass
+
+            order_res = bybit_client.place_order(
+                category="linear",
+                symbol=symbol,
+                side=side,
+                order_type="Market",
+                qty=qty,
+                sl=sl_rounded,
+                tp=tp_rounded
+            )
+
+            if order_res.get("retCode") == 0:
+                # Register thesis in auto_trade_state
+                try:
+                    key = f"{symbol}-{side}"
+                    theses = auto_trade_state.load().get("theses", {}) or {}
+                    theses[key] = {
+                        "symbol": symbol,
+                        "side": side,
+                        "direction": direction,
+                        "entryPrice": cur_p,
+                        "stopLoss": sl_rounded,
+                        "targets": [tp_rounded],
+                        "setupName": body.get("situation", "CME_X5_EXEC"),
+                        "openedAt": int(time.time() * 1000),
+                        "isScalp": False
+                    }
+                    auto_trade_state.save(theses=theses, armed=True)
+                except Exception as e_th:
+                    print(f"[auto_trade_state] execute thesis err: {e_th}")
+
+            self._send_json(200, {
+                **order_res,
+                "order": {
+                    "symbol": symbol,
+                    "direction": direction,
+                    "side": side,
+                    "qty": qty,
+                    "sl": sl_rounded,
+                    "tp": tp_rounded,
+                    "entry": cur_p
+                }
+            })
             return
 
         # 1. API: Place Demo Order

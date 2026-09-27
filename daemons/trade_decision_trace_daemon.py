@@ -40,10 +40,20 @@ def emit(t):
 
 
 def save_state():
-    tmp = STATE_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump({"offsets": log_offsets, "traces": traces}, f)
-    os.replace(tmp, STATE_FILE)
+    try:
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"offsets": log_offsets, "traces": traces}, f)
+        try:
+            os.replace(tmp, STATE_FILE)
+        except OSError:
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump({"offsets": log_offsets, "traces": traces}, f)
+            if os.path.exists(tmp):
+                try: os.remove(tmp)
+                except Exception: pass
+    except Exception:
+        pass
 
 
 def load_state():

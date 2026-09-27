@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-CME-X5 PURE PROFITABLE ENGINE  -  Production Shadow Daemon
+CME-X5 PURE PROFITABLE ENGINE & 24/7 AUTONOMOUS CLOUD EXECUTOR
+Runs autonomously on Railway server-side without requiring any browser tab.
 
-WHY THIS REPLACES THE OLD SYSTEM (10,000-trade empirical audit, 14 bps, 33 assets):
+Trading Systems:
   S2 POC Reclaim         -> +0.683R Net EV  (PRIMARY PROFIT ENGINE)
+  AMD FVG Setup          -> Pine Script v6 Accumulation/Manipulation/Distribution + FVG
   S7 Gated Continuation  -> +0.34R  Net EV  (SECONDARY, strict gate)
-  S1 Liquidity Sweep     -> -0.41R          (KILLED - retail trap)
-  S4 Pure Breakout       -> -0.29R          (KILLED - whale stop-hunt magnet)
-  EMA double-bounce      -> -0.18R          (KILLED - chop feeder)
-  LLM gatekeeper         -> -0.08R/call     (KILLED - latency overhead)
 
-ARCHITECTURE: Zero LLM - Zero news scrapers - Zero agent network
-              Pure Volume Profile math + Market Efficiency filter
-              Max drawdown: >95% -> <7%  |  Net EV: +0.683R per trade
+Integrations:
+  - Bybit V5 Linear Demo API (Auto order placement with broker-side SL/TP)
+  - Railway Headless 24/7 Loop
+  - Railway Monitor Tool (monitor.html) synchronizer via auto_trade_state
 """
 
 import os, sys, json, math, time, sqlite3, uuid, urllib.request
@@ -21,8 +20,30 @@ from datetime import datetime, timezone
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
+# ─── Load Environment ─────────────────────────────────────────────────────────
+def _load_env():
+    env_file = os.path.join(ROOT_DIR, ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip("\"'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+_load_env()
+
+from backend_lib.bybit_client import get_client
+from backend_lib import auto_trade_state
+from backend_lib.trading_utils import round_qty, round_price, compute_order_sizing
+
 # ─── Configuration ────────────────────────────────────────────────────────────
-BASE_URL      = os.environ.get("BYBIT_BASE_URL", "https://api.bybit.com")
+BASE_URL      = os.environ.get("BYBIT_BASE_URL", "https://api-demo.bybit.com")
 POLL_INTERVAL = 10
 LOG_FILE      = os.path.join(ROOT_DIR, "scratch", "cme_x5_engine.log")
 DB_PATH       = os.path.join(ROOT_DIR, "cme_x4_shadow.db")
@@ -34,12 +55,6 @@ SYMBOLS = [
     "DOTUSDT","MATICUSDT","LTCUSDT","NEARUSDT","APTUSDT"
 ]
 
-STOP_FLOORS = {
-    "BTCUSDT":0.0034,"ETHUSDT":0.0036,"SOLUSDT":0.0048,"XRPUSDT":0.0058,
-    "LINKUSDT":0.0067,"AVAXUSDT":0.0055,"BNBUSDT":0.0040,"ADAUSDT":0.0060,
-    "DOTUSDT":0.0060,"MATICUSDT":0.0065,"LTCUSDT":0.0050,"DEFAULT":0.0055
-}
-
 FRICTION_PCT   = 0.0014   # 14.0 bps round-trip
 MAX_SPREAD_BPS = 8.0      # reject illiquid books
 MIN_RISK_PCT   = 0.0030   # min risk distance to enter
@@ -49,6 +64,8 @@ VP_BINS        = 30
 VP_VALUE_AREA  = 0.70     # 70% of volume = Value Area
 ME14_MIN_S7    = 0.50     # Market Efficiency gate for S7
 EMA_SEP_MIN_S7 = 0.0025   # EMA21/50 separation gate for S7
+TARGET_NOTIONAL_USDT = 50.0  # Conservative institutional size ($5 margin @ 10x)
+MAX_CONCURRENT_POS   = 3     # Maximum simultaneous open positions
 
 os.makedirs(os.path.join(ROOT_DIR, "scratch"), exist_ok=True)
 
@@ -155,19 +172,86 @@ def detect_s2(sym, k15, book):
     # LONG: swept below VAL, now reclaims POC
     if prev_low < val and prev_close <= poc and cur_p > poc:
         stop_p = prev_low * 0.9985
-        risk   = abs(cur_p-stop_p)/cur_p
-        if risk >= MIN_RISK_PCT:
+        sl_dist = abs(cur_p - stop_p)
+        risk = sl_dist / cur_p
+        # Target must be strictly above entry: prefer VAH, minimum 1.5R
+        target_p = max(vah, cur_p + 1.5 * sl_dist)
+        if target_p > cur_p and risk >= MIN_RISK_PCT:
             return {"situation":"S2_POC_RECLAIM","direction":"LONG","entry_p":cur_p,
-                    "stop_p":stop_p,"target_p":vah,"risk_pct":risk,
+                    "stop_p":stop_p,"target_p":target_p,"risk_pct":risk,
                     "poc":poc,"val":val,"vah":vah,"me14":None,"ema21_15m":None,"ema50_15m":None}
+
     # SHORT: swept above VAH, now reclaims POC
     if prev_high > vah and prev_close >= poc and cur_p < poc:
         stop_p = prev_high * 1.0015
-        risk   = abs(cur_p-stop_p)/cur_p
-        if risk >= MIN_RISK_PCT:
+        sl_dist = abs(cur_p - stop_p)
+        risk = sl_dist / cur_p
+        # Target must be strictly below entry: prefer VAL, minimum 1.5R
+        target_p = min(val, cur_p - 1.5 * sl_dist)
+        if target_p < cur_p and risk >= MIN_RISK_PCT:
             return {"situation":"S2_POC_RECLAIM","direction":"SHORT","entry_p":cur_p,
-                    "stop_p":stop_p,"target_p":val,"risk_pct":risk,
+                    "stop_p":stop_p,"target_p":target_p,"risk_pct":risk,
                     "poc":poc,"val":val,"vah":vah,"me14":None,"ema21_15m":None,"ema50_15m":None}
+    return None
+
+def detect_amd_fvg(sym, k15, book):
+    """
+    AMD (Accumulation-Manipulation-Distribution) + Fair Value Gap (FVG)
+    Confluence with Volume Profile Point of Control (POC).
+    """
+    if len(k15) < 45: return None
+    closes = [b["close"] for b in k15]
+    highs  = [b["high"]  for b in k15]
+    lows   = [b["low"]   for b in k15]
+    cur_p  = closes[-1]
+    
+    # 1. Accumulation Phase: past 30 bars (excluding recent 5 bars)
+    acc_window = k15[-35:-5]
+    acc_high   = max(b["high"] for b in acc_window)
+    acc_low    = min(b["low"]  for b in acc_window)
+    acc_range  = (acc_high - acc_low) / acc_low * 100
+    
+    if acc_range > 2.5: return None
+    
+    # 2. ATR(14)
+    atrs = []
+    for i in range(1, len(k15)):
+        tr = max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1]))
+        atrs.append(tr)
+    atr = sum(atrs[-14:]) / 14.0 if len(atrs) >= 14 else (highs[-1] - lows[-1])
+    if atr <= 0: return None
+    
+    vp = volume_profile(k15[-VP_LOOKBACK:]) if len(k15) >= VP_LOOKBACK else None
+    poc = vp["poc"] if vp else None
+    val = vp["val"] if vp else None
+    vah = vp["vah"] if vp else None
+    
+    # 3. Manipulation & FVG
+    manip_high = max(highs[-5:])
+    if manip_high > acc_high and cur_p < acc_high:
+        fvg_gap = lows[-3] - highs[-1]
+        if fvg_gap > (atr * 0.10):
+            sl_dist  = atr * 2.0
+            stop_p   = cur_p + sl_dist
+            target_p = cur_p - (sl_dist * 2.0)
+            risk     = abs(cur_p - stop_p) / cur_p
+            if risk >= MIN_RISK_PCT:
+                return {"situation":"AMD_FVG_BEAR","direction":"SHORT","entry_p":cur_p,
+                        "stop_p":stop_p,"target_p":target_p,"risk_pct":risk,
+                        "poc":poc,"val":val,"vah":vah,"me14":None,"ema21_15m":None,"ema50_15m":None}
+
+    manip_low = min(lows[-5:])
+    if manip_low < acc_low and cur_p > acc_low:
+        fvg_gap = lows[-1] - highs[-3]
+        if fvg_gap > (atr * 0.10):
+            sl_dist  = atr * 2.0
+            stop_p   = cur_p - sl_dist
+            target_p = cur_p + (sl_dist * 2.0)
+            risk     = abs(cur_p - stop_p) / cur_p
+            if risk >= MIN_RISK_PCT:
+                return {"situation":"AMD_FVG_BULL","direction":"LONG","entry_p":cur_p,
+                        "stop_p":stop_p,"target_p":target_p,"risk_pct":risk,
+                        "poc":poc,"val":val,"vah":vah,"me14":None,"ema21_15m":None,"ema50_15m":None}
     return None
 
 def detect_s7(sym, k15, book):
@@ -236,25 +320,115 @@ class PositionManager:
         self.positions   = {}
         self.daily_r     = 0.0
         self.trade_count = 0
+        self.client, self.client_err = get_client()
+        if self.client:
+            log(f"[24H EXECUTOR] Bybit Demo Client connected to {self.client.base_url}")
+            try:
+                wb = self.client.get_wallet_balance()
+                eq = wb.get("result", {}).get("list", [{}])[0].get("totalEquity", "N/A")
+                log(f"[24H EXECUTOR] Bybit Live Equity: ${eq} USDT")
+            except Exception as e:
+                log(f"[24H EXECUTOR] Balance check: {e}")
+        else:
+            log(f"[24H EXECUTOR WARN] Bybit Client error: {self.client_err}", "WARN")
+
+        # Arm auto_trade_state so monitoring tools reflect active execution
+        try:
+            auto_trade_state.save(armed=True)
+        except Exception:
+            pass
 
     def is_occupied(self, sym): return sym in self.positions
 
     def open(self, sym, sig, now_ts):
+        # 1. Concurrency & duplicate guards
+        if len(self.positions) >= MAX_CONCURRENT_POS:
+            log(f"[24H EXECUTOR] Max concurrent positions ({MAX_CONCURRENT_POS}) reached. Skipping {sym}.")
+            return
+
+        cur_p = sig["entry_p"]
+        side = "Buy" if sig["direction"] == "LONG" else "Sell"
+
+        if self.client:
+            try:
+                pos_chk = self.client.get_positions(sym)
+                live_list = [p for p in pos_chk.get("result", {}).get("list", []) if float(p.get("size", 0)) > 0]
+                if live_list:
+                    log(f"[24H EXECUTOR] Already holding live Bybit position for {sym}. Skipping duplicate.")
+                    return
+            except Exception as e:
+                log(f"[24H EXECUTOR] Position check notice: {e}", "WARN")
+
+        # 2. Risk & sizing calculations
         risk_pct   = sig["risk_pct"]
         friction_r = FRICTION_PCT / risk_pct
         cand_id    = f"X5-{sym[:3]}-{now_ts}-{uuid.uuid4().hex[:6].upper()}"
         now_str    = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
+        qty = compute_order_sizing(sym, cur_p, target_notional=TARGET_NOTIONAL_USDT)
+        sl_rounded = round_price(sym, sig["stop_p"])
+        tp_rounded = round_price(sym, sig["target_p"])
+
+        # Broker-side SL/TP validity guard
+        if sig["direction"] == "LONG":
+            if sl_rounded >= cur_p: sl_rounded = round_price(sym, cur_p * 0.985)
+            if tp_rounded <= cur_p: tp_rounded = round_price(sym, cur_p * 1.030)
+        else:
+            if sl_rounded <= cur_p: sl_rounded = round_price(sym, cur_p * 1.015)
+            if tp_rounded >= cur_p: tp_rounded = round_price(sym, cur_p * 0.970)
+
+        # 3. Direct 24/7 Bybit Order Execution
+        bybit_order_id = None
+        if self.client:
+            try:
+                self.client.set_leverage(sym, 10)
+                order_res = self.client.place_order(
+                    category="linear",
+                    symbol=sym,
+                    side=side,
+                    order_type="Market",
+                    qty=qty,
+                    sl=sl_rounded,
+                    tp=tp_rounded
+                )
+                rc = order_res.get("retCode", -1)
+                if rc == 0:
+                    bybit_order_id = order_res.get("result", {}).get("orderId")
+                    log(f"[24H EXECUTOR] ✅ LIVE BYBIT ORDER PLACED! {sym} {side} Qty={qty} SL={sl_rounded} TP={tp_rounded} OrderId={bybit_order_id}")
+                    
+                    # Update auto_trade_state theses for Railway monitoring tool (monitor.html)
+                    try:
+                        key = f"{sym}-{side}"
+                        theses = auto_trade_state.load().get("theses", {}) or {}
+                        theses[key] = {
+                            "symbol": sym,
+                            "side": side,
+                            "direction": sig["direction"],
+                            "entryPrice": cur_p,
+                            "stopLoss": sl_rounded,
+                            "targets": [tp_rounded],
+                            "setupName": sig["situation"],
+                            "openedAt": int(time.time() * 1000),
+                            "isScalp": "S7" in sig["situation"]
+                        }
+                        auto_trade_state.save(theses=theses, armed=True)
+                    except Exception as e_th:
+                        log(f"[AUTO_TRADE_STATE] Thesis save note: {e_th}", "WARN")
+                else:
+                    log(f"[24H EXECUTOR] ❌ Bybit Order Rejected: retCode={rc} retMsg={order_res.get('retMsg')}", "WARN")
+            except Exception as e_ord:
+                log(f"[24H EXECUTOR ERR] Bybit place_order failed: {e_ord}", "ERROR")
+
         cand = {"cand_id":cand_id,"symbol":sym,"direction":sig["direction"],
                 "situation":sig["situation"],"created_at":now_str,"updated_at":now_str,
-                "state":"ACTIVE","entry_p":sig["entry_p"],"stop_p":sig["stop_p"],
-                "target_p":sig["target_p"],"risk_pct":round(risk_pct,6),
+                "state":"ACTIVE","entry_p":cur_p,"stop_p":sl_rounded,
+                "target_p":tp_rounded,"risk_pct":round(risk_pct,6),
                 "poc":sig.get("poc"),"val":sig.get("val"),"vah":sig.get("vah"),
                 "me14":sig.get("me14"),"ema21":sig.get("ema21_15m"),"ema50":sig.get("ema50_15m"),
                 "rejection_reason":None,"payload":json.dumps(sig)}
         trade = {"trade_id":f"TRD-{cand_id}","cand_id":cand_id,"symbol":sym,
                  "direction":sig["direction"],"situation":sig["situation"],"entry_time":now_str,
-                 "entry_p":sig["entry_p"],"stop_p":sig["stop_p"],"target_p":sig["target_p"],
+                 "entry_p":cur_p,"stop_p":sl_rounded,"target_p":tp_rounded,
                  "risk_pct":round(risk_pct,6),"exit_time":None,"exit_p":None,
                  "exit_reason":None,"realized_r":0.0,"is_win":None,
                  "harvest_hit":0,"mfe_pct":0.0,"mae_pct":0.0,"duration_sec":0,"status":"ACTIVE"}
@@ -267,14 +441,15 @@ class PositionManager:
 
         self.positions[sym] = {
             "cand":cand,"trade":trade,"start_ts":time.time(),
-            "entry_p":sig["entry_p"],"stop_p":sig["stop_p"],"target_p":sig["target_p"],
+            "entry_p":cur_p,"stop_p":sl_rounded,"target_p":tp_rounded,
             "direction":sig["direction"],"situation":sig["situation"],
-            "risk_pct":risk_pct,"friction_r":friction_r,
+            "risk_pct":risk_pct,"friction_r":friction_r,"qty":qty,
+            "bybit_order_id":bybit_order_id,
             "best_fav":0.0,"best_adv":0.0,"harvest_hit":False,"bars_held":0
         }
-        log(f"  OPEN  {sig['situation']} {sig['direction']} {sym} | "
-            f"entry={sig['entry_p']:.5f} stop={sig['stop_p']:.5f} "
-            f"target={sig['target_p']:.5f} risk={risk_pct*100:.2f}%")
+        log(f"  ACTIVE {sig['situation']} {sig['direction']} {sym} | "
+            f"entry={cur_p:.5f} stop={sl_rounded:.5f} "
+            f"target={tp_rounded:.5f} risk={risk_pct*100:.2f}% | BybitId={bybit_order_id or 'OFFLINE'}")
 
     def _close(self, sym, pos, cur_p, reason, realized_r, is_win):
         elapsed = int(time.time() - pos["start_ts"])
@@ -294,6 +469,27 @@ class PositionManager:
             db_upsert("x5_outcomes",   trade, "trade_id")
         except Exception as e:
             log(f"[DB] Close {sym}: {e}", "WARN")
+
+        # Close on Bybit if still open
+        if self.client:
+            try:
+                side = "Buy" if pos["direction"] == "LONG" else "Sell"
+                p_res = self.client.get_positions(sym)
+                live_list = [p for p in p_res.get("result", {}).get("list", []) if float(p.get("size", 0)) > 0]
+                if live_list:
+                    sz = live_list[0].get("size")
+                    c_res = self.client.close_position("linear", sym, side, sz)
+                    log(f"[24H EXECUTOR] 🛑 Closed Bybit {sym} position: {c_res.get('retMsg')}")
+                
+                # Remove thesis from auto_trade_state
+                key = f"{sym}-{side}"
+                theses = auto_trade_state.load().get("theses", {}) or {}
+                if key in theses:
+                    theses.pop(key, None)
+                    auto_trade_state.save(theses=theses)
+            except Exception as e_cl:
+                log(f"[24H EXECUTOR ERR] Close cleanup error {sym}: {e_cl}", "WARN")
+
         self.daily_r += realized_r; self.trade_count += 1
         icon = "WIN" if is_win else "LOSS"
         log(f"  {icon}  {pos['situation']} {pos['direction']} {sym} | "
@@ -308,11 +504,31 @@ class PositionManager:
         adv = ((ep-cur_p)/ep) if d=="LONG" else ((cur_p-ep)/ep)
         pos["best_fav"] = max(pos["best_fav"], fav)
         pos["best_adv"] = max(pos["best_adv"], adv)
-        pos["bars_held"] += 1
+        elapsed_sec = max(1.0, time.time() - pos["start_ts"])
+        pos["bars_held"] = max(1, int(elapsed_sec // 900))  # 1 bar = 15m (900s)
         r_pct = pos["risk_pct"]; fr = pos["friction_r"]
 
-        # Timeout: 48 bars (12 hours on 15m)
-        if pos["bars_held"] > 48:
+        # Check if Bybit broker SL/TP filled in exchange engine
+        if self.client and pos.get("bybit_order_id"):
+            try:
+                p_res = self.client.get_positions(sym)
+                live_bybit = [p for p in p_res.get("result", {}).get("list", []) if float(p.get("size", 0)) > 0]
+                if not live_bybit and elapsed_sec >= 15:
+                    # Position is gone on Bybit! Fetch closed PnL
+                    cpnl_res = self.client.get_closed_pnl(limit=5)
+                    hit = next((x for x in cpnl_res.get("result", {}).get("list", []) if x.get("symbol") == sym), None)
+                    if hit:
+                        pnl = float(hit.get("closedPnl", 0))
+                        is_w = pnl > 0
+                        reason = "BROKER_TP" if is_w else "BROKER_SL"
+                        r_mult = 2.0 if is_w else -1.0
+                        self._close(sym, pos, cur_p, reason, r_mult, is_w)
+                        return
+            except Exception:
+                pass
+
+        # Timeout: 48 bars (12 actual hours = 43,200 seconds)
+        if elapsed_sec > (12 * 3600):
             self._close(sym, pos, cur_p, "TIMEOUT_12H", (fav/r_pct)-fr, fav>0); return
 
         sp = pos["stop_p"]; tp = pos["target_p"]
@@ -327,6 +543,15 @@ class PositionManager:
             else:
                 if cur_p <= tp: self._close(sym,pos,cur_p,"TARGET_VA", tgt_r-fr, True); return
                 if cur_p >= sp: self._close(sym,pos,cur_p,"HARD_STOP", -1.0-fr, False); return
+
+        # ── AMD FVG: 2.0 RRR Target or Stop Loss ─────────────────────────────
+        elif sit.startswith("AMD_FVG"):
+            if d == "LONG":
+                if cur_p >= tp: self._close(sym,pos,cur_p,"AMD_TP_2R", 2.0-fr, True); return
+                if cur_p <= sp: self._close(sym,pos,cur_p,"AMD_SL_HIT", -1.0-fr, False); return
+            else:
+                if cur_p <= tp: self._close(sym,pos,cur_p,"AMD_TP_2R", 2.0-fr, True); return
+                if cur_p >= sp: self._close(sym,pos,cur_p,"AMD_SL_HIT", -1.0-fr, False); return
 
         # ── S7: staged harvest (+0.50% / breakeven / 2R) ────────────────────
         else:
@@ -361,41 +586,49 @@ class PositionManager:
     def snapshot(self):
         return {s:{"direction":p["direction"],"situation":p["situation"],
                    "entry_p":p["entry_p"],"stop_p":p["stop_p"],"target_p":p["target_p"],
+                   "poc":p.get("poc"),"val":p.get("val"),"vah":p.get("vah"),
                    "mfe_pct":round(p["best_fav"]*100,3),"mae_pct":round(p["best_adv"]*100,3),
-                   "bars_held":p["bars_held"],"harvest":p["harvest_hit"]}
+                   "bars_held":p["bars_held"],"harvest":p["harvest_hit"],
+                   "bybit_order_id":p.get("bybit_order_id")}
                 for s,p in self.positions.items()}
 
 # ─── Main Engine ───────────────────────────────────────────────────────────────
 class CMEX5Engine:
-    """
-    CME-X5 Pure Profitable Engine
-    ELIMINATED from old system:
-      x DeepSeek/LLM gatekeeper      (-0.08R per call, latency bloat)
-      x News sentiment scraper        (-EV in micro-timeframe trading)
-      x Whale/order-flow trackers     (public data already too stale)
-      x Multi-agent committee votes   (>95% cycles idle overhead)
-      x MTF coherence bureaucracy     (ME14 gate handles this cleanly)
-      x Adversarial red-team gate     (zero alpha at 14 bps friction)
-    """
     def __init__(self):
         db_init()
         self.pm    = PositionManager()
         self.cycle = 0
-        log("=" * 68)
-        log("  CME-X5 Pure Profitable Engine  [LIVE SHADOW MODE]")
-        log("  S2 POC Reclaim (+0.683R EV)  |  S7 Gated Continuation (+0.34R EV)")
-        log("  NO LLM  |  NO NEWS  |  NO WHALE TRACKER  |  Pure Microstructure")
-        log("=" * 68)
+        self.scanned_signals = {}
+        log("=" * 70)
+        log("  CME-X5 PURE PROFITABLE ENGINE & 24H AUTONOMOUS EXECUTOR")
+        log("  Mode: 24/7 Cloud Daemon (Zero Browser Tab Dependency)")
+        log("  Execution: Direct Bybit Demo V5 Linear | 10x Leverage | Auto SL/TP")
+        log("=" * 70)
 
     def _scan(self, sym, ts):
-        if self.pm.is_occupied(sym): return
         k15  = fetch_klines(sym, "15", 100)
         book = fetch_book(sym)
         if len(k15) < VP_LOOKBACK+10 or not book: return
         if book["spread_bps"] > MAX_SPREAD_BPS: return
-        # S2 first (higher EV), fall through to S7
-        sig = detect_s2(sym, k15, book) or detect_s7(sym, k15, book)
-        if sig: self.pm.open(sym, sig, ts)
+
+        # Signal detection priority: S2 POC Reclaim -> AMD FVG -> S7 Gated Continuation
+        sig = detect_s2(sym, k15, book) or detect_amd_fvg(sym, k15, book) or detect_s7(sym, k15, book)
+        if sig:
+            self.scanned_signals[sym] = {
+                "symbol": sym,
+                "direction": sig["direction"],
+                "situation": sig["situation"],
+                "entry_p": sig["entry_p"],
+                "stop_p": sig["stop_p"],
+                "target_p": sig["target_p"],
+                "poc": sig.get("poc"),
+                "val": sig.get("val"),
+                "vah": sig.get("vah"),
+                "mfe_pct": 0.0,
+                "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S")
+            }
+            if not self.pm.is_occupied(sym):
+                self.pm.open(sym, sig, ts)
 
     def run_cycle(self):
         self.cycle += 1
@@ -404,6 +637,7 @@ class CMEX5Engine:
         if self.cycle % 6 == 1:
             log(f"Cycle #{self.cycle} | Open:{len(self.pm.positions)} "
                 f"| Trades:{self.pm.trade_count} | DailyR:{self.pm.daily_r:+.3f}")
+
         # Update open positions
         for sym in list(self.pm.positions):
             try:
@@ -411,22 +645,37 @@ class CMEX5Engine:
                 if b: self.pm.update(sym, b["mid"])
             except Exception as e:
                 log(f"[UPD ERR] {sym}: {e}", "WARN")
-        # Scan for new signals
+
+        # Scan all 15 symbols for institutional setups
         for sym in SYMBOLS:
             try: self._scan(sym, ts)
             except Exception as e: log(f"[SCAN ERR] {sym}: {e}", "WARN")
-        # Snapshot for dashboard
+
+        # Merge active positions + scanned setups for Radar display
+        radar_display = dict(self.pm.snapshot())
+        for sym, sig in self.scanned_signals.items():
+            if sym not in radar_display:
+                radar_display[sym] = sig
+
+        # Snapshot for dashboard & monitor
         try:
             with open(SNAPSHOT_PATH, "w", encoding="utf-8") as f:
-                json.dump({"engine":"CME-X5","version":"5.0","updated_at":now,
-                           "cycle":self.cycle,"trade_count":self.pm.trade_count,
-                           "daily_r":round(self.pm.daily_r,4),
-                           "open_count":len(self.pm.positions),
-                           "positions":self.pm.snapshot()}, f, indent=2)
-        except Exception: pass
+                json.dump({
+                    "engine":"CME-X5 Pure Profitable Engine",
+                    "status":"ACTIVE_24H_EXECUTOR",
+                    "version":"5.0",
+                    "updated_at":now,
+                    "cycle":self.cycle,
+                    "trade_count":self.pm.trade_count,
+                    "daily_r":round(self.pm.daily_r,4),
+                    "open_count":len(self.pm.positions),
+                    "positions":radar_display
+                }, f, indent=2)
+        except Exception:
+            pass
 
     def start(self):
-        log("24/7 scan loop started.")
+        log("24/7 autonomous execution loop running.")
         while True:
             try: self.run_cycle()
             except KeyboardInterrupt: log("Shutdown."); break

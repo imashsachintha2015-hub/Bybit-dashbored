@@ -268,6 +268,23 @@ def get_client():
     key = (os.environ.get("BYBIT_API_KEY") or "").strip()
     secret = (os.environ.get("BYBIT_API_SECRET") or "").strip()
     if not key or not secret:
+        cur = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env_file = os.path.join(cur, ".env")
+        if os.path.exists(env_file):
+            try:
+                with open(env_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k, v = k.strip(), v.strip().strip("\"'")
+                            if k and k not in os.environ:
+                                os.environ[k] = v
+                key = (os.environ.get("BYBIT_API_KEY") or "").strip()
+                secret = (os.environ.get("BYBIT_API_SECRET") or "").strip()
+            except Exception:
+                pass
+    if not key or not secret:
         return None, "BYBIT_API_KEY / BYBIT_API_SECRET not set in the environment"
     # `.get(name, default)` only substitutes the default when the var is
     # UNSET, not when it's set to an empty string -- an env var added in a
