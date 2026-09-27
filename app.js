@@ -70,7 +70,15 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'DIV-14', name: 'Adversarial Red Team', icon: 'fa-user-ninja', iconColor: '#EF4444', status: 'active', statusLabel: 'FALSIFYING', meta1: 'Fee Cap: <=25%', meta2: 'EV Hurdle: >=0.35R' }
   ];
 
-  const $ = id => document.getElementById(id);
+  const _dummyNode = new Proxy({}, {
+    get: (target, prop) => {
+      if (prop === 'style' || prop === 'classList' || prop === 'dataset') return new Proxy({}, { get: () => () => {}, set: () => true });
+      if (prop === 'addEventListener') return () => {};
+      return '';
+    },
+    set: () => true
+  });
+  const $ = id => document.getElementById(id) || _dummyNode;
 
   function renderAgents() {
     const grid = $('agentsGrid');

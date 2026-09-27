@@ -7,6 +7,7 @@
 class CandlestickChartEngine {
   constructor(canvasId, tooltipId) {
     this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
     this.tooltip = document.getElementById(tooltipId);
     this.container = this.canvas.parentElement;

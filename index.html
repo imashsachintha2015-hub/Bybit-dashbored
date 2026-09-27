@@ -2,17 +2,244 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CME-X5 — Pure Profitable Engine Dashboard</title>
-  <meta name="description" content="CME-X5 institutional microstructure engine. S2 POC Reclaim + S7 Gated Continuation. Live positions, performance analytics, value area signals.">
-  <meta name="theme-color" content="#F7F8FA">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CME-X5 — Pure Profitable Engine Trading Terminal</title>
+  <meta name="description" content="CME-X5 institutional microstructure engine with S2 POC Reclaim & S7 Gated Continuation. Embedded TradingView advanced chart, live positions, and risk metrics.">
+  <meta name="theme-color" content="#0b0e14">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="index.css?v=3.5">
+  <link rel="stylesheet" href="index.css?v=4.0">
+  <style>
+    :root {
+      --bg-dark: #0b0e14;
+      --surface-dark: #121721;
+      --surface2-dark: #1a2232;
+      --border-dark: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #0ea5e9;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --text-main: #e2e8f0;
+      --text-muted: #8b9bb4;
+    }
+    /* Modern CME-X5 Header & Topbar */
+    .topbar {
+      height: 52px;
+      min-height: 52px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 25;
+    }
+    .cme-logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .cme-logo-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0ea5e9, #10b981);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 15px;
+      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+    }
+    .cme-logo-title {
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: -0.3px;
+    }
+    .cme-logo-sub {
+      font-size: 9.5px;
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Embedded Advanced Chart Card */
+    .advanced-chart-card {
+      background: var(--surface-dark);
+      border: 1px solid var(--border-dark);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+    .chart-controls-bar {
+      background: #121721;
+      border-bottom: 1px solid var(--border-dark);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chart-sym-strip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .chart-sym-strip::-webkit-scrollbar { display: none; }
+    .c-sym-btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 5px;
+      background: transparent;
+      border: 1px solid var(--border-dark);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+    }
+    .c-sym-btn:hover {
+      background: rgba(14, 165, 233, 0.1);
+      color: #38bdf8;
+      border-color: rgba(14, 165, 233, 0.3);
+    }
+    .c-sym-btn.active {
+      background: rgba(14, 165, 233, 0.18);
+      color: #38bdf8;
+      border-color: var(--accent-cyan);
+    }
+    .c-tf-strip {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      border-left: 1px solid var(--border-dark);
+      padding-left: 8px;
+      margin-left: 2px;
+    }
+    .c-tf-btn {
+      height: 26px;
+      padding: 0 8px;
+      border-radius: 4px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .c-tf-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+    .c-tf-btn.active {
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.15);
+      font-weight: 800;
+    }
+    .c-ind-strip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      border-left: 1px solid var(--border-dark);
+      padding-left: 8px;
+    }
+    .c-ind-chip {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-dark);
+      color: var(--text-muted);
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.12s;
+    }
+    .c-ind-chip:hover {
+      background: rgba(14, 165, 233, 0.12);
+      color: #38bdf8;
+      border-color: rgba(14, 165, 233, 0.3);
+    }
+    .c-ind-chip.on {
+      background: rgba(14, 165, 233, 0.18);
+      color: #38bdf8;
+      border-color: var(--accent-cyan);
+      font-weight: 700;
+    }
+    .chart-viewport-wrap {
+      position: relative;
+      height: 640px;
+      width: 100%;
+      background: #0b0e14;
+    }
+    #tvWidgetContainer {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Live Signal Overlay on Chart */
+    .cme-signal-overlay {
+      position: absolute;
+      top: 10px;
+      left: 55px; /* Offset to clear left drawing toolbar */
+      z-index: 6;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      pointer-events: none;
+    }
+    .cme-sig-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(11, 14, 20, 0.88);
+      border: 1px solid var(--border-dark);
+      backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      pointer-events: auto;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+    .cme-sig-badge.s2 { border-color: rgba(14, 165, 233, 0.5); color: #38bdf8; }
+    .cme-sig-badge.s7 { border-color: rgba(16, 185, 129, 0.5); color: #34d399; }
+    .cme-sig-badge.none { color: var(--text-muted); }
+
+    /* Live Ticker Bar */
+    .cme-ticker-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: #161b24;
+      border-bottom: 1px solid var(--border-dark);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .c-ind-strip { display: none; }
+      .chart-viewport-wrap { height: 480px; }
+      .cme-signal-overlay { left: 45px; top: 6px; }
+    }
+  </style>
 </head>
 <body>
 
@@ -33,48 +260,43 @@
 
       <nav class="sidebar-nav">
         <a href="#topAnchor" class="nav-item active" data-target="topAnchor"><i class="fa-solid fa-grid-2"></i> Dashboard</a>
-        
-        
-        <a href="#chartSection" class="nav-item" data-target="chartSection"><i class="fa-solid fa-chart-line"></i> Market Chart</a>
-        <a href="/advanced-chart" class="nav-item" target="_blank"><i class="fa-solid fa-chart-line"></i> Advanced Chart</a>
-        
+        <a href="#chartSection" class="nav-item" data-target="chartSection"><i class="fa-solid fa-chart-line"></i> Advanced Chart</a>
         <a href="#positionsSection" class="nav-item" data-target="positionsSection"><i class="fa-solid fa-briefcase"></i> Positions</a>
-        
-        <a href="#tradingControlsSection" class="nav-item" data-target="tradingControlsSection"><i class="fa-solid fa-sliders"></i> Trading Settings</a>
+        <a href="#signalsSection" class="nav-item" data-target="signalsSection"><i class="fa-solid fa-radar"></i> Setups Radar</a>
+        <a href="#historySection" class="nav-item" data-target="historySection"><i class="fa-solid fa-clock-rotate-left"></i> Trade History</a>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="status-chip online" id="sysStatus"><span class="pulse-dot"></span> SYSTEM ONLINE</div>
+        <div class="status-chip online" id="sysStatus"><span class="pulse-dot"></span> CME-X5 ONLINE</div>
         <div class="status-chip" id="wsStatus"><i class="fa-solid fa-satellite-dish"></i> <span id="wsStatusText">Connecting...</span></div>
         <div class="footer-item font-mono" id="footerUptime">Uptime: 00:00:00</div>
       </div>
     </aside>
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-    <!-- ═══════════ MAIN AREA ═══════════ -->
+    <!-- ═══════════ MAIN CONTENT AREA ═══════════ -->
     <div class="main-area">
 
+      <!-- TOPBAR -->
       <header class="topbar" id="topAnchor">
-        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation" title="Toggle navigation menu (always accessible)"><i class="fa-solid fa-bars"></i></button>
+        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
         <div class="topbar-left">
-          <h1 class="page-title">Dashboard</h1>
-          <span class="page-sub font-mono" id="footerEndpoint">wss://stream.bybit.com/v5/public/linear · Bybit V5 Demo Trading</span>
+          <h1 class="page-title">CME-X5 Dashboard</h1>
+          <span class="page-sub font-mono" id="footerEndpoint">Bybit V5 Linear Demo · Institutional Microstructure</span>
         </div>
         <div class="topbar-right">
           <div class="account-strip" id="accountStrip">
             <div class="acct-item"><span class="acct-label">Demo Equity</span><span class="acct-val text-cyan font-mono" id="equityVal">--</span></div>
             <div class="acct-divider"></div>
-            <div class="acct-item" id="netPnlAcctItem" style="cursor:pointer;" title="Click to view Day-wise PnL Calendar Heatmap"><span class="acct-label">Net P&amp;L <i class="fa-solid fa-calendar-days" style="font-size:8.5px; color:#38bdf8; margin-left:2px;"></i></span><span class="acct-val font-mono" id="pnlVal">--</span></div>
+            <div class="acct-item" id="netPnlAcctItem" style="cursor:pointer;" title="Click to view PnL Calendar Heatmap"><span class="acct-label">Net P&amp;L <i class="fa-solid fa-calendar-days" style="font-size:8.5px; color:#38bdf8; margin-left:2px;"></i></span><span class="acct-val font-mono" id="pnlVal">--</span></div>
             <div class="acct-divider"></div>
             <div class="acct-item"><span class="acct-label">Win Rate</span><span class="acct-val text-green font-mono" id="winRateVal">--</span></div>
             <div class="acct-divider"></div>
             <div class="acct-item compact"><span class="acct-label">W/L</span><span class="acct-val font-mono" id="wlVal">--</span></div>
           </div>
           <div class="topbar-actions" style="display:flex; align-items:center; gap:6px;">
-            
             <button class="int-btn topbar-btn-compact" id="openPnlCalendarBtn" title="View Day-wise PnL Calendar Heatmap"><i class="fa-solid fa-calendar-days" style="color:#10b981;"></i> <span class="topbar-btn-text">Calendar</span></button>
-            <button class="int-btn topbar-btn-compact" id="openAdvancedChartBtn" onclick="window.open('/advanced-chart','_blank')" title="Open Advanced TradingView Chart" style="background:rgba(16,185,129,0.10);color:#10b981;border:1px solid rgba(16,185,129,0.3);"><i class="fa-solid fa-chart-line"></i> <span class="topbar-btn-text">Chart</span></button>
-            <button class="int-btn topbar-btn-compact" id="openMonitorBtn" title="Open the signal monitor in a separate window"><i class="fa-solid fa-up-right-from-square"></i> <span class="topbar-btn-text">Monitor</span></button>
+            <button class="int-btn topbar-btn-compact" id="openMonitorBtn" title="Open Signal Monitor in separate window"><i class="fa-solid fa-up-right-from-square"></i> <span class="topbar-btn-text">Monitor</span></button>
           </div>
           <div class="time-display font-mono" id="clockDisplay">00:00:00</div>
         </div>
@@ -82,7 +304,7 @@
 
       <main class="content-scroll">
 
-        <!-- CME-X5 ENGINE STATUS BAR -->
+        <!-- 1. CME-X5 PURE PROFITABLE ENGINE STATUS BAR -->
         <div id="cmeX5StatusBar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:10px 16px; background:linear-gradient(90deg,rgba(2,132,199,0.07),rgba(16,185,129,0.07)); border:1px solid rgba(14,165,233,0.25); border-radius:10px; margin-bottom:14px; cursor:default;">
           <div style="display:flex; align-items:center; gap:10px;">
             <div style="width:34px;height:34px;min-width:34px;border-radius:9px;background:rgba(2,132,199,0.12);display:flex;align-items:center;justify-content:center;color:#0284c7;font-size:15px;">
@@ -96,13 +318,13 @@
                 </span>
               </div>
               <div style="font-size:11px;color:var(--text-dim);margin-top:1px;">
-                S2 POC Reclaim &rarr; Value Area Rotation &nbsp;|&nbsp; S7 Gated Continuation (ME14 &ge; 0.50 gate)
+                S2 POC Reclaim (+0.683R EV) &nbsp;|&nbsp; S7 Gated Continuation (+0.340R EV) &nbsp;|&nbsp; 0% LLM Latency
               </div>
             </div>
           </div>
           <div style="display:flex;gap:18px;flex-wrap:wrap;">
             <div style="text-align:center;">
-              <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Open Signals</div>
+              <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Open Setups</div>
               <div class="font-mono" id="x5OpenCount" style="font-size:15px;font-weight:800;color:#0284c7;">--</div>
             </div>
             <div style="text-align:center;">
@@ -120,40 +342,32 @@
           </div>
         </div>
 
-        <!-- COIN KPI SPARKLINE CARDS -->
-        <div class="coin-search-bar">
+        <!-- 2. WATCHLIST TICKER CHIPS -->
+        <div class="coin-search-bar" style="margin-bottom: 12px;">
           <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="coinSearchInput" class="coin-search-input" placeholder="Search a coin (e.g. BTC, Solana)…" autocomplete="off">
+          <input type="text" id="coinSearchInput" class="coin-search-input" placeholder="Filter watched pairs (e.g. BTC, ETH, SOL, XRP, DOGE)..." autocomplete="off">
         </div>
-        <section class="coin-cards-row" id="coinCardsRow">
-          <!-- Populated by app.js: live price + sparkline per watched coin.
-               Search box above filters across the full watchlist; empty
-               search shows a compact default set rather than all 30. -->
+        <section class="coin-cards-row" id="coinCardsRow" style="margin-bottom: 16px;">
+          <!-- Populated by app.js: live price + sparklines -->
         </section>
 
-        <!-- PERFORMANCE METRICS ROW -->
-        <div class="metrics-header-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; margin-top:6px; flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div style="font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
-              <i class="fa-solid fa-chart-pie" style="color:var(--accent);"></i> Performance Overview
-            </div>
-            <div class="status-chip font-mono" id="strategyModeBadge" style="background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
-              <i class="fa-solid fa-bullseye"></i> CME-X5 · S2 POC RECLAIM + S7 GATED · +0.683R EV
-            </div>
+        <!-- 3. SCORECARD KPI CARDS -->
+        <div class="metrics-header-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+          <div style="font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-chart-pie" style="color:var(--accent);"></i> Performance Scorecard
           </div>
-          <div class="interval-btns" id="perfTimeframeBtns" style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
-            <button class="int-btn active" id="perfBtnAll" data-perf-range="all" style="padding:3px 10px; font-size:11px;">All Time</button>
-            <button class="int-btn" id="perfBtnToday" data-perf-range="today" style="padding:3px 10px; font-size:11px;">Today</button>
-            <button class="int-btn" id="perfBtnReset" style="padding:3px 10px; font-size:11px; color:#ef4444; border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.06); cursor:pointer;" title="Reset scorecard metrics to 0 starting from now (all trade history preserved)"><i class="fa-solid fa-arrows-rotate"></i> Reset Scorecard</button>
-            <button type="button" class="int-btn" id="toggleAllSectionsBtn" style="padding:3px 10px; font-size:11px; color:#0284c7; border-color:rgba(14,165,233,0.3); background:rgba(14,165,233,0.06); cursor:pointer;" title="Collapse or Expand all dashboard sections"><i class="fa-solid fa-arrows-up-down"></i> <span id="toggleAllSectionsText">Collapse All</span></button>
+          <div class="interval-btns" id="perfTimeframeBtns" style="display:flex; gap:4px; align-items:center;">
+            <button class="int-btn active" id="perfBtnAll" data-perf-range="all">All Time</button>
+            <button class="int-btn" id="perfBtnToday" data-perf-range="today">Today</button>
+            <button class="int-btn" id="perfBtnReset" style="color:#ef4444;" title="Reset scorecard metrics"><i class="fa-solid fa-arrows-rotate"></i> Reset</button>
           </div>
         </div>
-        <section class="metrics-row">
+        <section class="metrics-row" style="margin-bottom: 18px;">
           <div class="metric-card">
-            <div class="metric-icon blue" style="background:rgba(59,130,246,0.12); color:#3b82f6;"><i class="fa-solid fa-receipt"></i></div>
+            <div class="metric-icon blue"><i class="fa-solid fa-receipt"></i></div>
             <div class="metric-data">
               <span class="metric-value font-mono" id="totalTradesCard">0</span>
-              <span class="metric-label" id="totalTradesLabel">Total Trades</span>
+              <span class="metric-label">Total Trades</span>
             </div>
           </div>
           <div class="metric-card">
@@ -193,596 +407,209 @@
           </div>
         </section>
 
-        <!-- ═══════════ TARGET SPRINT HORIZON & VELOCITY BANNER (RESPONSIVE) ═══════════ -->
-        <section class="card target-sprint-card" id="targetSprintSection" style="margin-bottom: 16px; padding: 14px 16px; background: #FFFFFF; border: 1px solid rgba(14, 165, 233, 0.35); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05); display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; flex-shrink: 0;">
-          
-          <!-- Top Row: Target Identity, Status & Buttons -->
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 38px; height: 38px; min-width: 38px; border-radius: 10px; background: rgba(14, 165, 233, 0.12); display: flex; align-items: center; justify-content: center; color: #0284C7; font-size: 17px;">
-                <i class="fa-solid fa-bullseye"></i>
-              </div>
-              <div>
-                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                  <span>Target Sprint Horizon</span> · <span id="mainTargetPacingStatus" style="color:#16C784; font-weight: 800;">ON TRACK</span>
-                  <span id="mainTargetFeasibilityBadge" style="background: rgba(34, 197, 94, 0.12); color: #16c784; border: 1px solid #16c784; padding: 1px 6px; border-radius: 10px; font-size: 9.5px; font-weight: 700;">ACHIEVABLE</span>
-                </div>
-                <div style="font-size: 17px; font-weight: 800; font-family: var(--font-mono); color: var(--text-primary); display: flex; align-items: baseline; gap: 6px;">
-                  <span id="mainTargetProgressText">-- / $15.00</span>
-                  <span style="font-size: 12px; color: #0284C7; font-weight: 700;" id="mainTargetPct">(0.0%)</span>
-                </div>
-              </div>
+        <!-- 4. HERO: ADVANCED TRADINGVIEW CHART WITH DRAWING TOOLS & INDICATORS -->
+        <section class="advanced-chart-card" id="chartSection">
+          <!-- Top Bar: Pair Selectors, Timeframes, Indicators -->
+          <div class="chart-controls-bar">
+            <!-- Crypto Pairs -->
+            <div class="chart-sym-strip" id="chartSymStrip">
+              <button class="c-sym-btn active" data-sym="BYBIT:BTCUSDT.P">BTC</button>
+              <button class="c-sym-btn" data-sym="BYBIT:ETHUSDT.P">ETH</button>
+              <button class="c-sym-btn" data-sym="BYBIT:SOLUSDT.P">SOL</button>
+              <button class="c-sym-btn" data-sym="BYBIT:XRPUSDT.P">XRP</button>
+              <button class="c-sym-btn" data-sym="BYBIT:DOGEUSDT.P">DOGE</button>
+              <button class="c-sym-btn" data-sym="BYBIT:LINKUSDT.P">LINK</button>
+              <button class="c-sym-btn" data-sym="BYBIT:AVAXUSDT.P">AVAX</button>
+              <button class="c-sym-btn" data-sym="BYBIT:BNBUSDT.P">BNB</button>
+              <button class="c-sym-btn" data-sym="BYBIT:ADAUSDT.P">ADA</button>
+              <button class="c-sym-btn" data-sym="BYBIT:SUIUSDT.P">SUI</button>
+              <button class="c-sym-btn" data-sym="BYBIT:NEARUSDT.P">NEAR</button>
+              <button class="c-sym-btn" data-sym="BYBIT:APTUSDT.P">APT</button>
             </div>
 
-            <!-- Sprint Duration Buttons & Time-Stop Badge -->
-            <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-              <span style="font-size: 10.5px; color: var(--text-dim); font-weight: 600;">Sprint:</span>
-              <button type="button" class="sprint-horizon-btn" data-hours="24" style="background: rgba(14, 165, 233, 0.12); border: 1px solid #0EA5E9; color: #0284C7; border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 700; cursor: pointer;">24h</button>
-              <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer;">48h</button>
-              <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer;">72h</button>
-              <button type="button" id="sprintCustomBtn" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); color: var(--text-dim); border-radius: 6px; padding: 4px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Set custom sprint duration in hours"><i class="fa-solid fa-pen-to-square" style="font-size: 9.5px;"></i> <span id="sprintCustomBtnText">Custom</span></button>
-              <span class="sprint-guard-badge" style="font-size: 10px; color: #B45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Stuck trades in flat consolidation are auto-scratched after 3.5h to protect velocity.">
-                <i class="fa-solid fa-stopwatch" style="color: #D97706;"></i> 3.5h Guard
-              </span>
-              <button type="button" class="card-collapse-btn" data-target="targetSprintSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
+            <!-- Timeframes -->
+            <div class="c-tf-strip" id="chartTfStrip">
+              <button class="c-tf-btn" data-tf="1">1m</button>
+              <button class="c-tf-btn" data-tf="5">5m</button>
+              <button class="c-tf-btn active" data-tf="15">15m</button>
+              <button class="c-tf-btn" data-tf="60">1h</button>
+              <button class="c-tf-btn" data-tf="240">4h</button>
+              <button class="c-tf-btn" data-tf="D">1D</button>
+            </div>
+
+            <!-- Indicator Chips -->
+            <div class="c-ind-strip">
+              <button class="c-ind-chip on"  id="c-ind-ema21" data-study="Moving Average Exponential@tv-basicstudies">EMA21</button>
+              <button class="c-ind-chip on"  id="c-ind-ema50" data-study="Moving Average Exponential@tv-basicstudies">EMA50</button>
+              <button class="c-ind-chip"     id="c-ind-rsi"   data-study="RSI@tv-basicstudies">RSI</button>
+              <button class="c-ind-chip"     id="c-ind-macd"  data-study="MACD@tv-basicstudies">MACD</button>
+              <button class="c-ind-chip"     id="c-ind-bb"    data-study="BollingerBands@tv-basicstudies">BB</button>
+              <button class="c-ind-chip"     id="c-ind-vwap"  data-study="VWAP@tv-basicstudies">VWAP</button>
+              <button class="c-ind-chip"     id="c-ind-ichi"  data-study="IchimokuCloud@tv-basicstudies">Ichi</button>
+              <button class="c-ind-chip"     id="c-ind-atr"   data-study="ATR@tv-basicstudies">ATR</button>
+            </div>
+
+            <!-- Popout Fullscreen button -->
+            <a href="/advanced-chart" target="_blank" class="c-tf-btn" style="text-decoration:none;color:#38bdf8;" title="Open Fullscreen in New Tab">
+              <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+            </a>
+          </div>
+
+          <!-- Ticker & Live Metrics Bar -->
+          <div class="cme-ticker-bar">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="cmeChartSymLabel" style="font-weight:800;color:#fff;">BTCUSDT</span>
+              <span id="cmeChartLivePrice" style="color:#38bdf8;font-weight:700;">--</span>
+              <span id="cmeChartLivePct" style="font-size:11px;color:var(--text-muted);">--</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:12px;">
+              <span><i class="fa-solid fa-pen-ruler" style="color:#0ea5e9;"></i> Drawing Toolbar Active (Left)</span>
+              <span><i class="fa-solid fa-sliders" style="color:#10b981;"></i> Technical Indicators (Top fx)</span>
             </div>
           </div>
 
-          <div class="card-collapsible-body" style="display: flex; flex-direction: column; gap: 10px;">
-            <!-- Middle Row: 3 Speedometer Metric Chips (Full width grid on mobile!) -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; background: #F8FAFC; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.08); text-align: center;">
-              <div style="padding: 2px 4px;">
-                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Required Velocity</span>
-                <span id="mainTargetReqVel" style="font-size: 13px; font-weight: 800; color: #0284C7; font-family: var(--font-mono);">+$0.21 / hr</span>
-              </div>
-              <div style="padding: 2px 4px; border-left: 1px solid rgba(15, 23, 42, 0.08);">
-                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Dynamic ETA</span>
-                <span id="mainTargetEta" style="font-size: 13px; font-weight: 800; color: #16C784; font-family: var(--font-mono);">18h 30m</span>
-              </div>
-              <div style="padding: 2px 4px; border-left: 1px solid rgba(15, 23, 42, 0.08);">
-                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Sprint Window</span>
-                <span id="mainTargetRemaining" style="font-size: 13px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono);">23.1h left</span>
-              </div>
-            </div>
-
-            <!-- Bottom Row: Progress Bar Line -->
-            <div style="width: 100%; height: 6px; background: rgba(15, 23, 42, 0.08); border-radius: 3px; overflow: hidden;">
-              <div id="mainTargetProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0EA5E9, #16C784); border-radius: 3px; transition: width 0.4s ease;"></div>
+          <!-- Chart Viewport -->
+          <div class="chart-viewport-wrap" id="chartStage">
+            <div id="tvWidgetContainer"></div>
+            <!-- CME-X5 Signal Overlay -->
+            <div class="cme-signal-overlay" id="cmeChartSignalOverlay">
+              <div class="cme-sig-badge none"><i class="fa-solid fa-radar"></i> Scanning for S2/S7 signals...</div>
             </div>
           </div>
         </section>
 
-        <div class="content-grid">
-          <div class="content-main">
-
-            <!-- CME-X4 V4 SHADOW OPERATIONS CENTER -->
-            <!-- AGENT STATUS GRID (COLLAPSED BY DEFAULT) -->
-            <!-- MARKET CHART -->
-            <section class="card chart-card accent-orange" id="chartSection">
-              <div class="card-header chart-header-row" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div class="symbol-pills" id="symbolPills">
-                  <!-- Populated by app.js from the full WATCHLIST (30 coins) -->
-                </div>
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <div class="interval-btns" id="intervalBtns" title="Chart display only — the engine always analyses 5m / 15m / 1h">
-                    <button class="int-btn" data-interval="1">1m</button>
-                    <button class="int-btn" data-interval="5">5m</button>
-                    <button class="int-btn active" data-interval="15">15m</button>
-                    <button class="int-btn" data-interval="60">1h</button>
-                    <button class="int-btn" data-interval="240">4h</button>
-                  </div>
-                  <button type="button" class="card-collapse-btn" data-target="chartSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
-                </div>
-                <div class="interval-btns" id="fvgToggleWrap" style="margin-left:6px;">
-                  <button type="button" class="int-btn active" id="fvgToggleBtn"
-                    title="Fair Value Gaps: real 3-bar imbalances (bar 3's wick doesn't overlap bar 1's), size-filtered by ATR, and dropped the moment price trades back through them. Not a repaint — a gap disappears here exactly when it's mitigated.">
-                    <i class="fa-solid fa-layer-group" style="font-size:9px; margin-right:4px;"></i>FVG
-                  </button>
-                </div>
-              </div>
-              <div class="card-collapsible-body">
-                <div class="ticker-price-row">
-                  <div class="ticker-left">
-                    <span class="ticker-symbol" id="tickerSymbol">BTCUSDT</span>
-                    <span class="ticker-price font-mono" id="tickerPrice">--.--</span>
-                    <span class="ticker-change font-mono" id="tickerChange">+0.00%</span>
-                  </div>
-                  <div class="ticker-stats">
-                    <span class="tstat"><span class="tstat-label">24h H:</span> <span class="font-mono" id="tickerHigh">--</span></span>
-                    <span class="tstat"><span class="tstat-label">24h L:</span> <span class="font-mono" id="tickerLow">--</span></span>
-                    <span class="tstat"><span class="tstat-label">Vol:</span> <span class="font-mono" id="tickerVol">--</span></span>
-                  </div>
-                </div>
-                <div class="chart-canvas-wrap" id="chartStage">
-                  <canvas id="candleChartCanvas"></canvas>
-                  <canvas id="depthChartCanvas" class="hidden"></canvas>
-                </div>
-              </div>
-            </section>
-
-            <!-- POSITIONS / HISTORY (TABBED) -->
-            <section class="card accent-blue" id="positionsSection">
-              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div class="tab-bar" id="posHistTabs">
-                  <button class="tab-btn active" data-tab="positions"><i class="fa-solid fa-briefcase"></i> Active <span class="count-badge font-mono" id="posCount">0</span></button>
-                  <button class="tab-btn" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> History <span class="count-badge font-mono" id="tradeCount">0</span></button>
-                </div>
-                <!-- Interactive Table Filter & Sorting Controls -->
-                <div class="table-filter-toolbar" style="display:flex; align-items:center; gap:6px;">
-                  <div class="table-search-box">
-                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                    <input type="text" id="tableFilterInput" placeholder="Filter symbol, setup, reason..." autocomplete="off" />
-                    <button type="button" id="clearTableFilter" class="clear-btn" title="Clear filter" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
-                  </div>
-                  <div class="table-sort-box">
-                    <i class="fa-solid fa-arrow-down-a-z sort-select-icon"></i>
-                    <select id="tableSortSelect" title="Sort Table">
-                      <option value="time_desc">Time (Newest)</option>
-                      <option value="time_asc">Time (Oldest)</option>
-                      <option value="symbol_asc">Symbol (A → Z)</option>
-                      <option value="symbol_desc">Symbol (Z → A)</option>
-                      <option value="pnl_desc">PnL (High → Low)</option>
-                      <option value="pnl_asc">PnL (Low → High)</option>
-                      <option value="side_asc">Side (A → Z)</option>
-                      <option value="entry_desc">Entry (High → Low)</option>
-                      <option value="exit_desc">Exit (High → Low)</option>
-                      <option value="r_desc">R-Multiple (High → Low)</option>
-                      <option value="setup_asc">Setup (A → Z)</option>
-                      <option value="exit_reason_asc">Exit Reason (A → Z)</option>
-                    </select>
-                  </div>
-                  <button type="button" class="card-collapse-btn" data-target="positionsSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
-                </div>
-              </div>
-              <div class="card-collapsible-body">
-                <div class="table-wrap tab-panel active" data-panel="positions">
-                  <table class="data-table" id="positionsTable">
-                    <thead>
-                      <tr>
-                        <th data-sort="symbol" class="sortable-header col-sticky-symbol" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="size" class="sortable-header" title="Click to sort">Size <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="notional" class="sortable-header col-hide-mobile" title="Click to sort">Size (USD) <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="mark" class="sortable-header" title="Click to sort">Mark <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="stopLoss" class="sortable-header" title="Click to sort">Stop Loss <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="liqPrice" class="sortable-header col-hide-mobile" title="Click to sort">Liq Price <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="unrealisedPnl" class="sortable-header" title="Click to sort">Unrealized PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="roi" class="sortable-header col-hide-mobile" title="Click to sort">ROI % <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="r" class="sortable-header" title="Profit or loss in units of risk">R <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th class="col-hide-mobile">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody id="positionsTbody">
-                      <tr><td colspan="12" class="empty-msg">No active positions</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="table-wrap tab-panel" data-panel="history">
-                  <table class="data-table" id="historyTable">
-                    <thead>
-                      <tr>
-                        <th data-sort="id" class="sortable-header" title="Click to sort A-Z">ID <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="time" class="sortable-header sort-active" title="Click to sort">Time <i class="fa-solid fa-sort-down sort-indicator"></i></th>
-                        <th data-sort="symbol" class="sortable-header" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="exit" class="sortable-header" title="Click to sort">Exit <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="pnl" class="sortable-header" title="Click to sort">PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="r" class="sortable-header" title="Result in units of the risk taken">R <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="setup" class="sortable-header" title="Click to sort A-Z">Setup <i class="fa-solid fa-sort sort-indicator"></i></th>
-                        <th data-sort="exit_reason" class="sortable-header" title="Click to sort A-Z">Exit reason <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      </tr>
-                    </thead>
-                    <tbody id="historyTbody">
-                      <!-- Rendered dynamically -->
-                    </tbody>
-                  </table>
-                  <!-- History Table Pagination Bar (50 Trades / Page) -->
-                  <div class="table-pagination-bar" id="historyPaginationBar" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card-2, #FAFAFC); border-top: 1px solid var(--border); font-size: 11.5px; flex-wrap: wrap; gap: 8px;">
-                    <span id="historyPageInfo" style="color: var(--text-dim); font-weight: 600;">Showing 1–50 of 200 trades</span>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                      <button type="button" id="prevHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;" disabled>
-                        <i class="fa-solid fa-chevron-left"></i> Prev
-                      </button>
-                      <span id="historyPageNumBadge" style="padding: 4px 10px; font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); background: #FFFFFF; border: 1px solid var(--border); border-radius: 4px;">Page 1 / 4</span>
-                      <button type="button" id="nextHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;">
-                        Next <i class="fa-solid fa-chevron-right"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- LIVE TRADE SETUP PREVIEW & ENGINE DATA ANALYSIS -->
-            <section class="card accent-blue live-trade-analysis-card" id="liveTradeAnalysisSection">
-              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                  <span class="card-title" style="font-size:13px; font-weight:700;">
-                    <i class="fa-solid fa-chart-line" style="color:var(--cyan);"></i> Live Setup Architecture &amp; Analysis
-                  </span>
-                  <span id="previewTradeBadge" class="badge buy font-mono" style="font-size:10.5px; font-weight:800; padding:2px 8px;">--</span>
-                  <span id="previewScalpBadge" class="badge font-mono" style="font-size:9.5px; font-weight:800; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35);">5m-10m SCALP</span>
-                  <span id="previewSureShotBadge" class="badge font-mono" style="display:none; font-size:9.5px; font-weight:800; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.35);">🎯 SURESHOT 90% (+$0.50)</span>
-                  <span id="previewStatusBadge" class="badge font-mono" style="font-size:9.5px; font-weight:800; background:rgba(56,189,248,0.15); color:#38bdf8;">ACTIVE</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <span style="font-size:11px; color:var(--text-dim);"><i class="fa-regular fa-hand-pointer"></i> Click any Active or History row above</span>
-                  <button class="int-btn" id="btnPreviewSync" style="padding:3px 10px; font-size:11px;"><i class="fa-solid fa-arrows-rotate"></i> Sync Live</button>
-                </div>
-              </div>
-
-              <div class="setup-preview-grid">
-                <!-- Left: Live Candlestick & TradingView Position Box Chart -->
-                <div class="setup-chart-container">
-                  <div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                    <span id="previewSetupTitle" style="font-size:11.5px; font-weight:700; color:#f8fafc; font-family:'JetBrains Mono',monospace;">
-                      -- &middot; REAL TRADE ARCHITECTURE
-                    </span>
-                    <div style="display:flex; gap:6px; align-items:center;">
-                      <span id="previewPnlBadge" class="font-mono" style="font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; background:rgba(16,185,129,0.15); color:#10b981;">+$0.00</span>
-                      <span id="previewRrBadge" class="font-mono" style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:4px; background:rgba(56,189,248,0.15); color:#38bdf8;">1:2.2 R:R</span>
-                    </div>
-                  </div>
-
-                  <!-- Canvas Viewport for Live Candlesticks + TradingView Risk-Reward Box -->
-                  <div class="canvas-viewport" style="position:relative; width:100%; height:270px; background:#070a12; overflow:hidden;">
-                    <canvas id="liveSetupCanvas" style="width:100%; height:100%; display:block; cursor:grab;"></canvas>
-                    <!-- Interactive Zoom & Pan Controls Toolbar -->
-                    <div class="chart-zoom-toolbar" style="position:absolute; top:8px; right:8px; display:flex; gap:4px; z-index:10; background:rgba(15,23,42,0.88); backdrop-filter:blur(6px); padding:3px 6px; border-radius:6px; border:1px solid rgba(255,255,255,0.12);">
-                      <button id="btnZoomIn" title="Zoom In (or Mouse Wheel Up)" style="background:rgba(255,255,255,0.08); border:none; color:#f8fafc; width:22px; height:22px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center;">+</button>
-                      <button id="btnZoomOut" title="Zoom Out (or Mouse Wheel Down)" style="background:rgba(255,255,255,0.08); border:none; color:#f8fafc; width:22px; height:22px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center;">−</button>
-                      <button id="btnZoomReset" title="Reset Zoom / Pan (Double Click Canvas)" style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:#38bdf8; padding:0 6px; height:22px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer; font-family:'JetBrains Mono',monospace;">↺ 1.0x</button>
-                    </div>
-                    <div class="chart-zoom-hint" style="position:absolute; bottom:6px; left:10px; font-size:9px; color:rgba(148,163,184,0.65); pointer-events:none; font-family:'JetBrains Mono',monospace;">
-                      🔍 Scroll wheel to Zoom &bull; Drag to Pan &bull; Double-click to Reset
-                    </div>
-                  </div>
-
-                  <!-- Trade Geometry Pills -->
-                  <div style="padding:8px 12px; background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; text-align:center;">
-                    <div style="background:rgba(255,255,255,0.02); padding:4px; border-radius:4px; border:1px solid rgba(255,255,255,0.04);">
-                      <span style="font-size:9px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Entry</span>
-                      <div id="prevGeomEntry" class="font-mono" style="font-size:11.5px; font-weight:700; color:#f8fafc; margin-top:2px;">--</div>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.02); padding:4px; border-radius:4px; border:1px solid rgba(255,255,255,0.04);">
-                      <span id="prevGeomCurLabel" style="font-size:9px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Mark Price</span>
-                      <div id="prevGeomCurrent" class="font-mono" style="font-size:11.5px; font-weight:700; color:#38bdf8; margin-top:2px;">--</div>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.02); padding:4px; border-radius:4px; border:1px solid rgba(255,255,255,0.04);">
-                      <span style="font-size:9px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Target (TP)</span>
-                      <div id="prevGeomTarget" class="font-mono" style="font-size:11.5px; font-weight:700; color:#10b981; margin-top:2px;">--</div>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.02); padding:4px; border-radius:4px; border:1px solid rgba(255,255,255,0.04);">
-                      <span style="font-size:9px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Stop Loss</span>
-                      <div id="prevGeomStop" class="font-mono" style="font-size:11.5px; font-weight:700; color:#ef4444; margin-top:2px;">--</div>
-                    </div>
-                  </div>
-
-                  <!-- Narrative / Thesis Strip -->
-                  <div style="padding:6px 12px 8px; background:rgba(0,0,0,0.25); border-top:1px solid rgba(255,255,255,0.04); font-size:10.5px; color:#94a3b8; display:flex; justify-content:space-between; align-items:center;">
-                    <div id="prevThesisText" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:10px;">
-                      Select any active or past trade to inspect its complete risk geometry and price action.
-                    </div>
-                    <span id="prevTimeTag" class="font-mono" style="font-size:9px; color:#64748b; white-space:nowrap;">--</span>
-                  </div>
-                </div>
-
-                <!-- Right: Live Engine & Supervisor Data Analysis Feed -->
-                <div class="setup-analysis-container">
-                  <div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                    <span style="font-size:11.5px; font-weight:700; color:#f8fafc; white-space:nowrap;">
-                      <i class="fa-solid fa-terminal" style="color:var(--gold);"></i> Live Data Analysis &amp; Supervisor Log
-                    </span>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                      <button id="btnAutoScroll" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10b981; font-size:9px; font-weight:700; border-radius:4px; padding:2px 7px; cursor:pointer;" title="Toggle automatic scroll lock on incoming events">SCROLL: AUTO</button>
-                      <button id="btnClearLog" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#94a3b8; font-size:9px; border-radius:4px; padding:2px 6px; cursor:pointer;" title="Clear supervisor log view">CLEAR</button>
-                    </div>
-                  </div>
-
-                  <!-- Real-time log entries stream here directly into #guardianLog -->
-                  <div id="guardianLog" class="terminal-feed">
-                    <div class="log-line"><span class="log-time">[INIT]</span> <span class="log-info">Live Position Guardian &amp; Supervisor stream online.</span></div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
+        <!-- 5. ACTIVE POSITIONS & HISTORY (TABBED) -->
+        <section class="card accent-blue" id="positionsSection" style="margin-bottom: 18px;">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div class="tab-bar" id="posHistTabs">
+              <button class="tab-btn active" data-tab="positions"><i class="fa-solid fa-briefcase"></i> Active Positions <span class="count-badge font-mono" id="posCount">0</span></button>
+              <button class="tab-btn" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> Trade History <span class="count-badge font-mono" id="tradeCount">0</span></button>
+            </div>
+            <button type="button" class="card-collapse-btn" data-target="positionsSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
           </div>
+          <div class="card-collapsible-body">
+            <div class="table-wrap tab-panel active" data-panel="positions">
+              <table class="data-table" id="positionsTable">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Size</th>
+                    <th>Entry Price</th>
+                    <th>Mark Price</th>
+                    <th>Liq Price</th>
+                    <th>Unrealized P&amp;L</th>
+                    <th>PnL %</th>
+                    <th>Margin</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="positionsTbody">
+                  <tr><td colspan="10" class="empty-msg">No active positions</td></tr>
+                </tbody>
+              </table>
+            </div>
 
-          <div class="content-side">
-
-            <!-- LIVE TRADE TAPE -->
-            <section class="card trade-tape accent-blue">
-              <div class="card-header">
-                <span class="card-title"><i class="fa-solid fa-bolt"></i> Live Trade Tape</span>
-                <div class="tape-ratio">
-                  <span class="buy-ratio font-mono" id="buyRatio">B 50%</span>
-                  <span class="sell-ratio font-mono" id="sellRatio">S 50%</span>
-                </div>
-              </div>
-              <div class="tape-feed" id="tradeFeed">
-                <!-- Live trades rendered here -->
-              </div>
-            </section>
-
-            <!-- AUTONOMOUS EXECUTION & TRADING SETTINGS -->
-            <section class="card trading-controls accent-green" id="tradingControlsSection">
-              <div class="card-header">
-                <span class="card-title"><i class="fa-solid fa-sliders"></i> Trading Settings &amp; Execution</span>
-                <span class="arm-status stopped" id="armStatus">STOPPED</span>
-              </div>
-              <div class="trading-controls-body">
-                <!-- STRATEGY PROFILE (SWING vs SCALP 5-10m vs SURESHOT) -->
-                <div class="control-row strategy-mode-row">
-                  <label class="control-label" title="Standard mode targets 15m-1h structural swing setups. Scalp mode targets quick 5m-10m bursts. SureShot mode targets high-probability +0.50% moves ($0.50 on $10 margin @ 10x) with break-even ratchet and 10% runner.">Strategy Profile</label>
-                  <div class="mode-toggle-group">
-                    <button type="button" class="mode-toggle-btn active" id="stratModeStandardBtn" data-mode="standard"><i class="fa-solid fa-chart-line"></i> Swing (15m–1h)</button>
-                    <button type="button" class="mode-toggle-btn" id="stratModeScalpBtn" data-mode="scalp" style="color:#f59e0b;"><i class="fa-solid fa-bolt"></i> Scalp (5m–10m)</button>
-                    <button type="button" class="mode-toggle-btn" id="stratModeSureShotBtn" data-mode="sureshot" style="color:#10b981;"><i class="fa-solid fa-crosshairs"></i> 🎯 SureShot (+$0.50)</button>
-                  </div>
-                </div>
-
-                <!-- MARGIN MODE -->
-                <div class="control-row margin-mode-row">
-                  <label class="control-label" title="Cross margin shares balance across positions. Isolated confines risk to individual trades.">Margin Mode</label>
-                  <div class="mode-toggle-group">
-                    <button type="button" class="mode-toggle-btn active" id="marginModeCrossBtn" data-mode="cross">Cross</button>
-                    <button type="button" class="mode-toggle-btn" id="marginModeIsolatedBtn" data-mode="isolated">Isolated</button>
-                  </div>
-                </div>
-
-                <!-- LEVERAGE SETTING -->
-                <div class="control-row leverage-row">
-                  <div class="control-label-wrap">
-                    <label class="control-label" for="leverageInput" title="Set leverage multiplier for linear perpetual contracts (1x - 100x). Default is 10x.">Leverage</label>
-                    <span class="leverage-badge font-mono" id="leverageDisplay">10x</span>
-                  </div>
-                  <div class="leverage-control-group">
-                    <div class="input-with-unit lev-input-wrap">
-                      <input type="number" id="leverageInput" class="control-input font-mono" value="10" min="1" max="100" step="1">
-                      <span class="unit-tag">x</span>
-                    </div>
-                    <div class="leverage-presets">
-                      <button type="button" class="lev-preset-btn" data-lev="5">5x</button>
-                      <button type="button" class="lev-preset-btn active" data-lev="10">10x</button>
-                      <button type="button" class="lev-preset-btn" data-lev="20">20x</button>
-                      <button type="button" class="lev-preset-btn" data-lev="50">50x</button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- ═══════════ ANALYZE MODE & PROFIT TARGET ═══════════ -->
-                <div class="analyze-mode-card" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(99, 102, 241, 0.08)); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 14px; margin-bottom: 16px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <div style="font-weight: 700; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-                      <i class="fa-solid fa-brain"></i> ANALYZE MODE &amp; PROFIT TARGET
-                    </div>
-                    <span id="targetModePill" class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 600;">ACTIVE</span>
-                  </div>
-
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
-                    <div>
-                      <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Target Equity (USDT)</label>
-                      <div class="input-with-unit" style="margin: 0;">
-                        <span class="unit-tag-prefix">$</span>
-                        <input type="number" id="targetEquityInput" class="control-input font-mono" value="15.00" min="10" step="0.5" style="padding-left: 20px; font-size: 13px;">
-                      </div>
-                    </div>
-                    <div>
-                      <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Target Progress</label>
-                      <div style="font-size: 13px; font-weight: 700; font-family: monospace; color: #38bdf8; margin-top: 6px;" id="targetProgressText">-- / $15.00</div>
-                    </div>
-                  </div>
-
-                  <!-- Sprint Horizon Selector -->
-                  <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 10.5px; color: var(--text-muted);">Horizon:</span>
-                    <button type="button" class="sprint-horizon-btn active" data-hours="24" style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #38bdf8; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">24h Sprint</button>
-                    <button type="button" class="sprint-horizon-btn" data-hours="48" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">48h Swing</button>
-                    <button type="button" class="sprint-horizon-btn" data-hours="72" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">72h Extended</button>
-                    <button type="button" id="sprintCustomSideBtn" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer;" title="Set custom sprint duration in hours">Custom...</button>
-                  </div>
-
-                  <!-- Progress Bar -->
-                  <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
-                    <div id="targetProgressBar" style="width: 63.7%; height: 100%; background: linear-gradient(90deg, #38bdf8, #22c55e); border-radius: 3px; transition: width 0.4s ease;"></div>
-                  </div>
-
-                  <!-- Velocity & ETA Speedometer -->
-                  <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 7px 10px; margin-bottom: 10px; font-size: 11px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px;">
-                      <div>
-                        <span style="color: var(--text-muted); display: block; font-size: 9.5px; text-transform: uppercase;">Required Velocity</span>
-                        <span id="targetReqVelocity" style="font-weight: 700; color: #f8fafc; font-family: monospace;">+$0.21 / hr</span>
-                      </div>
-                      <div>
-                        <span style="color: var(--text-muted); display: block; font-size: 9.5px; text-transform: uppercase;">Dynamic ETA</span>
-                        <span id="targetEta" style="font-weight: 700; color: #38bdf8; font-family: monospace;">18h 30m</span>
-                      </div>
-                    </div>
-                    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px; display: flex; justify-content: space-between; align-items: center;">
-                      <span id="targetPacingStatus" style="color: #22c55e; font-weight: 600; font-size: 10px;"><i class="fa-solid fa-gauge-high"></i> ON TRACK</span>
-                      <span id="targetTimeRemaining" style="color: var(--text-muted); font-size: 10px; font-family: monospace;">23.1h remaining</span>
-                    </div>
-                  </div>
-
-                  <!-- Real-Time Market Feasibility Diagnostic Card -->
-                  <div id="targetFeasibilityCard" style="background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 11px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                        <span id="feasibilityVerdictBadge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; padding: 2px 7px; border-radius: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;">
-                          <i class="fa-solid fa-circle-check"></i> ACHIEVABLE
-                        </span>
-                        <span id="feasibilityScoreText" style="color: var(--text-muted); font-size: 10px; font-family: monospace;">85/100</span>
-                      </div>
-                      <span id="marketVolatilityTag" style="color: #38bdf8; font-size: 10px; font-weight: 600; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.25);">
-                        <i class="fa-solid fa-fire"></i> Vol: 8.6%
-                      </span>
-                    </div>
-                    <div id="feasibilityAdviceText" style="color: #cbd5e1; font-size: 10.5px; line-height: 1.35; margin-bottom: 5px;">
-                      Calculating market achievability...
-                    </div>
-                    <div id="feasibilityActionRow" style="display: none; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 5px; margin-top: 4px;">
-                      <span style="font-size: 10px; color: #f59e0b;"><i class="fa-solid fa-lightbulb"></i> Recommended Horizon:</span>
-                      <button type="button" id="applyRecommendedHorizonBtn" style="background: rgba(14, 165, 233, 0.2); border: 1px solid #0ea5e9; color: #38bdf8; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 2px 8px; cursor: pointer;">
-                        Set to 24h
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Mode Control Buttons -->
-                  <div style="display: flex; gap: 8px;">
-                    <button type="button" id="toggleAnalyzeModeBtn" style="flex: 1; padding: 7px 12px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-weight: 600; font-size: 11.5px; cursor: pointer;">
-                      <i class="fa-solid fa-play"></i> Active (Scan &amp; Claim)
-                    </button>
-                    <button type="button" id="setTargetBtn" style="padding: 7px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: var(--text-muted); font-size: 11.5px; cursor: pointer;">
-                      Update Target
-                    </button>
-                  </div>
-                  <p style="margin: 8px 0 0 0; font-size: 10.5px; color: var(--text-muted); line-height: 1.35;">
-                    <i class="fa-solid fa-bolt" style="color: #38bdf8;"></i> <b>HTF Swing Runner:</b> Targets $1.00+ profit swings (+2.2% to +6.5%). Capital rotates dynamically; flat consolidation positions are auto-scratched after 3.5h so targets are never delayed for days or weeks.
-                  </p>
-
-                  <!-- Market Prophet Learning Feed -->
-                  <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <span style="font-size: 11px; font-weight: 600; color: #c084fc;"><i class="fa-solid fa-graduation-cap"></i> Market Prophet Knowledge Base</span>
-                      <span id="prophetRulesCount" style="font-size: 10px; color: #a855f7; font-family: monospace;">SQLite Memory</span>
-                    </div>
-                    <div id="prophetRulesContainer" style="font-size: 10.5px; color: var(--text-muted); line-height: 1.35; max-height: 80px; overflow-y: auto;">
-                      Loading synthesized market lessons...
-                    </div>
-                  </div>
-
-                  <!-- POSITION SIZING MODE -->
-                <div class="control-row sizing-mode-row">
-                  <label class="control-label" title="Min Size opens the smallest allowed order on Bybit for each coin. USDT Size opens fixed dollar notional. Risk % scales with Stop Loss distance.">Position Sizing</label>
-                  <div class="sizing-mode-toggle">
-                    <button type="button" class="sizing-mode-btn active" id="sizeModeMinBtn" data-mode="min" title="Smallest possible legal size on Bybit for each coin (~$5-$65 notional)"><i class="fa-solid fa-compress"></i> Min Size</button>
-                    <button type="button" class="sizing-mode-btn" id="sizeModeUsdtBtn" data-mode="usdt">USDT Size</button>
-                    <button type="button" class="sizing-mode-btn" id="sizeModeRiskBtn" data-mode="risk">Risk %</button>
-                  </div>
-                </div>
-
-                <!-- SIZING INPUTS -->
-                <div class="control-row" id="minSizeRow">
-                  <p class="control-hint" style="margin:0; font-size:11px; color:var(--text-muted); line-height:1.4;">
-                    <i class="fa-solid fa-shield-halved" style="color:var(--green);"></i> <b>Smallest Possible Size</b>: Automatically opens Bybit's minimum contract size (e.g. 0.001 BTC, 0.01 ETH, ~5 USDT alts). Margin required: ~$0.50–$6.50.
-                  </p>
-                </div>
-                <div class="control-row" id="riskSizeRow" style="display:none;">
-                  <label class="control-label" for="marginInput" title="Position size is derived from this and the distance to the stop, so every trade risks the same amount regardless of how wide its stop is.">Risk / Trade (% equity)</label>
-                  <div class="input-with-unit">
-                    <input type="number" id="marginInput" class="control-input font-mono" value="0.5" min="0.1" max="5" step="0.1">
-                    <span class="unit-tag">%</span>
-                  </div>
-                </div>
-                <div class="control-row" id="usdtSizeRow" style="display:none;">
-                  <label class="control-label" for="usdtSizeInput" title="Every trade opens at exactly this notional size (quantity = size / entry price), regardless of stop distance.">Fixed Size (USDT)</label>
-                  <div class="input-with-unit">
-                    <span class="unit-tag-prefix">$</span>
-                    <input type="number" id="usdtSizeInput" class="control-input font-mono" value="10" min="1" step="1">
-                    <span class="unit-tag">USDT</span>
-                  </div>
-                </div>
-
-                <!-- LIVE SETTINGS SUMMARY -->
-                <div class="trade-settings-summary" id="tradeSettingsSummary">
-                  <div class="settings-chip font-mono" id="chipStrategy"><i class="fa-solid fa-bolt"></i> <span>Swing Mode</span></div>
-                  <div class="settings-chip font-mono" id="chipLeverage"><i class="fa-solid fa-gauge-high"></i> <span>10x Leverage</span></div>
-                  <div class="settings-chip font-mono" id="chipMargin"><i class="fa-solid fa-cube"></i> <span>Cross Margin</span></div>
-                  <div class="settings-chip font-mono" id="chipSizing"><i class="fa-solid fa-coins"></i> <span>0.5% Risk</span></div>
-                </div>
-
-                <!-- 24/7 CLOUD RUNNER STATUS -->
-                <div class="cloud-runner-status-bar" id="cloudRunnerBar">
-                  <span class="cloud-status-dot stopped" id="cloudStatusDot"></span>
-                  <span class="cloud-status-text" id="cloudStatusText">Railway 24/7 Engine: STANDBY · Monitoring Only</span>
-                </div>
-
-                <!-- CONTROL BUTTONS -->
-                <div class="control-buttons">
-                  <button class="start-btn" id="startBtn"><i class="fa-solid fa-play"></i> Start</button>
-                  <button class="stop-btn" id="stopBtn" disabled><i class="fa-solid fa-stop"></i> Stop</button>
-                </div>
-                <p class="control-hint">Armed = 24/7 cloud runner & dashboard place auto limit orders with stop-loss/take-profit according to settings. Duplicate guard blocks multiple trades on the same coin.</p>
-
-                <div class="guardian-block">
-                  <div class="guardian-title">
-                    <i class="fa-solid fa-shield-heart"></i> Position Guardian
-                    <span class="guardian-sync-tag" id="guardianSyncTag" title="Synced across browser refreshes, sessions and Railway 24/7 runner"><i class="fa-solid fa-arrows-rotate"></i> Synced</span>
-                  </div>
-                  <div id="guardianStatus"><span class="guardian-pill safe">No open position</span></div>
-                </div>
-                <div class="guardian-log" id="guardianLogSecondary"></div>
-              </div>
-            </section>
-
+            <div class="table-wrap tab-panel" data-panel="history" id="historySection">
+              <table class="data-table" id="historyTable">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Qty</th>
+                    <th>Entry Price</th>
+                    <th>Exit Price</th>
+                    <th>Closed P&amp;L</th>
+                    <th>Exit Type</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTbody">
+                  <tr><td colspan="8" class="empty-msg">No closed trades yet</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </section>
+
+        <!-- 6. CME-X5 LIVE SIGNALS & MICROSTRUCTURE RADAR -->
+        <section class="card accent-green" id="signalsSection" style="margin-bottom: 18px;">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="card-title"><i class="fa-solid fa-radar" style="color:#10b981;"></i> CME-X5 Microstructure Setups Radar (S2 + S7)</span>
+            <span class="status-chip font-mono" style="background:rgba(16,185,129,0.12);color:#10b981;font-size:10px;">AUTO-SCANNED</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="signalsTable">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Setup</th>
+                  <th>Direction</th>
+                  <th>Entry Price</th>
+                  <th>Target (TP)</th>
+                  <th>MFE</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="signalsTbody">
+                <tr><td colspan="7" class="empty-msg">Scanning 16 linear pairs for S2 POC Reclaim &amp; S7 Gated setups...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
       </main>
     </div>
-
   </div>
 
-  <!-- ═══════════ FUTURES PNL ANALYSIS & CALENDAR HEATMAP MODAL ═══════════ -->
-  <div id="pnlCalendarModal" class="pnl-modal-backdrop" style="display:none;">
+  <!-- PNL CALENDAR MODAL -->
+  <div class="pnl-modal-backdrop" id="pnlModalBackdrop">
     <div class="pnl-modal-window">
       <div class="pnl-modal-header">
-        <div class="pnl-modal-title-wrap">
-          <span class="pnl-modal-title"><i class="fa-solid fa-chart-line" style="color:#10b981;"></i> Futures PnL Analysis</span>
-          <span class="beta-badge">Beta</span>
+        <div class="pnl-modal-title">
+          <i class="fa-solid fa-calendar-days" style="color:#10b981;"></i>
+          <span>Day-wise PnL Calendar</span>
         </div>
-        <button type="button" id="closePnlCalendarBtn" class="pnl-modal-close-btn" title="Close (Esc)">&times;</button>
+        <button class="pnl-modal-close" id="closePnlModalBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <!-- Top Assets & PnL Summary Bar (Matches user screenshot) -->
       <div class="pnl-modal-summary">
         <div class="pnl-assets-row">
-          <span class="assets-label">Total Assets <i class="fa-regular fa-eye" style="opacity:0.6; font-size:10px;"></i></span>
-          <div class="assets-val font-mono" id="modalTotalAssets">$8.22</div>
+          <span class="assets-label">Total Assets</span>
+          <div class="assets-val font-mono" id="modalTotalAssets">$0.00</div>
           <div class="today-pnl-chip font-mono" id="modalTodayPnl">Today's PnL &nbsp; <span id="modalTodayPnlVal">+$0.00 (+0.00%)</span></div>
         </div>
         <div class="pnl-stats-grid">
           <div class="pnl-stat-card">
-            <span class="pnl-stat-label">7-day PnL <i class="fa-regular fa-circle-question"></i></span>
+            <span class="pnl-stat-label">7-day PnL</span>
             <div class="pnl-stat-val font-mono" id="modal7dPnl">+$0.00 (+0.00%)</div>
           </div>
           <div class="pnl-stat-card">
-            <span class="pnl-stat-label">30-day PnL <i class="fa-regular fa-circle-question"></i></span>
+            <span class="pnl-stat-label">30-day PnL</span>
             <div class="pnl-stat-val font-mono" id="modal30dPnl">+$0.00 (+0.00%)</div>
           </div>
         </div>
         <div class="pnl-updated-at font-mono" id="modalUpdatedAt">Updated at: --</div>
       </div>
 
-      <!-- Subnav Tabs & Month Navigation -->
       <div class="pnl-modal-nav">
         <div class="pnl-modal-tabs">
-          <span class="pnl-tab-link" id="pnlTabAnalysis">PnL Analysis</span>
           <span class="pnl-tab-link active" id="pnlTabCalendar">PnL Calendar</span>
         </div>
         <div class="pnl-month-picker">
-          <button id="pnlPrevMonthBtn" class="month-nav-btn" title="Previous Month"><i class="fa-solid fa-chevron-left"></i></button>
+          <button id="pnlPrevMonthBtn" class="month-nav-btn"><i class="fa-solid fa-chevron-left"></i></button>
           <span id="pnlCurrentMonthLabel" class="month-display font-mono">2026-09</span>
-          <button id="pnlNextMonthBtn" class="month-nav-btn" title="Next Month"><i class="fa-solid fa-chevron-right"></i></button>
+          <button id="pnlNextMonthBtn" class="month-nav-btn"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
       </div>
 
-      <!-- Calendar Heatmap Grid -->
       <div class="pnl-calendar-container">
         <div class="calendar-weekdays">
           <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
         </div>
-        <div class="calendar-days-grid" id="calendarDaysGrid">
-          <!-- Dynamically populated via renderPnlCalendar() in app.js -->
-        </div>
+        <div class="calendar-days-grid" id="calendarDaysGrid"></div>
       </div>
 
-      <!-- Selected Day Details Drawer -->
       <div class="pnl-day-details" id="pnlDayDetails" style="display:none;">
         <div class="day-details-head">
           <span id="dayDetailsDate" class="font-mono">--</span>
@@ -793,59 +620,259 @@
     </div>
   </div>
 
-  <!-- Shared agent modules. Each is also loadable in Node, which is how the
-       backtest harness exercises the exact same decision code the browser runs. -->
-  <script src="agents/indicators.js?v=3.0"></script>
-  <script src="agents/regime-agent.js?v=3.0"></script>
-  <script src="agents/flow-agent.js?v=3.0"></script>
-  <script src="agents/playbooks.js?v=3.0"></script>
-  <script src="agents/risk-governor.js?v=3.0"></script>
-  <script src="agents/position-manager.js?v=3.0"></script>
-  <script src="agents/deepseek-governor.js?v=3.0"></script>
+  <!-- Hidden dummy elements to safely prevent legacy scripts from breaking -->
+  <div style="display:none !important;" aria-hidden="true">
+    <canvas id="candleChartCanvas"></canvas>
+    <canvas id="depthChartCanvas"></canvas>
+    <div id="targetSprintSection"></div>
+    <div id="targetEquityInput"></div>
+    <div id="stratModeStandardBtn"></div>
+    <div id="stratModeScalpBtn"></div>
+    <div id="stratModeSureShotBtn"></div>
+  </div>
 
-  <!-- Specialist analysts. Each reads the market independently; the panel
-       collects them and the debate makes them argue before anything is traded. -->
-  <script src="analysts/liquidity-map.js?v=3.1"></script>
-  <script src="analysts/traps.js?v=3.1"></script>
-  <script src="analysts/structure.js?v=3.1"></script>
-  <script src="analysts/volume-profile.js?v=3.1"></script>
-  <script src="analysts/derivatives.js?v=3.1"></script>
-  <script src="analysts/manipulation.js?v=3.1"></script>
-  <script src="analysts/sessions.js?v=3.1"></script>
-  <script src="swarm/panel.js?v=3.1"></script>
-  <script src="swarm/debate.js?v=3.1"></script>
-  <script src="swarm/meta-learner.js?v=3.1"></script>
+  <!-- TradingView Library -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 
+  <!-- Application Scripts -->
   <script src="bybit-ws.js?v=3.0"></script>
   <script src="chart.js?v=3.1"></script>
-  <script src="masis-engine.js?v=3.0"></script>
-  <script src="whale-agent.js?v=3.0"></script>
-  <script src="app.js?v=3.8"></script>
+  <script src="app.js?v=4.0"></script>
 
+  <!-- Embedded Advanced TradingView Chart Controller -->
   <script>
-  // CME-X5 Engine Status Bar Updater
-  (function pollX5() {
-    async function refresh() {
-      try {
-        const r = await fetch('/api/cme_x5/snapshot');
+  (function initDashboardAdvancedChart() {
+    var chartSym   = localStorage.getItem('cme_dash_sym') || 'BYBIT:BTCUSDT.P';
+    var chartTf    = localStorage.getItem('cme_dash_tf')  || '15';
+    var chartTheme = 'dark';
+    var tvWidget   = null;
+    var wsPrice    = null;
+
+    function getStudies() {
+      var studies = [{ id: 'Volume@tv-basicstudies' }];
+      document.querySelectorAll('.c-ind-chip.on').forEach(function(chip) {
+        var id = chip.id;
+        if (id === 'c-ind-ema21') {
+          studies.push({
+            id: 'Moving Average Exponential@tv-basicstudies',
+            inputs: { length: 21 },
+            overrides: { 'Plot.color': '#0ea5e9', 'Plot.linewidth': 2 }
+          });
+        } else if (id === 'c-ind-ema50') {
+          studies.push({
+            id: 'Moving Average Exponential@tv-basicstudies',
+            inputs: { length: 50 },
+            overrides: { 'Plot.color': '#10b981', 'Plot.linewidth': 2 }
+          });
+        } else {
+          var sid = chip.getAttribute('data-study');
+          if (sid) studies.push({ id: sid });
+        }
+      });
+      return studies;
+    }
+
+    function renderWidget(sym, tf) {
+      var container = document.getElementById('tvWidgetContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      tvWidget = new TradingView.widget({
+        container_id:         'tvWidgetContainer',
+        autosize:              true,
+        symbol:                sym,
+        interval:              tf,
+        timezone:              'Etc/UTC',
+        theme:                 chartTheme,
+        style:                 '1',
+        locale:                'en',
+        toolbar_bg:            '#121721',
+        enable_publishing:     false,
+        allow_symbol_change:   true,
+        hide_side_toolbar:     false, // Full left drawing tools: Trendlines, Boxes/Rectangles, Fib, Shapes
+        hide_top_toolbar:      false, // Top toolbar with fx Indicators and tools
+        hide_legend:           false,
+        save_image:            true,
+        withdateranges:        true,  // 1D, 5D, 1M, 3M, 1Y, ALL bottom timeframe selector
+        studies:               getStudies(),
+        drawings_access:       { type: 'all' },
+        overrides: {
+          'paneProperties.background':               '#0b0e14',
+          'paneProperties.backgroundType':           'solid',
+          'paneProperties.vertGridProperties.color': 'rgba(255,255,255,0.03)',
+          'paneProperties.horzGridProperties.color': 'rgba(255,255,255,0.03)',
+          'scalesProperties.textColor':              '#8b9bb4',
+          'mainSeriesProperties.candleStyle.upColor':           '#10b981',
+          'mainSeriesProperties.candleStyle.downColor':         '#ef4444',
+          'mainSeriesProperties.candleStyle.borderUpColor':     '#10b981',
+          'mainSeriesProperties.candleStyle.borderDownColor':   '#ef4444',
+          'mainSeriesProperties.candleStyle.wickUpColor':       '#10b981',
+          'mainSeriesProperties.candleStyle.wickDownColor':     '#ef4444',
+        }
+      });
+
+      chartSym = sym;
+      chartTf  = tf;
+      localStorage.setItem('cme_dash_sym', sym);
+      localStorage.setItem('cme_dash_tf',  tf);
+
+      var cleanSym = sym.replace('BYBIT:', '').replace('.P', '');
+      var symLabel = document.getElementById('cmeChartSymLabel');
+      if (symLabel) symLabel.textContent = cleanSym;
+
+      // Update active button states
+      document.querySelectorAll('.c-sym-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.sym === sym);
+      });
+      document.querySelectorAll('.c-tf-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tf === tf);
+      });
+
+      connectPriceFeed(cleanSym);
+    }
+
+    // Connect WebSocket ticker for live price in chart bar
+    function connectPriceFeed(sym) {
+      if (wsPrice) { try { wsPrice.close(); } catch(e) {} }
+      wsPrice = new WebSocket('wss://stream.bybit.com/v5/public/linear');
+      wsPrice.onopen = function() {
+        wsPrice.send(JSON.stringify({ op: 'subscribe', args: ['tickers.' + sym] }));
+      };
+      wsPrice.onmessage = function(e) {
+        try {
+          var d = JSON.parse(e.data);
+          var t = d && d.data;
+          if (!t || !t.lastPrice) return;
+          var dp    = sym.includes('BTC') ? 1 : sym.includes('ETH') ? 2 : 4;
+          var price = parseFloat(t.lastPrice).toFixed(dp);
+          var pct   = parseFloat(t.price24hPcnt || 0) * 100;
+          var priceEl = document.getElementById('cmeChartLivePrice');
+          var pctEl   = document.getElementById('cmeChartLivePct');
+          if (priceEl) priceEl.textContent = price;
+          if (pctEl) {
+            pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+            pctEl.style.color = pct >= 0 ? '#10b981' : '#ef4444';
+          }
+        } catch(err) {}
+      };
+      wsPrice.onerror = function() {};
+      wsPrice.onclose = function() {
+        setTimeout(function() { connectPriceFeed(sym); }, 3500);
+      };
+    }
+
+    // Symbol click handler
+    var symStrip = document.getElementById('chartSymStrip');
+    if (symStrip) {
+      symStrip.addEventListener('click', function(e) {
+        var btn = e.target.closest('.c-sym-btn');
+        if (btn && btn.dataset.sym !== chartSym) {
+          renderWidget(btn.dataset.sym, chartTf);
+        }
+      });
+    }
+
+    // Timeframe click handler
+    var tfStrip = document.getElementById('chartTfStrip');
+    if (tfStrip) {
+      tfStrip.addEventListener('click', function(e) {
+        var btn = e.target.closest('.c-tf-btn');
+        if (!btn) return;
+        var tf = btn.dataset.tf;
+        if (tf && tf !== chartTf) {
+          renderWidget(chartSym, tf);
+        }
+      });
+    }
+
+    // Indicator chips toggle
+    document.querySelectorAll('.c-ind-chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        chip.classList.toggle('on');
+        renderWidget(chartSym, chartTf);
+      });
+    });
+
+    // CME-X5 Signal Poller & Radar Table
+    function pollCmeSignals() {
+      fetch('/api/cme_x5/snapshot').then(function(r) {
         if (!r.ok) return;
-        const d = await r.json();
-        const openEl  = document.getElementById('x5OpenCount');
-        const dailyEl = document.getElementById('x5DailyR');
-        const cntEl   = document.getElementById('x5TradeCount');
+        return r.json();
+      }).then(function(d) {
+        if (!d) return;
+
+        // 1. Update Engine Status Bar
+        var openEl  = document.getElementById('x5OpenCount');
+        var dailyEl = document.getElementById('x5DailyR');
+        var cntEl   = document.getElementById('x5TradeCount');
         if (openEl)  openEl.textContent  = d.open_count  ?? '--';
         if (dailyEl) {
-          const rv = (d.daily_r ?? 0).toFixed(3);
+          var rv = (d.daily_r ?? 0).toFixed(3);
           dailyEl.textContent = (d.daily_r >= 0 ? '+' : '') + rv + 'R';
           dailyEl.style.color = d.daily_r >= 0 ? '#10b981' : '#ef4444';
         }
         if (cntEl)   cntEl.textContent   = d.trade_count ?? '0';
-      } catch(e) {}
+
+        // 2. Update Overlay on Chart
+        var overlay   = document.getElementById('cmeChartSignalOverlay');
+        var positions = d.positions || {};
+        var cleanSym  = chartSym.replace('BYBIT:', '').replace('.P', '');
+        var pos       = positions[cleanSym] || positions[cleanSym + 'USDT'];
+
+        if (overlay) {
+          if (pos) {
+            var isS2  = (pos.situation || '').startsWith('S2');
+            var cls   = isS2 ? 's2' : 's7';
+            var arrow = pos.direction === 'LONG' ? 'arrow-up' : 'arrow-down';
+            overlay.innerHTML =
+              '<div class="cme-sig-badge ' + cls + '">' +
+              '<i class="fa-solid fa-' + arrow + '"></i> ' +
+              (pos.situation || 'CME-X5') + ' &middot; ' + (pos.direction || 'LONG') +
+              ' | Entry: ' + (pos.entry_p || 0).toFixed(4) +
+              ' | Target: ' + (pos.target_p || 0).toFixed(4) +
+              ' | MFE: +' + (pos.mfe_pct || 0).toFixed(2) + '%' +
+              '</div>';
+          } else {
+            var syms = Object.keys(positions);
+            if (syms.length) {
+              overlay.innerHTML = '<div class="cme-sig-badge s2"><i class="fa-solid fa-radar"></i> ' + syms.length + ' CME-X5 Positions Active in Other Pairs</div>';
+            } else {
+              overlay.innerHTML = '<div class="cme-sig-badge none"><i class="fa-solid fa-radar"></i> CME-X5 Scanning (S2 Reclaim + S7 Continuation)</div>';
+            }
+          }
+        }
+
+        // 3. Update Microstructure Radar Table
+        var sigTbody = document.getElementById('signalsTbody');
+        if (sigTbody) {
+          var symKeys = Object.keys(positions);
+          if (symKeys.length === 0) {
+            sigTbody.innerHTML = '<tr><td colspan="7" class="empty-msg">No active setup currently filled. 24/7 scanning active across linear pairs.</td></tr>';
+          } else {
+            sigTbody.innerHTML = symKeys.map(function(k) {
+              var p = positions[k];
+              var isLong = p.direction === 'LONG';
+              var dirColor = isLong ? '#10b981' : '#ef4444';
+              return '<tr>' +
+                '<td class="font-mono" style="font-weight:700;">' + k + '</td>' +
+                '<td><span class="badge" style="background:rgba(14,165,233,0.15);color:#38bdf8;">' + (p.situation || 'S2') + '</span></td>' +
+                '<td style="color:' + dirColor + ';font-weight:700;">' + p.direction + '</td>' +
+                '<td class="font-mono">' + (p.entry_p || 0).toFixed(4) + '</td>' +
+                '<td class="font-mono text-green">' + (p.target_p || 0).toFixed(4) + '</td>' +
+                '<td class="font-mono text-cyan">+' + (p.mfe_pct || 0).toFixed(2) + '%</td>' +
+                '<td><span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981;">HOLDING</span></td>' +
+                '</tr>';
+            }).join('');
+          }
+        }
+      }).catch(function(){});
     }
-    refresh();
-    setInterval(refresh, 12000);
+
+    // Init Chart
+    renderWidget(chartSym, chartTf);
+    pollCmeSignals();
+    setInterval(pollCmeSignals, 10000);
   })();
   </script>
-
 </body>
 </html>
