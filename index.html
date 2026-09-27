@@ -439,8 +439,8 @@
 
             <!-- Indicator Chips -->
             <div class="c-ind-strip">
-              <button class="c-ind-chip on"  id="c-ind-ema21" data-study="Moving Average Exponential@tv-basicstudies">EMA21</button>
-              <button class="c-ind-chip on"  id="c-ind-ema50" data-study="Moving Average Exponential@tv-basicstudies">EMA50</button>
+              <button class="c-ind-chip on"  id="c-ind-ema21" data-study="MAExp@tv-basicstudies">EMA21</button>
+              <button class="c-ind-chip on"  id="c-ind-ema50" data-study="MAExp@tv-basicstudies">EMA50</button>
               <button class="c-ind-chip"     id="c-ind-rsi"   data-study="RSI@tv-basicstudies">RSI</button>
               <button class="c-ind-chip"     id="c-ind-macd"  data-study="MACD@tv-basicstudies">MACD</button>
               <button class="c-ind-chip"     id="c-ind-bb"    data-study="BollingerBands@tv-basicstudies">BB</button>
@@ -654,13 +654,13 @@
         var id = chip.id;
         if (id === 'c-ind-ema21') {
           studies.push({
-            id: 'Moving Average Exponential@tv-basicstudies',
+            id: 'MAExp@tv-basicstudies',
             inputs: { length: 21 },
             overrides: { 'Plot.color': '#0ea5e9', 'Plot.linewidth': 2 }
           });
         } else if (id === 'c-ind-ema50') {
           studies.push({
-            id: 'Moving Average Exponential@tv-basicstudies',
+            id: 'MAExp@tv-basicstudies',
             inputs: { length: 50 },
             overrides: { 'Plot.color': '#10b981', 'Plot.linewidth': 2 }
           });

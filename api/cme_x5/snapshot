@@ -1,0 +1,10 @@
+{
+  "engine": "CME-X5",
+  "version": "5.0",
+  "status": "ACTIVE",
+  "cycle": 1,
+  "trade_count": 0,
+  "daily_r": 0.0,
+  "open_count": 0,
+  "positions": {}
+}

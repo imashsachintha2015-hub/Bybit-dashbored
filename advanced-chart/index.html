@@ -679,9 +679,9 @@
 
     <div class="ind-strip">
       <span class="tf-label">INDICATORS</span>
-      <button class="ind-chip on"  id="ind-ema21" data-study="Moving Average Exponential@tv-basicstudies">EMA21</button>
-      <button class="ind-chip on"  id="ind-ema50" data-study="Moving Average Exponential@tv-basicstudies">EMA50</button>
-      <button class="ind-chip"     id="ind-ema200" data-study="Moving Average Exponential@tv-basicstudies">EMA200</button>
+      <button class="ind-chip on"  id="ind-ema21" data-study="MAExp@tv-basicstudies">EMA21</button>
+      <button class="ind-chip on"  id="ind-ema50" data-study="MAExp@tv-basicstudies">EMA50</button>
+      <button class="ind-chip"     id="ind-ema200" data-study="MAExp@tv-basicstudies">EMA200</button>
       <button class="ind-chip"     id="ind-rsi"   data-study="RSI@tv-basicstudies">RSI</button>
       <button class="ind-chip"     id="ind-macd"  data-study="MACD@tv-basicstudies">MACD</button>
       <button class="ind-chip"     id="ind-bb"    data-study="BollingerBands@tv-basicstudies">BB</button>
@@ -829,19 +829,19 @@
       var id = chip.id;
       if (id === 'ind-ema21') {
         studies.push({
-          id: 'Moving Average Exponential@tv-basicstudies',
+          id: 'MAExp@tv-basicstudies',
           inputs: { length: 21 },
           overrides: { 'Plot.color': '#0ea5e9', 'Plot.linewidth': 2 }
         });
       } else if (id === 'ind-ema50') {
         studies.push({
-          id: 'Moving Average Exponential@tv-basicstudies',
+          id: 'MAExp@tv-basicstudies',
           inputs: { length: 50 },
           overrides: { 'Plot.color': '#10b981', 'Plot.linewidth': 2 }
         });
       } else if (id === 'ind-ema200') {
         studies.push({
-          id: 'Moving Average Exponential@tv-basicstudies',
+          id: 'MAExp@tv-basicstudies',
           inputs: { length: 200 },
           overrides: { 'Plot.color': '#f59e0b', 'Plot.linewidth': 2 }
         });
