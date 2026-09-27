@@ -1172,7 +1172,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # 3e-1. API: CME-X4 V4 Shadow Mode Candidates
         if self.path.startswith("/api/cme-x4/shadow/candidates"):
             from backend_lib.cme_x4_shadow_db import shadow_db
-            candidates = shadow_db.get_recent_candidates(limit=60)
+            candidates = shadow_db.get_recent_candidates(limit=120)
             self._send_json(200, {"candidates": candidates, "count": len(candidates)})
             return
 

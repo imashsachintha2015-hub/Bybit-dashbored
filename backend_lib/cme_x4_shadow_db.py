@@ -194,10 +194,41 @@ class ShadowDB:
         conn.close()
         self.export_live_snapshot()
 
-    def get_recent_candidates(self, limit=50):
+    def get_recent_candidates(self, limit=120):
         conn = self._get_conn()
         c = conn.cursor()
-        c.execute("SELECT * FROM shadow_candidates ORDER BY updated_at DESC LIMIT ?", (limit,))
+        query = """
+        SELECT 
+            c.*,
+            o.trade_id,
+            o.is_reversal as outcome_is_reversal,
+            o.simulated_fill_price,
+            o.slippage_bps,
+            o.current_mfe_pct,
+            o.current_mae_pct,
+            o.partial_harvest_filled,
+            o.partial_harvest_price,
+            o.stop_advanced_to_be,
+            o.exit_time,
+            o.exit_price,
+            o.exit_reason as outcome_exit_reason,
+            o.realized_r,
+            o.is_win,
+            o.status as outcome_status
+        FROM shadow_candidates c
+        LEFT JOIN shadow_outcomes o ON c.candidate_id = o.candidate_id
+        ORDER BY 
+            CASE 
+                WHEN c.reversal_triggered = 1 OR c.state LIKE '%REVERS%' OR o.is_reversal = 1 THEN 1
+                WHEN o.partial_harvest_filled = 1 OR c.state LIKE '%HARVEST%' THEN 2
+                WHEN c.state = 'ACTIVE_SIMULATED' OR o.status = 'ACTIVE' THEN 3
+                WHEN c.state = 'WAITING_FOR_VALUE_ZONE' THEN 4
+                ELSE 5
+            END ASC,
+            c.updated_at DESC
+        LIMIT ?
+        """
+        c.execute(query, (limit,))
         rows = [dict(r) for r in c.fetchall()]
         conn.close()
         return rows

@@ -2155,6 +2155,12 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+.cme-state-badge.reversed {
+  background: rgba(168, 85, 247, 0.12);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 .cme-cand-blocks {
   display: flex;
   flex-direction: column;

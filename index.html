@@ -20,12 +20,15 @@
 
     <!-- ═══════════ SIDEBAR NAVIGATION ═══════════ -->
     <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-icon"><i class="fa-solid fa-bolt"></i></div>
-        <div class="brand-info">
-          <span class="brand-name">MASIS <span class="brand-version">V2.0</span></span>
-          <span class="brand-sub">Agent Operations Center</span>
+      <div class="sidebar-brand" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="brand-icon"><i class="fa-solid fa-bolt"></i></div>
+          <div class="brand-info">
+            <span class="brand-name">MASIS <span class="brand-version">V2.0</span></span>
+            <span class="brand-sub">Agent Operations Center</span>
+          </div>
         </div>
+        <button type="button" class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu" title="Close menu"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <nav class="sidebar-nav">
@@ -51,7 +54,7 @@
     <div class="main-area">
 
       <header class="topbar" id="topAnchor">
-        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation" title="Toggle navigation menu (always accessible)"><i class="fa-solid fa-bars"></i></button>
         <div class="topbar-left">
           <h1 class="page-title">Dashboard</h1>
           <span class="page-sub font-mono" id="footerEndpoint">wss://stream.bybit.com/v5/public/linear · Bybit V5 Demo Trading</span>
@@ -66,9 +69,11 @@
             <div class="acct-divider"></div>
             <div class="acct-item compact"><span class="acct-label">W/L</span><span class="acct-val font-mono" id="wlVal">--</span></div>
           </div>
-          <button class="int-btn" id="openCmeShadowBtn" title="Jump directly to CME-X4 V4 Shadow Operations Center" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; border: 1px solid #0ea5e9; font-weight: 800; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-ghost"></i> V4 Shadow Mode <span id="topbarShadowBadge" style="background:#0ea5e9; color:#fff; border-radius:10px; font-size:9.5px; padding:1px 6px; font-weight:800;">LIVE</span></button>
-          <button class="int-btn" id="openPnlCalendarBtn" title="View Day-wise PnL Calendar Heatmap"><i class="fa-solid fa-calendar-days" style="color:#10b981;"></i> Calendar</button>
-          <button class="int-btn" id="openMonitorBtn" title="Open the signal monitor in a separate window"><i class="fa-solid fa-up-right-from-square"></i> Monitor</button>
+          <div class="topbar-actions" style="display:flex; align-items:center; gap:6px;">
+            <button class="int-btn topbar-btn-compact" id="openCmeShadowBtn" title="Jump directly to CME-X4 V4 Shadow Operations Center" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; border: 1px solid #0ea5e9; font-weight: 800; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-ghost"></i> <span class="topbar-btn-text">Shadow</span> <span id="topbarShadowBadge" style="background:#0ea5e9; color:#fff; border-radius:10px; font-size:9.5px; padding:1px 6px; font-weight:800;">LIVE</span></button>
+            <button class="int-btn topbar-btn-compact" id="openPnlCalendarBtn" title="View Day-wise PnL Calendar Heatmap"><i class="fa-solid fa-calendar-days" style="color:#10b981;"></i> <span class="topbar-btn-text">Calendar</span></button>
+            <button class="int-btn topbar-btn-compact" id="openMonitorBtn" title="Open the signal monitor in a separate window"><i class="fa-solid fa-up-right-from-square"></i> <span class="topbar-btn-text">Monitor</span></button>
+          </div>
           <div class="time-display font-mono" id="clockDisplay">00:00:00</div>
         </div>
       </header>
@@ -129,10 +134,11 @@
               <i class="fa-solid fa-bullseye"></i> HTF SWING RUNNER · $1.00+ TARGET · HIGH CAUTION
             </div>
           </div>
-          <div class="interval-btns" id="perfTimeframeBtns" style="display:flex; gap:4px; align-items:center;">
+          <div class="interval-btns" id="perfTimeframeBtns" style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
             <button class="int-btn active" id="perfBtnAll" data-perf-range="all" style="padding:3px 10px; font-size:11px;">All Time</button>
             <button class="int-btn" id="perfBtnToday" data-perf-range="today" style="padding:3px 10px; font-size:11px;">Today</button>
             <button class="int-btn" id="perfBtnReset" style="padding:3px 10px; font-size:11px; color:#ef4444; border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.06); cursor:pointer;" title="Reset scorecard metrics to 0 starting from now (all trade history preserved)"><i class="fa-solid fa-arrows-rotate"></i> Reset Scorecard</button>
+            <button type="button" class="int-btn" id="toggleAllSectionsBtn" style="padding:3px 10px; font-size:11px; color:#0284c7; border-color:rgba(14,165,233,0.3); background:rgba(14,165,233,0.06); cursor:pointer;" title="Collapse or Expand all dashboard sections"><i class="fa-solid fa-arrows-up-down"></i> <span id="toggleAllSectionsText">Collapse All</span></button>
           </div>
         </div>
         <section class="metrics-row">
@@ -181,7 +187,7 @@
         </section>
 
         <!-- ═══════════ TARGET SPRINT HORIZON & VELOCITY BANNER (RESPONSIVE) ═══════════ -->
-        <section class="card target-sprint-card" style="margin-bottom: 16px; padding: 14px 16px; background: #FFFFFF; border: 1px solid rgba(14, 165, 233, 0.35); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05); display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; flex-shrink: 0;">
+        <section class="card target-sprint-card" id="targetSprintSection" style="margin-bottom: 16px; padding: 14px 16px; background: #FFFFFF; border: 1px solid rgba(14, 165, 233, 0.35); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05); display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; flex-shrink: 0;">
           
           <!-- Top Row: Target Identity, Status & Buttons -->
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
@@ -211,28 +217,31 @@
               <span class="sprint-guard-badge" style="font-size: 10px; color: #B45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Stuck trades in flat consolidation are auto-scratched after 3.5h to protect velocity.">
                 <i class="fa-solid fa-stopwatch" style="color: #D97706;"></i> 3.5h Guard
               </span>
+              <button type="button" class="card-collapse-btn" data-target="targetSprintSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
             </div>
           </div>
 
-          <!-- Middle Row: 3 Speedometer Metric Chips (Full width grid on mobile!) -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; background: #F8FAFC; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.08); text-align: center;">
-            <div style="padding: 2px 4px;">
-              <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Required Velocity</span>
-              <span id="mainTargetReqVel" style="font-size: 13px; font-weight: 800; color: #0284C7; font-family: var(--font-mono);">+$0.21 / hr</span>
+          <div class="card-collapsible-body" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Middle Row: 3 Speedometer Metric Chips (Full width grid on mobile!) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; background: #F8FAFC; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.08); text-align: center;">
+              <div style="padding: 2px 4px;">
+                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Required Velocity</span>
+                <span id="mainTargetReqVel" style="font-size: 13px; font-weight: 800; color: #0284C7; font-family: var(--font-mono);">+$0.21 / hr</span>
+              </div>
+              <div style="padding: 2px 4px; border-left: 1px solid rgba(15, 23, 42, 0.08);">
+                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Dynamic ETA</span>
+                <span id="mainTargetEta" style="font-size: 13px; font-weight: 800; color: #16C784; font-family: var(--font-mono);">18h 30m</span>
+              </div>
+              <div style="padding: 2px 4px; border-left: 1px solid rgba(15, 23, 42, 0.08);">
+                <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Sprint Window</span>
+                <span id="mainTargetRemaining" style="font-size: 13px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono);">23.1h left</span>
+              </div>
             </div>
-            <div style="padding: 2px 4px; border-left: 1px solid rgba(15, 23, 42, 0.08);">
-              <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Dynamic ETA</span>
-              <span id="mainTargetEta" style="font-size: 13px; font-weight: 800; color: #16C784; font-family: var(--font-mono);">18h 30m</span>
-            </div>
-            <div style="padding: 2px 4px; border-left: 1px solid rgba(15, 23, 42, 0.08);">
-              <span style="font-size: 9.5px; color: var(--text-dim); display: block; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Sprint Window</span>
-              <span id="mainTargetRemaining" style="font-size: 13px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono);">23.1h left</span>
-            </div>
-          </div>
 
-          <!-- Bottom Row: Progress Bar Line -->
-          <div style="width: 100%; height: 6px; background: rgba(15, 23, 42, 0.08); border-radius: 3px; overflow: hidden;">
-            <div id="mainTargetProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0EA5E9, #16C784); border-radius: 3px; transition: width 0.4s ease;"></div>
+            <!-- Bottom Row: Progress Bar Line -->
+            <div style="width: 100%; height: 6px; background: rgba(15, 23, 42, 0.08); border-radius: 3px; overflow: hidden;">
+              <div id="mainTargetProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0EA5E9, #16C784); border-radius: 3px; transition: width 0.4s ease;"></div>
+            </div>
           </div>
         </section>
 
@@ -258,8 +267,11 @@
                   <span class="network-badge" id="cmeShadowStatusBadge" style="background: rgba(34, 197, 94, 0.12); color: #16a34a; border-color: rgba(34, 197, 94, 0.3);">
                     <span class="pulse-dot green"></span> SHADOW ARMED
                   </span>
+                  <button type="button" class="card-collapse-btn" data-target="cmeX4ShadowSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
                 </div>
               </div>
+
+              <div class="card-collapsible-body">
 
               <!-- Graduation Progress & Completion Tracker -->
               <div id="cmeGraduationBanner" style="margin-top: 12px; background: #F8FAFC; border: 1px solid rgba(14, 165, 233, 0.2); border-radius: 8px; padding: 10px 14px;">
@@ -374,7 +386,8 @@
                   <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Loading live candidate stream from V4 Shadow Engine...
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
             <!-- AGENT STATUS GRID (COLLAPSED BY DEFAULT) -->
             <section class="card accent-cyan" id="agentsSection" style="margin-bottom: 16px;">
@@ -400,33 +413,43 @@
             <section class="intel-widgets-row" id="newsWhaleSection">
 
               <!-- DIV-10: NEWS SENTINEL -->
-              <div class="card news-panel accent-gold">
+              <div class="card news-panel accent-gold" id="newsPanelCard">
                 <div class="card-header">
                   <div class="card-title"><i class="fa-solid fa-newspaper"></i> News Sentinel <span class="sub">Benzinga Live Feed</span></div>
-                  <span class="sentiment-badge neutral" id="newsSentimentBadge">NEUTRAL</span>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="sentiment-badge neutral" id="newsSentimentBadge">NEUTRAL</span>
+                    <button type="button" class="card-collapse-btn" data-target="newsPanelCard" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
+                  </div>
                 </div>
-                <div class="news-feed" id="newsFeed">
-                  <div class="news-empty">Polling Benzinga for market-moving headlines...</div>
+                <div class="card-collapsible-body">
+                  <div class="news-feed" id="newsFeed">
+                    <div class="news-empty">Polling Benzinga for market-moving headlines...</div>
+                  </div>
                 </div>
               </div>
 
               <!-- DIV-11: WHALE FLOW TRACKER -->
-              <div class="card whale-panel accent-purple">
+              <div class="card whale-panel accent-purple" id="whalePanelCard">
                 <div class="card-header">
                   <div class="card-title"><i class="fa-solid fa-money-bill-trend-up"></i> Whale Flow Tracker <span class="sub">&gt;$50k trades · 5m</span></div>
-                  <span class="count-badge font-mono" id="whaleCount">0 detected</span>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="count-badge font-mono" id="whaleCount">0 detected</span>
+                    <button type="button" class="card-collapse-btn" data-target="whalePanelCard" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
+                  </div>
                 </div>
-                <div class="whale-body">
-                  <div class="whale-pressure-bar">
-                    <div class="whale-pressure-fill" id="whalePressureFill" style="width:50%"></div>
-                  </div>
-                  <div class="whale-stats-row">
-                    <span class="whale-stat buy"><span class="dot"></span> BUY $<span id="whaleBuyUsd">0</span></span>
-                    <span class="whale-stat-dominant font-mono" id="whaleDominantPill">NEUTRAL</span>
-                    <span class="whale-stat sell"><span class="dot"></span> SELL $<span id="whaleSellUsd">0</span></span>
-                  </div>
-                  <div class="whale-list" id="whaleList">
-                    <div class="news-empty">No whale trades detected yet</div>
+                <div class="card-collapsible-body">
+                  <div class="whale-body">
+                    <div class="whale-pressure-bar">
+                      <div class="whale-pressure-fill" id="whalePressureFill" style="width:50%"></div>
+                    </div>
+                    <div class="whale-stats-row">
+                      <span class="whale-stat buy"><span class="dot"></span> BUY $<span id="whaleBuyUsd">0</span></span>
+                      <span class="whale-stat-dominant font-mono" id="whaleDominantPill">NEUTRAL</span>
+                      <span class="whale-stat sell"><span class="dot"></span> SELL $<span id="whaleSellUsd">0</span></span>
+                    </div>
+                    <div class="whale-list" id="whaleList">
+                      <div class="news-empty">No whale trades detected yet</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -435,19 +458,19 @@
 
             <!-- MARKET CHART -->
             <section class="card chart-card accent-orange" id="chartSection">
-              <div class="card-header chart-header-row">
+              <div class="card-header chart-header-row" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <div class="symbol-pills" id="symbolPills">
                   <!-- Populated by app.js from the full WATCHLIST (30 coins) -->
                 </div>
-                <!-- Chart display only. The engine always analyses 5m/15m/1h
-                     regardless of what is selected here; in V2 this control
-                     silently changed the trading logic's only timeframe. -->
-                <div class="interval-btns" id="intervalBtns" title="Chart display only — the engine always analyses 5m / 15m / 1h">
-                  <button class="int-btn" data-interval="1">1m</button>
-                  <button class="int-btn" data-interval="5">5m</button>
-                  <button class="int-btn active" data-interval="15">15m</button>
-                  <button class="int-btn" data-interval="60">1h</button>
-                  <button class="int-btn" data-interval="240">4h</button>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <div class="interval-btns" id="intervalBtns" title="Chart display only — the engine always analyses 5m / 15m / 1h">
+                    <button class="int-btn" data-interval="1">1m</button>
+                    <button class="int-btn" data-interval="5">5m</button>
+                    <button class="int-btn active" data-interval="15">15m</button>
+                    <button class="int-btn" data-interval="60">1h</button>
+                    <button class="int-btn" data-interval="240">4h</button>
+                  </div>
+                  <button type="button" class="card-collapse-btn" data-target="chartSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
                 </div>
                 <div class="interval-btns" id="fvgToggleWrap" style="margin-left:6px;">
                   <button type="button" class="int-btn active" id="fvgToggleBtn"
@@ -456,21 +479,23 @@
                   </button>
                 </div>
               </div>
-              <div class="ticker-price-row">
-                <div class="ticker-left">
-                  <span class="ticker-symbol" id="tickerSymbol">BTCUSDT</span>
-                  <span class="ticker-price font-mono" id="tickerPrice">--.--</span>
-                  <span class="ticker-change font-mono" id="tickerChange">+0.00%</span>
+              <div class="card-collapsible-body">
+                <div class="ticker-price-row">
+                  <div class="ticker-left">
+                    <span class="ticker-symbol" id="tickerSymbol">BTCUSDT</span>
+                    <span class="ticker-price font-mono" id="tickerPrice">--.--</span>
+                    <span class="ticker-change font-mono" id="tickerChange">+0.00%</span>
+                  </div>
+                  <div class="ticker-stats">
+                    <span class="tstat"><span class="tstat-label">24h H:</span> <span class="font-mono" id="tickerHigh">--</span></span>
+                    <span class="tstat"><span class="tstat-label">24h L:</span> <span class="font-mono" id="tickerLow">--</span></span>
+                    <span class="tstat"><span class="tstat-label">Vol:</span> <span class="font-mono" id="tickerVol">--</span></span>
+                  </div>
                 </div>
-                <div class="ticker-stats">
-                  <span class="tstat"><span class="tstat-label">24h H:</span> <span class="font-mono" id="tickerHigh">--</span></span>
-                  <span class="tstat"><span class="tstat-label">24h L:</span> <span class="font-mono" id="tickerLow">--</span></span>
-                  <span class="tstat"><span class="tstat-label">Vol:</span> <span class="font-mono" id="tickerVol">--</span></span>
+                <div class="chart-canvas-wrap" id="chartStage">
+                  <canvas id="candleChartCanvas"></canvas>
+                  <canvas id="depthChartCanvas" class="hidden"></canvas>
                 </div>
-              </div>
-              <div class="chart-canvas-wrap" id="chartStage">
-                <canvas id="candleChartCanvas"></canvas>
-                <canvas id="depthChartCanvas" class="hidden"></canvas>
               </div>
             </section>
 
@@ -482,7 +507,7 @@
                   <button class="tab-btn" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> History <span class="count-badge font-mono" id="tradeCount">0</span></button>
                 </div>
                 <!-- Interactive Table Filter & Sorting Controls -->
-                <div class="table-filter-toolbar">
+                <div class="table-filter-toolbar" style="display:flex; align-items:center; gap:6px;">
                   <div class="table-search-box">
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
                     <input type="text" id="tableFilterInput" placeholder="Filter symbol, setup, reason..." autocomplete="off" />
@@ -505,62 +530,65 @@
                       <option value="exit_reason_asc">Exit Reason (A → Z)</option>
                     </select>
                   </div>
+                  <button type="button" class="card-collapse-btn" data-target="positionsSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
                 </div>
               </div>
-              <div class="table-wrap tab-panel active" data-panel="positions">
-                <table class="data-table" id="positionsTable">
-                  <thead>
-                    <tr>
-                      <th data-sort="symbol" class="sortable-header col-sticky-symbol" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="size" class="sortable-header" title="Click to sort">Size <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="notional" class="sortable-header col-hide-mobile" title="Click to sort">Size (USD) <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="mark" class="sortable-header" title="Click to sort">Mark <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="stopLoss" class="sortable-header" title="Click to sort">Stop Loss <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="liqPrice" class="sortable-header col-hide-mobile" title="Click to sort">Liq Price <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="unrealisedPnl" class="sortable-header" title="Click to sort">Unrealized PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="roi" class="sortable-header col-hide-mobile" title="Click to sort">ROI % <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="r" class="sortable-header" title="Profit or loss in units of risk">R <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th class="col-hide-mobile">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="positionsTbody">
-                    <tr><td colspan="12" class="empty-msg">No active positions</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="table-wrap tab-panel" data-panel="history">
-                <table class="data-table" id="historyTable">
-                  <thead>
-                    <tr>
-                      <th data-sort="id" class="sortable-header" title="Click to sort A-Z">ID <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="time" class="sortable-header sort-active" title="Click to sort">Time <i class="fa-solid fa-sort-down sort-indicator"></i></th>
-                      <th data-sort="symbol" class="sortable-header" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="exit" class="sortable-header" title="Click to sort">Exit <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="pnl" class="sortable-header" title="Click to sort">PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="r" class="sortable-header" title="Result in units of the risk taken">R <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="setup" class="sortable-header" title="Click to sort A-Z">Setup <i class="fa-solid fa-sort sort-indicator"></i></th>
-                      <th data-sort="exit_reason" class="sortable-header" title="Click to sort A-Z">Exit reason <i class="fa-solid fa-sort sort-indicator"></i></th>
-                    </tr>
-                  </thead>
-                  <tbody id="historyTbody">
-                    <!-- Rendered dynamically -->
-                  </tbody>
-                </table>
-                <!-- History Table Pagination Bar (50 Trades / Page) -->
-                <div class="table-pagination-bar" id="historyPaginationBar" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card-2, #FAFAFC); border-top: 1px solid var(--border); font-size: 11.5px; flex-wrap: wrap; gap: 8px;">
-                  <span id="historyPageInfo" style="color: var(--text-dim); font-weight: 600;">Showing 1–50 of 200 trades</span>
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <button type="button" id="prevHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;" disabled>
-                      <i class="fa-solid fa-chevron-left"></i> Prev
-                    </button>
-                    <span id="historyPageNumBadge" style="padding: 4px 10px; font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); background: #FFFFFF; border: 1px solid var(--border); border-radius: 4px;">Page 1 / 4</span>
-                    <button type="button" id="nextHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;">
-                      Next <i class="fa-solid fa-chevron-right"></i>
-                    </button>
+              <div class="card-collapsible-body">
+                <div class="table-wrap tab-panel active" data-panel="positions">
+                  <table class="data-table" id="positionsTable">
+                    <thead>
+                      <tr>
+                        <th data-sort="symbol" class="sortable-header col-sticky-symbol" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="size" class="sortable-header" title="Click to sort">Size <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="notional" class="sortable-header col-hide-mobile" title="Click to sort">Size (USD) <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="mark" class="sortable-header" title="Click to sort">Mark <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="stopLoss" class="sortable-header" title="Click to sort">Stop Loss <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="liqPrice" class="sortable-header col-hide-mobile" title="Click to sort">Liq Price <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="unrealisedPnl" class="sortable-header" title="Click to sort">Unrealized PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="roi" class="sortable-header col-hide-mobile" title="Click to sort">ROI % <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="r" class="sortable-header" title="Profit or loss in units of risk">R <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th class="col-hide-mobile">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="positionsTbody">
+                      <tr><td colspan="12" class="empty-msg">No active positions</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="table-wrap tab-panel" data-panel="history">
+                  <table class="data-table" id="historyTable">
+                    <thead>
+                      <tr>
+                        <th data-sort="id" class="sortable-header" title="Click to sort A-Z">ID <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="time" class="sortable-header sort-active" title="Click to sort">Time <i class="fa-solid fa-sort-down sort-indicator"></i></th>
+                        <th data-sort="symbol" class="sortable-header" title="Click to sort A-Z">Symbol <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="side" class="sortable-header" title="Click to sort A-Z">Side <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="entry" class="sortable-header" title="Click to sort">Entry <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="exit" class="sortable-header" title="Click to sort">Exit <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="pnl" class="sortable-header" title="Click to sort">PnL <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="r" class="sortable-header" title="Result in units of the risk taken">R <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="setup" class="sortable-header" title="Click to sort A-Z">Setup <i class="fa-solid fa-sort sort-indicator"></i></th>
+                        <th data-sort="exit_reason" class="sortable-header" title="Click to sort A-Z">Exit reason <i class="fa-solid fa-sort sort-indicator"></i></th>
+                      </tr>
+                    </thead>
+                    <tbody id="historyTbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                  <!-- History Table Pagination Bar (50 Trades / Page) -->
+                  <div class="table-pagination-bar" id="historyPaginationBar" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card-2, #FAFAFC); border-top: 1px solid var(--border); font-size: 11.5px; flex-wrap: wrap; gap: 8px;">
+                    <span id="historyPageInfo" style="color: var(--text-dim); font-weight: 600;">Showing 1–50 of 200 trades</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <button type="button" id="prevHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;" disabled>
+                        <i class="fa-solid fa-chevron-left"></i> Prev
+                      </button>
+                      <span id="historyPageNumBadge" style="padding: 4px 10px; font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); background: #FFFFFF; border: 1px solid var(--border); border-radius: 4px;">Page 1 / 4</span>
+                      <button type="button" id="nextHistoryPageBtn" class="int-btn" style="padding: 4px 12px; font-size: 11px; cursor: pointer;">
+                        Next <i class="fa-solid fa-chevron-right"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

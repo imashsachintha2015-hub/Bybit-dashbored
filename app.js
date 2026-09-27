@@ -4538,11 +4538,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (activeFilter === 'WAITING_FOR_VALUE_ZONE') {
         filtered = candidates.filter(c => c.state === 'WAITING_FOR_VALUE_ZONE');
       } else if (activeFilter === 'ACTIVE_SIMULATED') {
-        filtered = candidates.filter(c => c.state === 'ACTIVE_SIMULATED' || c.state === 'ACTIVE_HARVESTED');
+        filtered = candidates.filter(c => c.state === 'ACTIVE_SIMULATED' || c.state === 'ACTIVE_HARVESTED' || c.outcome_status === 'ACTIVE');
       } else if (activeFilter === 'ACTIVE_HARVESTED') {
-        filtered = candidates.filter(c => c.state === 'ACTIVE_HARVESTED');
+        filtered = candidates.filter(c => c.state === 'ACTIVE_HARVESTED' || c.state === 'CLOSED_HARVESTED_WIN' || c.partial_harvest_filled === 1);
       } else if (activeFilter === 'REVERSED') {
-        filtered = candidates.filter(c => c.reversal_triggered === 1 || c.state === 'REVERSED');
+        filtered = candidates.filter(c => c.reversal_triggered === 1 || c.state === 'REVERSED' || c.state === 'REVERSED_ACTIVE' || c.outcome_is_reversal === 1);
       } else if (activeFilter === 'VETOED') {
         filtered = candidates.filter(c => c.state && (c.state.startsWith('VETOED') || c.state.startsWith('REJECTED')));
       }
@@ -4562,8 +4562,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const dirClass = isLong ? 'long' : 'short';
         
         let stateClass = 'waiting';
-        if (c.state === 'ACTIVE_SIMULATED') stateClass = 'active';
-        else if (c.state === 'ACTIVE_HARVESTED') stateClass = 'harvested';
+        if (c.reversal_triggered === 1 || c.state === 'REVERSED_ACTIVE' || c.outcome_is_reversal === 1) stateClass = 'reversed';
+        else if (c.state === 'ACTIVE_HARVESTED' || c.state === 'CLOSED_HARVESTED_WIN' || c.partial_harvest_filled === 1) stateClass = 'harvested';
+        else if (c.state === 'ACTIVE_SIMULATED' || c.outcome_status === 'ACTIVE') stateClass = 'active';
         else if (c.state && (c.state.startsWith('VETOED') || c.state.startsWith('REJECTED'))) stateClass = 'vetoed';
 
         const mktPass = c.market_state_verdict === 'PASS';

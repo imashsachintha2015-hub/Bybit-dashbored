@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+        #!/usr/bin/env python3
 """
 CME-X4 REAL-TIME LIVE FORWARD TREND FORECASTER
 Generates strictly forward-looking forecasts for live Bybit perpetual assets
