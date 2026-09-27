@@ -1343,6 +1343,33 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
+        # 8. API: CME-X5 Engine live snapshot
+        if self.path == "/api/cme_x5/snapshot":
+            snapshot_file = os.path.join(DIRECTORY, "scratch", "cme_x5_live.json")
+            if os.path.exists(snapshot_file):
+                try:
+                    with open(snapshot_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self._send_json(200, data)
+                    return
+                except Exception:
+                    pass
+            self._send_json(200, {
+                "engine": "CME-X5",
+                "version": "5.0",
+                "updated_at": time.time(),
+                "cycle": 0,
+                "trade_count": 0,
+                "daily_r": 0.0,
+                "open_count": 0,
+                "positions": {}
+            })
+            return
+
+        # Rewrite advanced chart paths to advanced-chart.html
+        if self.path in ("/advanced-chart", "/chart", "/advanced-chart/"):
+            self.path = "/advanced-chart.html"
+
         # Default: Serve static files
         super().do_GET()
 

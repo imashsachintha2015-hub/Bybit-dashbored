@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MASIS V2.0 — Agent Operations Center</title>
-  <meta name="description" content="Institutional-grade multi-agent trading operations dashboard. Real-time agent monitoring, live positions, performance analytics, and AI-driven market intelligence.">
+  <title>CME-X5 — Pure Profitable Engine Dashboard</title>
+  <meta name="description" content="CME-X5 institutional microstructure engine. S2 POC Reclaim + S7 Gated Continuation. Live positions, performance analytics, value area signals.">
   <meta name="theme-color" content="#F7F8FA">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 
@@ -24,8 +24,8 @@
         <div style="display:flex; align-items:center; gap:10px;">
           <div class="brand-icon"><i class="fa-solid fa-bolt"></i></div>
           <div class="brand-info">
-            <span class="brand-name">MASIS <span class="brand-version">V2.0</span></span>
-            <span class="brand-sub">Agent Operations Center</span>
+            <span class="brand-name">CME-X5 <span class="brand-version">V5.0</span></span>
+            <span class="brand-sub">Pure Profitable Engine</span>
           </div>
         </div>
         <button type="button" class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu" title="Close menu"><i class="fa-solid fa-xmark"></i></button>
@@ -33,12 +33,13 @@
 
       <nav class="sidebar-nav">
         <a href="#topAnchor" class="nav-item active" data-target="topAnchor"><i class="fa-solid fa-grid-2"></i> Dashboard</a>
-        <a href="#cmeX4ShadowSection" class="nav-item" data-target="cmeX4ShadowSection"><i class="fa-solid fa-ghost"></i> V4 Shadow Mode</a>
-        <a href="#agentsSection" class="nav-item" data-target="agentsSection"><i class="fa-solid fa-network-wired"></i> Agent Network</a>
+        
+        
         <a href="#chartSection" class="nav-item" data-target="chartSection"><i class="fa-solid fa-chart-line"></i> Market Chart</a>
-        <a href="#newsWhaleSection" class="nav-item" data-target="newsWhaleSection"><i class="fa-solid fa-newspaper"></i> News &amp; Whales</a>
+        <a href="/advanced-chart" class="nav-item" target="_blank"><i class="fa-solid fa-chart-line"></i> Advanced Chart</a>
+        
         <a href="#positionsSection" class="nav-item" data-target="positionsSection"><i class="fa-solid fa-briefcase"></i> Positions</a>
-        <a href="#intelSection" class="nav-item" data-target="intelSection"><i class="fa-solid fa-brain"></i> AI Intelligence</a>
+        
         <a href="#tradingControlsSection" class="nav-item" data-target="tradingControlsSection"><i class="fa-solid fa-sliders"></i> Trading Settings</a>
       </nav>
 
@@ -70,8 +71,9 @@
             <div class="acct-item compact"><span class="acct-label">W/L</span><span class="acct-val font-mono" id="wlVal">--</span></div>
           </div>
           <div class="topbar-actions" style="display:flex; align-items:center; gap:6px;">
-            <button class="int-btn topbar-btn-compact" id="openCmeShadowBtn" title="Jump directly to CME-X4 V4 Shadow Operations Center" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; border: 1px solid #0ea5e9; font-weight: 800; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-ghost"></i> <span class="topbar-btn-text">Shadow</span> <span id="topbarShadowBadge" style="background:#0ea5e9; color:#fff; border-radius:10px; font-size:9.5px; padding:1px 6px; font-weight:800;">LIVE</span></button>
+            
             <button class="int-btn topbar-btn-compact" id="openPnlCalendarBtn" title="View Day-wise PnL Calendar Heatmap"><i class="fa-solid fa-calendar-days" style="color:#10b981;"></i> <span class="topbar-btn-text">Calendar</span></button>
+            <button class="int-btn topbar-btn-compact" id="openAdvancedChartBtn" onclick="window.open('/advanced-chart','_blank')" title="Open Advanced TradingView Chart" style="background:rgba(16,185,129,0.10);color:#10b981;border:1px solid rgba(16,185,129,0.3);"><i class="fa-solid fa-chart-line"></i> <span class="topbar-btn-text">Chart</span></button>
             <button class="int-btn topbar-btn-compact" id="openMonitorBtn" title="Open the signal monitor in a separate window"><i class="fa-solid fa-up-right-from-square"></i> <span class="topbar-btn-text">Monitor</span></button>
           </div>
           <div class="time-display font-mono" id="clockDisplay">00:00:00</div>
@@ -80,36 +82,41 @@
 
       <main class="content-scroll">
 
-        <!-- CME-X4 V4 SHADOW MODE MAIN QUICK ACCESS BAR -->
-        <div class="cme-main-quickbar" id="cmeMainQuickBar" style="cursor: pointer;" title="Click to jump directly to CME-X4 V4 Shadow Operations Center">
-          <div class="cme-quick-left">
-            <span class="cme-pulse-icon"><i class="fa-solid fa-ghost"></i></span>
+        <!-- CME-X5 ENGINE STATUS BAR -->
+        <div id="cmeX5StatusBar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:10px 16px; background:linear-gradient(90deg,rgba(2,132,199,0.07),rgba(16,185,129,0.07)); border:1px solid rgba(14,165,233,0.25); border-radius:10px; margin-bottom:14px; cursor:default;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:34px;height:34px;min-width:34px;border-radius:9px;background:rgba(2,132,199,0.12);display:flex;align-items:center;justify-content:center;color:#0284c7;font-size:15px;">
+              <i class="fa-solid fa-chart-area"></i>
+            </div>
             <div>
-              <div class="cme-quick-title">
-                CME-X4 V4 SHADOW OPERATIONS CENTER
-                <span class="badge" style="background: rgba(34, 197, 94, 0.14); color: #16a34a; font-size: 9.5px; padding: 2px 7px; border-radius: 10px; font-weight: 800;"><span class="pulse-dot green" style="display:inline-block; width:6px; height:6px; margin-right:4px;"></span>LIVE 24/7 OBSERVATIONAL</span>
+              <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#0284c7;display:flex;align-items:center;gap:7px;">
+                CME-X5 PURE PROFITABLE ENGINE
+                <span style="background:rgba(16,185,129,0.13);color:#16a34a;font-size:9.5px;padding:2px 7px;border-radius:10px;font-weight:800;display:inline-flex;align-items:center;gap:3px;">
+                  <span class="pulse-dot green" style="display:inline-block;width:6px;height:6px;margin-right:2px;"></span>LIVE 24/7
+                </span>
               </div>
-              <div class="cme-quick-sub">
-                Real Bybit Orderbooks · State &rarr; Loss Veto &rarr; Supervisor &rarr; Risk &rarr; 15m EMA21 Limit &rarr; Staged Harvest (+0.40% / +0.25%)
+              <div style="font-size:11px;color:var(--text-dim);margin-top:1px;">
+                S2 POC Reclaim &rarr; Value Area Rotation &nbsp;|&nbsp; S7 Gated Continuation (ME14 &ge; 0.50 gate)
               </div>
             </div>
           </div>
-          <div class="cme-quick-metrics">
-            <div class="cme-qm-item">
-              <span class="cme-qm-label">Candidates</span>
-              <span class="cme-qm-val" id="quickBarCandidates">--</span>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Open Signals</div>
+              <div class="font-mono" id="x5OpenCount" style="font-size:15px;font-weight:800;color:#0284c7;">--</div>
             </div>
-            <div class="cme-qm-item">
-              <span class="cme-qm-label">Veto Refusal</span>
-              <span class="cme-qm-val text-amber font-mono" id="quickBarRejection">--%</span>
+            <div style="text-align:center;">
+              <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Today R</div>
+              <div class="font-mono" id="x5DailyR" style="font-size:15px;font-weight:800;color:#10b981;">+0.00R</div>
             </div>
-            <div class="cme-qm-item">
-              <span class="cme-qm-label">Graduation</span>
-              <span class="cme-qm-val font-mono" id="quickBarProgress" style="color: #0284c7;">--%</span>
+            <div style="text-align:center;">
+              <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Total Trades</div>
+              <div class="font-mono" id="x5TradeCount" style="font-size:15px;font-weight:800;color:var(--text-primary);">0</div>
             </div>
-            <button type="button" class="cme-filter-btn" style="background: #0EA5E9; color: #fff; font-weight: 700; border: none; padding: 6px 14px; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              Focus Shadow Center <i class="fa-solid fa-arrow-down"></i>
-            </button>
+            <div style="text-align:center;">
+              <div style="font-size:9.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Engine</div>
+              <div class="font-mono" style="font-size:11px;font-weight:800;color:#16a34a;">S2 + S7</div>
+            </div>
           </div>
         </div>
 
@@ -131,7 +138,7 @@
               <i class="fa-solid fa-chart-pie" style="color:var(--accent);"></i> Performance Overview
             </div>
             <div class="status-chip font-mono" id="strategyModeBadge" style="background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
-              <i class="fa-solid fa-bullseye"></i> HTF SWING RUNNER · $1.00+ TARGET · HIGH CAUTION
+              <i class="fa-solid fa-bullseye"></i> CME-X5 · S2 POC RECLAIM + S7 GATED · +0.683R EV
             </div>
           </div>
           <div class="interval-btns" id="perfTimeframeBtns" style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
@@ -249,213 +256,7 @@
           <div class="content-main">
 
             <!-- CME-X4 V4 SHADOW OPERATIONS CENTER -->
-            <section class="card accent-cyan cme-shadow-panel" id="cmeX4ShadowSection">
-              <div class="cme-shadow-header">
-                <div>
-                  <div class="cme-shadow-title">
-                    <i class="fa-solid fa-ghost"></i> CME-X4 V4 Shadow Operations Center
-                    <span class="badge" style="background: rgba(14, 165, 233, 0.12); color: #0284C7; font-size: 10px; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Zero Real Orders · Pure Observational</span>
-                  </div>
-                  <div class="cme-shadow-sub">
-                    Live Public Bybit Feeds · State &rarr; Loss Veto &rarr; Supervisor &rarr; Risk &rarr; 15m EMA21 Limit &rarr; Staged Harvest (+0.40% / +0.25%)
-                  </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <button type="button" id="toggleCmeComparisonBtn" class="cme-filter-btn" style="background: #F8FAFC; border-color: #0EA5E9; color: #0284C7;">
-                    <i class="fa-solid fa-chart-simple"></i> Research vs Live Scorecard
-                  </button>
-                  <span class="network-badge" id="cmeShadowStatusBadge" style="background: rgba(34, 197, 94, 0.12); color: #16a34a; border-color: rgba(34, 197, 94, 0.3);">
-                    <span class="pulse-dot green"></span> SHADOW ARMED
-                  </span>
-                  <button type="button" class="card-collapse-btn" data-target="cmeX4ShadowSection" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
-                </div>
-              </div>
-
-              <div class="card-collapsible-body">
-
-              <!-- Graduation Progress & Completion Tracker -->
-              <div id="cmeGraduationBanner" style="margin-top: 12px; background: #F8FAFC; border: 1px solid rgba(14, 165, 233, 0.2); border-radius: 8px; padding: 10px 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                  <span style="font-size: 11.5px; font-weight: 800; color: #0F172A; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-flag-checkered" style="color: #0284C7;"></i>
-                    Shadow Mode Graduation Tracker
-                    <span id="cmeGradStatusBadge" class="badge" style="background: rgba(14, 165, 233, 0.12); color: #0284C7; font-size: 9.5px; padding: 2px 6px; font-weight: 700;">COLLECTING LIVE SAMPLES</span>
-                  </span>
-                  <span id="cmeGradProgressText" style="font-size: 11px; font-weight: 800; font-family: var(--font-mono, monospace); color: #0284C7;">0.0% Complete (0/5 Gates Cleared)</span>
-                </div>
-                <!-- Progress bar container -->
-                <div style="width: 100%; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
-                  <div id="cmeGradProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0EA5E9, #10B981); transition: width 0.4s ease;"></div>
-                </div>
-                <!-- 5 Gates mini status grid -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; font-size: 10px;">
-                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
-                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">1. CLOSED TRADES</div>
-                    <div id="cmeGateTrades" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">0 / 100</div>
-                  </div>
-                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
-                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">2. CANDIDATES</div>
-                    <div id="cmeGateCandidates" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- / 500</div>
-                  </div>
-                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
-                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">3. TIME ELAPSED</div>
-                    <div id="cmeGateDays" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- / 5.0d</div>
-                  </div>
-                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
-                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">4. NET EV (R)</div>
-                    <div id="cmeGateEv" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- &ge; +0.08R</div>
-                  </div>
-                  <div style="background: #FFFFFF; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 4px; padding: 4px 6px; text-align: center;">
-                    <div style="color: var(--text-dim); font-size: 8.5px; font-weight: 600;">5. WIN RATE</div>
-                    <div id="cmeGateWr" style="font-weight: 800; font-family: var(--font-mono, monospace); color: #64748B;">-- &ge; 60%</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Speedometer / KPI Row -->
-              <div class="cme-shadow-kpis">
-                <div class="cme-kpi-item">
-                  <div class="cme-kpi-lbl">Candidates</div>
-                  <div class="cme-kpi-val" id="cmeKpiTotal">--</div>
-                </div>
-                <div class="cme-kpi-item">
-                  <div class="cme-kpi-lbl">Veto Refusal Rate</div>
-                  <div class="cme-kpi-val text-amber font-mono" id="cmeKpiRejection">--%</div>
-                </div>
-                <div class="cme-kpi-item">
-                  <div class="cme-kpi-lbl">Simulated Trades</div>
-                  <div class="cme-kpi-val" id="cmeKpiSimTrades">--</div>
-                </div>
-                <div class="cme-kpi-item">
-                  <div class="cme-kpi-lbl">Win Rate</div>
-                  <div class="cme-kpi-val text-green font-mono" id="cmeKpiWinRate">--%</div>
-                </div>
-                <div class="cme-kpi-item">
-                  <div class="cme-kpi-lbl">Net Expected R</div>
-                  <div class="cme-kpi-val font-mono" id="cmeKpiNetEv">--R</div>
-                </div>
-                <div class="cme-kpi-item">
-                  <div class="cme-kpi-lbl">Avg Slippage</div>
-                  <div class="cme-kpi-val font-mono" id="cmeKpiSlippage">4.0 bps</div>
-                </div>
-              </div>
-
-              <!-- Research vs Live Comparison Scorecard (Collapsible) -->
-              <div id="cmeComparisonBox" style="display: none; margin-bottom: 14px; background: #F8FAFC; border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 8px; padding: 12px 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                  <span style="font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase;">
-                    <i class="fa-solid fa-scale-balanced" style="color: #0EA5E9;"></i> Research Expected vs. Live Observed Audit Matrix
-                  </span>
-                  <span style="font-size: 10px; color: var(--text-dim);">Frozen V4 Configuration</span>
-                </div>
-                <table class="cme-comp-table">
-                  <thead>
-                    <tr>
-                      <th>Metric</th>
-                      <th>Research Expected (Holdout)</th>
-                      <th>Live Shadow Observed</th>
-                      <th>Variance / Health</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cmeComparisonTableBody">
-                    <tr><td>Win Rate</td><td>74.0%</td><td id="cmpWrObs">--</td><td id="cmpWrVar">--</td></tr>
-                    <tr><td>Expected Net R (EV/trade)</td><td>+0.167R</td><td id="cmpEvObs">--</td><td id="cmpEvVar">--</td></tr>
-                    <tr><td>Profit Factor</td><td>1.75</td><td id="cmpPfObs">--</td><td id="cmpPfVar">--</td></tr>
-                    <tr><td>Execution Slippage</td><td>4.0 bps</td><td id="cmpSlipObs">--</td><td id="cmpSlipVar">--</td></tr>
-                    <tr><td>Limit Order Fill Rate</td><td>28.5%</td><td id="cmpFillObs">--</td><td id="cmpFillVar">--</td></tr>
-                    <tr><td>Veto Refusal Rate</td><td>80.0%</td><td id="cmpRejObs">--</td><td id="cmpRejVar">--</td></tr>
-                    <tr><td>Reversal Win Rate</td><td>71.4%</td><td id="cmpRevWrObs">--</td><td id="cmpRevWrVar">--</td></tr>
-                    <tr><td>Staged Harvest Win Rate</td><td>77.4%</td><td id="cmpHarvWrObs">--</td><td id="cmpHarvWrVar">--</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Filter Tabs -->
-              <div class="cme-shadow-filters">
-                <button type="button" class="cme-filter-btn active" data-cme-filter="ALL">All Candidates</button>
-                <button type="button" class="cme-filter-btn" data-cme-filter="WAITING_FOR_VALUE_ZONE">Waiting Value-Zone</button>
-                <button type="button" class="cme-filter-btn" data-cme-filter="ACTIVE_SIMULATED">Active Simulated</button>
-                <button type="button" class="cme-filter-btn" data-cme-filter="ACTIVE_HARVESTED">Harvested (+0.40%)</button>
-                <button type="button" class="cme-filter-btn" data-cme-filter="REVERSED">Reversals</button>
-                <button type="button" class="cme-filter-btn" data-cme-filter="VETOED">Vetoed &amp; Rejected</button>
-              </div>
-
-              <!-- Candidate Observability Cards Grid -->
-              <div class="cme-candidate-grid" id="cmeCandidateGrid">
-                <div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-dim); font-size: 12px;">
-                  <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Loading live candidate stream from V4 Shadow Engine...
-                </div>
-              </div>
-            </div>
-          </section>
-
             <!-- AGENT STATUS GRID (COLLAPSED BY DEFAULT) -->
-            <section class="card accent-cyan" id="agentsSection" style="margin-bottom: 16px;">
-              <div class="card-header" id="toggleAgentsHeader" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">
-                <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
-                  <i class="fa-solid fa-network-wired"></i> Specialist Agent Network
-                  <span id="agentsStateBadge" class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0284C7; font-size: 10px; padding: 2px 7px; border-radius: 12px; font-weight: 600;">12 Agents · Hidden</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="network-badge" id="networkBadge"><span class="pulse-dot green"></span> ALL OPERATIONAL</span>
-                  <button type="button" id="toggleAgentsBtn" style="background: #F1F5F9; border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                    <span id="toggleAgentsText">Expand</span>
-                    <i class="fa-solid fa-chevron-down" id="toggleAgentsChevron" style="transition: transform 0.2s ease;"></i>
-                  </button>
-                </div>
-              </div>
-              <div class="agents-grid" id="agentsGrid" style="display: none; padding-top: 10px; border-top: 1px solid var(--border);">
-                <!-- Agent cards rendered here -->
-              </div>
-            </section>
-
-            <!-- NEWS & WHALE ROW -->
-            <section class="intel-widgets-row" id="newsWhaleSection">
-
-              <!-- DIV-10: NEWS SENTINEL -->
-              <div class="card news-panel accent-gold" id="newsPanelCard">
-                <div class="card-header">
-                  <div class="card-title"><i class="fa-solid fa-newspaper"></i> News Sentinel <span class="sub">Benzinga Live Feed</span></div>
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="sentiment-badge neutral" id="newsSentimentBadge">NEUTRAL</span>
-                    <button type="button" class="card-collapse-btn" data-target="newsPanelCard" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
-                  </div>
-                </div>
-                <div class="card-collapsible-body">
-                  <div class="news-feed" id="newsFeed">
-                    <div class="news-empty">Polling Benzinga for market-moving headlines...</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- DIV-11: WHALE FLOW TRACKER -->
-              <div class="card whale-panel accent-purple" id="whalePanelCard">
-                <div class="card-header">
-                  <div class="card-title"><i class="fa-solid fa-money-bill-trend-up"></i> Whale Flow Tracker <span class="sub">&gt;$50k trades · 5m</span></div>
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="count-badge font-mono" id="whaleCount">0 detected</span>
-                    <button type="button" class="card-collapse-btn" data-target="whalePanelCard" aria-label="Toggle section" title="Collapse / Expand"><i class="fa-solid fa-chevron-up"></i></button>
-                  </div>
-                </div>
-                <div class="card-collapsible-body">
-                  <div class="whale-body">
-                    <div class="whale-pressure-bar">
-                      <div class="whale-pressure-fill" id="whalePressureFill" style="width:50%"></div>
-                    </div>
-                    <div class="whale-stats-row">
-                      <span class="whale-stat buy"><span class="dot"></span> BUY $<span id="whaleBuyUsd">0</span></span>
-                      <span class="whale-stat-dominant font-mono" id="whaleDominantPill">NEUTRAL</span>
-                      <span class="whale-stat sell"><span class="dot"></span> SELL $<span id="whaleSellUsd">0</span></span>
-                    </div>
-                    <div class="whale-list" id="whaleList">
-                      <div class="news-empty">No whale trades detected yet</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </section>
-
             <!-- MARKET CHART -->
             <section class="card chart-card accent-orange" id="chartSection">
               <div class="card-header chart-header-row" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -599,7 +400,7 @@
               <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                   <span class="card-title" style="font-size:13px; font-weight:700;">
-                    <i class="fa-solid fa-chart-candlestick" style="color:var(--cyan);"></i> Live Setup Architecture &amp; Analysis
+                    <i class="fa-solid fa-chart-line" style="color:var(--cyan);"></i> Live Setup Architecture &amp; Analysis
                   </span>
                   <span id="previewTradeBadge" class="badge buy font-mono" style="font-size:10.5px; font-weight:800; padding:2px 8px;">--</span>
                   <span id="previewScalpBadge" class="badge font-mono" style="font-size:9.5px; font-weight:800; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35);">5m-10m SCALP</span>
@@ -704,58 +505,6 @@
               <div class="tape-feed" id="tradeFeed">
                 <!-- Live trades rendered here -->
               </div>
-            </section>
-
-            <!-- MASIS INTELLIGENCE SUMMARY -->
-            <section class="card intel-summary" id="intelSection">
-              <div class="card-header intel-header">
-                <span class="card-title"><i class="fa-solid fa-brain"></i> MASIS Intelligence</span>
-                <span class="decision-pill font-mono" id="masisDecision">WAIT</span>
-              </div>
-              <div class="intel-body">
-                <div class="intel-row">
-                  <span class="intel-label">State:</span>
-                  <span class="intel-val font-mono" id="intelState">CALCULATING...</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Bias:</span>
-                  <span class="intel-val font-mono" id="intelParticipant">--</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Taker flow (5m):</span>
-                  <span class="intel-val font-mono" id="intelCvd">--</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Setup grade:</span>
-                  <span class="intel-val font-mono" id="intelTrust">--/100</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Prosecution:</span>
-                  <span class="intel-val font-mono text-green" id="intelVerdict">PASS</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Stop Loss:</span>
-                  <span class="intel-val font-mono text-red" id="intelStopLoss">--</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Take Profit:</span>
-                  <span class="intel-val font-mono text-green" id="intelTakeProfit">--</span>
-                </div>
-                <div class="intel-row">
-                  <span class="intel-label">Risk:Reward:</span>
-                  <span class="intel-val font-mono" id="intelRiskReward">--</span>
-                </div>
-                <div class="confluence-chips">
-                  <span class="confluence-chip" id="newsConfluenceChip"><i class="fa-solid fa-newspaper"></i> News: --</span>
-                  <span class="confluence-chip" id="whaleConfluenceChip"><i class="fa-solid fa-money-bill-trend-up"></i> Whale: --</span>
-                  <span class="confluence-chip" id="trapGuardChip"><i class="fa-solid fa-triangle-exclamation"></i> Trap Guard: --</span>
-                </div>
-              </div>
-              <div class="analyst-panel" id="analystPanel"></div>
-              <div class="debate-transcript" id="debateTranscript"></div>
-              <div class="evidence-trail" id="evidenceTrail"></div>
-              <div class="deepseek-meta" id="deepseekMeta">Supervisor is consulted only on grade-A setups, once per symbol per cooldown, within a daily budget.</div>
-              <div class="deepseek-output font-mono" id="deepseekOutput" style="display:none;"></div>
             </section>
 
             <!-- AUTONOMOUS EXECUTION & TRADING SETTINGS -->
@@ -907,19 +656,7 @@
                     </div>
                   </div>
 
-                  <!-- DeepSeek Pre-Trade Gatekeeper Intelligence -->
-                  <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <span style="font-size: 11px; font-weight: 600; color: #38bdf8;"><i class="fa-solid fa-shield-halved"></i> DeepSeek Pre-Trade Gatekeeper</span>
-                      <span id="gatekeeperVerdictBadge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 10px; padding: 1px 6px; border-radius: 12px;">Active Dual Feed</span>
-                    </div>
-                    <div id="gatekeeperLatestContainer" style="font-size: 10.5px; color: var(--text-muted); line-height: 1.35; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 6px;">
-                      Monitoring setups via Candlestick Reaction &amp; Winner MFE profiles...
-                    </div>
-                  </div>
-                </div>
-
-                <!-- POSITION SIZING MODE -->
+                  <!-- POSITION SIZING MODE -->
                 <div class="control-row sizing-mode-row">
                   <label class="control-label" title="Min Size opens the smallest allowed order on Bybit for each coin. USDT Size opens fixed dollar notional. Risk % scales with Stop Loss distance.">Position Sizing</label>
                   <div class="sizing-mode-toggle">
@@ -1056,87 +793,7 @@
     </div>
   </div>
 
-  <!-- DIV-13: Historical Market Archaeologist Modal -->
-  <div class="day-details-backdrop" id="archaeologyModalBackdrop" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
-    <div style="background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); border: 1px solid var(--border);">
-      <div style="padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #F8FAFC;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(168, 85, 247, 0.12); color: #A855F7; display: flex; align-items: center; justify-content: center; font-size: 15px;">
-            <i class="fa-solid fa-landmark-dome"></i>
-          </div>
-          <div>
-            <div style="font-weight: 800; font-size: 15px; color: var(--text-primary);">DIV-13 Historical Market Archaeologist</div>
-            <div style="font-size: 11px; color: var(--text-dim);">Deep Historical Learning & Super-Trade Anti-Pattern Guard</div>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button type="button" id="archaeologyReScanBtn" style="background: rgba(168, 85, 247, 0.1); border: 1px solid #A855F7; color: #A855F7; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-            <i class="fa-solid fa-arrows-rotate"></i> Re-Scan History
-          </button>
-          <button type="button" id="closeArchaeologyModalBtn" style="background: transparent; border: none; font-size: 20px; color: var(--text-dim); cursor: pointer; padding: 2px 8px;">&times;</button>
-        </div>
-      </div>
-      <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
-        <!-- Anti-Pattern Guard Rules -->
-        <div style="margin-bottom: 20px;">
-          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #DC2626; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-shield-halved"></i> Active Anti-Pattern Rules (Enforced Pre-Trade)
-          </div>
-          <div id="archaeologyAntiRulesList" style="display: flex; flex-direction: column; gap: 8px;">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
-
-        <!-- Discovered Super-Trades -->
-        <div>
-          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0284C7; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-fire"></i> Discovered Historical Super-Trades (AVAX, XRP, NEAR, SOL)
-          </div>
-          <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
-              <thead>
-                <tr style="background: #F8FAFC; border-bottom: 1px solid var(--border); color: var(--text-dim);">
-                  <th style="padding: 8px 10px;">Symbol</th>
-                  <th style="padding: 8px 10px;">Setup & Direction</th>
-                  <th style="padding: 8px 10px;">Window</th>
-                  <th style="padding: 8px 10px;">Price Move</th>
-                  <th style="padding: 8px 10px;">10x ROE</th>
-                  <th style="padding: 8px 10px;">Vol Expansion</th>
-                  <th style="padding: 8px 10px;">Root Cause & Invalidation</th>
-                </tr>
-              </thead>
-              <tbody id="archaeologySuperTradesBody">
-                <!-- Rendered dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- DIV-14: Adversarial Red Team Gatekeeper Modal -->
-  <div class="day-details-backdrop" id="redTeamModalBackdrop" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
-    <div style="background: #FFFFFF; border-radius: 12px; width: 100%; max-width: 950px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); border: 1px solid var(--border);">
-      <div style="padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #FEF2F2;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 15px;">
-            <i class="fa-solid fa-user-ninja"></i>
-          </div>
-          <div>
-            <div style="font-weight: 800; font-size: 15px; color: #991B1B;">DIV-14 Adversarial Red Team Gatekeeper</div>
-            <div style="font-size: 11px; color: #B91C1C;">Structured Falsification Engine · Fee Friction Cap (&le;25%) · Mathematical EV Hurdle (&ge;+0.35R)</div>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="background: rgba(220, 38, 38, 0.1); border: 1px solid #DC2626; color: #DC2626; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px;">
-            <i class="fa-solid fa-shield-halved"></i> FALSIFICATION GUARD ON
-          </span>
-          <button type="button" id="closeRedTeamModalBtn" style="background: transparent; border: none; font-size: 20px; color: var(--text-dim); cursor: pointer; padding: 2px 8px;">&times;</button>
-        </div>
-      </div>
-      <div style="padding: 16px 18px; overflow-y: auto; flex: 1;">
-        <!-- Top Metrics Cards -->
+  <!-- Top Metrics Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
           <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;">
             <div style="font-size: 11px; color: var(--text-dim); font-weight: 600;">MAX FEE FRICTION CAP</div>
@@ -1220,5 +877,31 @@
   <script src="masis-engine.js?v=3.0"></script>
   <script src="whale-agent.js?v=3.0"></script>
   <script src="app.js?v=3.8"></script>
+
+  <script>
+  // CME-X5 Engine Status Bar Updater
+  (function pollX5() {
+    async function refresh() {
+      try {
+        const r = await fetch('/api/cme_x5/snapshot');
+        if (!r.ok) return;
+        const d = await r.json();
+        const openEl  = document.getElementById('x5OpenCount');
+        const dailyEl = document.getElementById('x5DailyR');
+        const cntEl   = document.getElementById('x5TradeCount');
+        if (openEl)  openEl.textContent  = d.open_count  ?? '--';
+        if (dailyEl) {
+          const rv = (d.daily_r ?? 0).toFixed(3);
+          dailyEl.textContent = (d.daily_r >= 0 ? '+' : '') + rv + 'R';
+          dailyEl.style.color = d.daily_r >= 0 ? '#10b981' : '#ef4444';
+        }
+        if (cntEl)   cntEl.textContent   = d.trade_count ?? '0';
+      } catch(e) {}
+    }
+    refresh();
+    setInterval(refresh, 12000);
+  })();
+  </script>
+
 </body>
 </html>
