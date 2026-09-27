@@ -70,18 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'DIV-14', name: 'Adversarial Red Team', icon: 'fa-user-ninja', iconColor: '#EF4444', status: 'active', statusLabel: 'FALSIFYING', meta1: 'Fee Cap: <=25%', meta2: 'EV Hurdle: >=0.35R' }
   ];
 
-  const _dummyNode = new Proxy({}, {
+  const _dummyNode = new Proxy(function(){}, {
     get: (target, prop) => {
-      if (prop === 'style' || prop === 'classList' || prop === 'dataset') return new Proxy({}, { get: () => () => {}, set: () => true });
-      if (prop === 'addEventListener') return () => {};
-      return '';
+      if (prop === 'style' || prop === 'classList' || prop === 'dataset') {
+        return new Proxy({}, { get: () => () => {}, set: () => true });
+      }
+      if (prop === 'value') return '0';
+      if (prop === 'textContent' || prop === 'innerHTML' || prop === 'className') return '';
+      if (typeof prop === 'string' && (prop === 'querySelector' || prop === 'querySelectorAll' || prop.startsWith('get') || prop === 'addEventListener')) {
+        return () => null;
+      }
+      return () => null;
     },
     set: () => true
   });
   const $ = id => document.getElementById(id) || _dummyNode;
 
   function renderAgents() {
-    const grid = $('agentsGrid');
+    const grid = document.getElementById('agentsGrid');
     if (!grid) return;
     grid.innerHTML = AGENTS.map(a => `
       <div class="agent-card status-${a.status}" data-agent="${a.id}" style="${a.id === 'DIV-13' ? 'cursor: pointer; border: 1px solid rgba(168,85,247,0.35);' : (a.id === 'DIV-14' ? 'cursor: pointer; border: 1px solid rgba(239,68,68,0.45);' : '')}" title="${a.id === 'DIV-13' ? 'Click to inspect Super-Trades & Anti-Pattern Rules' : (a.id === 'DIV-14' ? 'Click to inspect Adversarial Red Team Veto Journal' : '')}">
