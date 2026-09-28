@@ -233,9 +233,13 @@ class BybitDemoClient:
         body = {"category": category, "symbol": symbol, "orderId": order_id}
         return self.signed_request("POST", "/v5/order/cancel", body=body)
 
-    def close_position(self, category, symbol, side, qty):
+    def close_position(self, category, symbol, side, qty, is_opposing_order=False):
         # To close a position, place an opposing reduceOnly market order
-        close_side = "Sell" if side.lower() == "buy" else "Buy"
+        s = str(side).strip().lower()
+        if is_opposing_order:
+            close_side = "Buy" if s in ("buy",) else "Sell"
+        else:
+            close_side = "Sell" if s in ("buy", "long") else "Buy"
         body = {
             "category": category,
             "symbol": symbol,

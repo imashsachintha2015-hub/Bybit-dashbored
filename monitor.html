@@ -737,6 +737,10 @@ function resolveApiUrl(url) {
   if (window.location.protocol === 'file:' || (isLocalDev && window.location.port !== '8080')) {
     return 'http://localhost:8080' + cleanUrl;
   }
+  // Bypass Vercel edge proxy entirely — call Railway origin directly to avoid CDN usage charges
+  if (window.location.hostname.endsWith('vercel.app')) {
+    return 'https://masis-runner-production.up.railway.app' + cleanUrl;
+  }
   return cleanUrl;
 }
 
@@ -1655,11 +1659,16 @@ window.addEventListener('resize', () => {
   renderAllSetups();
 });
 
-// Auto Poll every 8s
+// Auto Poll every 20s (extended from 8s to reduce Vercel CDN/compute usage)
 loadData();
 setInterval(() => {
   if (!document.hidden) loadData();
-}, 8000);
+}, 20000);
+
+// Refresh immediately when user returns to this tab
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) loadData();
+});
 </script>
 </body>
 </html>

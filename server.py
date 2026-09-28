@@ -238,9 +238,13 @@ class BybitDemoClient:
         }
         return self.signed_request("POST", "/v5/position/switch-isolated", body=body)
 
-    def close_position(self, category, symbol, side, qty):
+    def close_position(self, category, symbol, side, qty, is_opposing_order=False):
         # To close a position, place an opposing reduceOnly market order
-        close_side = "Sell" if side.lower() == "buy" else "Buy"
+        s = str(side).strip().lower()
+        if is_opposing_order:
+            close_side = "Buy" if s in ("buy",) else "Sell"
+        else:
+            close_side = "Sell" if s in ("buy", "long") else "Buy"
         body = {
             "category": category,
             "symbol": symbol,
@@ -768,11 +772,296 @@ def _sanitize_for_json(obj):
     return str(obj)
 
 
+_closed_pnl_cache = {"timestamp": 0, "trades": []}
+
+def compute_performance_summary():
+    global _closed_pnl_cache
+    now = time.time()
+    if not _closed_pnl_cache["trades"] or (now - _closed_pnl_cache["timestamp"] >= 15):
+        cursor = ''
+        all_trades = []
+        for _ in range(15):
+            params = {'category': 'linear', 'limit': '100'}
+            if cursor:
+                params['cursor'] = cursor
+            bybit_pnl = bybit_client.signed_request('GET', '/v5/position/closed-pnl', params)
+            r_res = bybit_pnl.get("result", {})
+            items = r_res.get("list", []) or []
+            if not items:
+                break
+            all_trades.extend(items)
+            cursor = r_res.get("nextPageCursor")
+            if not cursor:
+                break
+        if all_trades:
+            _closed_pnl_cache = {"timestamp": now, "trades": all_trades}
+
+    closed_list = _closed_pnl_cache.get("trades", [])
+
+    with trade_stats_lock:
+        local_history = list(trade_stats["trade_history"])
+        reset_anchor = trade_stats.get("reset_anchor_time", 0)
+
+    def annotate(row):
+        try:
+            ts = int(row.get("updatedTime") or row.get("createdTime") or 0)
+        except (TypeError, ValueError):
+            ts = 0
+        best = None
+        for loc in local_history:
+            if loc.get("symbol") != row.get("symbol"):
+                continue
+            if str(loc.get("side", "")).upper() != str(row.get("side", "")).upper():
+                continue
+            if abs(int(loc.get("recorded_at", 0)) - ts) < 120000:
+                best = loc
+                break
+        return best or {}
+
+    from datetime import datetime, timezone, timedelta
+    SL_TZ = timezone(timedelta(hours=5, minutes=30))
+    today_sl_str = datetime.now(tz=SL_TZ).strftime("%Y-%m-%d")
+    yesterday_sl_str = (datetime.now(tz=SL_TZ) - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    w_count = l_count = 0
+    g_profit = g_loss = 0.0
+
+    today_w = today_l = 0
+    today_gp = today_gl = 0.0
+
+    yest_w = yest_l = 0
+    yest_gp = yest_gl = 0.0
+
+    merged = []
+    for row in closed_list:
+        try:
+            pnl = float(row.get("closedPnl", 0))
+        except (TypeError, ValueError):
+            continue
+
+        ts_ms = int(row.get("updatedTime") or row.get("createdTime") or 0)
+        dt_sl = datetime.fromtimestamp(ts_ms / 1000, tz=SL_TZ) if ts_ms else datetime.now(tz=SL_TZ)
+        d_str = dt_sl.strftime("%Y-%m-%d")
+
+        is_after_reset = (ts_ms >= reset_anchor) if reset_anchor else True
+
+        if is_after_reset:
+            if pnl > 0:
+                w_count += 1
+                g_profit += pnl
+                if d_str == today_sl_str:
+                    today_w += 1
+                    today_gp += pnl
+                elif d_str == yesterday_sl_str:
+                    yest_w += 1
+                    yest_gp += pnl
+            elif pnl < 0:
+                l_count += 1
+                g_loss += abs(pnl)
+                if d_str == today_sl_str:
+                    today_l += 1
+                    today_gl += abs(pnl)
+                elif d_str == yesterday_sl_str:
+                    yest_l += 1
+                    yest_gl += abs(pnl)
+
+        extra = annotate(row)
+        entry_p = float(row.get("avgEntryPrice") or 0)
+        exit_p = float(row.get("avgExitPrice") or 0)
+
+        raw_side = str(row.get("side", "")).upper()
+        pos_side = extra.get("side")
+        if not pos_side:
+            pos_side = "BUY" if raw_side == "SELL" else "SELL"
+
+        is_short = pos_side.upper() in ("SELL", "SHORT")
+
+        stop_val = float(extra.get("stop", 0) or extra.get("stopLoss", 0) or 0)
+        target_list = extra.get("targets") or ([] if not extra.get("target") else [extra.get("target")])
+        if not stop_val:
+            if pnl < 0 and exit_p:
+                stop_val = exit_p
+            else:
+                stop_val = round(entry_p * (1.018 if is_short else 0.982), 4)
+
+        if not target_list:
+            if pnl > 0 and exit_p:
+                target_list = [exit_p]
+            else:
+                risk_dist = abs(entry_p - stop_val) if stop_val else (entry_p * 0.015)
+                target_val = round(entry_p - risk_dist * 2.0 if is_short else entry_p + risk_dist * 2.0, 4)
+                target_list = [target_val]
+
+        merged.append({
+            "id": row.get("orderId", "")[-8:] or "--",
+            "time": dt_sl.strftime("%Y-%m-%d %H:%M"),
+            "exitTime": ts_ms,
+            "createdTime": int(row.get("createdTime") or 0),
+            "symbol": row.get("symbol"),
+            "side": pos_side.upper(),
+            "entry": entry_p,
+            "exit": exit_p,
+            "qty": float(row.get("qty") or 0),
+            "stop": stop_val,
+            "targets": target_list,
+            "nextSupport": extra.get("nextSupport"),
+            "nextResistance": extra.get("nextResistance"),
+            "isScalp": bool(extra.get("isScalp")),
+            "pnl": round(pnl, 4),
+            "pnl_pct": round(float(row.get("closedPnl", 0)) / max(float(row.get("cumEntryValue") or 1), 1e-9) * 100, 3),
+            "status": "WIN" if pnl > 0 else "LOSS",
+            "setup_type": extra.get("setup_type", ""),
+            "grade": extra.get("grade", ""),
+            "r_multiple": extra.get("r_multiple"),
+            "exit_reason": extra.get("exit_reason", ""),
+            "reason": extra.get("reason", "")
+        })
+
+    merged.sort(key=lambda x: int(x.get("exitTime") or x.get("createdTime") or 0), reverse=True)
+
+    tot_trades = w_count + l_count
+    win_rate = round((w_count / tot_trades) * 100, 1) if tot_trades > 0 else 0.0
+    profit_factor = round(g_profit / g_loss, 2) if g_loss > 0 else (0.0 if g_profit == 0 else 99.9)
+
+    r_values = [m["r_multiple"] for m in merged if isinstance(m.get("r_multiple"), (int, float)) and ((m.get("exitTime") or 0) >= reset_anchor if reset_anchor else True)]
+    r_wins = [r for r in r_values if r > 0]
+    r_losses = [abs(r) for r in r_values if r <= 0]
+    expectancy_r = round(sum(r_values) / len(r_values), 3) if r_values else None
+
+    tot_today = today_w + today_l
+    tot_yest = yest_w + yest_l
+
+    res = {
+        "strategy_mode": "SWING_RUNNER",
+        "win_count": w_count,
+        "loss_count": l_count,
+        "total_trades": tot_trades,
+        "win_rate": win_rate,
+        "gross_profit": round(g_profit, 2),
+        "gross_loss": round(g_loss, 2),
+        "net_pnl": round(g_profit - g_loss, 2),
+        "profit_factor": profit_factor,
+        "reset_anchor_time": reset_anchor,
+        "today": {
+            "total_trades": tot_today,
+            "win_count": today_w,
+            "loss_count": today_l,
+            "win_rate": round((today_w / tot_today * 100), 1) if tot_today else 0.0,
+            "gross_profit": round(today_gp, 2),
+            "gross_loss": round(today_gl, 2),
+            "net_pnl": round(today_gp - today_gl, 2),
+            "profit_factor": round(today_gp / today_gl, 2) if today_gl > 0 else (0.0 if today_gp == 0 else 99.9)
+        },
+        "yesterday": {
+            "total_trades": tot_yest,
+            "win_count": yest_w,
+            "loss_count": yest_l,
+            "win_rate": round((yest_w / tot_yest * 100), 1) if tot_yest else 0.0,
+            "gross_profit": round(yest_gp, 2),
+            "gross_loss": round(yest_gl, 2),
+            "net_pnl": round(yest_gp - yest_gl, 2),
+            "profit_factor": round(yest_gp / yest_gl, 2) if yest_gl > 0 else (0.0 if yest_gp == 0 else 99.9)
+        },
+        "expectancy_r": expectancy_r,
+        "avg_win_r": round(sum(r_wins) / len(r_wins), 2) if r_wins else None,
+        "avg_loss_r": round(sum(r_losses) / len(r_losses), 2) if r_losses else None,
+        "r_sample_size": len(r_values),
+        "trade_history": merged,
+        "timezone": "Asia/Colombo (UTC+05:30)",
+        "accounting_note": "Bybit closed-PnL is the single source of truth for money; local records supply setup and exit-reason metadata only."
+    }
+
+    try:
+        from backend_lib.measurement_journal import mj
+        auth_perf = mj.get_authoritative_performance()
+        res["authoritative_journal"] = {
+            "total_trades": auth_perf.get("total_trades", 0),
+            "win_count": auth_perf.get("win_count", 0),
+            "loss_count": auth_perf.get("loss_count", 0),
+            "win_rate": auth_perf.get("win_rate", 0.0),
+            "gross_profit": auth_perf.get("gross_profit", 0.0),
+            "gross_loss": auth_perf.get("gross_loss", 0.0),
+            "net_pnl_after_fees": auth_perf.get("net_pnl", 0.0),
+            "total_fees_paid": auth_perf.get("total_fees_paid", 0.0),
+            "profit_factor": auth_perf.get("profit_factor", 1.0),
+            "expectancy_r": auth_perf.get("expectancy_r", 0.0),
+            "avg_mfe_pct": auth_perf.get("avg_mfe_pct", 0.0),
+            "avg_mae_pct": auth_perf.get("avg_mae_pct", 0.0),
+            "decisions_evaluated": auth_perf.get("decisions_evaluated", 0),
+            "decisions_vetoed": auth_perf.get("decisions_vetoed", 0),
+            "fee_friction_vetoes": auth_perf.get("fee_friction_vetoes", 0),
+            "red_team_vetoes": auth_perf.get("red_team_vetoes", 0)
+        }
+    except Exception:
+        pass
+
+    return res
+
+
+def get_dashboard_bundle():
+    try:
+        acc = bybit_client.get_wallet_balance()
+    except Exception as e:
+        acc = {"retCode": -1, "retMsg": str(e), "result": {"list": []}}
+
+    try:
+        pos = bybit_client.get_positions()
+    except Exception as e:
+        pos = {"retCode": -1, "retMsg": str(e), "result": {"list": []}}
+
+    try:
+        perf = compute_performance_summary()
+    except Exception as e:
+        perf = {"total_trades": 0, "win_count": 0, "loss_count": 0, "error": str(e)}
+
+    # CME-X5 Snapshot
+    snapshot_file = os.path.join(DIRECTORY, "scratch", "cme_x5_live.json")
+    snap_data = {
+        "engine": "CME-X5", "version": "5.0", "updated_at": time.time(),
+        "cycle": 0, "trade_count": 0, "daily_r": 0.0, "open_count": 0, "positions": {}
+    }
+    if os.path.exists(snapshot_file):
+        try:
+            with open(snapshot_file, "r", encoding="utf-8") as f:
+                snap_data = json.load(f)
+        except Exception:
+            pass
+
+    # Championship Snapshot
+    champ_file = os.path.join(DIRECTORY, "scratch", "championship_live_state.json")
+    champ_data = {
+        "timestamp": int(time.time()), "mode_active": False,
+        "strategy_mode": "championship", "macro_regime": "SCANNING", "active_engine": "CHAMPIONSHIP DUAL-REGIME"
+    }
+    if os.path.exists(champ_file):
+        try:
+            with open(champ_file, "r", encoding="utf-8") as f:
+                champ_data = json.load(f)
+        except Exception:
+            pass
+
+    # Auto Trade State
+    try:
+        auto_state = auto_trade_state.load()
+    except Exception:
+        auto_state = {}
+
+    return {
+        "account": acc,
+        "positions": pos,
+        "performance": perf,
+        "snapshot": snap_data,
+        "championship": champ_data,
+        "auto_trade_state": auto_state,
+        "timestamp": int(time.time())
+    }
+
+
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
-    def _send_json(self, status, payload):
+    def _send_json(self, status, payload, cache_seconds=0):
         # json.dumps allows Python's NaN/Infinity by default, which are not
         # valid JSON tokens -- a browser's JSON.parse rejects them outright
         # ("unexpected character at line 1 column 1"). Sanitize recursively so
@@ -784,6 +1073,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        if cache_seconds > 0:
+            self.send_header("Cache-Control", f"public, max-age={cache_seconds}, s-maxage={cache_seconds}")
+        else:
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.end_headers()
         self.wfile.write(body)
 
@@ -799,6 +1092,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/favicon.ico":
             self.send_response(204)
             self.end_headers()
+            return
+
+        # 0. API: Consolidated Dashboard Telemetry Bundle (Cuts network requests by 83%)
+        if self.path.startswith("/api/dashboard/bundle"):
+            bundle = get_dashboard_bundle()
+            self._send_json(200, bundle, cache_seconds=3)
             return
 
         # 1. API: Account & Wallet Balance
@@ -817,16 +1116,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, res)
             return
 
-        # 3. API: Closed PnL & performance metrics.
-        #
-        # Previously this added Bybit's closed-PnL list to the locally-recorded
-        # stats. But the client ALSO posts every close to /api/trades/record, so
-        # each trade was counted twice — once from each source — and the win
-        # rate, profit factor and net P&L on the dashboard were all derived from
-        # doubled figures.
-        #
-        # Bybit's closed-PnL feed is now the single source of truth for money.
-        # The local records supply only the things Bybit cannot know: which
         # 3-reset. API: Reset Performance Scorecard (Preserves 100% of all trade history data)
         if self.path.startswith("/api/performance/reset"):
             with trade_stats_lock:
@@ -856,239 +1145,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # 3. API: Closed PnL & performance metrics.
-        #
-        # Bybit's closed-PnL feed is the single source of truth for money.
-        # We paginate across all pages with a 15-second cache so no trades are cut off.
         if self.path.startswith("/api/performance"):
-            now = time.time()
-            if "_closed_pnl_cache" not in globals():
-                _closed_pnl_cache = {"timestamp": 0, "trades": []}
-
-            if not _closed_pnl_cache["trades"] or (now - _closed_pnl_cache["timestamp"] >= 15):
-                cursor = ''
-                all_trades = []
-                for _ in range(15):
-                    params = {'category': 'linear', 'limit': '100'}
-                    if cursor:
-                        params['cursor'] = cursor
-                    bybit_pnl = bybit_client.signed_request('GET', '/v5/position/closed-pnl', params)
-                    r_res = bybit_pnl.get("result", {})
-                    items = r_res.get("list", []) or []
-                    if not items:
-                        break
-                    all_trades.extend(items)
-                    cursor = r_res.get("nextPageCursor")
-                    if not cursor:
-                        break
-                    if all_trades:
-                        _closed_pnl_cache = {"timestamp": now, "trades": all_trades}
-
-            closed_list = _closed_pnl_cache.get("trades", [])
-
-            with trade_stats_lock:
-                local_history = list(trade_stats["trade_history"])
-                reset_anchor = trade_stats.get("reset_anchor_time", 0)
-
-            def annotate(row):
-                """Attaches the local reasoning snapshot to a Bybit closed-PnL row."""
-                try:
-                    ts = int(row.get("updatedTime") or row.get("createdTime") or 0)
-                except (TypeError, ValueError):
-                    ts = 0
-                best = None
-                for loc in local_history:
-                    if loc.get("symbol") != row.get("symbol"):
-                        continue
-                    if str(loc.get("side", "")).upper() != str(row.get("side", "")).upper():
-                        continue
-                    if abs(int(loc.get("recorded_at", 0)) - ts) < 120000:
-                        best = loc
-                        break
-                return best or {}
-
-            from datetime import datetime, timezone, timedelta
-            SL_TZ = timezone(timedelta(hours=5, minutes=30))
-            today_sl_str = datetime.now(tz=SL_TZ).strftime("%Y-%m-%d")
-            yesterday_sl_str = (datetime.now(tz=SL_TZ) - timedelta(days=1)).strftime("%Y-%m-%d")
-
-            w_count = l_count = 0
-            g_profit = g_loss = 0.0
-
-            today_w = today_l = 0
-            today_gp = today_gl = 0.0
-
-            yest_w = yest_l = 0
-            yest_gp = yest_gl = 0.0
-
-            merged = []
-            for row in closed_list:
-                try:
-                    pnl = float(row.get("closedPnl", 0))
-                except (TypeError, ValueError):
-                    continue
-
-                ts_ms = int(row.get("updatedTime") or row.get("createdTime") or 0)
-                dt_sl = datetime.fromtimestamp(ts_ms / 1000, tz=SL_TZ) if ts_ms else datetime.now(tz=SL_TZ)
-                d_str = dt_sl.strftime("%Y-%m-%d")
-
-                # Metrics reset anchor: only aggregate metrics for trades closed after reset
-                is_after_reset = (ts_ms >= reset_anchor) if reset_anchor else True
-
-                if is_after_reset:
-                    if pnl > 0:
-                        w_count += 1
-                        g_profit += pnl
-                        if d_str == today_sl_str:
-                            today_w += 1
-                            today_gp += pnl
-                        elif d_str == yesterday_sl_str:
-                            yest_w += 1
-                            yest_gp += pnl
-                    elif pnl < 0:
-                        l_count += 1
-                        g_loss += abs(pnl)
-                        if d_str == today_sl_str:
-                            today_l += 1
-                            today_gl += abs(pnl)
-                        elif d_str == yesterday_sl_str:
-                            yest_l += 1
-                            yest_gl += abs(pnl)
-
-                extra = annotate(row)
-                entry_p = float(row.get("avgEntryPrice") or 0)
-                exit_p = float(row.get("avgExitPrice") or 0)
-
-                # In Bybit V5 closed-pnl, row.get("side") is the CLOSING order's side.
-                # Closing order "Sell" = original position was "BUY" (LONG).
-                # Closing order "Buy" = original position was "SELL" (SHORT).
-                raw_side = str(row.get("side", "")).upper()
-                pos_side = extra.get("side")
-                if not pos_side:
-                    pos_side = "BUY" if raw_side == "SELL" else "SELL"
-
-                is_short = pos_side.upper() in ("SELL", "SHORT")
-
-                stop_val = float(extra.get("stop", 0) or extra.get("stopLoss", 0) or 0)
-                target_list = extra.get("targets") or ([] if not extra.get("target") else [extra.get("target")])
-                if not stop_val:
-                    if pnl < 0 and exit_p:
-                        stop_val = exit_p
-                    else:
-                        stop_val = round(entry_p * (1.018 if is_short else 0.982), 4)
-
-                if not target_list:
-                    if pnl > 0 and exit_p:
-                        target_list = [exit_p]
-                    else:
-                        risk_dist = abs(entry_p - stop_val) if stop_val else (entry_p * 0.015)
-                        target_val = round(entry_p - risk_dist * 2.0 if is_short else entry_p + risk_dist * 2.0, 4)
-                        target_list = [target_val]
-
-                merged.append({
-                    "id": row.get("orderId", "")[-8:] or "--",
-                    "time": dt_sl.strftime("%Y-%m-%d %H:%M"),
-                    "exitTime": ts_ms,
-                    "createdTime": int(row.get("createdTime") or 0),
-                    "symbol": row.get("symbol"),
-                    "side": pos_side.upper(),
-                    "entry": entry_p,
-                    "exit": exit_p,
-                    "qty": float(row.get("qty") or 0),
-                    "stop": stop_val,
-                    "targets": target_list,
-                    "nextSupport": extra.get("nextSupport"),
-                    "nextResistance": extra.get("nextResistance"),
-                    "isScalp": bool(extra.get("isScalp")),
-                    "pnl": round(pnl, 4),
-                    "pnl_pct": round(float(row.get("closedPnl", 0)) / max(float(row.get("cumEntryValue") or 1), 1e-9) * 100, 3),
-                    "status": "WIN" if pnl > 0 else "LOSS",
-                    "setup_type": extra.get("setup_type", ""),
-                    "grade": extra.get("grade", ""),
-                    "r_multiple": extra.get("r_multiple"),
-                    "exit_reason": extra.get("exit_reason", ""),
-                    "reason": extra.get("reason", "")
-                })
-
-            # Ensure newly closed trade is always on top (descending timestamp)
-            merged.sort(key=lambda x: int(x.get("exitTime") or x.get("createdTime") or 0), reverse=True)
-
-            tot_trades = w_count + l_count
-            win_rate = round((w_count / tot_trades) * 100, 1) if tot_trades > 0 else 0.0
-            profit_factor = round(g_profit / g_loss, 2) if g_loss > 0 else (0.0 if g_profit == 0 else 99.9)
-
-            r_values = [m["r_multiple"] for m in merged if isinstance(m.get("r_multiple"), (int, float)) and ((m.get("exitTime") or 0) >= reset_anchor if reset_anchor else True)]
-            r_wins = [r for r in r_values if r > 0]
-            r_losses = [abs(r) for r in r_values if r <= 0]
-            expectancy_r = round(sum(r_values) / len(r_values), 3) if r_values else None
-
-            tot_today = today_w + today_l
-            tot_yest = yest_w + yest_l
-
-            res = {
-                "strategy_mode": "SWING_RUNNER",
-                "win_count": w_count,
-                "loss_count": l_count,
-                "total_trades": tot_trades,
-                "win_rate": win_rate,
-                "gross_profit": round(g_profit, 2),
-                "gross_loss": round(g_loss, 2),
-                "net_pnl": round(g_profit - g_loss, 2),
-                "profit_factor": profit_factor,
-                "reset_anchor_time": reset_anchor,
-                "today": {
-                    "total_trades": tot_today,
-                    "win_count": today_w,
-                    "loss_count": today_l,
-                    "win_rate": round((today_w / tot_today * 100), 1) if tot_today else 0.0,
-                    "gross_profit": round(today_gp, 2),
-                    "gross_loss": round(today_gl, 2),
-                    "net_pnl": round(today_gp - today_gl, 2),
-                    "profit_factor": round(today_gp / today_gl, 2) if today_gl > 0 else (0.0 if today_gp == 0 else 99.9)
-                },
-                "yesterday": {
-                    "total_trades": tot_yest,
-                    "win_count": yest_w,
-                    "loss_count": yest_l,
-                    "win_rate": round((yest_w / tot_yest * 100), 1) if tot_yest else 0.0,
-                    "gross_profit": round(yest_gp, 2),
-                    "gross_loss": round(yest_gl, 2),
-                    "net_pnl": round(yest_gp - yest_gl, 2),
-                    "profit_factor": round(yest_gp / yest_gl, 2) if yest_gl > 0 else (0.0 if yest_gp == 0 else 99.9)
-                },
-                "expectancy_r": expectancy_r,
-                "avg_win_r": round(sum(r_wins) / len(r_wins), 2) if r_wins else None,
-                "avg_loss_r": round(sum(r_losses) / len(r_losses), 2) if r_losses else None,
-                "r_sample_size": len(r_values),
-                "trade_history": merged,
-                "timezone": "Asia/Colombo (UTC+05:30)",
-                "accounting_note": "Bybit closed-PnL is the single source of truth for money; local records supply setup and exit-reason metadata only."
-            }
-
-            try:
-                from backend_lib.measurement_journal import mj
-                auth_perf = mj.get_authoritative_performance()
-                res["authoritative_journal"] = {
-                    "total_trades": auth_perf.get("total_trades", 0),
-                    "win_count": auth_perf.get("win_count", 0),
-                    "loss_count": auth_perf.get("loss_count", 0),
-                    "win_rate": auth_perf.get("win_rate", 0.0),
-                    "gross_profit": auth_perf.get("gross_profit", 0.0),
-                    "gross_loss": auth_perf.get("gross_loss", 0.0),
-                    "net_pnl_after_fees": auth_perf.get("net_pnl", 0.0),
-                    "total_fees_paid": auth_perf.get("total_fees_paid", 0.0),
-                    "profit_factor": auth_perf.get("profit_factor", 1.0),
-                    "expectancy_r": auth_perf.get("expectancy_r", 0.0),
-                    "avg_mfe_pct": auth_perf.get("avg_mfe_pct", 0.0),
-                    "avg_mae_pct": auth_perf.get("avg_mae_pct", 0.0),
-                    "decisions_evaluated": auth_perf.get("decisions_evaluated", 0),
-                    "decisions_vetoed": auth_perf.get("decisions_vetoed", 0),
-                    "fee_friction_vetoes": auth_perf.get("fee_friction_vetoes", 0),
-                    "red_team_vetoes": auth_perf.get("red_team_vetoes", 0)
-                }
-            except Exception:
-                pass
-
-            self._send_json(200, res)
+            res = compute_performance_summary()
+            self._send_json(200, res, cache_seconds=5)
             return
 
         # 3b. API: DeepSeek Smart Profit Claimer history & state
@@ -1585,13 +1644,45 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # 0C. API: Close Position via ReduceOnly Market Order
         if self.path == "/api/positions/close":
             symbol = body.get("symbol")
-            side = body.get("side", "Sell")
             qty = body.get("qty")
             category = body.get("category", "linear")
-            if not symbol or not qty:
-                self._send_json(400, {"retCode": -1, "retMsg": "Missing symbol or qty"})
+            close_side_param = body.get("closeSide") or body.get("orderSide")
+            pos_side_param = body.get("positionSide") or body.get("posSide") or body.get("side")
+
+            if not symbol:
+                self._send_json(400, {"retCode": -1, "retMsg": "Missing symbol"})
                 return
-            res = bybit_client.close_position(category, symbol, side, qty)
+
+            # Check live position on Bybit to confirm actual position direction & size
+            actual_pos_side = None
+            actual_pos_size = None
+            try:
+                p_res = bybit_client.get_positions(symbol)
+                live_list = [p for p in p_res.get("result", {}).get("list", []) if float(p.get("size", 0)) > 0]
+                if live_list:
+                    actual_pos_side = live_list[0].get("side")
+                    actual_pos_size = live_list[0].get("size")
+            except Exception as e:
+                sys.stderr.write(f"[WARN] Error fetching live position for {symbol}: {e}\n")
+
+            if not qty:
+                qty = actual_pos_size
+
+            if not qty:
+                self._send_json(400, {"retCode": -1, "retMsg": f"No active position found for {symbol}"})
+                return
+
+            # Bybit live position is authoritative:
+            # Long position (Buy) -> opposing close order is Sell
+            # Short position (Sell) -> opposing close order is Buy
+            if actual_pos_side:
+                target_side = "Sell" if actual_pos_side.lower() == "buy" else "Buy"
+                res = bybit_client.close_position(category, symbol, target_side, qty, is_opposing_order=True)
+            elif close_side_param:
+                res = bybit_client.close_position(category, symbol, close_side_param, qty, is_opposing_order=True)
+            else:
+                res = bybit_client.close_position(category, symbol, pos_side_param or "Buy", qty, is_opposing_order=False)
+
             self._send_json(200, res)
             return
 
@@ -1665,6 +1756,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             side = body.get("side", "Buy")
             qty = body.get("qty", 0.001)
 
+            try:
+                p_res = bybit_client.get_positions(symbol)
+                live_list = [p for p in p_res.get("result", {}).get("list", []) if float(p.get("size", 0)) > 0]
+                if live_list:
+                    act_side = live_list[0].get("side")
+                    opp_side = "Sell" if act_side.lower() == "buy" else "Buy"
+                    act_sz = live_list[0].get("size") or qty
+                    res = bybit_client.close_position(category, symbol, opp_side, act_sz, is_opposing_order=True)
+                    self._send_json(200, res)
+                    return
+            except Exception:
+                pass
+
             res = bybit_client.close_position(category, symbol, side, qty)
             self._send_json(200, res)
             return
@@ -1701,6 +1805,100 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "analysis": "The free-text synthesis endpoint has been retired. It generated ~700 tokens per call on a timer, no code parsed the result, and it could not change any decision. See /api/llm/status for current model spend.",
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
             })
+            return
+
+        # POST /api/deepseek/chart-analyze
+        # Accepts: { symbol, timeframe, candles:[{t,o,h,l,c,v}], poc, vah, val, ema21, ema50, amd, fvg_count }
+        # Returns: { bias, level, action, rationale, model, is_fallback }
+        if self.path == "/api/deepseek/chart-analyze":
+            sym    = body.get("symbol", "BTCUSDT")
+            tf     = body.get("timeframe", "15")
+            candles = body.get("candles", [])
+            poc    = body.get("poc")
+            vah    = body.get("vah")
+            val_   = body.get("val")
+            ema21  = body.get("ema21")
+            ema50  = body.get("ema50")
+            amd    = body.get("amd", "UNKNOWN")
+            fvg    = body.get("fvg_count", 0)
+
+            # Build a compact price series for the prompt (last 20 candles max)
+            recent = candles[-20:] if len(candles) > 20 else candles
+            price_lines = []
+            for c in recent:
+                price_lines.append(f"  {c.get('t','?')} O={c.get('o')} H={c.get('h')} L={c.get('l')} C={c.get('c')} V={c.get('v')}")
+            price_block = "\n".join(price_lines) if price_lines else "  (no candle data)"
+
+            last_c = candles[-1] if candles else {}
+            last_price = last_c.get("c", "?")
+
+            prompt = f"""You are a professional quantitative crypto trader analyzing {sym} on the {tf}m chart.
+Current price: {last_price}
+Volume Profile: POC={poc}, VAH={vah}, VAL={val_}
+EMAs: EMA21={ema21}, EMA50={ema50}
+AMD Session Phase: {amd}
+Active FVG zones: {fvg}
+
+Last {len(recent)} candles (OHLCV):
+{price_block}
+
+Respond with ONLY a JSON object — no prose, no markdown — in this exact structure:
+{{
+  "bias": "BULLISH" | "BEARISH" | "NEUTRAL",
+  "confidence": 0-100,
+  "level": <key price level as a number>,
+  "action": "BUY" | "SELL" | "WAIT",
+  "rationale": "<2-3 sentence explanation max>"
+}}"""
+
+            if not DEEPSEEK_API_KEY:
+                self._send_json(200, {
+                    "bias": "NEUTRAL", "confidence": 50, "level": last_price,
+                    "action": "WAIT", "rationale": "DeepSeek API key not configured. Configure DEEPSEEK_API_KEY in .env to enable AI analysis.",
+                    "is_fallback": True, "model": "local"
+                })
+                return
+
+            if not llm_budget_take("chart-analyze"):
+                self._send_json(200, {
+                    "bias": "NEUTRAL", "confidence": 50, "level": last_price,
+                    "action": "WAIT", "rationale": f"Daily DeepSeek budget ({DEEPSEEK_DAILY_CALL_BUDGET} calls) exhausted. Resets at midnight UTC.",
+                    "is_fallback": True, "model": "local"
+                })
+                return
+
+            try:
+                req_body = json.dumps({
+                    "model": DEEPSEEK_MODEL,
+                    "messages": [
+                        {"role": "system", "content": "You are a quantitative crypto trading analyst. Output strict JSON only, no prose, no markdown."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "max_tokens": 300,
+                    "temperature": 0.15
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    DEEPSEEK_URL, data=req_body,
+                    headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json", "User-Agent": "MASIS/2.0"}
+                )
+                with urllib.request.urlopen(req, timeout=12) as r:
+                    res_data = json.loads(r.read().decode())
+                    raw_text = res_data["choices"][0]["message"]["content"].strip()
+                    # Strip any accidental markdown code fences
+                    if raw_text.startswith("```"):
+                        raw_text = re.sub(r"```[a-z]*\n?", "", raw_text).replace("```", "").strip()
+                    match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+                    parsed = json.loads(match.group(0) if match else raw_text)
+                    parsed["model"] = DEEPSEEK_MODEL
+                    parsed["is_fallback"] = False
+                    self._send_json(200, parsed)
+            except Exception as e:
+                print(f"[DeepSeek Chart Analyze] Error: {e}")
+                self._send_json(200, {
+                    "bias": "NEUTRAL", "confidence": 50, "level": last_price,
+                    "action": "WAIT", "rationale": f"DeepSeek API error: {e}",
+                    "is_fallback": True, "model": "local"
+                })
             return
 
         # 3b-reset. API: Reset Performance Scorecard (Preserves 100% of all trade history data)
