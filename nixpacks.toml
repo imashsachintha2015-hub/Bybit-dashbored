@@ -1,10 +1,10 @@
-providers = ["node"]
+providers = ["python"]
 
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["python311"]
 
 [phases.install]
-cmds = ["npm install --omit=dev"]
+cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "node --max-old-space-size=192 server/live-engine.js"
+cmd = "python launcher.py"

@@ -1,15 +1,13 @@
 {
-  "name": "masis-trading-terminal",
+  "name": "cme-x5-model-b-terminal",
   "private": true,
-  "version": "3.0.0",
-  "description": "MASIS V3 \u2014 multi-timeframe confluence trading engine, risk governor and backtest harness for the Bybit live dashboard.",
+  "version": "5.0.0",
+  "description": "CME-X5 Model B -- Autonomous Execution Engine with Pre-Trade Confluence Agent Layer",
   "type": "commonjs",
   "scripts": {
-    "serve": "python3 server.py",
-    "backtest": "node backtest/run-backtest.js",
-    "fetch-data": "node backtest/fetch-klines.js",
-    "live": "node --max-old-space-size=192 server/live-engine.js",
-    "start": "python launcher.py"
+    "start": "python launcher.py",
+    "serve": "python server.py",
+    "engine": "python daemons/cme_x5_pure_engine.py"
   },
   "dependencies": {
     "ws": "^8.18.0"

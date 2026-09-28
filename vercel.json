@@ -3,22 +3,6 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/advanced-chart",
-      "destination": "/advanced-chart.html"
-    },
-    {
-      "source": "/advanced-chart/",
-      "destination": "/advanced-chart.html"
-    },
-    {
-      "source": "/chart",
-      "destination": "/advanced-chart.html"
-    },
-    {
-      "source": "/chart/",
-      "destination": "/advanced-chart.html"
-    },
-    {
       "source": "/api/:path*",
       "destination": "https://masis-runner-production.up.railway.app/api/:path*"
     }
