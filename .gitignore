@@ -17,7 +17,8 @@ research/data/
 research/cme_x4/data/
 backtest/data-15m-research/
 node_modules/
-commit_msg.txt
 market_knowledge.db
 cme_x4_shadow.db
+cme_x5_model_b.db
+*.db
 scratch/

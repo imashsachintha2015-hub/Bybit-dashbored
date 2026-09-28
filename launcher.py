@@ -1,9 +1,11 @@
 """
-Unified Production Platform Launcher for Railway.
-CME-X5 Pure Profitable Engine -- only positive-EV systems run.
+CME-X5 Model B — Unified Production Launcher for Railway.
+Single daemon: Model B Engine with intelligent agent layer.
+
 Eliminated: continuous_market_scanner, deepseek_gatekeeper,
-            historical_pattern_archaeologist, cme_x4_live_research,
-            cme_x4_shadow_engine (all negative or zero EV per 10k-trade audit).
+            historical_pattern_archaeologist, cme_x4 engines,
+            smart_growth_executor, trade_decision_trace,
+            Node live-engine, and all JS-side agents/swarm.
 """
 import os
 import sys
@@ -29,24 +31,15 @@ def main():
     port = os.environ.get("PORT", "8070")
     os.environ["PORT"] = port
     print("=" * 70)
-    print(f"  CME-X5 24/7 AUTONOMOUS PLATFORM & EXECUTOR  (PORT: {port})")
-    print("  S2 POC Reclaim +0.683R  |  AMD FVG  |  S7 Gated +0.34R")
-    print("  Zero Browser Tab Dependency -- Full Cloud Headless Execution")
+    print(f"  CME-X5 MODEL B — FINAL AUTONOMOUS PLATFORM  (PORT: {port})")
+    print("  Agent Layer: S/R(40%) + POC(30%) + FVG(30%) = Confluence Scorer")
+    print("  Zero Browser Tab Dependency — Full Cloud Headless Execution")
     print("=" * 70)
 
-    # Background daemons -- only proven positive-EV processes
+    # Single daemon: Model B Engine with agent-validated execution
     daemon_cmds = [
-        # PRIMARY: CME-X5 Pure Engine & 24/7 Bybit Autonomous Executor
-        ("CME-X5 Pure Engine & 24H Executor", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
-        # Lightweight forensic audit trail
-        ("Decision Trace",                    [sys.executable, "daemons/trade_decision_trace_daemon.py"]),
+        ("CME-X5 Model B Engine", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
     ]
-
-    import shutil
-    if shutil.which("node") and os.path.exists("server/live-engine.js"):
-        daemon_cmds.append(
-            ("Node Live Engine", ["node", "--max-old-space-size=192", "server/live-engine.js"])
-        )
 
     procs = []
     for name, cmd in daemon_cmds:
@@ -60,7 +53,7 @@ def main():
             print(f"[WARN] Failed to spawn {name}: {e}")
 
     def cleanup(sig=None, frame=None):
-        print("\n[SHUTDOWN] Terminating child background daemons...")
+        print("\n[SHUTDOWN] Terminating Model B engine...")
         for name, p in procs:
             try:
                 p.terminate()
@@ -78,3 +71,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

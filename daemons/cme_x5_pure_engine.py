@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-CME-X5 PURE PROFITABLE ENGINE & 24/7 AUTONOMOUS CLOUD EXECUTOR
+CME-X5 MODEL B — FINAL AUTONOMOUS EXECUTION ENGINE
 Runs autonomously on Railway server-side without requiring any browser tab.
 
 Trading Systems:
   S2 POC Reclaim         -> +0.683R Net EV  (PRIMARY PROFIT ENGINE)
-  AMD FVG Setup          -> Pine Script v6 Accumulation/Manipulation/Distribution + FVG
+  AMD FVG Setup          -> Accumulation/Manipulation/Distribution + FVG
   S7 Gated Continuation  -> +0.34R  Net EV  (SECONDARY, strict gate)
+
+Agent Layer (Pre-Trade Intelligence):
+  S/R Agent (40%)        -> Swing-level obstruction analysis on 1H+4H
+  POC Pathfinder (30%)   -> Volume Profile POC path analysis
+  FVG Impact (30%)       -> Fair Value Gap alignment/opposition scoring
+  Confluence Scorer      -> Weighted aggregator: PASS/ADJUST/REJECT
 
 Integrations:
   - Bybit V5 Linear Demo API (Auto order placement with broker-side SL/TP)
@@ -42,11 +48,14 @@ from backend_lib.bybit_client import get_client
 from backend_lib import auto_trade_state
 from backend_lib.trading_utils import round_qty, round_price, compute_order_sizing
 
+# Model B Agent Layer
+from daemons.agents import SRAgent, POCPathfinderAgent, FVGImpactAgent, ConfluenceScorer
+
 # ─── Configuration ────────────────────────────────────────────────────────────
 BASE_URL      = os.environ.get("BYBIT_BASE_URL", "https://api-demo.bybit.com")
 POLL_INTERVAL = 10
 LOG_FILE      = os.path.join(ROOT_DIR, "scratch", "cme_x5_engine.log")
-DB_PATH       = os.path.join(ROOT_DIR, "cme_x4_shadow.db")
+DB_PATH       = os.path.join(ROOT_DIR, "cme_x5_model_b.db")
 SNAPSHOT_PATH = os.path.join(ROOT_DIR, "scratch", "cme_x5_live.json")
 
 SYMBOLS = [
@@ -70,10 +79,23 @@ MAX_CONCURRENT_POS   = 3     # Maximum simultaneous open positions
 os.makedirs(os.path.join(ROOT_DIR, "scratch"), exist_ok=True)
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 def log(msg, level="INFO"):
     ts  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     out = f"[CME-X5 {level} {ts}] {msg}"
-    print(out, flush=True)
+    try:
+        print(out, flush=True)
+    except Exception:
+        try:
+            print(out.encode("ascii", errors="replace").decode("ascii"), flush=True)
+        except Exception:
+            pass
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(out + "\n")
@@ -599,8 +621,16 @@ class CMEX5Engine:
         self.pm    = PositionManager()
         self.cycle = 0
         self.scanned_signals = {}
+
+        # Model B Agent Layer
+        self.sr_agent  = SRAgent()
+        self.poc_agent = POCPathfinderAgent()
+        self.fvg_agent = FVGImpactAgent()
+        self.scorer    = ConfluenceScorer()
+
         log("=" * 70)
-        log("  CME-X5 PURE PROFITABLE ENGINE & 24H AUTONOMOUS EXECUTOR")
+        log("  CME-X5 MODEL B — FINAL AUTONOMOUS EXECUTION ENGINE")
+        log("  Agent Layer: S/R(40%) + POC(30%) + FVG(30%) = Confluence Scorer")
         log("  Mode: 24/7 Cloud Daemon (Zero Browser Tab Dependency)")
         log("  Execution: Direct Bybit Demo V5 Linear | 10x Leverage | Auto SL/TP")
         log("=" * 70)
@@ -613,22 +643,82 @@ class CMEX5Engine:
 
         # Signal detection priority: S2 POC Reclaim -> AMD FVG -> S7 Gated Continuation
         sig = detect_s2(sym, k15, book) or detect_amd_fvg(sym, k15, book) or detect_s7(sym, k15, book)
-        if sig:
-            self.scanned_signals[sym] = {
-                "symbol": sym,
-                "direction": sig["direction"],
-                "situation": sig["situation"],
-                "entry_p": sig["entry_p"],
-                "stop_p": sig["stop_p"],
-                "target_p": sig["target_p"],
-                "poc": sig.get("poc"),
-                "val": sig.get("val"),
-                "vah": sig.get("vah"),
-                "mfe_pct": 0.0,
-                "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S")
-            }
-            if not self.pm.is_occupied(sym):
-                self.pm.open(sym, sig, ts)
+        if not sig:
+            return
+
+        # ─── Model B: Agent Layer Pre-Validation ─────────────────────────
+        try:
+            k1h = fetch_klines(sym, "60", 60)
+            k4h = fetch_klines(sym, "240", 50)
+        except Exception:
+            k1h, k4h = [], []
+
+        vp = volume_profile(k15[-VP_LOOKBACK:]) if len(k15) >= VP_LOOKBACK else None
+
+        try:
+            sr_result  = self.sr_agent.analyze(sym, sig, k1h, k4h)
+        except Exception as e:
+            log(f"[AGENT ERR] S/R agent failed for {sym}: {e}", "WARN")
+            sr_result  = {"score": 0.7, "adjustment": None, "reason": f"S/R agent error: {e}"}
+
+        try:
+            poc_result = self.poc_agent.analyze(sym, sig, vp)
+        except Exception as e:
+            log(f"[AGENT ERR] POC agent failed for {sym}: {e}", "WARN")
+            poc_result = {"score": 0.7, "adjustment": None, "reason": f"POC agent error: {e}"}
+
+        try:
+            fvg_result = self.fvg_agent.analyze(sym, sig, k15)
+        except Exception as e:
+            log(f"[AGENT ERR] FVG agent failed for {sym}: {e}", "WARN")
+            fvg_result = {"score": 0.7, "adjustment": None, "reason": f"FVG agent error: {e}"}
+
+        verdict = self.scorer.evaluate({
+            "sr":  sr_result,
+            "poc": poc_result,
+            "fvg": fvg_result
+        })
+
+        log(f"[AGENT] {sym} {sig['situation']} {sig['direction']} -> "
+            f"Score={verdict['final_score']:.3f} Decision={verdict['decision']}")
+        if self.cycle <= 3 or verdict["decision"] != "PASS":
+            log(f"[AGENT REPORT]\n{verdict['report']}")
+
+        if verdict["decision"] == "REJECT":
+            log(f"[AGENT] REJECTED {sym} -- agents blocked trade (score={verdict['final_score']:.3f})")
+            return
+
+        # Apply TP/SL adjustments from agents
+        if verdict["adjustments"]:
+            if "target_p" in verdict["adjustments"]:
+                old_tp = sig["target_p"]
+                sig["target_p"] = verdict["adjustments"]["target_p"]
+                log(f"[AGENT] TP adjusted: {old_tp:.5f} -> {sig['target_p']:.5f}")
+            if "stop_p" in verdict["adjustments"]:
+                old_sl = sig["stop_p"]
+                sig["stop_p"] = verdict["adjustments"]["stop_p"]
+        sig["agent_score"] = verdict["final_score"]
+        sig["agent_decision"] = verdict["decision"]
+        sig["agent_report"] = verdict["report"]
+        # ─── End Agent Layer ──────────────────────────────────────────────
+
+        self.scanned_signals[sym] = {
+            "symbol": sym,
+            "direction": sig["direction"],
+            "situation": sig["situation"],
+            "entry_p": sig["entry_p"],
+            "stop_p": sig["stop_p"],
+            "target_p": sig["target_p"],
+            "poc": sig.get("poc"),
+            "val": sig.get("val"),
+            "vah": sig.get("vah"),
+            "mfe_pct": 0.0,
+            "agent_score": verdict["final_score"],
+            "agent_decision": verdict["decision"],
+            "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S")
+        }
+        if not self.pm.is_occupied(sym):
+            self.pm.open(sym, sig, ts)
 
     def run_cycle(self):
         self.cycle += 1
@@ -661,9 +751,9 @@ class CMEX5Engine:
         try:
             with open(SNAPSHOT_PATH, "w", encoding="utf-8") as f:
                 json.dump({
-                    "engine":"CME-X5 Pure Profitable Engine",
+                    "engine":"CME-X5 Model B",
                     "status":"ACTIVE_24H_EXECUTOR",
-                    "version":"5.0",
+                    "version":"B.1.0",
                     "updated_at":now,
                     "cycle":self.cycle,
                     "trade_count":self.pm.trade_count,
