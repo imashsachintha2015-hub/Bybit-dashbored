@@ -7,6 +7,12 @@ to the trade direction. POC acts as a price "magnet" — price tends to
 gravitate toward and consolidate around POC. If POC sits between entry
 and TP, the trade faces a consolidation barrier.
 
+IMPORTANT — Mean-Reversion Magnet Rule:
+When price is significantly extended away from POC (>1.5% below POC for
+a SHORT, or >1.5% above POC for a LONG), the POC acts as a MAGNET pulling
+price back, not a resistive cap. Trades in extension from value have high
+mean-reversion risk and must be penalised accordingly.
+
 Weight in Confluence Scorer: 30% (volume-based consolidation analysis)
 """
 
@@ -14,8 +20,14 @@ Weight in Confluence Scorer: 30% (volume-based consolidation analysis)
 class POCPathfinderAgent:
     """
     Checks whether the Volume Profile POC obstructs the trade's
-    profit path. Also checks VAL/VAH positioning for additional context.
+    profit path, or whether the entry is too extended from value
+    (creating mean-reversion risk toward the POC).
     """
+
+    # If entry is this % or more away from POC in the wrong direction,
+    # classify the POC as a mean-reversion magnet and penalise the trade.
+    EXTENSION_WARN_PCT = 0.010   # 1.0% — moderate warning
+    EXTENSION_FATAL_PCT = 0.020  # 2.0% — reject (POC is a strong mean-rev magnet)
 
     def __init__(self):
         self.name = "poc"
@@ -47,6 +59,54 @@ class POCPathfinderAgent:
         stop_p = signal["stop_p"]
         direction = signal["direction"]
         sl_dist = abs(entry_p - stop_p)
+
+        # ── FIX: Mean-Reversion Magnet Check ─────────────────────────────
+        # If a SHORT entry is significantly BELOW the POC, the POC is a
+        # powerful upward magnet — price tends to snap back toward value,
+        # not continue lower. Vice-versa for LONGs above the POC.
+        if direction == "SHORT":
+            poc_dist_pct = (poc - entry_p) / max(poc, 1e-8)  # positive = entry below POC
+            if poc_dist_pct >= self.EXTENSION_FATAL_PCT:
+                return {
+                    "score": 0.0,
+                    "adjustment": None,
+                    "reason": (
+                        f"MEAN-REVERSION FATAL: SHORT entry {entry_p:.4f} is {poc_dist_pct*100:.1f}% "
+                        f"BELOW POC at {poc:.4f}. POC is a strong upward magnet — shorting "
+                        f"in deep oversold extension is extremely high-risk. REJECT"
+                    )
+                }
+            if poc_dist_pct >= self.EXTENSION_WARN_PCT:
+                return {
+                    "score": 0.25,
+                    "adjustment": None,
+                    "reason": (
+                        f"MEAN-REVERSION RISK: SHORT entry {entry_p:.4f} is {poc_dist_pct*100:.1f}% "
+                        f"below POC at {poc:.4f}. High mean-reversion risk toward value"
+                    )
+                }
+
+        if direction == "LONG":
+            poc_dist_pct = (entry_p - poc) / max(poc, 1e-8)  # positive = entry above POC
+            if poc_dist_pct >= self.EXTENSION_FATAL_PCT:
+                return {
+                    "score": 0.0,
+                    "adjustment": None,
+                    "reason": (
+                        f"MEAN-REVERSION FATAL: LONG entry {entry_p:.4f} is {poc_dist_pct*100:.1f}% "
+                        f"ABOVE POC at {poc:.4f}. POC is a strong downward magnet — buying "
+                        f"in deep overbought extension is extremely high-risk. REJECT"
+                    )
+                }
+            if poc_dist_pct >= self.EXTENSION_WARN_PCT:
+                return {
+                    "score": 0.25,
+                    "adjustment": None,
+                    "reason": (
+                        f"MEAN-REVERSION RISK: LONG entry {entry_p:.4f} is {poc_dist_pct*100:.1f}% "
+                        f"above POC at {poc:.4f}. High mean-reversion risk toward value"
+                    )
+                }
 
         # ── Check POC position relative to trade ──────────────────────────
         poc_between = False

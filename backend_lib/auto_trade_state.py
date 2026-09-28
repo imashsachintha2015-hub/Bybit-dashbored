@@ -11,7 +11,7 @@ through kv.py so every browser tab/device sees the same selected strategy.
 from .kv import kv_get_json, kv_set_json
 
 STATE_KEY = "auto_trade_state"
-VALID_STRATEGY_MODES = {"standard", "scalp", "sureshot"}
+VALID_STRATEGY_MODES = {"standard", "scalp", "sureshot", "championship"}
 
 DEFAULT_STATE = {
     "armed": False,
@@ -27,6 +27,7 @@ DEFAULT_STATE = {
     "strategyMode": "standard",
     "scalpMode": False,
     "sureShotMode": False,
+    "championshipMode": False,
     "theses": {},
 }
 
@@ -35,7 +36,9 @@ def _normalize_strategy_mode(state):
     mode = str(state.get("strategyMode") or "").lower().strip()
 
     if mode not in VALID_STRATEGY_MODES:
-        if state.get("sureShotMode"):
+        if state.get("championshipMode"):
+            mode = "championship"
+        elif state.get("sureShotMode"):
             mode = "sureshot"
         elif state.get("scalpMode"):
             mode = "scalp"
@@ -43,6 +46,7 @@ def _normalize_strategy_mode(state):
             mode = "standard"
 
     state["strategyMode"] = mode
+    state["championshipMode"] = mode == "championship"
     state["scalpMode"] = mode in ("scalp", "sureshot")
     state["sureShotMode"] = mode == "sureshot"
     return state
@@ -71,6 +75,7 @@ def save(
     strategy_mode=None,
     scalp_mode=None,
     sure_shot_mode=None,
+    championship_mode=None,
 ):
     current = load()
 
@@ -89,12 +94,11 @@ def save(
     )
 
     # IMPORTANT: Only an explicit strategy_mode, or an explicit positive
-    # scalp/sureshot flag, may change the persisted strategy. Legacy callers
-    # often POST sizing/arm/thesis fields without strategyMode. Those calls
-    # must preserve the user's selected mode instead of silently reverting to
-    # Swing/standard.
+    # scalp/sureshot/championship flag, may change the persisted strategy.
     if requested_mode not in VALID_STRATEGY_MODES:
-        if sure_shot_mode is True:
+        if championship_mode is True:
+            requested_mode = "championship"
+        elif sure_shot_mode is True:
             requested_mode = "sureshot"
         elif scalp_mode is True:
             requested_mode = "scalp"
@@ -113,6 +117,7 @@ def save(
         "leverage": int(leverage) if leverage and int(leverage) > 0 else current.get("leverage", 10),
         "marginMode": str(margin_mode).lower() if str(margin_mode).lower() in ("cross", "isolated") else current.get("marginMode", "cross"),
         "strategyMode": requested_mode,
+        "championshipMode": requested_mode == "championship",
         "scalpMode": requested_mode in ("scalp", "sureshot"),
         "sureShotMode": requested_mode == "sureshot",
         "theses": merged_theses,

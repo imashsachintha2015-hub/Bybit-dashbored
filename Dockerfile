@@ -2,19 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install essential system tools, Node.js and Python
+# Install essential system tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     procps \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python and node dependencies
+# Install python dependencies
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY package*.json ./
-RUN npm install --omit=dev --no-audit || true
 
 # Copy entire project
 COPY . .

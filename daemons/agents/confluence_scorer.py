@@ -13,6 +13,12 @@ Decision Thresholds:
   >= 0.60  →  PASS    (execute trade, possibly with adjusted TP/SL)
   0.40-0.59 → ADJUST  (execute with mandatory TP/SL adjustments)
   < 0.40   →  REJECT  (skip trade — agents blocked it)
+
+Hard Veto Rule:
+  If ANY individual agent returns a score of 0.0 (FATAL), the entire
+  trade is immediately REJECTED, regardless of the weighted average.
+  This ensures that a single fatal structural/momentum failure cannot
+  be masked by high scores from other agents.
 """
 
 
@@ -57,6 +63,36 @@ class ConfluenceScorer:
         report_lines = []
         breakdown = {}
 
+        # ── FIX: Hard Veto Pass — check for any FATAL (0.0) score first ──
+        # A single FATAL agent output immediately rejects the trade.
+        # This prevents a 0.0 from S/R being offset by high FVG/POC scores.
+        for agent_name in self.WEIGHTS:
+            result = agent_results.get(agent_name, {})
+            raw_score = result.get("score", 0.5)
+            if raw_score == 0.0:
+                reason = result.get("reason", "FATAL condition detected")
+                # Still build a full report for logging clarity
+                for an, weight in self.WEIGHTS.items():
+                    res = agent_results.get(an, {"score": 0.5, "reason": "Agent not run"})
+                    rs = res.get("score", 0.5)
+                    icon = self._score_icon(rs)
+                    report_lines.append(
+                        f"  {icon} [{an.upper():3s}] "
+                        f"raw={rs:.2f} x{weight:.0%} = {rs * weight:.3f}  "
+                        f"| {res.get('reason', 'N/A')}"
+                    )
+                report_lines.append(
+                    f"  [NO] HARD VETO by [{agent_name.upper()}]: {reason}"
+                )
+                return {
+                    "decision": "REJECT",
+                    "final_score": 0.0,
+                    "adjustments": {},
+                    "report": "\n".join(report_lines),
+                    "breakdown": {an: 0.0 for an in self.WEIGHTS},
+                }
+
+        # ── Normal weighted scoring ───────────────────────────────────────
         for agent_name, weight in self.WEIGHTS.items():
             result = agent_results.get(agent_name, {"score": 0.5, "reason": "Agent not run"})
             raw_score = result.get("score", 0.5)

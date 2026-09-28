@@ -6,4 +6,5 @@ tests
 research
 research_archive
 backtest
+scratch/
 .env

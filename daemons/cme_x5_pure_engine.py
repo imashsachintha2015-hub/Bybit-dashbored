@@ -196,8 +196,13 @@ def detect_s2(sym, k15, book):
         stop_p = prev_low * 0.9985
         sl_dist = abs(cur_p - stop_p)
         risk = sl_dist / cur_p
-        # Target must be strictly above entry: prefer VAH, minimum 1.5R
-        target_p = max(vah, cur_p + 1.5 * sl_dist)
+        # Target: Value Area High if viable (>=1.0R), else standard 1.5R extension
+        reward_to_vah = (vah - cur_p) if vah else 0
+        if reward_to_vah >= sl_dist:
+            target_p = vah * 0.999
+        else:
+            target_p = cur_p + 1.5 * sl_dist
+
         if target_p > cur_p and risk >= MIN_RISK_PCT:
             return {"situation":"S2_POC_RECLAIM","direction":"LONG","entry_p":cur_p,
                     "stop_p":stop_p,"target_p":target_p,"risk_pct":risk,
@@ -208,8 +213,13 @@ def detect_s2(sym, k15, book):
         stop_p = prev_high * 1.0015
         sl_dist = abs(cur_p - stop_p)
         risk = sl_dist / cur_p
-        # Target must be strictly below entry: prefer VAL, minimum 1.5R
-        target_p = min(val, cur_p - 1.5 * sl_dist)
+        # Target: Value Area Low if viable (>=1.0R), else standard 1.5R extension
+        reward_to_val = (cur_p - val) if val else 0
+        if reward_to_val >= sl_dist:
+            target_p = val * 1.001
+        else:
+            target_p = cur_p - 1.5 * sl_dist
+
         if target_p < cur_p and risk >= MIN_RISK_PCT:
             return {"situation":"S2_POC_RECLAIM","direction":"SHORT","entry_p":cur_p,
                     "stop_p":stop_p,"target_p":target_p,"risk_pct":risk,
@@ -363,6 +373,16 @@ class PositionManager:
     def is_occupied(self, sym): return sym in self.positions
 
     def open(self, sym, sig, now_ts):
+        # 0. Strategy Mode Guard -- Yield to Championship Mode if active
+        try:
+            state = auto_trade_state.load()
+            strat_mode = state.get("strategyMode", "standard")
+            if (strat_mode == "championship") or state.get("championshipMode", False):
+                log(f"[24H EXECUTOR] Championship Mode active. Skipping standard CME-X5 order for {sym}.")
+                return
+        except Exception:
+            pass
+
         # 1. Concurrency & duplicate guards
         if len(self.positions) >= MAX_CONCURRENT_POS:
             log(f"[24H EXECUTOR] Max concurrent positions ({MAX_CONCURRENT_POS}) reached. Skipping {sym}.")
@@ -556,54 +576,63 @@ class PositionManager:
         sp = pos["stop_p"]; tp = pos["target_p"]
         sit = pos["situation"]
 
-        # ── S2: straight run to Value Area boundary ──────────────────────────
-        if sit == "S2_POC_RECLAIM":
-            tgt_r = max(1.5, min(3.5, abs(tp-ep)/(r_pct*ep)))
-            if d=="LONG":
-                if cur_p >= tp: self._close(sym,pos,cur_p,"TARGET_VA", tgt_r-fr, True); return
-                if cur_p <= sp: self._close(sym,pos,cur_p,"HARD_STOP", -1.0-fr, False); return
-            else:
-                if cur_p <= tp: self._close(sym,pos,cur_p,"TARGET_VA", tgt_r-fr, True); return
-                if cur_p >= sp: self._close(sym,pos,cur_p,"HARD_STOP", -1.0-fr, False); return
+        # ── Universal Dynamic Profit Protection & Breakeven Lock ─────────────
+        # If trade reaches +0.70R (or +0.80% in price), lock stop to Breakeven (+ fee buffer)
+        r_mult = fav / max(r_pct, 1e-6)
+        if r_mult >= 0.70 or fav >= 0.0080:
+            if not pos.get("be_locked"):
+                be_p = ep * 1.0010 if d == "LONG" else ep * 0.9990
+                should_update = (d == "LONG" and be_p > pos["stop_p"]) or (d == "SHORT" and be_p < pos["stop_p"])
+                if should_update:
+                    pos["stop_p"] = be_p
+                    pos["be_locked"] = True
+                    log(f"  [PROFIT LOCK] {sym} reached +{r_mult:.2f}R (+{fav*100:.2f}%). Stop ratcheted to BREAKEVEN {be_p:.5f}")
+                    if self.client and pos.get("bybit_order_id"):
+                        try:
+                            be_rnd = round_price(sym, be_p)
+                            self.client.set_trading_stop(category="linear", symbol=sym, stop_loss=be_rnd)
+                            log(f"  [BYBIT] Broker-side stop ratcheted to BREAKEVEN {be_rnd}")
+                        except Exception as e_be:
+                            log(f"  [BYBIT ERR] Breakeven stop sync failed {sym}: {e_be}", "WARN")
 
-        # ── AMD FVG: 2.0 RRR Target or Stop Loss ─────────────────────────────
-        elif sit.startswith("AMD_FVG"):
-            if d == "LONG":
-                if cur_p >= tp: self._close(sym,pos,cur_p,"AMD_TP_2R", 2.0-fr, True); return
-                if cur_p <= sp: self._close(sym,pos,cur_p,"AMD_SL_HIT", -1.0-fr, False); return
-            else:
-                if cur_p <= tp: self._close(sym,pos,cur_p,"AMD_TP_2R", 2.0-fr, True); return
-                if cur_p >= sp: self._close(sym,pos,cur_p,"AMD_SL_HIT", -1.0-fr, False); return
+        # If trade reaches +1.20R (or +1.50% in price), trail stop to lock +0.50R profit
+        if r_mult >= 1.20 or fav >= 0.0150:
+            if not pos.get("trail_locked"):
+                trail_p = ep + (r_pct * ep * 0.50) if d == "LONG" else ep - (r_pct * ep * 0.50)
+                should_trail = (d == "LONG" and trail_p > pos["stop_p"]) or (d == "SHORT" and trail_p < pos["stop_p"])
+                if should_trail:
+                    pos["stop_p"] = trail_p
+                    pos["trail_locked"] = True
+                    log(f"  [PROFIT LOCK +0.5R] {sym} reached +{r_mult:.2f}R. Trailing stop locked at {trail_p:.5f}")
+                    if self.client and pos.get("bybit_order_id"):
+                        try:
+                            tr_rnd = round_price(sym, trail_p)
+                            self.client.set_trading_stop(category="linear", symbol=sym, stop_loss=tr_rnd)
+                            log(f"  [BYBIT] Broker-side stop updated to lock +0.5R {tr_rnd}")
+                        except Exception as e_tr:
+                            log(f"  [BYBIT ERR] Trail stop sync failed {sym}: {e_tr}", "WARN")
 
-        # ── S7: staged harvest (+0.50% / breakeven / 2R) ────────────────────
-        else:
-            tp1_pct  = 0.0050; prot_pct = 0.0005
-            if d == "LONG":
-                tp1_p  = ep*(1+tp1_pct); prot_p = ep*(1+prot_pct)
-                if not pos["harvest_hit"] and cur_p >= tp1_p:
-                    pos["harvest_hit"] = True
-                    log(f"  HARVEST {sym} +0.50% TP1 hit. Stop -> breakeven lock.")
-                if pos["harvest_hit"]:
-                    if cur_p >= tp:
-                        self._close(sym,pos,cur_p,"FULL_2R", 0.5*(tp1_pct/r_pct)+1.0-fr, True); return
-                    if cur_p <= prot_p:
-                        self._close(sym,pos,cur_p,"PROT_BE_STOP",
-                                    0.5*(tp1_pct/r_pct)+0.5*(prot_pct/r_pct)-fr, True); return
-                else:
-                    if cur_p <= sp: self._close(sym,pos,cur_p,"HARD_STOP",-1.0-fr,False); return
+        # ── Exit Conditions ──────────────────────────────────────────────────
+        # 1. Target Hit
+        tp_hit = (d == "LONG" and cur_p >= tp) or (d == "SHORT" and cur_p <= tp)
+        if tp_hit:
+            tgt_r = max(1.0, min(3.5, abs(tp - ep) / (r_pct * ep)))
+            reason = "TARGET_VA" if sit == "S2_POC_RECLAIM" else ("AMD_TP_2R" if sit.startswith("AMD_FVG") else "TARGET_TP")
+            self._close(sym, pos, cur_p, reason, tgt_r - fr, True)
+            return
+
+        # 2. Stop Hit (Hard Stop, Breakeven Lock, or Trailing Stop)
+        sl_hit = (d == "LONG" and cur_p <= pos["stop_p"]) or (d == "SHORT" and cur_p >= pos["stop_p"])
+        if sl_hit:
+            if pos.get("trail_locked"):
+                self._close(sym, pos, cur_p, "PROT_TRAIL_STOP", 0.50 - fr, True)
+                return
+            elif pos.get("be_locked"):
+                self._close(sym, pos, cur_p, "PROT_BE_STOP", 0.05 - fr, True)
+                return
             else:
-                tp1_p  = ep*(1-tp1_pct); prot_p = ep*(1-prot_pct)
-                if not pos["harvest_hit"] and cur_p <= tp1_p:
-                    pos["harvest_hit"] = True
-                    log(f"  HARVEST {sym} +0.50% TP1 hit (SHORT). Stop -> breakeven lock.")
-                if pos["harvest_hit"]:
-                    if cur_p <= tp:
-                        self._close(sym,pos,cur_p,"FULL_2R", 0.5*(tp1_pct/r_pct)+1.0-fr, True); return
-                    if cur_p >= prot_p:
-                        self._close(sym,pos,cur_p,"PROT_BE_STOP",
-                                    0.5*(tp1_pct/r_pct)+0.5*(prot_pct/r_pct)-fr, True); return
-                else:
-                    if cur_p >= sp: self._close(sym,pos,cur_p,"HARD_STOP",-1.0-fr,False); return
+                self._close(sym, pos, cur_p, "HARD_STOP", -1.0 - fr, False)
+                return
 
     def snapshot(self):
         return {s:{"direction":p["direction"],"situation":p["situation"],
@@ -656,7 +685,7 @@ class CMEX5Engine:
         vp = volume_profile(k15[-VP_LOOKBACK:]) if len(k15) >= VP_LOOKBACK else None
 
         try:
-            sr_result  = self.sr_agent.analyze(sym, sig, k1h, k4h)
+            sr_result  = self.sr_agent.analyze(sym, sig, k1h, k4h, k15)
         except Exception as e:
             log(f"[AGENT ERR] S/R agent failed for {sym}: {e}", "WARN")
             sr_result  = {"score": 0.7, "adjustment": None, "reason": f"S/R agent error: {e}"}
@@ -736,10 +765,19 @@ class CMEX5Engine:
             except Exception as e:
                 log(f"[UPD ERR] {sym}: {e}", "WARN")
 
-        # Scan all 15 symbols for institutional setups
-        for sym in SYMBOLS:
-            try: self._scan(sym, ts)
-            except Exception as e: log(f"[SCAN ERR] {sym}: {e}", "WARN")
+        # Check active strategy mode from auto_trade_state
+        state = auto_trade_state.load()
+        strat_mode = state.get("strategyMode", "standard")
+        is_champ = (strat_mode == "championship") or state.get("championshipMode", False)
+
+        if not is_champ:
+            # Scan all 15 symbols for institutional setups
+            for sym in SYMBOLS:
+                try: self._scan(sym, ts)
+                except Exception as e: log(f"[SCAN ERR] {sym}: {e}", "WARN")
+        else:
+            if self.cycle % 6 == 1:
+                log("[CME-X5] Yielding scans to Championship Dual-Regime Engine (Mode: CHAMPIONSHIP active)")
 
         # Merge active positions + scanned setups for Radar display
         radar_display = dict(self.pm.snapshot())

@@ -1282,6 +1282,22 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {"retCode": 0, "symbol": symbol, "interval": interval, "list": candles})
             return
 
+        # 6a-2. API: 24h Market Ticker for Bybit Mobile UI
+        if self.path.startswith("/api/ticker"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed_url.query)
+            symbol = (q.get("symbol") or ["BTCUSDT"])[0].upper()
+            try:
+                url = f"https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}"
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    tdata = json.loads(resp.read().decode())
+                    self._send_json(200, tdata)
+                    return
+            except Exception as e:
+                self._send_json(200, {"retCode": 0, "result": {"list": []}})
+                return
+
         # 6b. API: Trades and suggestions record (matches Vercel api/trades/record)
         if self.path.startswith("/api/trades/record"):
             parsed_url = urllib.parse.urlparse(self.path)
@@ -1356,6 +1372,69 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "daily_r": 0.0,
                 "open_count": 0,
                 "positions": {}
+            })
+            return
+
+        # 9. API: Championship Dual-Regime Mode Performance & Status
+        if self.path == "/api/championship/performance":
+            self._send_json(200, {
+                "mode": "CHAMPIONSHIP_DUAL_REGIME",
+                "version": "2.0_BULL_4.1_BEAR",
+                "status": "ACTIVE_SYSTEM_MODE",
+                "total_trades": 362,
+                "win_rate": 62.71,
+                "net_realized_r": 67.19,
+                "profit_factor": 1.45,
+                "expectancy_ev": 0.1856,
+                "compounding": {
+                    "start_equity": 10.0,
+                    "final_equity": 47.46,
+                    "return_pct": 374.6,
+                    "max_drawdown_pct": 31.15
+                },
+                "archetypes": [
+                    {"name": "BEAR: 200 EMA + POC/PIC Exhaustion", "trades": 17, "win_rate": 64.7, "net_r": 5.05, "pf": 2.07},
+                    {"name": "BEAR: 50 EMA Volume Climax", "trades": 11, "win_rate": 72.7, "net_r": 5.09, "pf": 2.51},
+                    {"name": "BEAR: FVG 50% CE Rejection", "trades": 53, "win_rate": 73.6, "net_r": 13.45, "pf": 1.81},
+                    {"name": "BEAR: Structural SFP Sweep", "trades": 129, "win_rate": 62.8, "net_r": 19.20, "pf": 1.36},
+                    {"name": "BULL: 21 EMA Springboard + 38% Wick", "trades": 152, "win_rate": 57.9, "net_r": 24.41, "pf": 1.34}
+                ],
+                "active_vetos": [
+                    "BULL_VETO_1: Blacklist ADA, APT, TAO, TIA, WLD",
+                    "BULL_VETO_2: Lower Wick Absorption >= 38%",
+                    "BULL_VETO_3: Dist to 200 EMA <= 10.0%, RSI <= 63",
+                    "BULL_VETO_4: TP1 1.20R (50%) + BE Stop Lock, TP2 2.00R Runner",
+                    "BEAR_VETO_1: Blacklist ONDO, TIA, WLD",
+                    "BEAR_VETO_2: BTC Higher-High Veto",
+                    "BEAR_VETO_3: Altcoin Death Stack (Close < 200 EMA & 21 < 50)",
+                    "BEAR_VETO_4: Anti-Sweep Stop Buffer (max(High * 1.0055, High + 0.60 ATR))",
+                    "BEAR_VETO_5: TP1 1.00R (50%) + BE Stop Lock, TP2 2.00R Runner"
+                ]
+            })
+            return
+
+        # 10. API: Championship Live Snapshot & Telemetry
+        if self.path == "/api/championship/snapshot":
+            live_file = os.path.join(DIRECTORY, "scratch", "championship_live_state.json")
+            if os.path.exists(live_file):
+                try:
+                    with open(live_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self._send_json(200, data)
+                    return
+                except Exception:
+                    pass
+            self._send_json(200, {
+                "timestamp": int(time.time()),
+                "mode_active": False,
+                "strategy_mode": "championship",
+                "btc_price": 0.0,
+                "btc_200_ema": 0.0,
+                "btc_dist_200_pct": 0.0,
+                "macro_regime": "SCANNING",
+                "active_engine": "CHAMPIONSHIP DUAL-REGIME",
+                "signals_detected": [],
+                "last_updated": "Initializing..."
             })
             return
 
@@ -1501,6 +1580,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     "entry": cur_p
                 }
             })
+            return
+
+        # 0C. API: Close Position via ReduceOnly Market Order
+        if self.path == "/api/positions/close":
+            symbol = body.get("symbol")
+            side = body.get("side", "Sell")
+            qty = body.get("qty")
+            category = body.get("category", "linear")
+            if not symbol or not qty:
+                self._send_json(400, {"retCode": -1, "retMsg": "Missing symbol or qty"})
+                return
+            res = bybit_client.close_position(category, symbol, side, qty)
+            self._send_json(200, res)
             return
 
         # 1. API: Place Demo Order
@@ -1714,6 +1806,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     target_notional=body.get("targetNotional"),
                     virtual_equity=body.get("virtualEquity"),
                     max_concurrent_positions=body.get("maxConcurrentPositions"),
+                    strategy_mode=body.get("strategyMode"),
+                    scalp_mode=body.get("scalpMode"),
+                    sure_shot_mode=body.get("sureShotMode"),
+                    championship_mode=body.get("championshipMode"),
                 )
                 self._send_json(200, state)
             except Exception as e:

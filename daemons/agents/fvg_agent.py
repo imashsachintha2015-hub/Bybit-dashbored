@@ -29,9 +29,15 @@ class FVGImpactAgent:
         """
         Detect Fair Value Gaps in the most recent `lookback` bars.
 
-        FVG definition:
-          - Bullish FVG: bar[i-2].low > bar[i].high (gap up — bullish imbalance)
-          - Bearish FVG: bar[i-2].high < bar[i].low (gap down — bearish imbalance)
+        Correct FVG definitions (3-candle pattern: bar i-2, i-1, i):
+          - Bullish FVG (demand / gap-up imbalance):
+              bar[i-2].high < bar[i].low
+              A rapid upward move left a gap below — unfilled demand zone.
+              Zone: bottom=bar[i-2].high, top=bar[i].low
+          - Bearish FVG (supply / gap-down imbalance):
+              bar[i-2].low > bar[i].high
+              A rapid downward move left a gap above — unfilled supply zone.
+              Zone: bottom=bar[i].high, top=bar[i-2].low
 
         Check fill status: if any subsequent bar's range overlaps
         the FVG zone, it's considered filled.
@@ -51,10 +57,11 @@ class FVGImpactAgent:
             bar_2ago = bars[i - 2]
             bar_now = bars[i]
 
-            # Bullish FVG: gap up imbalance
-            if bar_2ago["low"] > bar_now["high"]:
-                top = bar_2ago["low"]
-                bottom = bar_now["high"]
+            # ── Bullish FVG: gap-up imbalance (demand zone below current price) ──
+            # bar[i-2].high < bar[i].low  →  rapid rally left unfilled demand gap
+            if bar_2ago["high"] < bar_now["low"]:
+                bottom = bar_2ago["high"]
+                top = bar_now["low"]
                 mid = (top + bottom) / 2.0
 
                 # Check if filled by subsequent bars
@@ -73,10 +80,11 @@ class FVGImpactAgent:
                     "bar_index": i
                 })
 
-            # Bearish FVG: gap down imbalance
-            if bar_2ago["high"] < bar_now["low"]:
-                top = bar_now["low"]
-                bottom = bar_2ago["high"]
+            # ── Bearish FVG: gap-down imbalance (supply zone above current price) ──
+            # bar[i-2].low > bar[i].high  →  rapid sell-off left unfilled supply gap
+            if bar_2ago["low"] > bar_now["high"]:
+                top = bar_2ago["low"]
+                bottom = bar_now["high"]
                 mid = (top + bottom) / 2.0
 
                 filled = False
@@ -141,11 +149,15 @@ class FVGImpactAgent:
             in_path = path_min < fvg_mid < path_max
 
             if in_path:
+                # Aligned: Bullish FVG in path for LONG (demand pulls price up)
+                # Aligned: Bearish FVG in path for SHORT (supply pulls price down)
                 if direction == "LONG" and fvg["type"] == "BULLISH":
                     aligned_fvgs.append(fvg)
                 elif direction == "SHORT" and fvg["type"] == "BEARISH":
                     aligned_fvgs.append(fvg)
                 else:
+                    # Opposing: Bearish FVG (supply) in LONG path = headwind
+                    # Opposing: Bullish FVG (demand) in SHORT path = headwind
                     opposing_fvgs.append(fvg)
             else:
                 # Check if FVG is behind stop (protective)

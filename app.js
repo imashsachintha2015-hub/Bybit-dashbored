@@ -2547,9 +2547,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const pnl = parseFloat(p.unrealisedPnl || 0);
       const pnlClass = pnl >= 0 ? 'text-green' : 'text-red';
       const entryPrice = parseFloat(p.avgPrice || 0);
-      const im = parseFloat(p.positionIM || 0);
+      const im = parseFloat(p.positionIM || p.im || 0);
       const notional = parseFloat(p.positionValue || 0) || (entryPrice * parseFloat(p.size || 0));
-      const pnlPct = im > 0 ? (pnl / im) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
+      const lev = parseFloat(p.leverage || 10);
+      const effectiveMargin = im > 0 ? im : (notional > 0 && lev > 0 ? notional / lev : 0);
+      const pnlPct = effectiveMargin > 0 ? (pnl / effectiveMargin) * 100 : (notional > 0 ? (pnl / notional) * 100 : 0);
       const sl = parseFloat(p.stopLoss || 0);
       const trade = positionManager.get(p.symbol, p.side);
       const rTxt = trade ? `${positionManager.currentR(trade, parseFloat(p.markPrice || 0)).toFixed(2)}R` : '--';
@@ -3825,19 +3827,34 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentStrategyMode = 'standard';
 
   function applyStrategyModeUI(mode) {
-    currentStrategyMode = (mode === 'sureshot' || mode === 'scalp') ? mode : 'standard';
+    currentStrategyMode = (mode === 'sureshot' || mode === 'scalp' || mode === 'championship') ? mode : 'standard';
     const stdBtn = $('stratModeStandardBtn');
     const scalpBtn = $('stratModeScalpBtn');
     const sureshotBtn = $('stratModeSureShotBtn');
+    const champBtn = $('stratModeChampionshipBtn');
     if (stdBtn) stdBtn.classList.toggle('active', currentStrategyMode === 'standard');
     if (scalpBtn) scalpBtn.classList.toggle('active', currentStrategyMode === 'scalp');
     if (sureshotBtn) sureshotBtn.classList.toggle('active', currentStrategyMode === 'sureshot');
+    if (champBtn) champBtn.classList.toggle('active', currentStrategyMode === 'championship');
 
+    const isChampionship = currentStrategyMode === 'championship';
     const isSureShot = currentStrategyMode === 'sureshot';
     const isScalp = currentStrategyMode === 'scalp' || isSureShot;
 
-    // In SureShot Mode, automatically apply $10 USDT margin and 10x leverage ($100 notional)
-    if (isSureShot) {
+    // In Championship Mode, apply institutional 3% risk compounding & multi-regime routing
+    if (isChampionship) {
+      applySizingModeUI('risk');
+      riskGovernor.config.riskPerTradePct = 3.0;
+      if ($('riskInput')) $('riskInput').value = 3.0;
+      applyLeverageUI(10);
+      if ($('strategyModeBadge')) {
+        $('strategyModeBadge').innerHTML = '<i class="fa-solid fa-trophy"></i> CHAMPIONSHIP DUAL-REGIME · 4 VETOS ACTIVE · BULL + BEAR';
+        $('strategyModeBadge').style.background = 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(168,85,247,0.18))';
+        $('strategyModeBadge').style.color = '#fbbf24';
+        $('strategyModeBadge').style.border = '1px solid rgba(245,158,11,0.4)';
+      }
+    } else if (isSureShot) {
+      // In SureShot Mode, automatically apply $10 USDT margin and 10x leverage ($100 notional)
       applySizingModeUI('usdt');
       riskGovernor.config.fixedUsdtSize = 10;
       if ($('usdtSizeInput')) $('usdtSizeInput').value = 10;
@@ -3848,6 +3865,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (engines[sym]) {
         if (engines[sym].setScalpMode) engines[sym].setScalpMode(isScalp);
         if (engines[sym].setSureShotMode) engines[sym].setSureShotMode(isSureShot);
+        if (engines[sym].setChampionshipMode) engines[sym].setChampionshipMode(isChampionship);
       }
     }
     updateSettingsSummary();
@@ -3862,6 +3880,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($('stratModeStandardBtn')) $('stratModeStandardBtn').disabled = armed;
     if ($('stratModeScalpBtn')) $('stratModeScalpBtn').disabled = armed;
     if ($('stratModeSureShotBtn')) $('stratModeSureShotBtn').disabled = armed;
+    if ($('stratModeChampionshipBtn')) $('stratModeChampionshipBtn').disabled = armed;
     const dot = $('cloudStatusDot');
     const txt = $('cloudStatusText');
     if (dot && txt) {
@@ -3945,6 +3964,20 @@ document.addEventListener('DOMContentLoaded', () => {
       leverage: 10
     }).catch(() => {});
   });
+  const champBtn = $('stratModeChampionshipBtn');
+  if (champBtn) champBtn.addEventListener('click', () => {
+    applyStrategyModeUI('championship');
+    logEvent('Strategy profile switched to 🏆 CHAMPIONSHIP DUAL-REGIME (Bull v2.0 Springboard + Bear v4.1 Archetypes | 4 Golden Vetos Armed)');
+    postJSON('/api/auto-trade/state', {
+      strategyMode: 'championship',
+      championshipMode: true,
+      scalpMode: false,
+      sureShotMode: false,
+      sizingMode: 'risk',
+      riskPerTradePct: 3.0,
+      maxConcurrentPositions: 4
+    }).catch(() => {});
+  });
 
   const levInputEl = $('leverageInput');
   if (levInputEl) {
@@ -4006,6 +4039,7 @@ document.addEventListener('DOMContentLoaded', () => {
         leverage: riskGovernor.config.leverage,
         marginMode: riskGovernor.config.marginMode,
         strategyMode: currentStrategyMode,
+        championshipMode: currentStrategyMode === 'championship',
         scalpMode: currentStrategyMode === 'scalp' || currentStrategyMode === 'sureshot',
         sureShotMode: currentStrategyMode === 'sureshot'
       });
@@ -4026,6 +4060,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (saved.strategyMode && saved.strategyMode !== currentStrategyMode) {
       applyStrategyModeUI(saved.strategyMode);
+    } else if (saved.championshipMode && currentStrategyMode !== 'championship') {
+      applyStrategyModeUI('championship');
     } else if (saved.sureShotMode && currentStrategyMode !== 'sureshot') {
       applyStrategyModeUI('sureshot');
     } else if (saved.scalpMode !== undefined && (saved.scalpMode ? 'scalp' : 'standard') !== currentStrategyMode) {

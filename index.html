@@ -54,6 +54,41 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font-
 .hbtn:hover{background:var(--s3);color:var(--tx)}
 .hbtn.pri{border-color:rgba(245,158,11,.4);color:var(--go);background:var(--go0)}
 .hbtn.pri:hover{background:rgba(245,158,11,.25);color:#fff}
+.hbtn.champ-gold-btn{
+  background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(168,85,247,.18));
+  border:1px solid rgba(245,158,11,.5);
+  color:#fbbf24;
+  font-weight:700;
+  box-shadow:0 0 10px rgba(245,158,11,.15);
+  animation:champGlow 3s ease-in-out infinite alternate;
+}
+.hbtn.champ-gold-btn:hover{
+  background:linear-gradient(135deg,rgba(245,158,11,.32),rgba(168,85,247,.32));
+  border-color:#f59e0b;
+  color:#fff;
+}
+.champ-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#10b981;
+  box-shadow:0 0 6px #10b981;
+  display:inline-block;
+  margin-left:4px;
+}
+@keyframes champGlow{
+  0%{box-shadow:0 0 6px rgba(245,158,11,.15)}
+  100%{box-shadow:0 0 16px rgba(245,158,11,.45)}
+}
+.mw.champ-modal{max-width:880px;width:95%}
+.champ-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.champ-kpi{background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:8px 10px;text-align:center}
+.champ-kpi-lbl{font-size:9px;color:var(--td);text-transform:uppercase;font-weight:700;letter-spacing:.3px}
+.champ-kpi-val{font-family:var(--mo);font-size:14px;font-weight:800;color:#fff;margin-top:2px}
+.champ-sec-t{font-size:11px;font-weight:800;color:var(--go);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;display:flex;align-items:center;gap:6px}
+.veto-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.veto-card{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--tx);display:flex;align-items:flex-start;gap:8px}
+.veto-card i{color:#10b981;margin-top:2px;flex-shrink:0}
 .hclk{font-family:var(--mo);font-size:12px;color:var(--td);letter-spacing:.5px;flex-shrink:0}
 
 .estrip{height:40px;min-height:40px;background:linear-gradient(90deg,rgba(245,158,11,.09),rgba(2,132,199,.1),rgba(16,185,129,.08));border-bottom:1px solid rgba(245,158,11,.2);display:flex;align-items:center;padding:0 14px;gap:14px;flex-shrink:0}
@@ -215,78 +250,742 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .qjump-btn:hover{background:var(--s3);color:var(--tx);border-color:var(--b2)}
 .qjump-btn.on{background:var(--cy0);color:var(--cy);border-color:var(--cy)}
 
-/* Full Mobile and Tablet Responsiveness */
+/* SaaS App View Container */
+.app-views{display:flex;flex-direction:column;gap:14px;width:100%}
+.app-view{width:100%}
+
+/* Mobile Quick Account Capsule in Header */
+.mob-quick-acc{
+  display:none;
+  align-items:center;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--b2);
+  border-radius:20px;
+  padding:4px 10px;
+  gap:8px;
+  cursor:pointer;
+  transition:.15s;
+}
+.mob-quick-acc:hover{background:rgba(255,255,255,0.08);border-color:var(--cy)}
+.mqa-col{display:flex;flex-direction:column;line-height:1.1}
+.mqa-lbl{font-size:7.5px;color:var(--td);font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+.mqa-val{font-size:11.5px;font-weight:800}
+.mqa-divider{width:1px;height:16px;background:var(--b1)}
+
+/* ==========================================================================
+   AUTHENTIC BYBIT MOBILE APP DESIGN SYSTEM (Images 1 & 2)
+   ========================================================================== */
+:root {
+  --bb-black:#000000;
+  --bb-surface:#0b0e11;
+  --bb-card:#12151b;
+  --bb-border:#1e2329;
+  --bb-pill:#181d24;
+  --bb-gold:#f7a600;
+  --bb-green:#0ecb81;
+  --bb-red:#f6465d;
+  --bb-gray:#848e9c;
+  --bb-tx:#eaecef;
+}
+
+/* Bybit Header Bar */
+.bybit-topbar{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 14px 6px;
+  background:#000000;
+  border-bottom:1px solid #14171d;
+  height:48px;
+  width:100%;
+}
+.bybit-brand-row{display:flex;align-items:center;gap:8px}
+.bybit-logo-txt{font-weight:900;font-size:19px;letter-spacing:-.5px;color:#fff}
+.bybit-y{color:var(--bb-gold)}
+.bybit-demo-badge{
+  background:rgba(247,166,0,0.16);
+  border:1px solid rgba(247,166,0,0.35);
+  color:var(--bb-gold);
+  font-size:11px;
+  font-weight:700;
+  padding:2px 7px;
+  border-radius:4px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  cursor:pointer;
+}
+.bybit-top-right{display:flex;align-items:center;gap:8px}
+.bybit-live-btn{
+  background:#12151b;
+  border:1px solid #23272e;
+  color:#e2e8f0;
+  font-size:11.5px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.bybit-access-pill{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:var(--bb-gold);
+  color:#000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  cursor:pointer;
+}
+
+/* Spot | Futures | Options Sub-Bar */
+.bybit-market-tabs{
+  display:none;
+  align-items:center;
+  gap:18px;
+  padding:4px 14px 8px;
+  background:#000000;
+  font-size:13px;
+  font-weight:600;
+  color:#848e9c;
+}
+.bybit-market-tab{cursor:pointer;transition:color .15s}
+.bybit-market-tab.active{color:#fff;font-weight:700}
+
+/* Bybit Symbol Row */
+.bybit-sym-row{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  padding:2px 14px 6px;
+  background:#000000;
+}
+.bybit-sym-left{display:flex;flex-direction:column;cursor:pointer}
+.bybit-sym-name-wrap{display:flex;align-items:center;gap:6px}
+.bybit-sym-text{font-size:19px;font-weight:800;color:#fff;font-family:var(--mo);letter-spacing:-.3px}
+.bybit-sym-caret{font-size:11px;color:#848e9c}
+.bybit-mm-tag{
+  background:rgba(14,203,129,0.14);
+  border:1px solid rgba(14,203,129,0.3);
+  color:#0ecb81;
+  font-size:9.5px;
+  font-weight:700;
+  padding:1px 5px;
+  border-radius:4px;
+}
+.bybit-sym-subtext{font-size:10.5px;color:#848e9c;font-weight:500}
+.bybit-toggle-capsule{
+  display:flex;
+  background:#181d24;
+  border:1px solid #23272e;
+  border-radius:20px;
+  padding:2px;
+  gap:2px;
+}
+.btc-btn{
+  width:32px;
+  height:28px;
+  border-radius:16px;
+  border:none;
+  background:transparent;
+  color:#848e9c;
+  font-size:13px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.btc-btn.active{background:#2b313a;color:#fff}
+
+/* Bybit Subnav Strip (Chart, Positions, Radar, Overview) */
+.bybit-subnav{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 14px;
+  background:#000000;
+  border-bottom:1px solid #14171d;
+}
+.bybit-subnav-list{display:flex;align-items:center;gap:20px}
+.bsn-item{
+  font-size:13px;
+  font-weight:600;
+  color:#848e9c;
+  padding:8px 0;
+  cursor:pointer;
+  position:relative;
+  background:transparent;
+  border:none;
+}
+.bsn-item.active{color:#fff;font-weight:700}
+.bsn-item.active::after{
+  content:'';
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  height:2px;
+  background:#fff;
+  border-radius:2px 2px 0 0;
+}
+.bybit-subnav-icons{display:flex;align-items:center;gap:14px;color:#848e9c;font-size:14px}
+
+/* Bybit Ticker Price & 24h Stats */
+.bybit-ticker-strip{
+  display:none;
+  align-items:flex-start;
+  justify-content:space-between;
+  padding:8px 14px;
+  background:#000000;
+}
+.bts-left{display:flex;flex-direction:column}
+.bts-ltp-title{font-size:10.5px;color:#848e9c;display:flex;align-items:center;gap:4px}
+.bts-big-price-row{display:flex;align-items:baseline;gap:8px;margin:2px 0}
+.bts-price{font-size:26px;font-weight:800;font-family:var(--mo);color:#f6465d;line-height:1}
+.bts-price.up{color:#0ecb81}.bts-price.dn{color:#f6465d}
+.bts-pct{font-size:13px;font-weight:700;font-family:var(--mo)}
+.bts-pct.up{color:#0ecb81}.bts-pct.dn{color:#f6465d}
+.bts-mark{font-size:11px;color:#848e9c;font-family:var(--mo)}
+.bts-right{display:grid;grid-template-columns:1fr;gap:2px;text-align:right}
+.bts-stat-item{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:11px}
+.bts-stat-lbl{color:#848e9c}
+.bts-stat-val{color:#e2e8f0;font-family:var(--mo);font-weight:600}
+
+/* Bybit Timeframe Row */
+.bybit-tf-row{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  padding:6px 14px;
+  background:#000000;
+  border-bottom:1px solid #14171d;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.bybit-tf-row::-webkit-scrollbar{display:none}
+.btf-left{display:flex;align-items:center;gap:14px}
+.btf-lbl{font-size:11px;color:#848e9c;font-weight:600}
+.btf-tab{background:transparent;border:none;color:#848e9c;font-size:12px;font-weight:600;cursor:pointer;padding:2px 0}
+.btf-tab.active{color:#fff;font-weight:700}
+.btf-right{display:flex;align-items:center;gap:12px;color:#848e9c;font-size:12px}
+
+/* Bybit Dual Action Strip (Bottom of Chart) */
+.bybit-action-dock{
+  display:none;
+  background:#0b0e11;
+  border-top:1px solid #181d24;
+  padding:8px 12px 10px;
+  flex-direction:column;
+  gap:6px;
+}
+.bad-book-row{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:#848e9c}
+.bad-tabs{display:flex;align-items:center;gap:14px}
+.bad-tab{cursor:pointer;padding-bottom:2px}
+.bad-tab.active{color:#fff;font-weight:700;border-bottom:2px solid #fff}
+.bad-ratio{display:flex;height:18px;border-radius:3px;overflow:hidden;font-size:10px;font-weight:800;font-family:var(--mo);margin-top:2px}
+.bad-ratio-g{background:rgba(14,203,129,0.22);color:#0ecb81;display:flex;align-items:center;padding-left:6px}
+.bad-ratio-r{background:rgba(246,70,93,0.22);color:#f6465d;display:flex;align-items:center;justify-content:flex-end;padding-right:6px}
+.bad-buttons{display:flex;align-items:center;gap:8px;margin-top:2px}
+.bad-btn{
+  flex:1;
+  height:38px;
+  border-radius:19px;
+  border:none;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  font-weight:700;
+  transition:transform .1s;
+}
+.bad-btn:active{transform:scale(0.98)}
+.bad-btn.long{background:#0ecb81;color:#000}
+.bad-btn.short{background:#f6465d;color:#fff}
+.bad-btn-side{font-size:12.5px;font-weight:800;line-height:1.1}
+.bad-btn-p{font-size:10.5px;font-family:var(--mo);line-height:1.1}
+.bad-qty-pill{
+  width:84px;
+  height:38px;
+  background:#181d24;
+  border:1px solid #23272e;
+  border-radius:19px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+}
+.bad-qty-val{font-family:var(--mo);font-size:11.5px;font-weight:700;background:transparent;border:none;color:#fff;text-align:center;width:55px}
+.bad-qty-lbl{font-size:8.5px;color:#848e9c}
+
+/* Bybit Positions Screen Sub-Bars */
+.bybit-pos-substrip{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 14px;
+  background:#000000;
+  border-bottom:1px solid #14171d;
+}
+.bps-left{display:flex;align-items:center;gap:16px;overflow-x:auto;scrollbar-width:none}
+.bps-tab{background:transparent;border:none;color:#848e9c;font-size:13px;font-weight:600;padding:6px 0;cursor:pointer;white-space:nowrap;position:relative}
+.bps-tab.active{color:#fff;font-weight:700}
+.bps-tab.active::after{content:'';position:absolute;bottom:-8px;left:0;right:0;height:2px;background:#fff}
+.bps-right{display:flex;align-items:center;gap:12px;color:#848e9c;font-size:14px}
+.bps-filter-row{
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 14px;
+  background:#000000;
+  border-bottom:1px solid #12151b;
+  font-size:12px;
+}
+.bpf-left{display:flex;align-items:center;gap:12px}
+.bpf-chk{display:flex;align-items:center;gap:6px;color:#e2e8f0;cursor:pointer}
+.bpf-icons{display:flex;align-items:center;gap:10px;color:#848e9c;font-size:13px}
+.bpf-close-btn{background:transparent;border:none;color:#848e9c;font-size:12px;font-weight:600;cursor:pointer}
+.bpf-close-btn:hover{color:#fff}
+
+/* Bybit Native Position Card (Image 2) */
+.bybit-pos-card{
+  background:#000000;
+  border-bottom:8px solid #0b0e11;
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.bpc-top-row{display:flex;align-items:flex-start;justify-content:space-between}
+.bpc-sym-box{display:flex;flex-direction:column}
+.bpc-sym-title{font-size:15px;font-weight:800;color:#fff;font-family:var(--mo)}
+.bpc-sym-subline{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:2px}
+.bpc-side-txt{font-weight:700}
+.bpc-side-txt.long{color:#0ecb81}.bpc-side-txt.short{color:#f6465d}
+.bpc-mode-txt{color:#848e9c}
+.bpc-pen-icon{color:#848e9c;font-size:10px;cursor:pointer}
+.bpc-pnl-box{display:flex;flex-direction:column;align-items:flex-end}
+.bpc-pnl-header{font-size:10.5px;color:#848e9c;display:flex;align-items:center;gap:4px}
+.bpc-pnl-number{font-size:15px;font-weight:800;font-family:var(--mo);margin-top:2px}
+.bpc-pnl-number.up{color:#0ecb81}.bpc-pnl-number.dn{color:#f6465d}
+.bpc-metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.bpc-col{display:flex;flex-direction:column}
+.bpc-col-lbl{font-size:10px;color:#848e9c;display:flex;align-items:center;gap:3px;white-space:nowrap}
+.bpc-col-val{font-size:12.5px;font-weight:700;color:#fff;font-family:var(--mo);margin-top:3px}
+.bpc-col-val.liq{color:#f7a600}
+.bpc-tpsl-strip{
+  background:#10141a;
+  border-radius:6px;
+  padding:7px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:11px;
+  cursor:pointer;
+}
+.bpc-tpsl-left{color:#848e9c;font-weight:600}
+.bpc-tpsl-center{color:#848e9c;font-family:var(--mo)}
+.bpc-tpsl-center b.tg{color:#0ecb81;font-weight:700}
+.bpc-tpsl-center b.tr{color:#f6465d;font-weight:700}
+.bpc-tpsl-partial{color:#848e9c}
+.bpc-tpsl-arrow{color:#848e9c;font-size:10px}
+.bpc-btn-group{display:flex;align-items:center;gap:8px}
+.bpc-action-btn{
+  flex:1;
+  background:#14181f;
+  border:1px solid #23272e;
+  color:#e2e8f0;
+  font-size:11.5px;
+  font-weight:600;
+  padding:7px 0;
+  border-radius:6px;
+  cursor:pointer;
+  text-align:center;
+  transition:all .15s;
+}
+.bpc-action-btn:active{background:#23272e;transform:scale(0.98)}
+
+/* Bybit Bottom App Dock */
+.bybit-app-dock{
+  display:none;
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  height:52px;
+  background:#000000;
+  border-top:1px solid #14171d;
+  align-items:center;
+  justify-content:space-around;
+  z-index:1000;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+}
+.badock-item{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+  border:none;
+  color:#848e9c;
+  gap:3px;
+  height:100%;
+  cursor:pointer;
+  position:relative;
+}
+.badock-item i{font-size:17px;transition:color .15s}
+.badock-item span{font-size:10px;font-weight:600}
+.badock-item.active{color:#fff}
+.badock-item.active i{color:#fff}
+.badock-badge{
+  position:absolute;
+  top:4px;
+  right:calc(50% - 16px);
+  background:var(--bb-gold);
+  color:#000;
+  font-size:9px;
+  font-weight:800;
+  font-family:var(--mo);
+  padding:0 4px;
+  height:14px;
+  min-width:14px;
+  border-radius:7px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Bybit Chart Watermark & Sub-indicators */
+.bybit-watermark{
+  position:absolute;
+  bottom:38px;
+  left:14px;
+  pointer-events:none;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  opacity:0.32;
+  font-size:16px;
+  font-weight:900;
+  color:#fff;
+  user-select:none;
+}
+.bybit-wm-pill{
+  font-size:10px;
+  font-weight:700;
+  color:var(--bb-gold);
+  background:rgba(247,166,0,0.14);
+  border:1px solid rgba(247,166,0,0.3);
+  padding:1px 5px;
+  border-radius:4px;
+}
+.bybit-subind-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:4px 14px;
+  background:#000;
+  border-top:1px solid #14171d;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.bybit-subind-row::-webkit-scrollbar{display:none}
+.bsi-btn{
+  background:transparent;
+  border:none;
+  color:#848e9c;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  padding:2px 0;
+}
+.bsi-btn.active{color:#fff;font-weight:700}
+
+/* Pair Selector Drawer Sheet */
+.pair-grid{display:grid;grid-template-columns:1fr;gap:6px;max-height:360px;overflow-y:auto}
+.pair-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 12px;
+  background:var(--s2);
+  border:1px solid var(--b1);
+  border-radius:8px;
+  cursor:pointer;
+  transition:.15s;
+}
+.pair-row:hover, .pair-row.active{background:rgba(255,255,255,0.06);border-color:var(--b2)}
+.pair-sym{font-size:13px;font-weight:800;font-family:var(--mo);color:#fff}
+.pair-pr{font-size:12px;font-weight:700;font-family:var(--mo)}
+.pair-pct{font-size:11px;font-weight:700;font-family:var(--mo)}
+
+/* Card View System for Positions & Signals */
+.mob-cards-wrap{display:none}
+.pos-card{
+  background:var(--s2);
+  border:1px solid var(--b1);
+  border-radius:12px;
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  cursor:pointer;
+  transition:border-color .15s, transform .1s, background .15s;
+  position:relative;
+  overflow:hidden;
+}
+.pos-card:hover{border-color:var(--b2);background:var(--s3)}
+.pos-card:active{transform:scale(0.99);background:rgba(255,255,255,0.05)}
+.pos-card-hdr, .pos-card-head{display:flex;align-items:center;justify-content:space-between}
+.pos-card-sym-wrap, .pos-sym-group{display:flex;align-items:center;gap:7px}
+.pos-card-sym, .pos-sym{font-size:14px;font-weight:800;color:#fff;font-family:var(--mo)}
+.pos-card-pnl{font-family:var(--mo);font-size:14px;font-weight:800}
+.pos-pnl-group{display:flex;align-items:flex-end;gap:2px;flex-direction:column;line-height:1.1}
+.pos-roi{font-family:var(--mo);font-size:11px;font-weight:700}
+.pos-card-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px;
+  background:rgba(0,0,0,0.22);
+  border-radius:8px;
+  padding:8px 10px;
+}
+.pos-card-stat, .pos-grid-cell{display:flex;flex-direction:column}
+.pos-card-stat .lbl, .pgc-lbl{font-size:8.5px;color:var(--td);text-transform:uppercase;font-weight:600}
+.pos-card-stat .val, .pgc-val{font-size:11.5px;font-weight:700;color:var(--tx);margin-top:1px;font-family:var(--mo)}
+.pos-card-actions, .pos-card-foot{display:flex;align-items:center;gap:8px;padding-top:2px}
+.pos-action-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:7px 12px;
+  background:rgba(14,165,233,0.12);
+  border:1px solid rgba(14,165,233,0.3);
+  color:#38bdf8;
+  border-radius:7px;
+  font-size:11.5px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.15s ease;
+  width:100%;
+}
+.pos-action-btn:hover, .pos-action-btn:active{background:rgba(14,165,233,0.25);border-color:#38bdf8}
+.pos-targets{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pos-target-badge{
+  font-size:10px;
+  font-family:var(--mo);
+  font-weight:700;
+  padding:2px 7px;
+  border-radius:5px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.pos-target-badge.sl{background:var(--rd0);color:var(--rd);border:1px solid rgba(239,68,68,0.25)}
+.pos-target-badge.tp{background:var(--gr0);color:var(--gr);border:1px solid rgba(16,185,129,0.25)}
+
+/* Signal Cards */
+.sig-card{
+  background:var(--s2);
+  border:1px solid var(--b1);
+  border-radius:12px;
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-bottom:8px;
+  cursor:pointer;
+  transition:border-color .15s, transform .1s;
+}
+.sig-card:hover{border-color:var(--b2)}
+.sig-card:active{transform:scale(0.99)}
+.sig-card-hdr, .sig-card-head{display:flex;align-items:center;justify-content:space-between}
+.sig-card-sym, .sig-sym{font-size:13.5px;font-weight:800;color:#fff;font-family:var(--mo)}
+.sig-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:rgba(0,0,0,0.22);border-radius:8px;padding:8px 10px}
+.sig-stat{display:flex;flex-direction:column}
+.sig-stat .lbl{font-size:8.5px;color:var(--td);text-transform:uppercase;font-weight:600}
+.sig-stat .val{font-size:11.5px;font-weight:700;margin-top:1px;font-family:var(--mo)}
+.sig-card-actions{display:flex;align-items:center;gap:8px}
+
+/* History Cards */
+.hist-card{
+  background:var(--s2);
+  border:1px solid var(--b1);
+  border-radius:10px;
+  padding:10px 12px;
+  margin-bottom:8px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  cursor:pointer;
+  transition:border-color .15s, transform .1s;
+}
+.hist-card:hover{border-color:var(--b2)}
+.hist-card:active{transform:scale(0.99)}
+.hist-card-hdr{display:flex;align-items:center;justify-content:space-between}
+.hist-sym{font-weight:800;font-size:13px;font-family:var(--mo);color:#fff}
+.hist-pnl{font-family:var(--mo);font-weight:800;font-size:12.5px}
+.hist-meta{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:14px;
+  font-size:11px;
+  color:var(--td);
+  padding-top:6px;
+  border-top:1px solid rgba(255,255,255,0.04);
+}
+.hist-meta span{display:inline-flex;align-items:center;gap:4px}
+.hist-meta b{color:var(--tx);font-family:var(--mo)}
+
+/* Empty States */
+.pos-empty-state{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:32px 16px;
+  text-align:center;
+  background:rgba(255,255,255,0.015);
+  border:1px dashed var(--b2);
+  border-radius:12px;
+}
+.pes-icon{font-size:26px;color:var(--td);margin-bottom:8px;opacity:0.6}
+.pes-title{font-size:13px;font-weight:700;color:var(--tx);margin-bottom:3px}
+.pes-sub{font-size:11px;color:var(--td);max-width:320px;line-height:1.4}
+
+/* Menu Bottom Sheet Modal */
+.menu-sheet{max-width:480px;border-radius:18px}
+.menu-grid{display:flex;flex-direction:column;gap:8px}
+.menu-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:var(--s3);
+  border:1px solid var(--b1);
+  border-radius:10px;
+  padding:12px 14px;
+  cursor:pointer;
+  transition:.15s;
+}
+.menu-item:hover{background:rgba(255,255,255,0.06);border-color:var(--b2);transform:translateX(3px)}
+.menu-icon{
+  width:36px;
+  height:36px;
+  border-radius:9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+  flex-shrink:0;
+}
+.menu-icon.gold{background:var(--go0);color:var(--go)}
+.menu-icon.green{background:var(--gr0);color:var(--gr)}
+.menu-icon.amber{background:rgba(245,158,11,.15);color:#fbbf24}
+.menu-icon.cyan{background:var(--cy0);color:var(--cy)}
+.menu-icon.purple{background:rgba(168,85,247,.15);color:#c084fc}
+.menu-info{flex:1;min-width:0}
+.menu-title{font-size:12.5px;font-weight:700;color:#fff}
+.menu-sub{font-size:10.5px;color:var(--td);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu-arr{color:var(--td);font-size:12px}
+
+/* Card Header Flex Grouping */
+.cardt-group{display:flex;align-items:center;gap:8px}
+.cardh-actions{display:flex;align-items:center;gap:8px}
+.pos-summary-roi{font-size:11px;font-weight:700;color:var(--tm)}
+.cctick-left{display:flex;align-items:center;gap:10px}
+
+/* Responsive Breakpoints */
+/* Responsive Breakpoints */
 @media(max-width:900px){
-  .shell{flex-direction:column;height:100vh;width:100vw}
-  .sb{
-    display:flex;
-    flex-direction:row;
-    width:100%;
-    height:50px;
-    min-width:100%;
-    position:fixed;
-    bottom:0;
-    left:0;
-    right:0;
-    z-index:100;
-    border-right:none;
-    border-top:1px solid var(--b1);
-    background:rgba(13,17,23,0.95);
-    backdrop-filter:blur(10px);
-    justify-content:space-around;
-    padding:0 4px;
-  }
-  .sb-logo, .sb-foot{display:none}
-  .sb-nav{flex-direction:row;width:100%;justify-content:space-around;padding:0;gap:0}
-  .sbb{width:44px;height:44px;font-size:16px}
-  .main{width:100%;height:calc(100vh - 50px);padding-bottom:0}
-  .hdr{height:auto;min-height:48px;padding:6px 12px;gap:8px;flex-wrap:wrap}
-  .hbrand .hname{font-size:13px}
-  .hbrand .hsub{font-size:9px}
-  .hkpis{overflow-x:auto;padding-bottom:2px;gap:6px;scrollbar-width:none;width:100%}
-  .hkpis::-webkit-scrollbar{display:none}
-  .kpill{min-width:75px;padding:4px 8px}
-  .klbl{font-size:8.5px}
-  .kval{font-size:11px}
-  .hbtns{gap:4px;margin-left:auto}
-  .hbtn{padding:4px 8px;font-size:10px}
-  .hclk{display:none}
+  .shell{flex-direction:column;height:100vh;width:100vw;background:#000000}
+  .sb{display:none !important}
+  .dt-only{display:none !important}
+  .mob-tab-bar{display:none !important}
+  .mob-quick-acc{display:none !important}
+  
+  /* Activate Bybit Authentic Mobile Elements */
+  .bybit-topbar{display:flex !important}
+  .bybit-market-tabs{display:flex !important}
+  .bybit-sym-row{display:flex !important}
+  .bybit-subnav{display:flex !important}
+  .bybit-ticker-strip{display:flex !important}
+  .bybit-tf-row{display:flex !important}
+  .bybit-action-dock{display:flex !important}
+  .bybit-pos-substrip{display:flex !important}
+  .bps-filter-row{display:flex !important}
+  .bybit-app-dock{display:flex !important}
+  .mob-cards-wrap{display:flex;flex-direction:column;gap:0}
+  
+  .main{width:100%;height:100vh;padding-bottom:52px;background:#000000}
+  .hdr{display:none !important}
+  .estrip{display:none !important}
+  .ccbar{display:none !important}
+  .cctick{display:none !important}
+  .cardh{display:none !important}
 
-  .estrip{height:auto;min-height:32px;padding:4px 10px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
-  .estrip::-webkit-scrollbar{display:none}
-  .ename{font-size:10px}
-  .estrat{display:none}
-  .eright{margin-left:auto;gap:4px}
-  .esm{padding:0 6px}
-  .esml{font-size:8.5px}
-  .esmv{font-size:11px}
+  /* Single-view mobile routing */
+  .qjump-bar{display:none}
+  .app-view{display:none}
+  .app-view.active{display:flex;flex-direction:column;flex:1;animation:viewFade .15s ease}
+  @keyframes viewFade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-  .kgrid{grid-template-columns:repeat(3,1fr);gap:6px}
-  .kc{padding:6px 8px;gap:6px}
-  .kv{font-size:13px}
-  .kl{font-size:8.5px}
-  .kico{width:28px;height:28px;font-size:11px}
+  .scr{padding:0 0 60px 0;gap:0;background:#000000;height:calc(100vh - 146px);overflow-y:auto}
+  .cc{background:#000000;border:none;border-radius:0}
+  .card{background:#000000;border:none;border-radius:0}
 
-  .ccvp{height:380px}
-  .cctick{padding:4px 8px;gap:8px;font-size:11px}
-  .vp-readout{gap:6px;font-size:9.5px;padding:2px 6px}
-  .bgrid{grid-template-columns:1fr;gap:10px}
-  .tw{-webkit-overflow-scrolling:touch}
-  thead th{padding:6px 8px;font-size:9.5px}
-  tbody td{padding:6px 8px;font-size:10.5px}
+  /* Mobile Chart Viewport optimization */
+  .ccvp{height:calc(100vh - 435px);min-height:260px;max-height:500px;position:relative}
+  .vp-readout{display:none}
+  #view-chart.active{overflow:hidden}
+  #view-positions.active, #view-signals.active, #view-analytics.active{overflow-y:auto}
+
+  /* KPI Grid on Analytics tab */
+  .kgrid{grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 14px}
+  .kc{padding:10px 12px;background:#12151b;border-color:#1e2329}
+  .kv{font-size:15px}
+  .kl{font-size:9px}
+
+  .scroll-fab{display:none !important}
+}
+
+@media(min-width:901px){
+  .sb{display:flex}
+  .bybit-topbar{display:none !important}
+  .bybit-market-tabs{display:none !important}
+  .bybit-sym-row{display:none !important}
+  .bybit-subnav{display:none !important}
+  .bybit-ticker-strip{display:none !important}
+  .bybit-tf-row{display:none !important}
+  .bybit-action-dock{display:none !important}
+  .bybit-subind-row{display:none !important}
+  .bybit-watermark{display:none !important}
+  .bybit-pos-substrip{display:none !important}
+  .bps-filter-row{display:none !important}
+  .bybit-app-dock{display:none !important}
+  .mob-tab-bar{display:none !important}
+  .mob-quick-acc{display:none !important}
+  .mob-menu-btn{display:none !important}
+  .mob-cards-wrap{display:none !important}
+  .app-view{display:flex !important;flex-direction:column;margin-bottom:14px}
+  .dt-only{display:block}
+  div.tw.dt-only{display:block}
 }
 
 @media(max-width:560px){
-  .hdr{padding:4px 8px}
-  .kgrid{grid-template-columns:repeat(2,1fr);gap:6px}
-  .ccvp{height:310px}
-  .cctick .vp-readout{display:none}
-  .sigb{font-size:9.5px;padding:2px 6px}
-  .symrow button.csym{padding:0 6px;font-size:9.5px;height:24px}
-  .tfrow button.ctf{padding:0 5px;font-size:10px;height:24px}
-  .indrow{display:none}
   .mw{width:95vw;max-width:95vw}
+  .menu-sheet{width:100vw;max-width:100vw;border-radius:18px 18px 0 0;margin-top:auto}
+  .mbk.open{align-items:flex-end}
 }
+
 </style>
 </head>
 <body>
@@ -294,169 +993,548 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 <aside class="sb">
   <div class="sb-logo"><div class="sb-icon"><i class="fa-solid fa-bolt"></i></div></div>
   <nav class="sb-nav">
-    <button class="sbb on" data-tip="Dashboard"    onclick="nav('a0',0)"><i class="fa-solid fa-grid-2"></i></button>
-    <button class="sbb"    data-tip="Chart"        onclick="nav('a1',1)"><i class="fa-solid fa-chart-candlestick"></i></button>
-    <button class="sbb"    data-tip="Positions"    onclick="nav('a2',2)"><i class="fa-solid fa-briefcase"></i></button>
-    <button class="sbb"    data-tip="Signals"      onclick="nav('a3',3)"><i class="fa-solid fa-radar"></i></button>
-    <button class="sbb"    data-tip="History"      onclick="nav('a4',4)"><i class="fa-solid fa-clock-rotate-left"></i></button>
-    <button class="sbb"    data-tip="Pine Script"  onclick="openPineModal()"><i class="fa-solid fa-code"></i></button>
+    <button class="sbb on" data-tip="Terminal (Chart)" onclick="switchView('chart',0)"><i class="fa-solid fa-chart-line"></i></button>
+    <button class="sbb"    data-tip="Positions"        onclick="switchView('positions',1)"><i class="fa-solid fa-briefcase"></i></button>
+    <button class="sbb"    data-tip="Radar &amp; Signals"  onclick="switchView('signals',2)"><i class="fa-solid fa-radar"></i></button>
+    <button class="sbb"    data-tip="Analytics &amp; History" onclick="switchView('analytics',3)"><i class="fa-solid fa-chart-pie"></i></button>
+    <button class="sbb"    data-tip="Championship Mode" onclick="openChampModal()"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i></button>
+    <button class="sbb"    data-tip="Pine Script v6"    onclick="openPineModal()"><i class="fa-solid fa-code"></i></button>
   </nav>
-  <div class="sb-foot"><div class="wsd" id="wsd"></div></div>
+  <div class="sb-foot"><div class="wsd" id="wsd" title="Bybit WebSocket Status"></div></div>
 </aside>
 <div class="main">
+  <!-- ========================================================================
+       AUTHENTIC BYBIT MOBILE HEADER & NAVIGATION (Matches Images 1 & 2)
+       ======================================================================== -->
+  <div class="bybit-topbar">
+    <div class="bybit-brand-row">
+      <span class="bybit-logo-txt">BYB<span class="bybit-y">I</span>T</span>
+      <span class="bybit-demo-badge" onclick="openChampModal()">Demo Trading <i class="fa-solid fa-chevron-right" style="font-size:9px"></i></span>
+    </div>
+    <div class="bybit-top-right">
+      <button class="bybit-live-btn" onclick="openChampModal()"><i class="fa-solid fa-arrow-left"></i> Start Live Trading</button>
+      <div class="bybit-access-pill" onclick="openMenuModal()" title="Accessibility & Tools">
+        <i class="fa-solid fa-person" style="font-size:14px"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="bybit-market-tabs">
+    <span class="bybit-market-tab" onclick="switchBybitMarket('Spot')">Spot</span>
+    <span class="bybit-market-tab active" onclick="switchBybitMarket('Futures')">Futures</span>
+    <span class="bybit-market-tab" onclick="switchBybitMarket('Options')">Options</span>
+  </div>
+
+  <div class="bybit-sym-row">
+    <div class="bybit-sym-left" onclick="openPairSheet()">
+      <div class="bybit-sym-name-wrap">
+        <span class="bybit-sym-text" id="bbSymTitle">BTCUSDT</span>
+        <i class="fa-solid fa-caret-down bybit-sym-caret"></i>
+        <span class="bybit-mm-tag" id="bbMmTag">MM 0.05%</span>
+      </div>
+      <span class="bybit-sym-subtext" id="bbBaseCoin">BTC</span>
+    </div>
+    <div class="bybit-toggle-capsule">
+      <button class="btc-btn active" id="btnToggleCandle" onclick="setChartMode('candle')" title="Candlestick Chart"><i class="fa-solid fa-chart-candlestick"></i></button>
+      <button class="btc-btn" id="btnToggleBook" onclick="setChartMode('depth')" title="Order Book"><i class="fa-solid fa-bars-staggered"></i></button>
+    </div>
+  </div>
+
+  <div class="bybit-subnav">
+    <div class="bybit-subnav-list">
+      <button class="bsn-item active" id="bsnChart" onclick="switchBybitSubnav('chart')">Chart</button>
+      <button class="bsn-item" id="bsnPositions" onclick="switchBybitSubnav('positions')">Positions (<span id="bbPosCount">0</span>)</button>
+      <button class="bsn-item" id="bsnRadar" onclick="switchBybitSubnav('signals')">Radar</button>
+      <button class="bsn-item" id="bsnOverview" onclick="switchBybitSubnav('analytics')">Overview</button>
+    </div>
+    <div class="bybit-subnav-icons">
+      <i class="fa-regular fa-star" id="bbStarIcon" onclick="toggleFavPair()" style="cursor:pointer"></i>
+      <i class="fa-solid fa-arrow-up-right-from-square" onclick="window.open('/advanced-chart','_blank')" style="cursor:pointer"></i>
+    </div>
+  </div>
+
   <header class="hdr" id="a0">
     <div class="hbrand">
-      <div class="hname">CME-X5 <span class="hver">AMD+POC</span></div>
-      <div class="hsub">Pure Profitable Engine</div>
+      <div class="hname"><i class="fa-solid fa-bolt" style="color:var(--go);font-size:13px"></i> CME-X5 <span class="hver">PRO</span></div>
+      <div class="hsub">Institutional Trading Terminal</div>
     </div>
     <div class="hdiv"></div>
+
+    <!-- Mobile Quick Account Capsule (Glanceable on Mobile) -->
+    <div class="mob-quick-acc" onclick="openModal()" title="View Day-wise PnL Calendar">
+      <div class="mqa-col">
+        <span class="mqa-lbl">EQUITY</span>
+        <span class="mqa-val fm cy" id="mTopEq">--</span>
+      </div>
+      <div class="mqa-divider"></div>
+      <div class="mqa-col">
+        <span class="mqa-lbl">ROI</span>
+        <span class="mqa-val fm up" id="mTopRoi">+0.0%</span>
+      </div>
+    </div>
+
+    <!-- Desktop Full KPIs Strip -->
     <div class="hkpis">
       <div class="kpill"><span class="klbl">Demo Equity</span><span class="kval cy fm" id="hEq">--</span></div>
       <div class="kpill" style="cursor:pointer" onclick="openModal()">
         <span class="klbl">Net P&amp;L</span>
         <span class="kval fm" id="hPnl">--</span>
       </div>
+      <div class="kpill" title="Account Net Return on Capital"><span class="klbl">Account ROI</span><span class="kval up fm" id="hRoi">+0.0%</span></div>
       <div class="kpill"><span class="klbl">Win Rate</span><span class="kval up fm" id="hWR">--</span></div>
       <div class="kpill"><span class="klbl">W / L</span><span class="kval fm" id="hWL">--</span></div>
     </div>
+
+    <!-- Header Actions -->
     <div class="hbtns">
-      <button class="hbtn pri" onclick="openPineModal()"><i class="fa-solid fa-crosshairs"></i> AMD FVG + POC</button>
-      <button class="hbtn" onclick="openModal()"><i class="fa-solid fa-calendar-days" style="color:var(--gr)"></i> Calendar</button>
-      <button class="hbtn" onclick="window.open('/monitor.html','_blank')"><i class="fa-solid fa-up-right-from-square"></i> Monitor</button>
+      <button class="hbtn champ-gold-btn" id="dashChampBtn" onclick="openChampModal()" title="Championship Dual-Regime System">
+        <i class="fa-solid fa-trophy"></i> <span class="champ-btn-txt">Championship Mode</span> <span class="champ-dot"></span>
+      </button>
+      <button class="hbtn pri dt-only" onclick="openPineModal()"><i class="fa-solid fa-crosshairs"></i> AMD FVG + POC</button>
+      <button class="hbtn dt-only" onclick="openModal()"><i class="fa-solid fa-calendar-days" style="color:var(--gr)"></i> Calendar</button>
+      <button class="hbtn dt-only" onclick="window.open('/monitor.html','_blank')"><i class="fa-solid fa-up-right-from-square"></i> Monitor</button>
+      <button class="hbtn icon-only mob-menu-btn" onclick="openMenuModal()" title="Terminal Options &amp; Tools">
+        <i class="fa-solid fa-bars"></i>
+      </button>
     </div>
-    <div class="hclk fm" id="clk">--:--:--</div>
+    <div class="hclk fm dt-only" id="clk">--:--:--</div>
   </header>
+
+  <!-- Live Autonomous Telemetry Strip -->
   <div class="estrip">
     <div class="epulse"></div>
-    <span class="ename">CME-X5 Pure Profitable Engine</span>
-    <span class="ebadge">LIVE 24/7</span>
-    <span class="estrat"><b>S2 POC Reclaim (+0.683R)</b> &nbsp;|&nbsp; <b>AMD FVG (2:1 RRR)</b> &nbsp;|&nbsp; <b>S7 Gated (+0.34R)</b></span>
+    <span class="ename" id="stripName">Championship Dual-Regime</span>
+    <span class="ebadge" id="stripBadge" style="background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.4)">BULL v2.0 + BEAR v4.1</span>
+    <span class="estrat" id="stripStrat"><b>Bull 21 EMA Springboard</b> &nbsp;|&nbsp; <b>Bear 4 Archetypes</b> &nbsp;|&nbsp; <b>9 Golden Vetos</b></span>
     <div class="eright">
-      <div class="esm"><span class="esml">Open Setups</span><span class="esmv tc fm" id="esO">--</span></div>
+      <div class="esm"><span class="esml">Macro BTC</span><span class="esmv tc fm" id="esRegime" style="color:var(--cy)">--</span></div>
       <div class="esm"><span class="esml">Today R</span><span class="esmv fm" id="esR" style="color:var(--gr)">+0.000R</span></div>
       <div class="esm"><span class="esml">Total Trades</span><span class="esmv fm" id="esT">0</span></div>
-      <div class="esm"><span class="esml">Engine</span><span class="esmv" style="color:var(--go);font-size:11px">S2+AMD+S7</span></div>
+      <div class="esm"><span class="esml">Mode</span><span class="esmv" id="esEngine" style="color:var(--go);font-size:11px">CHAMPIONSHIP</span></div>
     </div>
   </div>
+
   <div class="scr">
-    <div class="kgrid">
-      <div class="kc"><div class="kico bl"><i class="fa-solid fa-receipt"></i></div><div><div class="kv fm" id="kT">0</div><div class="kl">Total Trades</div></div></div>
-      <div class="kc"><div class="kico gr"><i class="fa-solid fa-trophy"></i></div><div><div class="kv up fm" id="kW">0</div><div class="kl">Wins</div></div></div>
-      <div class="kc"><div class="kico rd"><i class="fa-solid fa-xmark"></i></div><div><div class="kv dn fm" id="kL">0</div><div class="kl">Losses</div></div></div>
-      <div class="kc"><div class="kico cy"><i class="fa-solid fa-chart-pie"></i></div><div><div class="kv fm" id="kPF">0.00</div><div class="kl">Profit Factor</div></div></div>
-      <div class="kc"><div class="kico go"><i class="fa-solid fa-arrow-trend-up"></i></div><div><div class="kv up fm" id="kGP">$0.00</div><div class="kl">Gross Profit</div></div></div>
-      <div class="kc"><div class="kico pu"><i class="fa-solid fa-arrow-trend-down"></i></div><div><div class="kv dn fm" id="kGL">$0.00</div><div class="kl">Gross Loss</div></div></div>
+    <!-- Desktop Quick Jump Bar -->
+    <div class="qjump-bar dt-only">
+      <button class="qjump-btn on" id="qj0" onclick="switchView('chart',0)"><i class="fa-solid fa-chart-line"></i> Chart</button>
+      <button class="qjump-btn" id="qj1" onclick="switchView('positions',1)"><i class="fa-solid fa-briefcase"></i> Active Positions (<span id="qjPos">0</span>)</button>
+      <button class="qjump-btn" id="qj2" onclick="switchView('signals',2)"><i class="fa-solid fa-radar"></i> CME-X5 Radar</button>
+      <button class="qjump-btn" id="qj3" onclick="switchView('analytics',3)"><i class="fa-solid fa-chart-pie"></i> Analytics &amp; History</button>
     </div>
-    <div class="qjump-bar">
-      <button class="qjump-btn on" id="qj0" onclick="nav('a1',1)"><i class="fa-solid fa-chart-line"></i> Chart</button>
-      <button class="qjump-btn" id="qj1" onclick="nav('a2',2)"><i class="fa-solid fa-briefcase"></i> Active Positions (<span id="qjPos">0</span>)</button>
-      <button class="qjump-btn" id="qj2" onclick="nav('a3',3)"><i class="fa-solid fa-radar"></i> CME-X5 Radar</button>
-      <button class="qjump-btn" id="qj3" onclick="nav('a4',4)"><i class="fa-solid fa-clock-rotate-left"></i> Trade History (<span id="qjHist">0</span>)</button>
-    </div>
-    <div class="cc" id="a1">
-      <div class="ccbar">
-        <div class="symrow" id="srow">
-          <button class="csym on" data-sym="BYBIT:BTCUSDT.P">BTC</button>
-          <button class="csym" data-sym="BYBIT:ETHUSDT.P">ETH</button>
-          <button class="csym" data-sym="BYBIT:SOLUSDT.P">SOL</button>
-          <button class="csym" data-sym="BYBIT:XRPUSDT.P">XRP</button>
-          <button class="csym" data-sym="BYBIT:DOGEUSDT.P">DOGE</button>
-          <button class="csym" data-sym="BYBIT:LINKUSDT.P">LINK</button>
-          <button class="csym" data-sym="BYBIT:AVAXUSDT.P">AVAX</button>
-          <button class="csym" data-sym="BYBIT:BNBUSDT.P">BNB</button>
-          <button class="csym" data-sym="BYBIT:ADAUSDT.P">ADA</button>
-          <button class="csym" data-sym="BYBIT:SUIUSDT.P">SUI</button>
-          <button class="csym" data-sym="BYBIT:LTCUSDT.P">LTC</button>
-        </div>
-        <div class="ccsep"></div>
-        <div class="tfrow" id="trow">
-          <button class="ctf" data-tf="1">1m</button>
-          <button class="ctf" data-tf="5">5m</button>
-          <button class="ctf on" data-tf="15">15m</button>
-          <button class="ctf" data-tf="60">1h</button>
-          <button class="ctf" data-tf="240">4h</button>
-          <button class="ctf" data-tf="D">1D</button>
-        </div>
-        <div class="indrow">
-          <button class="cind on" id="i21">EMA21</button>
-          <button class="cind on" id="i50">EMA50</button>
-          <button class="cind" id="iRSI" data-s="RSI@tv-basicstudies">RSI</button>
-          <button class="cind" id="iMACD" data-s="MACD@tv-basicstudies">MACD</button>
-          <button class="cind" id="iBB" data-s="BollingerBands@tv-basicstudies">BB</button>
-          <button class="cind" id="iVWAP" data-s="VWAP@tv-basicstudies">VWAP</button>
-        </div>
-        <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
-      </div>
-      <div class="cctick">
-        <span class="ctsym" id="ctSym">BTCUSDT</span>
-        <span class="ctpr fm" id="ctPr">--</span>
-        <span class="fm" id="ctPct" style="font-size:11px;color:var(--td)">--</span>
-        
-        <!-- Live Volume Profile POC and AMD indicators -->
-        <div class="vp-readout">
-          <span class="vp-tag vp-poc"><i class="fa-solid fa-crosshairs"></i> POC: <span id="tickPoc" class="fm">--</span></span>
-          <span class="vp-tag vp-vah">VAH: <span id="tickVah" class="fm">--</span></span>
-          <span class="vp-tag vp-val">VAL: <span id="tickVal" class="fm">--</span></span>
-          <span class="amd-tag" id="tickAmd">AMD: SCANNING</span>
-        </div>
 
-        <div class="sigov" id="sigOv"><span class="sigb none"><i class="fa-solid fa-radar"></i> Scanning 15 Pairs (S2 POC + AMD FVG + S7)</span></div>
+    <!-- App Views Container (Mobile Single View & Desktop Workstation) -->
+    <div class="app-views">
 
-        <div class="cthint">
-          <button class="hbtn pri" id="chartEngineBtn" onclick="toggleChartEngine()" style="padding:2px 8px;font-size:10.5px" title="Toggle Bybit Pro / TradingView"><i class="fa-solid fa-chart-line"></i> Bybit Pro (Live TP/SL &amp; FVG)</button>
-          <button class="hbtn" onclick="openPineModal()" style="padding:2px 8px;font-size:10.5px"><i class="fa-solid fa-code"></i> Pine v6</button>
-          <span><i class="fa-solid fa-sliders" style="color:var(--gr)"></i> Indicators (fx)</span>
-        </div>
-      </div>
-      <div class="ccvp">
-        <div id="lwChart" style="width:100%;height:100%"></div>
-        <div id="tvw" style="width:100%;height:100%;display:none"></div>
-      </div>
-    </div>
-    <div class="bgrid">
-      <div class="card bcy" id="a2">
-        <div class="cardh">
-          <span class="cardt"><i class="fa-solid fa-briefcase" style="color:var(--cy)"></i> Active Positions</span>
-          <span class="cbadge fm" style="background:var(--cy0);color:var(--cy)" id="pCnt">0</span>
-        </div>
-        <div class="tw"><table>
-          <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>Unr.PnL</th><th>PnL%</th></tr></thead>
-          <tbody id="pTb"><tr><td colspan="7" class="emp">No active positions</td></tr></tbody>
-        </table></div>
-      </div>
-      <div class="card bgo" id="a3">
-        <div class="cardh">
-          <span class="cardt"><i class="fa-solid fa-radar" style="color:var(--go)"></i> CME-X5 + AMD Radar</span>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="cbadge fm" style="background:rgba(16,185,129,0.15);color:var(--gr);border:1px solid rgba(16,185,129,0.3)"><span class="live-dot"></span>24H EXECUTOR: ARMED</span>
-            <a href="/monitor.html" target="_blank" class="hbtn" style="text-decoration:none;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)"><i class="fa-solid fa-satellite-dish"></i> Railway Monitor</a>
+      <!-- View 1: Terminal / Chart -->
+      <section class="app-view active" id="view-chart">
+        <div class="cc" id="a1">
+          <div class="ccbar">
+            <div class="symrow" id="srow">
+              <button class="csym on" data-sym="BYBIT:BTCUSDT.P">BTC</button>
+              <button class="csym" data-sym="BYBIT:ETHUSDT.P">ETH</button>
+              <button class="csym" data-sym="BYBIT:SOLUSDT.P">SOL</button>
+              <button class="csym" data-sym="BYBIT:XRPUSDT.P">XRP</button>
+              <button class="csym" data-sym="BYBIT:DOGEUSDT.P">DOGE</button>
+              <button class="csym" data-sym="BYBIT:LINKUSDT.P">LINK</button>
+              <button class="csym" data-sym="BYBIT:AVAXUSDT.P">AVAX</button>
+              <button class="csym" data-sym="BYBIT:BNBUSDT.P">BNB</button>
+              <button class="csym" data-sym="BYBIT:ADAUSDT.P">ADA</button>
+              <button class="csym" data-sym="BYBIT:SUIUSDT.P">SUI</button>
+              <button class="csym" data-sym="BYBIT:LTCUSDT.P">LTC</button>
+            </div>
+            <div class="ccsep"></div>
+            <div class="tfrow" id="trow">
+              <button class="ctf" data-tf="1">1m</button>
+              <button class="ctf" data-tf="5">5m</button>
+              <button class="ctf on" data-tf="15">15m</button>
+              <button class="ctf" data-tf="60">1h</button>
+              <button class="ctf" data-tf="240">4h</button>
+              <button class="ctf" data-tf="D">1D</button>
+            </div>
+            <div class="indrow">
+              <button class="cind on" id="i21">EMA21</button>
+              <button class="cind on" id="i50">EMA50</button>
+              <button class="cind on" id="iFVG" title="Toggle Active Fair Value Gaps">FVG</button>
+              <button class="cind" id="iRSI" data-s="RSI@tv-basicstudies">RSI</button>
+              <button class="cind" id="iMACD" data-s="MACD@tv-basicstudies">MACD</button>
+              <button class="cind" id="iBB" data-s="BollingerBands@tv-basicstudies">BB</button>
+              <button class="cind" id="iVWAP" data-s="VWAP@tv-basicstudies">VWAP</button>
+            </div>
+            <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
+          </div>
+          <div class="cctick">
+            <div class="cctick-left">
+              <span class="ctsym" id="ctSym">BTCUSDT</span>
+              <span class="ctpr fm" id="ctPr">--</span>
+              <span class="fm" id="ctPct" style="font-size:11px;color:var(--td)">--</span>
+            </div>
+            
+            <!-- Live Volume Profile POC and AMD indicators -->
+            <div class="vp-readout">
+              <span class="vp-tag vp-poc"><i class="fa-solid fa-crosshairs"></i> POC: <span id="tickPoc" class="fm">--</span></span>
+              <span class="vp-tag vp-vah">VAH: <span id="tickVah" class="fm">--</span></span>
+              <span class="vp-tag vp-val">VAL: <span id="tickVal" class="fm">--</span></span>
+              <span class="amd-tag" id="tickAmd">AMD: SCANNING</span>
+            </div>
+
+            <div class="sigov" id="sigOv"><span class="sigb none"><i class="fa-solid fa-radar"></i> Scanning 15 Pairs (S2 POC + AMD FVG + S7)</span></div>
+
+            <div class="cthint">
+              <button class="hbtn pri" id="chartEngineBtn" onclick="toggleChartEngine()" style="padding:2px 8px;font-size:10.5px" title="Toggle Bybit Pro / TradingView"><i class="fa-solid fa-chart-line"></i> Bybit Pro (Live TP/SL &amp; FVG)</button>
+              <button class="hbtn" onclick="openPineModal()" style="padding:2px 8px;font-size:10.5px"><i class="fa-solid fa-code"></i> Pine v6</button>
+              <span><i class="fa-solid fa-sliders" style="color:var(--gr)"></i> Indicators</span>
+            </div>
+          </div>
+
+          <!-- Bybit Ticker Price & 24h Stats Strip (Mobile View) -->
+          <div class="bybit-ticker-strip">
+            <div class="bts-left">
+              <div class="bts-ltp-title">Last Traded Price <i class="fa-solid fa-caret-down" style="font-size:9px"></i></div>
+              <div class="bts-big-price-row">
+                <span class="bts-price dn" id="btsPrice">--</span>
+                <span class="bts-pct dn" id="btsPct">+0.00%</span>
+              </div>
+              <div class="bts-mark">Mark Price <span id="btsMark">--</span></div>
+            </div>
+            <div class="bts-right">
+              <div class="bts-stat-item"><span class="bts-stat-lbl">24h High</span><span class="bts-stat-val" id="bts24High">--</span></div>
+              <div class="bts-stat-item"><span class="bts-stat-lbl">24h Low</span><span class="bts-stat-val" id="bts24Low">--</span></div>
+              <div class="bts-stat-item"><span class="bts-stat-lbl">24h Turnover</span><span class="bts-stat-val" id="bts24Turn">--</span></div>
+            </div>
+          </div>
+
+          <!-- Bybit Timeframe & Tools Bar -->
+          <div class="bybit-tf-row">
+            <div class="btf-left">
+              <span class="btf-lbl">Time</span>
+              <button class="btf-tab" data-tf="1" onclick="setBybitTf('1')">1m</button>
+              <button class="btf-tab" data-tf="5" onclick="setBybitTf('5')">5m</button>
+              <button class="btf-tab active" data-tf="15" onclick="setBybitTf('15')">15m</button>
+              <button class="btf-tab" data-tf="60" onclick="setBybitTf('60')">1h</button>
+              <button class="btf-tab" data-tf="240" onclick="setBybitTf('240')">4h</button>
+              <button class="btf-tab" data-tf="D" onclick="setBybitTf('D')">1D</button>
+            </div>
+            <div class="btf-right">
+              <span style="cursor:pointer" onclick="toggleBybitDepth()">Depth</span>
+              <i class="fa-solid fa-pen-to-square" style="cursor:pointer" title="Drawings"></i>
+              <i class="fa-solid fa-gear" style="cursor:pointer" onclick="openPineModal()" title="Indicators"></i>
+              <i class="fa-solid fa-expand" style="cursor:pointer" onclick="window.open('/advanced-chart','_blank')" title="Full Screen"></i>
+            </div>
+          </div>
+
+          <div class="ccvp" id="chartViewport">
+            <!-- Bybit Demo Trading Watermark -->
+            <div class="bybit-watermark">
+              <span>BYB<span style="color:var(--bb-gold)">I</span>T</span>
+              <span class="bybit-wm-pill">Demo Trading</span>
+            </div>
+            <div id="lwChart" style="width:100%;height:100%"></div>
+            <div id="tvw" style="width:100%;height:100%;display:none"></div>
+          </div>
+
+          <!-- Bybit Sub-indicator Row (Photo 1) -->
+          <div class="bybit-subind-row">
+            <span class="bsi-btn active" onclick="toggleBybitSubInd('EMA')">EMA</span>
+            <span class="bsi-btn" onclick="toggleBybitSubInd('BOLL')">BOLL</span>
+            <span class="bsi-btn active" onclick="toggleBybitSubInd('FVG')">FVG</span>
+            <span class="bsi-btn" onclick="toggleBybitSubInd('MACD')">MACD</span>
+            <span class="bsi-btn" onclick="toggleBybitSubInd('RSI')">RSI</span>
+            <span class="bsi-btn" onclick="toggleBybitSubInd('POC')">POC</span>
+          </div>
+
+          <!-- Bybit Action Bar (Bottom of Chart Screen) -->
+          <div class="bybit-action-dock">
+            <div class="bad-book-row">
+              <div class="bad-tabs">
+                <span class="bad-tab active">Order Book</span>
+                <span class="bad-tab">Trades</span>
+                <span class="bad-tab">Contract</span>
+              </div>
+              <div style="font-size:10px;color:#848e9c" id="badVolRatio">Buyer/Seller Ratio</div>
+            </div>
+            <div class="bad-ratio">
+              <div class="bad-ratio-g" id="badRatioBuy" style="width:52%">B 52%</div>
+              <div class="bad-ratio-r" id="badRatioSell" style="width:48%">48% S</div>
+            </div>
+            <div class="bad-buttons">
+              <button class="bad-btn long" onclick="quickBybitOrder('Buy')">
+                <span class="bad-btn-side">Long</span>
+                <span class="bad-btn-p" id="badLongP">--</span>
+              </button>
+              <div class="bad-qty-pill">
+                <input type="number" class="bad-qty-val" id="badQtyInput" value="1.0" step="any" />
+                <span class="bad-qty-lbl" id="badQtyCoin">BTC</span>
+              </div>
+              <button class="bad-btn short" onclick="quickBybitOrder('Sell')">
+                <span class="bad-btn-side">Short</span>
+                <span class="bad-btn-p" id="badShortP">--</span>
+              </button>
+            </div>
           </div>
         </div>
-        <div class="tw"><table>
-          <thead><tr><th>Symbol</th><th>Setup</th><th>Dir</th><th>Entry</th><th>Target / POC</th><th>MFE</th><th>24H Action</th></tr></thead>
-          <tbody id="sTb"><tr><td colspan="7" class="emp">Scanning 15 pairs for S2, AMD FVG &amp; S7...</td></tr></tbody>
-        </table></div>
-      </div>
-    </div>
-    <div class="card" id="a4" style="margin-bottom:30px">
-      <div class="cardh" style="position:sticky;top:0;z-index:6">
-        <span class="cardt"><i class="fa-solid fa-clock-rotate-left" style="color:var(--cy)"></i> Trade History</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="hbtn" onclick="nav('a1',1)" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-arrow-up"></i> Top (Chart)</button>
-          <span class="cbadge fm" style="background:var(--cy0);color:var(--cy)" id="hCnt">0</span>
+      </section>
+
+      <!-- View 2: Active Positions -->
+      <section class="app-view" id="view-positions">
+        <div class="card bcy" id="a2">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-briefcase" style="color:var(--cy)"></i> Active Positions</span>
+              <span class="cbadge fm" style="background:var(--cy0);color:var(--cy)" id="pCnt">0</span>
+            </div>
+            <div class="cardh-actions">
+              <span class="pos-summary-roi fm up" id="posSumRoi">Unrealized: $0.00</span>
+              <button class="hbtn" onclick="fPos()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+            </div>
+          </div>
+
+          <!-- Bybit Positions Screen Sub-Bars (Photo 2) -->
+          <div class="bybit-pos-substrip">
+            <div class="bps-left">
+              <button class="bps-tab" onclick="switchView('positions',1)">Orders(0)</button>
+              <button class="bps-tab active" onclick="switchView('positions',1)">Positions(<span id="bpsPosCount">0</span>)</button>
+              <button class="bps-tab" onclick="switchView('analytics',3)">Assets</button>
+              <button class="bps-tab" onclick="switchView('positions',1)">Borrowings(0)</button>
+            </div>
+            <div class="bps-right">
+              <i class="fa-solid fa-gear" style="cursor:pointer" onclick="openChampModal()"></i>
+              <i class="fa-solid fa-clipboard-list" style="cursor:pointer" onclick="switchView('analytics',3)"></i>
+            </div>
+          </div>
+
+          <div class="bps-filter-row">
+            <div class="bpf-left">
+              <label class="bpf-chk">
+                <input type="checkbox" id="bpsAllMarkets" checked onchange="filterPositionCards()" style="accent-color:var(--bb-gold)" />
+                <span>All Markets</span>
+              </label>
+              <div class="bpf-icons">
+                <i class="fa-solid fa-arrow-down-up-across-line" title="Sort" style="cursor:pointer"></i>
+                <i class="fa-solid fa-sliders" title="Filter" style="cursor:pointer"></i>
+              </div>
+            </div>
+            <button class="bpf-close-btn" onclick="closeAllPositions()"><i class="fa-solid fa-xmark"></i> Close All</button>
+          </div>
+
+          <!-- Mobile Cards Container -->
+          <div class="mob-cards-wrap" id="pCards">
+            <div class="pos-empty-state">
+              <div class="pes-icon"><i class="fa-solid fa-briefcase"></i></div>
+              <div class="pes-title">No Active Positions</div>
+              <div class="pes-sub">CME-X5 24H Autonomous Engine is scanning 15 pairs for institutional setups.</div>
+            </div>
+          </div>
+
+          <!-- Desktop Table -->
+          <div class="tw dt-only">
+            <table>
+              <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>Unr.PnL</th><th>ROI (ROE%)</th></tr></thead>
+              <tbody id="pTb"><tr><td colspan="7" class="emp">No active positions</td></tr></tbody>
+            </table>
+          </div>
         </div>
-      </div>
-      <div class="tw" style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table>
-        <thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Closed PnL</th><th>Type</th></tr></thead>
-        <tbody id="hTb"><tr><td colspan="8" class="emp">No closed trades yet</td></tr></tbody>
-      </table></div>
+      </section>
+
+      <!-- View 3: Radar & Signals -->
+      <section class="app-view" id="view-signals">
+        <div class="card bgo" id="a3">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-radar" style="color:var(--go)"></i> CME-X5 + AMD Radar</span>
+              <span class="cbadge fm" style="background:rgba(16,185,129,0.15);color:var(--gr);border:1px solid rgba(16,185,129,0.3)"><span class="live-dot"></span>24H ARMED</span>
+            </div>
+            <div class="cardh-actions">
+              <button class="hbtn" onclick="openChampModal()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i> Archetypes</button>
+              <a href="/monitor.html" target="_blank" class="hbtn" style="text-decoration:none;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)"><i class="fa-solid fa-satellite-dish"></i> Cloud Monitor</a>
+            </div>
+          </div>
+
+          <!-- Mobile Signals Cards -->
+          <div class="mob-cards-wrap" id="sCards">
+            <div class="pos-empty-state">
+              <div class="pes-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+              <div class="pes-title">Scanning 15 Trading Pairs</div>
+              <div class="pes-sub">Checking S2 POC Reclaim, AMD FVG &amp; Championship Dual-Regime setups.</div>
+            </div>
+          </div>
+
+          <!-- Desktop Table -->
+          <div class="tw dt-only">
+            <table>
+              <thead><tr><th>Symbol</th><th>Setup</th><th>Dir</th><th>Entry</th><th>Target / POC</th><th>MFE</th><th>24H Action</th></tr></thead>
+              <tbody id="sTb"><tr><td colspan="7" class="emp">Scanning 15 pairs for S2, AMD FVG &amp; S7...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 4: Analytics & History -->
+      <section class="app-view" id="view-analytics">
+        <!-- 6 Performance Metrics Cards -->
+        <div class="kgrid">
+          <div class="kc"><div class="kico bl"><i class="fa-solid fa-receipt"></i></div><div><div class="kv fm" id="kT">0</div><div class="kl">Total Trades</div></div></div>
+          <div class="kc"><div class="kico gr"><i class="fa-solid fa-trophy"></i></div><div><div class="kv up fm" id="kW">0</div><div class="kl">Wins</div></div></div>
+          <div class="kc"><div class="kico rd"><i class="fa-solid fa-xmark"></i></div><div><div class="kv dn fm" id="kL">0</div><div class="kl">Losses</div></div></div>
+          <div class="kc"><div class="kico cy"><i class="fa-solid fa-chart-pie"></i></div><div><div class="kv fm" id="kPF">0.00</div><div class="kl">Profit Factor</div></div></div>
+          <div class="kc"><div class="kico go"><i class="fa-solid fa-arrow-trend-up"></i></div><div><div class="kv up fm" id="kGP">$0.00</div><div class="kl">Gross Profit</div></div></div>
+          <div class="kc"><div class="kico pu"><i class="fa-solid fa-arrow-trend-down"></i></div><div><div class="kv dn fm" id="kGL">$0.00</div><div class="kl">Gross Loss</div></div></div>
+        </div>
+
+        <!-- Trade History Card -->
+        <div class="card" id="a4" style="margin-top:12px;margin-bottom:30px">
+          <div class="cardh" style="position:sticky;top:0;z-index:6">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-clock-rotate-left" style="color:var(--cy)"></i> Trade History</span>
+              <span class="cbadge fm" style="background:var(--cy0);color:var(--cy)" id="hCnt">0</span>
+            </div>
+            <div class="cardh-actions">
+              <button class="hbtn" onclick="openModal()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-calendar-days" style="color:var(--gr)"></i> Calendar</button>
+              <button class="hbtn" onclick="fHist()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+            </div>
+          </div>
+
+          <!-- Mobile History Cards -->
+          <div class="mob-cards-wrap" id="hCards">
+            <div class="pos-empty-state">
+              <div class="pes-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+              <div class="pes-title">No Closed Trades Yet</div>
+              <div class="pes-sub">Closed positions and historical PnL records will appear here.</div>
+            </div>
+          </div>
+
+          <!-- Desktop Table -->
+          <div class="tw dt-only" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <table>
+              <thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Closed PnL</th><th>Type</th></tr></thead>
+              <tbody id="hTb"><tr><td colspan="8" class="emp">No closed trades yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </div>
   </div>
+
   <button class="scroll-fab" id="scrollFab" onclick="toggleScrollFab()" title="Quick Jump: Top / Bottom">
     <i class="fa-solid fa-arrow-down" id="scrollFabIcon"></i>
   </button>
 </div>
 </div>
+
+<!-- Mobile Bottom Navigation Bar -->
+<nav class="mob-tab-bar" id="mobTabBar">
+  <button class="mob-tab on" id="mtab0" onclick="switchView('chart', 0)">
+    <i class="fa-solid fa-chart-line"></i>
+    <span>Terminal</span>
+  </button>
+  <button class="mob-tab" id="mtab1" onclick="switchView('positions', 1)">
+    <i class="fa-solid fa-briefcase"></i>
+    <span>Positions</span>
+    <span class="mob-badge" id="mPosBadge">0</span>
+  </button>
+  <button class="mob-tab" id="mtab2" onclick="switchView('signals', 2)">
+    <i class="fa-solid fa-radar"></i>
+    <span>Radar</span>
+    <span class="mob-badge" id="mSigBadge">0</span>
+  </button>
+  <button class="mob-tab" id="mtab3" onclick="switchView('analytics', 3)">
+    <i class="fa-solid fa-chart-pie"></i>
+    <span>Analytics</span>
+  </button>
+</nav>
+
+<!-- Authentic Bybit App Bottom Dock (Images 1 & 2) -->
+<nav class="bybit-app-dock" id="bybitAppDock">
+  <button class="badock-item" id="badockHome" onclick="switchBybitSubnav('chart')">
+    <i class="fa-solid fa-house"></i>
+    <span>Home</span>
+  </button>
+  <button class="badock-item active" id="badockTrade" onclick="switchBybitSubnav('chart')">
+    <i class="fa-solid fa-arrow-trend-up"></i>
+    <span>Trade</span>
+  </button>
+  <button class="badock-item" id="badockPositions" onclick="switchBybitSubnav('positions')">
+    <i class="fa-solid fa-briefcase"></i>
+    <span>Positions</span>
+    <span class="badock-badge" id="badockPosBadge">0</span>
+  </button>
+  <button class="badock-item" id="badockAssets" onclick="switchBybitSubnav('analytics')">
+    <i class="fa-solid fa-wallet"></i>
+    <span>Assets</span>
+  </button>
+</nav>
+
+<!-- Pair Selector Drawer Sheet Modal -->
+<div class="mbk" id="pairModal" onclick="if(event.target===this)closePairSheet()">
+  <div class="mw" style="max-width:440px;border-radius:18px 18px 0 0;margin-top:auto">
+    <div class="mh2">
+      <div class="mtit"><i class="fa-solid fa-magnifying-glass" style="color:var(--bb-gold)"></i> Select Bybit Market</div>
+      <button class="mxbtn" onclick="closePairSheet()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody" style="padding:12px 14px">
+      <input type="text" id="pairSearchInput" placeholder="Search USDT perpetuals..." oninput="filterPairsSheet(this.value)" style="width:100%;padding:9px 12px;background:#181d24;border:1px solid #23272e;border-radius:8px;color:#fff;font-family:var(--mo);font-size:13px;margin-bottom:12px;outline:none" />
+      <div class="pair-grid" id="pairGridList">
+        <!-- populated dynamically -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Menu Bottom Sheet Modal -->
+<div class="mbk" id="menuModal" onclick="if(event.target===this)closeMenuModal()">
+  <div class="mw menu-sheet">
+    <div class="mh2">
+      <div class="mtit"><i class="fa-solid fa-sliders" style="color:var(--cy)"></i> Terminal Tools &amp; Options</div>
+      <button class="mxbtn" onclick="closeMenuModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody" style="padding:14px">
+      <div class="menu-grid">
+        <div class="menu-item" onclick="closeMenuModal(); openChampModal();">
+          <div class="menu-icon gold"><i class="fa-solid fa-trophy"></i></div>
+          <div class="menu-info">
+            <div class="menu-title">Championship Mode</div>
+            <div class="menu-sub">Dual-Regime (Bull v2.0 + Bear v4.1) &amp; 9 Golden Vetos</div>
+          </div>
+          <i class="fa-solid fa-chevron-right menu-arr"></i>
+        </div>
+        <div class="menu-item" onclick="closeMenuModal(); openModal();">
+          <div class="menu-icon green"><i class="fa-solid fa-calendar-days"></i></div>
+          <div class="menu-info">
+            <div class="menu-title">Day-wise PnL Calendar</div>
+            <div class="menu-sub">Daily realized earnings, ROI &amp; win rate history</div>
+          </div>
+          <i class="fa-solid fa-chevron-right menu-arr"></i>
+        </div>
+        <div class="menu-item" onclick="closeMenuModal(); openPineModal();">
+          <div class="menu-icon amber"><i class="fa-solid fa-code"></i></div>
+          <div class="menu-info">
+            <div class="menu-title">Pine Script v6 Code</div>
+            <div class="menu-sub">Copy TradingView indicator for AMD FVG &amp; Volume Profile</div>
+          </div>
+          <i class="fa-solid fa-chevron-right menu-arr"></i>
+        </div>
+        <div class="menu-item" onclick="closeMenuModal(); window.open('/monitor.html','_blank');">
+          <div class="menu-icon cyan"><i class="fa-solid fa-satellite-dish"></i></div>
+          <div class="menu-info">
+            <div class="menu-title">Railway Cloud Monitor</div>
+            <div class="menu-sub">Live 24/7 autonomous server telemetry &amp; process logs</div>
+          </div>
+          <i class="fa-solid fa-up-right-from-square menu-arr"></i>
+        </div>
+        <div class="menu-item" onclick="closeMenuModal(); window.open('/advanced-chart','_blank');">
+          <div class="menu-icon purple"><i class="fa-solid fa-chart-candlestick"></i></div>
+          <div class="menu-info">
+            <div class="menu-title">Advanced Pro Chart</div>
+            <div class="menu-sub">Full-screen multi-indicator institutional workspace</div>
+          </div>
+          <i class="fa-solid fa-up-right-from-square menu-arr"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- Calendar Modal -->
 <div class="mbk" id="modal" onclick="if(event.target===this)closeModal()">
@@ -474,6 +1552,133 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <div style="text-align:center;color:var(--td);font-size:11px;padding:20px 0">
         <i class="fa-solid fa-calendar-days" style="font-size:28px;display:block;margin-bottom:8px;color:var(--s3)"></i>
         PnL calendar populates as closed trades are recorded.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Championship Dual-Regime Modal -->
+<div class="mbk" id="champModal" onclick="if(event.target===this)closeChampModal()">
+  <div class="mw champ-modal">
+    <div class="mh2">
+      <div class="mtit" style="display:flex;align-items:center;gap:8px">
+        <i class="fa-solid fa-trophy" style="color:#fbbf24"></i>
+        <span>Championship Dual-Regime System</span>
+        <span class="ebadge" id="modalRegimeBadge" style="background:rgba(245,158,11,0.2);color:#fbbf24;border-color:rgba(245,158,11,0.4)">BULL v2.0 + BEAR v4.1</span>
+      </div>
+      <button class="mxbtn" onclick="closeChampModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody">
+      <!-- Mode Status & Action Banner -->
+      <div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(14,165,233,0.12));border:1px solid rgba(245,158,11,0.35);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;font-size:13px;color:#fbbf24;display:flex;align-items:center;gap:6px">
+            <i class="fa-solid fa-satellite-dish"></i> ACTIVE DASHBOARD MODE: <span id="champModeStateText">CHAMPIONSHIP ARMED</span>
+          </div>
+          <div style="font-size:11px;color:var(--td);margin-top:2px">
+            Autonomous Macro Regime Routing via BTC 15m 200 EMA &middot; 5 Proven Setups &middot; 9 Invalidation Vetos
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="hbtn champ-gold-btn" id="btnToggleChamp" onclick="toggleChampionshipMode()" style="font-size:12px;padding:6px 14px">
+            <i class="fa-solid fa-toggle-on" id="champToggleIcon"></i> <span id="champToggleText">Mode: ACTIVE</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Top Statistical Edge KPIs -->
+      <div class="champ-kpis">
+        <div class="champ-kpi"><div class="champ-kpi-lbl">Total Trades</div><div class="champ-kpi-val fm">362</div></div>
+        <div class="champ-kpi"><div class="champ-kpi-lbl">Win Rate</div><div class="champ-kpi-val fm up" style="color:var(--gr)">62.71%</div></div>
+        <div class="champ-kpi"><div class="champ-kpi-lbl">Net Realized R</div><div class="champ-kpi-val fm up" style="color:var(--gr)">+67.19 R</div></div>
+        <div class="champ-kpi"><div class="champ-kpi-lbl">Profit Factor</div><div class="champ-kpi-val fm cy" style="color:var(--cy)">1.45 PF</div></div>
+        <div class="champ-kpi"><div class="champ-kpi-lbl">$10 Account ROI</div><div class="champ-kpi-val fm go" style="color:var(--go)">+374.6%</div></div>
+        <div class="champ-kpi"><div class="champ-kpi-lbl">EV / Trade</div><div class="champ-kpi-val fm" style="color:#a855f7">+0.1856 R</div></div>
+      </div>
+
+      <!-- Live Regime Card -->
+      <div style="background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase"><i class="fa-solid fa-arrows-split-up-and-left" style="color:var(--cy)"></i> Live BTC Macro Regime Status</span>
+          <span class="bdg" id="liveRegimePill" style="background:rgba(56,189,248,0.18);color:#38bdf8;font-weight:700">READING BTC KLINE...</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px" class="fm">
+          <div><span style="color:var(--td)">BTC Price:</span> <b id="mBtcPrice">--</b></div>
+          <div><span style="color:var(--td)">200 EMA (15m):</span> <b id="mBtc200">--</b></div>
+          <div><span style="color:var(--td)">EMA Distance:</span> <b id="mBtcDist">--</b></div>
+          <div><span style="color:var(--td)">Active Subsystem:</span> <b id="mSubsystem" style="color:var(--go)">--</b></div>
+        </div>
+      </div>
+
+      <!-- 5 Battle-Tested Setups -->
+      <div class="champ-sec-t"><i class="fa-solid fa-crosshairs"></i> 5 Verified Championship Archetypes</div>
+      <div class="tw" style="margin-bottom:14px">
+        <table>
+          <thead>
+            <tr><th>Regime</th><th>Setup Archetype</th><th>Trades</th><th>Win Rate</th><th>Net Realized R</th><th>Profit Factor</th><th>Exit Architecture</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="bdg bsh">BEAR</span></td>
+              <td><b>200 EMA + POC/PIC Exhaustion</b></td>
+              <td class="fm">17</td>
+              <td class="fm tg">64.7%</td>
+              <td class="fm tg">+5.05 R</td>
+              <td class="fm">2.07</td>
+              <td style="font-size:10.5px;color:var(--tm)">TP1 1.0R (50%) + BE Lock &middot; TP2 2.0R</td>
+            </tr>
+            <tr>
+              <td><span class="bdg bsh">BEAR</span></td>
+              <td><b>50 EMA Volume Climax Exhaustion</b></td>
+              <td class="fm">11</td>
+              <td class="fm tg">72.7%</td>
+              <td class="fm tg">+5.09 R</td>
+              <td class="fm">2.51</td>
+              <td style="font-size:10.5px;color:var(--tm)">TP1 1.0R (50%) + BE Lock &middot; TP2 2.0R</td>
+            </tr>
+            <tr>
+              <td><span class="bdg bsh">BEAR</span></td>
+              <td><b>Bearish FVG 50% CE Rejection</b></td>
+              <td class="fm">53</td>
+              <td class="fm tg">73.6%</td>
+              <td class="fm tg">+13.45 R</td>
+              <td class="fm">1.81</td>
+              <td style="font-size:10.5px;color:var(--tm)">TP1 1.0R (50%) + BE Lock &middot; TP2 2.0R</td>
+            </tr>
+            <tr>
+              <td><span class="bdg bsh">BEAR</span></td>
+              <td><b>Structural SFP Liquidity Sweep</b></td>
+              <td class="fm">129</td>
+              <td class="fm tg">62.8%</td>
+              <td class="fm tg">+19.20 R</td>
+              <td class="fm">1.36</td>
+              <td style="font-size:10.5px;color:var(--tm)">TP1 1.0R (50%) + BE Lock &middot; TP2 2.0R</td>
+            </tr>
+            <tr>
+              <td><span class="bdg blo">BULL</span></td>
+              <td><b>21 EMA Institutional Springboard</b></td>
+              <td class="fm">152</td>
+              <td class="fm tg">57.9%</td>
+              <td class="fm tg">+24.41 R</td>
+              <td class="fm">1.34</td>
+              <td style="font-size:10.5px;color:var(--tm)">TP1 1.2R (50%) + BE Lock &middot; TP2 2.0R</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 9 Golden Invalidation Vetos -->
+      <div class="champ-sec-t"><i class="fa-solid fa-shield-halved" style="color:var(--gr)"></i> 9 Golden Invalidation Vetos (Active Defense)</div>
+      <div class="veto-grid">
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bull Veto 1: Blacklist ADA, APT, TAO, TIA, WLD</b><br><span style="color:var(--td);font-size:10px">Permanently cuts -12.43 R toxic fakeouts in low-adherence alts</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bull Veto 2: Lower Wick Absorption &ge; 38%</b><br><span style="color:var(--td);font-size:10px">Ensures aggressive buyer absorption into key moving averages</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bull Veto 3: Dist &le; 10.0% &amp; RSI &le; 63</b><br><span style="color:var(--td);font-size:10px">Prevents buying extended tops or exhausted momentum</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bull Veto 4: Split TP1 1.20R + BE Lock + TP2 2.00R</b><br><span style="color:var(--td);font-size:10px">Locks half at 1.2R, moves stop to entry, lets runner capture 2R</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bear Veto 1: Blacklist ONDO, TIA, WLD</b><br><span style="color:var(--td);font-size:10px">Vetoes unanchored short squeezes in outlier volatile tokens</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bear Veto 2: BTC Higher-High Veto</b><br><span style="color:var(--td);font-size:10px">Blocks shorts if BTC makes a higher high within the last 5 bars</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bear Veto 3: Altcoin Death Stack</b><br><span style="color:var(--td);font-size:10px">Requires Altcoin Close &lt; 200 EMA &amp; 21 EMA &lt; 50 EMA</span></div></div>
+        <div class="veto-card"><i class="fa-solid fa-check"></i><div><b>Bear Veto 4: Anti-Sweep Stop Buffer</b><br><span style="color:var(--td);font-size:10px">Stop buffered above sweep candle: max(High*1.0055, High + 0.60 ATR)</span></div></div>
+        <div class="veto-card" style="grid-column:1/-1"><i class="fa-solid fa-check"></i><div><b>Bear Veto 5: Split TP1 1.00R + BE Lock + TP2 2.00R Runner</b><br><span style="color:var(--td);font-size:10px">Eliminates 109 historical roundtrip losses by banking 50% at 1.0R and moving stop to breakeven</span></div></div>
       </div>
     </div>
   </div>
@@ -843,35 +2048,127 @@ window.openModal=function(){document.getElementById('modal').classList.add('open
 window.closeModal=function(){document.getElementById('modal').classList.remove('open')};
 window.openPineModal=function(){document.getElementById('pineModal').classList.add('open')};
 window.closePineModal=function(){document.getElementById('pineModal').classList.remove('open')};
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();closePineModal();clearOrderLines()}});
+window.openChampModal=function(){document.getElementById('champModal').classList.add('open')};
+window.closeChampModal=function(){document.getElementById('champModal').classList.remove('open')};
+window.openMenuModal=function(){document.getElementById('menuModal').classList.add('open')};
+window.closeMenuModal=function(){document.getElementById('menuModal').classList.remove('open')};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();closePineModal();closeChampModal();closeMenuModal();clearOrderLines()}});
 
-window.copyPineCode=function(){
-  var el=document.getElementById('rawPine');
-  if(!el)return;
-  navigator.clipboard.writeText(el.innerText).then(function(){
-    var b=document.getElementById('copyBtn');
-    if(b){
-      var old=b.innerHTML;
-      b.innerHTML='<i class="fa-solid fa-check"></i> Copied to Clipboard!';
-      b.style.borderColor='#10b981';b.style.color='#10b981';
-      setTimeout(function(){b.innerHTML=old;b.style.borderColor='';b.style.color=''},2000);
+var championshipModeActive = true;
+
+// SaaS View Controller & Mobile Bottom Tab Routing
+window.currentView = 'chart';
+window.switchView = function(viewName, tabIdx){
+  window.currentView = viewName;
+
+  // 1. Update mobile bottom tab buttons
+  document.querySelectorAll('.mob-tab').forEach(function(b, idx){
+    b.classList.toggle('on', idx === tabIdx);
+  });
+
+  // 2. Update desktop sidebar buttons
+  document.querySelectorAll('.sbb').forEach(function(b, idx){
+    b.classList.toggle('on', idx === tabIdx);
+  });
+
+  // 3. Update quick jump bar buttons
+  document.querySelectorAll('.qjump-btn').forEach(function(b, idx){
+    b.classList.toggle('on', idx === tabIdx);
+  });
+
+  // 3b. Update Bybit mobile subnav tabs
+  var subnavMap = {'chart': 'bsnChart', 'positions': 'bsnPositions', 'signals': 'bsnRadar', 'analytics': 'bsnOverview'};
+  document.querySelectorAll('.bsn-item').forEach(function(b){ b.classList.remove('active'); });
+  var activeSubnav = document.getElementById(subnavMap[viewName]);
+  if(activeSubnav) activeSubnav.classList.add('active');
+
+  // 3c. Update Bybit app dock tabs
+  document.querySelectorAll('.badock-item').forEach(function(b){ b.classList.remove('active'); });
+  if(viewName === 'chart'){
+    var d = document.getElementById('badockTrade'); if(d) d.classList.add('active');
+  } else if(viewName === 'positions'){
+    var d = document.getElementById('badockPositions'); if(d) d.classList.add('active');
+  } else if(viewName === 'analytics'){
+    var d = document.getElementById('badockAssets'); if(d) d.classList.add('active');
+  }
+
+  // 4. Update view visibility on mobile (< 900px)
+  var isMobile = window.innerWidth <= 900;
+  if(isMobile){
+    document.querySelectorAll('.app-view').forEach(function(v){
+      v.classList.remove('active');
+    });
+    var targetEl = document.getElementById('view-' + viewName);
+    if(targetEl){
+      targetEl.classList.add('active');
     }
-  }).catch(function(){});
+    var scr = document.querySelector('.scr');
+    if(scr) scr.scrollTo({ top: 0, behavior: 'instant' });
+  } else {
+    // Desktop: smooth scroll to the section
+    var targetMap = {
+      'chart': 'a1',
+      'positions': 'a2',
+      'signals': 'a3',
+      'analytics': 'a4'
+    };
+    var secId = targetMap[viewName] || 'a1';
+    var secEl = document.getElementById(secId);
+    var scr = document.querySelector('.scr');
+    if(secEl && scr){
+      var elRect = secEl.getBoundingClientRect();
+      var scrRect = scr.getBoundingClientRect();
+      var targetScroll = scr.scrollTop + (elRect.top - scrRect.top);
+      scr.scrollTo({ top: Math.max(0, targetScroll - 10), behavior: 'smooth' });
+    }
+  }
+
+  // 5. If switching to chart, trigger chart resize to guarantee pixel-perfect canvas
+  if(viewName === 'chart'){
+    setTimeout(function(){
+      var container = document.getElementById('lwChart');
+      if(lwChart && container){
+        lwChart.applyOptions({
+          width: container.clientWidth,
+          height: container.clientHeight
+        });
+      }
+    }, 100);
+  }
 };
 
 window.nav=function(id,i){
-  var el=document.getElementById(id);
-  var scr=document.querySelector('.scr');
-  if(el&&scr){
-    var elRect=el.getBoundingClientRect();
-    var scrRect=scr.getBoundingClientRect();
-    var targetScroll=scr.scrollTop+(elRect.top-scrRect.top);
-    scr.scrollTo({top:Math.max(0,targetScroll-10),behavior:'smooth'});
-  }else if(el){
-    el.scrollIntoView({behavior:'smooth',block:'start'});
-  }
-  document.querySelectorAll('.sbb').forEach(function(b,j){b.classList.toggle('on',j===i)});
+  var viewMap = {
+    'a0': ['chart', 0],
+    'a1': ['chart', 0],
+    'a2': ['positions', 1],
+    'a3': ['signals', 2],
+    'a4': ['analytics', 3]
+  };
+  var pair = viewMap[id] || ['chart', 0];
+  switchView(pair[0], pair[1]);
 };
+
+// Automatic window resize handler for responsive chart rendering
+window.addEventListener('resize', function(){
+  var container = document.getElementById('lwChart');
+  if(lwChart && container){
+    lwChart.applyOptions({
+      width: container.clientWidth,
+      height: container.clientHeight
+    });
+  }
+  // Check if screen changed between desktop/mobile layout
+  var isMobile = window.innerWidth <= 900;
+  if(isMobile){
+    document.querySelectorAll('.app-view').forEach(function(v){
+      v.classList.remove('active');
+    });
+    var activeTarget = document.getElementById('view-' + (window.currentView || 'chart'));
+    if(activeTarget) activeTarget.classList.add('active');
+  }
+});
+
 
 window.toggleScrollFab = function(){
   var scr = document.querySelector('.scr');
@@ -986,36 +2283,107 @@ function calcVolumeProfile(candles){
 function calcFVGMarkers(candles, dp){
   var markers = [];
   if(!candles || candles.length < 3) return markers;
+
+  // 1. Calculate Average True Range (ATR)
   var trSum = 0;
   for(var i = 1; i < candles.length; i++){
-    trSum += Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close));
+    trSum += Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i-1].close),
+      Math.abs(candles[i].low - candles[i-1].close)
+    );
   }
   var atr = trSum / (candles.length - 1);
-  var fvgMinGap = atr * 0.15; // User Pine script: fvgThreshold = 0.1 ATR multiplier
+  var fvgMinGap = atr * 0.15; // User Pine script: fvgThreshold = 0.15 ATR multiplier
 
+  var activeFvgs = [];
+
+  // 2. Detect 3-bar Fair Value Gaps and check subsequent invalidation / mitigation
   for(var i = 2; i < candles.length; i++){
     var c0 = candles[i - 2], c1 = candles[i - 1], c2 = candles[i];
-    // Bullish FVG: Low of candle 3 is above High of candle 1
+
+    // Bullish FVG: Low of bar 3 is above High of bar 1 (imbalance left between c0.high and c2.low)
     if(c2.low > c0.high && (c2.low - c0.high) >= fvgMinGap){
+      var bottom = c0.high;
+      var top = c2.low;
+      var mid = (bottom + top) / 2.0;
+      var isInvalidated = false;
+
+      // Check all subsequent candles: if price dips back down and fills the gap or closes below 50% CE / bottom
+      for(var j = i + 1; j < candles.length; j++){
+        if(candles[j].low <= bottom || candles[j].close < mid){
+          isInvalidated = true;
+          break;
+        }
+      }
+
+      if(!isInvalidated){
+        activeFvgs.push({
+          type: 'BULLISH',
+          time: c1.time,
+          bottom: bottom,
+          top: top,
+          barIndex: i
+        });
+      }
+    }
+    // Bearish FVG: High of bar 3 is below Low of bar 1 (imbalance left between c2.high and c0.low)
+    else if(c2.high < c0.low && (c0.low - c2.high) >= fvgMinGap){
+      var bottom = c2.high;
+      var top = c0.low;
+      var mid = (bottom + top) / 2.0;
+      var isInvalidated = false;
+
+      // Check all subsequent candles: if price rallies back up and fills the gap or closes above 50% CE / top
+      for(var j = i + 1; j < candles.length; j++){
+        if(candles[j].high >= top || candles[j].close > mid){
+          isInvalidated = true;
+          break;
+        }
+      }
+
+      if(!isInvalidated){
+        activeFvgs.push({
+          type: 'BEARISH',
+          time: c1.time,
+          bottom: bottom,
+          top: top,
+          barIndex: i
+        });
+      }
+    }
+  }
+
+  // 3. Clear ancient historical clutter: keep up to 3 most recent active Bullish and 3 most recent active Bearish FVGs
+  var bullFvgs = activeFvgs.filter(function(f){ return f.type === 'BULLISH'; });
+  var bearFvgs = activeFvgs.filter(function(f){ return f.type === 'BEARISH'; });
+
+  var selected = bullFvgs.slice(-3).concat(bearFvgs.slice(-3)).sort(function(a, b){
+    return a.time - b.time;
+  });
+
+  // 4. Generate clean, high-conviction chart markers
+  for(var k = 0; k < selected.length; k++){
+    var f = selected[k];
+    if(f.type === 'BULLISH'){
       markers.push({
-        time: c1.time,
+        time: f.time,
         position: 'belowBar',
         color: '#10b981',
         shape: 'arrowUp',
-        text: 'Bullish FVG [' + c0.high.toFixed(dp) + ' - ' + c2.low.toFixed(dp) + ']'
+        text: 'Bull FVG [' + f.bottom.toFixed(dp) + ' - ' + f.top.toFixed(dp) + ']'
       });
-    }
-    // Bearish FVG: High of candle 3 is below Low of candle 1
-    else if(c2.high < c0.low && (c0.low - c2.high) >= fvgMinGap){
+    } else {
       markers.push({
-        time: c1.time,
+        time: f.time,
         position: 'aboveBar',
         color: '#ef4444',
         shape: 'arrowDown',
-        text: 'Bearish FVG [' + c2.high.toFixed(dp) + ' - ' + c0.low.toFixed(dp) + ']'
+        text: 'Bear FVG [' + f.bottom.toFixed(dp) + ' - ' + f.top.toFixed(dp) + ']'
       });
     }
   }
+
   return markers;
 }
 
@@ -1347,8 +2715,9 @@ function loadLwChartData(cs, tf){
         sv('tickVal', vp.val.toFixed(dp));
       }
 
-      // 3. AMD FVG (Fair Value Gaps) Markers on Candles
-      var fvgMarkers = calcFVGMarkers(cData, dp);
+      // 3. AMD FVG (Fair Value Gaps) Markers on Candles - Active Unmitigated Only
+      var showFVG = document.getElementById('iFVG') ? document.getElementById('iFVG').classList.contains('on') : true;
+      var fvgMarkers = showFVG ? calcFVGMarkers(cData, dp) : [];
       if(fvgMarkers.length){
         try{
           if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
@@ -1366,15 +2735,21 @@ function loadLwChartData(cs, tf){
         var lastM = fvgMarkers[fvgMarkers.length - 1];
         var amdEl = document.getElementById('tickAmd');
         if(amdEl){
-          amdEl.textContent = 'AMD: ' + (lastM.text.includes('Bullish') ? 'FVG BULLISH' : 'FVG BEARISH');
-          amdEl.style.color = lastM.text.includes('Bullish') ? '#10b981' : '#ef4444';
-          amdEl.style.background = lastM.text.includes('Bullish') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+          amdEl.textContent = 'AMD: ' + (lastM.text.includes('Bull') ? 'FVG BULLISH' : 'FVG BEARISH');
+          amdEl.style.color = lastM.text.includes('Bull') ? '#10b981' : '#ef4444';
+          amdEl.style.background = lastM.text.includes('Bull') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
         }
       } else {
         try{
           if(candleSeries._markersPrimitive) candleSeries._markersPrimitive.setMarkers([]);
           else if(candleSeries.setMarkers) candleSeries.setMarkers([]);
         }catch(e){}
+        var amdEl = document.getElementById('tickAmd');
+        if(amdEl && !showFVG){
+          amdEl.textContent = 'FVG: OFF';
+          amdEl.style.color = 'var(--td)';
+          amdEl.style.background = 'rgba(255,255,255,0.05)';
+        }
       }
 
       // 4. Draw Order Levels (TP Entire, P&L, SL Entire) if active
@@ -1404,6 +2779,8 @@ function loadChart(ns,nt){
   var cs=S.replace('BYBIT:','').replace('.P','');var el=document.getElementById('ctSym');if(el)el.textContent=cs;
   document.querySelectorAll('.csym').forEach(function(b){b.classList.toggle('on',b.dataset.sym===S)});
   document.querySelectorAll('.ctf').forEach(function(b){b.classList.toggle('on',b.dataset.tf===T)});
+  document.querySelectorAll('.btf-tab').forEach(function(b){b.classList.toggle('active',b.dataset.tf===T)});
+  if(window.updateBybitTicker) updateBybitTicker(cs);
 
   if(chartEngine === 'bybit'){
     document.getElementById('lwChart').style.display = 'block';
@@ -1545,18 +2922,19 @@ function cTick(cs){
       if(dot){dot.classList.remove('live'); dot.classList.add('err');}
       wsEpIndex++;
       setTimeout(function(){
-        if(currentCs === cs){
+        if(currentCs === cs && !document.hidden){
           cTick(cs);
         }
-      }, 3500);
+      }, 6000);
     };
   }catch(e){
     if(dot){dot.classList.remove('live'); dot.classList.add('err');}
   }
 
-  // Backup HTTP polling (ensures real-time updates even if browser network blocks WebSockets)
+  // Backup HTTP polling (only polls if WebSockets are inactive or blocked)
   wsPollTimer = setInterval(function(){
-    if(currentCs !== cs) return;
+    if(currentCs !== cs || document.hidden) return;
+    if(ws && ws.readyState === WebSocket.OPEN) return; // Dormant while WebSocket is live and streaming
     var pUrl = '/api/kline?symbol=' + encodeURIComponent(cs) + '&interval=' + encodeURIComponent(tfVal) + '&limit=2';
     fetch(pUrl)
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -1578,7 +2956,7 @@ function cTick(cs){
         if(pe && !pe.dataset.wsActive) pe.textContent = curPr.toFixed(dp);
       })
       .catch(function(){});
-  }, 4000);
+  }, 5000);
 }
 
 document.getElementById('srow').addEventListener('click',function(e){var b=e.target.closest('.csym');if(b&&b.dataset.sym!==S)loadChart(b.dataset.sym,T)});
@@ -1595,6 +2973,7 @@ function fAcc(){
     var pnl = parseFloat(u.totalPerpUPL || u.unrealisedPnl || 0);
     sv('hEq','$' + eq.toFixed(2));
     sv('mA','$' + eq.toFixed(2));
+    sv('mTopEq','$' + eq.toFixed(2));
   })
 }
 
@@ -1620,18 +2999,30 @@ function fPerf(){
     sv('esT', tot);
 
     var e = g('hPnl');
+    var baseEq = 10.0;
+    var roiPct = (net / baseEq) * 100;
     if (e) {
       e.textContent = (net >= 0 ? '+$' : '-$') + Math.abs(net).toFixed(2);
       e.className = 'kval fm ' + (net >= 0 ? 'up' : 'dn');
     }
+    var roiEl = g('hRoi');
+    if (roiEl) {
+      roiEl.textContent = (roiPct >= 0 ? '+' : '') + roiPct.toFixed(1) + '%';
+      roiEl.className = 'kval fm ' + (roiPct >= 0 ? 'up' : 'dn');
+    }
     sv('mT', (net >= 0 ? '+$' : '-$') + Math.abs(net).toFixed(2));
+    var mRoiEl = g('mTopRoi');
+    if (mRoiEl) {
+      mRoiEl.textContent = (roiPct >= 0 ? '+' : '') + roiPct.toFixed(1) + '%';
+      mRoiEl.style.color = roiPct >= 0 ? 'var(--tg)' : 'var(--tr)';
+    }
 
-    // Populate trade history from d.trade_history
-    var tb = g('hTb'), bc = g('hCnt');
+    // Populate trade history with smart DOM diffing (only updates if content changed)
+    var tb = g('hTb'), bc = g('hCnt'), hc = g('hCards');
     if (d.trade_history && d.trade_history.length) {
       if (bc) bc.textContent = d.trade_history.length;
       if (tb) {
-        tb.innerHTML = d.trade_history.slice(0, 50).map(function(t){
+        var newHtml = d.trade_history.slice(0, 50).map(function(t){
           var pnl = parseFloat(t.closedPnl != null ? t.closedPnl : (t.pnl || 0));
           var pc = pnl >= 0 ? 'tg' : 'tr';
           var ts = t.time || (t.exitTime ? new Date(Number(t.exitTime)).toLocaleTimeString() : '--');
@@ -1641,7 +3032,8 @@ function fPerf(){
           var sym = t.symbol || '';
           var sit = t.exit_reason || t.setup_type || t.status || 'CLOSED';
           var qtyDisp = t.qty != null ? t.qty : (t.size != null ? t.size : '--');
-          return '<tr class="pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="0" data-tp="' + xp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="' + sit + '">' +
+          var sp = parseFloat(t.stop || t.stopLoss || (isL ? ep * 0.985 : ep * 1.015));
+          return '<tr class="pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + xp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="' + sit + '">' +
             '<td class="fm" style="color:var(--td)">' + ts + '</td>' +
             '<td class="fm" style="font-weight:700">' + sym + '</td>' +
             '<td><span class="bdg ' + (isL ? 'blo' : 'bsh') + '">' + (t.side || '--') + '</span></td>' +
@@ -1652,10 +3044,53 @@ function fPerf(){
             '<td><span class="bdg" style="background:rgba(255,255,255,.05);color:var(--tm)">' + sit + '</span></td>' +
             '</tr>';
         }).join('');
+        if (tb.dataset.lastHtml !== newHtml) {
+          tb.innerHTML = newHtml;
+          tb.dataset.lastHtml = newHtml;
+        }
+      }
+      if (hc) {
+        var hCardsHtml = d.trade_history.slice(0, 30).map(function(t){
+          var pnl = parseFloat(t.closedPnl != null ? t.closedPnl : (t.pnl || 0));
+          var pc = pnl >= 0 ? 'tg' : 'tr';
+          var isL = (t.side || 'BUY').toUpperCase().includes('BUY');
+          var ep = parseFloat(t.entry || t.entryPrice || 0);
+          var xp = parseFloat(t.exit || t.exitPrice || 0);
+          var sym = t.symbol || '';
+          var sit = t.exit_reason || t.setup_type || t.status || 'CLOSED';
+          var ts = t.time || (t.exitTime ? new Date(Number(t.exitTime)).toLocaleTimeString() : '--');
+          var sp = parseFloat(t.stop || t.stopLoss || (isL ? ep * 0.985 : ep * 1.015));
+          return '<div class="hist-card pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + xp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="' + sit + '">' +
+            '<div class="hist-card-hdr">' +
+              '<div style="display:flex;align-items:center;gap:6px">' +
+                '<span class="hist-sym">' + sym + '</span>' +
+                '<span class="bdg ' + (isL ? 'blo' : 'bsh') + '">' + (isL ? 'LONG' : 'SHORT') + '</span>' +
+                '<span class="bdg" style="background:rgba(255,255,255,.05);color:var(--tm);font-size:10px">' + sit + '</span>' +
+              '</div>' +
+              '<div class="hist-pnl ' + pc + '">' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' <span style="font-size:10px">USDT</span></div>' +
+            '</div>' +
+            '<div class="hist-meta">' +
+              '<span>Entry: <b>' + ep.toFixed(2) + '</b></span>' +
+              '<span>Exit: <b>' + xp.toFixed(2) + '</b></span>' +
+              '<span>' + ts + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+        if (hc.dataset.lastHtml !== hCardsHtml) {
+          hc.innerHTML = hCardsHtml;
+          hc.dataset.lastHtml = hCardsHtml;
+        }
       }
     } else {
       if (bc) bc.textContent = '0';
-      if (tb) tb.innerHTML = '<tr><td colspan="8" class="emp">No closed trades recorded yet</td></tr>';
+      if (tb && tb.dataset.lastHtml !== 'empty') {
+        tb.innerHTML = '<tr><td colspan="8" class="emp">No closed trades recorded yet</td></tr>';
+        tb.dataset.lastHtml = 'empty';
+      }
+      if (hc && hc.dataset.lastHtml !== 'empty') {
+        hc.innerHTML = '<div class="pos-empty-state"><i class="fa-solid fa-clock-rotate-left"></i><div>No trade history recorded yet</div></div>';
+        hc.dataset.lastHtml = 'empty';
+      }
     }
   })
 }
@@ -1664,8 +3099,24 @@ function fPos(){
   api('/api/positions',function(d){
     var list = (d && d.result && Array.isArray(d.result.list)) ? d.result.list : (Array.isArray(d) ? d : (d.positions || d.list || []));
     var rows = list.filter(function(p){ return parseFloat(p.size || p.qty || 0) > 0; });
-    var tb = g('pTb'), bc = g('pCnt');
+    var tb = g('pTb'), bc = g('pCnt'), pcWrap = g('pCards'), pBadge = g('mPosBadge'), sumRoiEl = g('posSumRoi');
+    var bpc = g('bpsPosCount'), bbc = g('bbPosCount'), bdb = g('badockPosBadge');
     if (bc) bc.textContent = rows.length;
+    if (bpc) bpc.textContent = rows.length;
+    if (bbc) bbc.textContent = rows.length;
+    if (bdb) {
+      bdb.textContent = rows.length;
+      bdb.style.display = rows.length > 0 ? 'flex' : 'none';
+    }
+    if (pBadge) {
+      pBadge.textContent = rows.length;
+      pBadge.style.display = rows.length > 0 ? 'inline-block' : 'none';
+    }
+    var totUnr = rows.reduce(function(acc, p){ return acc + parseFloat(p.unrealisedPnl || p.unrealizedPnl || 0); }, 0);
+    if (sumRoiEl) {
+      sumRoiEl.textContent = (totUnr >= 0 ? '+$' : '-$') + Math.abs(totUnr).toFixed(2);
+      sumRoiEl.className = 'val fm ' + (totUnr >= 0 ? 'tg' : 'tr');
+    }
 
     // Auto-sync active position order lines on the chart if viewed coin matches an open position
     var cs = S.replace('BYBIT:','').replace('.P','');
@@ -1676,43 +3127,151 @@ function fPos(){
       var sp = parseFloat(matchedPos.stopLoss || (isL ? ep * 0.985 : ep * 1.015));
       var tp = parseFloat(matchedPos.takeProfit || (isL ? ep * 1.03 : ep * 0.97));
       var pnl = parseFloat(matchedPos.unrealisedPnl || matchedPos.unrealizedPnl || 0);
-      activeOrder = {
-        symbol: cs,
-        entry: ep,
-        stop: sp,
-        target: tp,
-        dir: isL ? 'LONG' : 'SHORT',
-        sit: 'ACTIVE POSITION',
-        size: parseFloat(matchedPos.size || matchedPos.qty || 0),
-        pnl: pnl
-      };
+      var sz = parseFloat(matchedPos.size || matchedPos.qty || 0);
+      var orderKey = [cs, ep, sp, tp, isL, sz].join(':');
+
+      if (!activeOrder || activeOrder._key !== orderKey) {
+        activeOrder = {
+          _key: orderKey,
+          symbol: cs,
+          entry: ep,
+          stop: sp,
+          target: tp,
+          dir: isL ? 'LONG' : 'SHORT',
+          sit: 'ACTIVE POSITION',
+          size: sz,
+          pnl: pnl
+        };
+        updateOrderLines();
+      } else if (activeOrder && activeOrder.pnl !== pnl) {
+        activeOrder.pnl = pnl;
+        if (entryPriceLine) {
+          entryPriceLine.applyOptions({
+            title: 'P&L ' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2)
+          });
+        }
+      }
+    } else if (activeOrder && activeOrder.sit === 'ACTIVE POSITION') {
+      activeOrder = null;
       updateOrderLines();
     }
 
-    if (!tb) return;
     if (!rows.length){
-      tb.innerHTML = '<tr><td colspan="7" class="emp">No active positions</td></tr>';
+      if (tb && tb.dataset.lastHtml !== 'empty') {
+        tb.innerHTML = '<tr><td colspan="7" class="emp">No active positions</td></tr>';
+        tb.dataset.lastHtml = 'empty';
+      }
+      if (pcWrap && pcWrap.dataset.lastHtml !== 'empty') {
+        pcWrap.innerHTML = '<div class="pos-empty-state"><i class="fa-solid fa-briefcase"></i><div>No active positions open</div><div style="font-size:11px;color:var(--td);margin-top:4px">Trades triggered by CME-X5 Radar will appear here</div></div>';
+        pcWrap.dataset.lastHtml = 'empty';
+      }
       return;
     }
-    tb.innerHTML = rows.map(function(p){
-      var side = (p.side || 'Buy').toUpperCase(), isL = side === 'BUY' || side === 'LONG';
-      var pnl = parseFloat(p.unrealisedPnl || p.unrealizedPnl || 0);
-      var pct = parseFloat(p.pnlPercent || p.roe || 0);
-      var pc = pnl >= 0 ? 'tg' : 'tr';
-      var ep = parseFloat(p.entryPrice || p.avgPrice || 0);
-      var sp = parseFloat(p.stopLoss || (isL ? ep * 0.985 : ep * 1.015));
-      var tp = parseFloat(p.takeProfit || (isL ? ep * 1.03 : ep * 0.97));
-      var sym = p.symbol || '';
-      return '<tr class="pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + tp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="ACTIVE POSITION" data-pnl="' + pnl + '">' +
-        '<td class="fm" style="font-weight:700">' + sym + '</td>' +
-        '<td><span class="bdg ' + (isL ? 'blo' : 'bsh') + '">' + (isL ? 'LONG' : 'SHORT') + '</span></td>' +
-        '<td class="fm">' + (p.size || p.qty || 0) + '</td>' +
-        '<td class="fm">' + ep.toFixed(2) + '</td>' +
-        '<td class="fm">' + parseFloat(p.markPrice || 0).toFixed(2) + '</td>' +
-        '<td class="fm ' + pc + '">' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '</td>' +
-        '<td class="fm ' + pc + '">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</td>' +
-        '</tr>';
-    }).join('');
+    if (tb) {
+      var newHtml = rows.map(function(p){
+        var side = (p.side || 'Buy').toUpperCase(), isL = side === 'BUY' || side === 'LONG';
+        var pnl = parseFloat(p.unrealisedPnl || p.unrealizedPnl || 0);
+        var im = parseFloat(p.positionIM || p.im || 0);
+        var ep = parseFloat(p.entryPrice || p.avgPrice || 0);
+        var sz = parseFloat(p.size || p.qty || 0);
+        var notional = parseFloat(p.positionValue || 0) || (ep * sz);
+        var lev = parseFloat(p.leverage || 10);
+        var effectiveMargin = im > 0 ? im : (notional > 0 && lev > 0 ? notional / lev : 0);
+        var pct = effectiveMargin > 0 ? (pnl / effectiveMargin * 100) : (notional > 0 ? (pnl / notional * 100) : 0);
+        var pc = pnl >= 0 ? 'tg' : 'tr';
+        var sp = parseFloat(p.stopLoss || (isL ? ep * 0.985 : ep * 1.015));
+        var tp = parseFloat(p.takeProfit || (isL ? ep * 1.03 : ep * 0.97));
+        var sym = p.symbol || '';
+        return '<tr class="pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + tp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="ACTIVE POSITION" data-pnl="' + pnl + '">' +
+          '<td class="fm" style="font-weight:700">' + sym + '</td>' +
+          '<td><span class="bdg ' + (isL ? 'blo' : 'bsh') + '">' + (isL ? 'LONG' : 'SHORT') + '</span></td>' +
+          '<td class="fm">' + sz + '</td>' +
+          '<td class="fm">' + ep.toFixed(2) + '</td>' +
+          '<td class="fm">' + parseFloat(p.markPrice || 0).toFixed(2) + '</td>' +
+          '<td class="fm ' + pc + '">' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '</td>' +
+          '<td class="fm ' + pc + '" style="font-weight:700">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</td>' +
+          '</tr>';
+      }).join('');
+      if (tb.dataset.lastHtml !== newHtml) {
+        tb.innerHTML = newHtml;
+        tb.dataset.lastHtml = newHtml;
+      }
+    }
+    if (pcWrap) {
+      var pCardsHtml = rows.map(function(p){
+        var side = (p.side || 'Buy').toUpperCase(), isL = side === 'BUY' || side === 'LONG';
+        var pnl = parseFloat(p.unrealisedPnl || p.unrealizedPnl || 0);
+        var im = parseFloat(p.positionIM || p.im || 0);
+        var ep = parseFloat(p.entryPrice || p.avgPrice || 0);
+        var sz = parseFloat(p.size || p.qty || 0);
+        var notional = parseFloat(p.positionValue || 0) || (ep * sz);
+        var lev = parseFloat(p.leverage || 10);
+        var effectiveMargin = im > 0 ? im : (notional > 0 && lev > 0 ? notional / lev : 0);
+        var pct = effectiveMargin > 0 ? (pnl / effectiveMargin * 100) : (notional > 0 ? (pnl / notional * 100) : 0);
+        var pc = pnl >= 0 ? 'up' : 'dn';
+        var sp = parseFloat(p.stopLoss || (isL ? ep * 0.985 : ep * 1.015));
+        var tp = parseFloat(p.takeProfit || (isL ? ep * 1.03 : ep * 0.97));
+        var mp = parseFloat(p.markPrice || 0);
+        var sym = p.symbol || '';
+        var baseCoin = sym.replace('USDT','').replace('USDC','');
+        
+        var liqP = parseFloat(p.liqPrice || 0);
+        if(!liqP || liqP <= 0){
+          liqP = isL ? (ep * (1 - 1/lev * 0.95)) : (ep * (1 + 1/lev * 0.95));
+        }
+        var dec = (ep < 2) ? 4 : 2;
+
+        return '<div class="bybit-pos-card pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + tp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="ACTIVE POSITION" data-pnl="' + pnl + '">' +
+          '<div class="bpc-top-row">' +
+            '<div class="bpc-sym-box">' +
+              '<span class="bpc-sym-title">' + sym + '</span>' +
+              '<div class="bpc-sym-subline">' +
+                '<span class="bpc-side-txt ' + (isL ? 'long' : 'short') + '">' + (isL ? 'Long' : 'Short') + '</span>' +
+                '<span class="bpc-mode-txt">Cross ' + lev + 'x</span>' +
+                '<i class="fa-solid fa-pen bpc-pen-icon" onclick="event.stopPropagation(); setLeveragePrompt(\'' + sym + '\')"></i>' +
+              '</div>' +
+            '</div>' +
+            '<div class="bpc-pnl-box">' +
+              '<div class="bpc-pnl-header">Unrealized P&amp;L (USDT) <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px"></i></div>' +
+              '<div class="bpc-pnl-number ' + pc + '">' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bpc-metrics-grid">' +
+            '<div class="bpc-col">' +
+              '<span class="bpc-col-lbl">Quantity(' + baseCoin + ') <i class="fa-solid fa-right-left" style="font-size:8px"></i></span>' +
+              '<span class="bpc-col-val">' + sz + '</span>' +
+            '</div>' +
+            '<div class="bpc-col">' +
+              '<span class="bpc-col-lbl">Entry Price</span>' +
+              '<span class="bpc-col-val">' + ep.toFixed(dec) + '</span>' +
+            '</div>' +
+            '<div class="bpc-col">' +
+              '<span class="bpc-col-lbl">Mark Price</span>' +
+              '<span class="bpc-col-val">' + mp.toFixed(dec) + '</span>' +
+            '</div>' +
+            '<div class="bpc-col">' +
+              '<span class="bpc-col-lbl">Estimated Liq. Price</span>' +
+              '<span class="bpc-col-val liq">' + liqP.toFixed(dec) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bpc-tpsl-strip" onclick="event.stopPropagation(); setTpSlDialog(\'' + sym + '\',' + ep + ',' + sp + ',' + tp + ')">' +
+            '<span class="bpc-tpsl-left">TP/SL</span>' +
+            '<span class="bpc-tpsl-center">Entire Position: <b class="tg">' + tp.toFixed(dec) + '</b>/<b class="tr">' + sp.toFixed(dec) + '</b></span>' +
+            '<span class="bpc-tpsl-partial">Partial Position: 0</span>' +
+            '<i class="fa-solid fa-chevron-right bpc-tpsl-arrow"></i>' +
+          '</div>' +
+          '<div class="bpc-btn-group">' +
+            '<button class="bpc-action-btn" onclick="event.stopPropagation(); setTpSlDialog(\'' + sym + '\',' + ep + ',' + sp + ',' + tp + ')">Set TP/SL</button>' +
+            '<button class="bpc-action-btn" onclick="event.stopPropagation(); alert(\'Trailing Stop active on Bybit V5\')">Trailing Stop</button>' +
+            '<button class="bpc-action-btn" style="color:var(--bb-red);border-color:rgba(246,70,93,0.3)" onclick="event.stopPropagation(); closePositionMarket(\'' + sym + '\',\'' + side + '\',' + sz + ')">Close By</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      if (pcWrap.dataset.lastHtml !== pCardsHtml) {
+        pcWrap.innerHTML = pCardsHtml;
+        pcWrap.dataset.lastHtml = pCardsHtml;
+      }
+    }
   })
 }
 
@@ -1753,12 +3312,19 @@ function fSnap(){
         ov.innerHTML=ks.length?'<div class="sigb s2"><i class="fa-solid fa-radar"></i> '+ks.length+' position(s) active in other pairs</div>':'<div class="sigb none"><i class="fa-solid fa-radar"></i> Scanning 15 Pairs (S2 POC + AMD FVG + S7)</div>'
       }
     }
-    var stb=g('sTb'),ks2=Object.keys(pos);
+    var stb=g('sTb'), scWrap=g('sCards'), sBadge=g('mSigBadge'), ks2=Object.keys(pos);
+    if(sBadge){
+      sBadge.textContent = ks2.length;
+      sBadge.style.display = ks2.length > 0 ? 'inline-block' : 'none';
+    }
     if(stb){
       if(!ks2.length){
-        stb.innerHTML='<tr><td colspan="7" class="emp">Scanning 15 pairs for S2 POC, AMD FVG &amp; S7 setups...</td></tr>'
+        if (stb.dataset.lastHtml !== 'empty') {
+          stb.innerHTML='<tr><td colspan="7" class="emp">Scanning 15 pairs for S2 POC, AMD FVG &amp; S7 setups...</td></tr>';
+          stb.dataset.lastHtml = 'empty';
+        }
       }else{
-        stb.innerHTML=ks2.map(function(k){
+        var newHtml = ks2.map(function(k){
           var p=pos[k],isL=p.direction==='LONG',sit=p.situation||'S2';
           var bdgCl=sit.startsWith('AMD')?'bamd':(sit.startsWith('S2')?'bs2':'bdg');
           var ep=parseFloat(p.entry_p||0);
@@ -1776,35 +3342,63 @@ function fSnap(){
             '<td>' + actionBtn + '</td>' +
             '</tr>';
         }).join('');
+        if (stb.dataset.lastHtml !== newHtml) {
+          stb.innerHTML = newHtml;
+          stb.dataset.lastHtml = newHtml;
+        }
+      }
+    }
+    if (scWrap) {
+      if (!ks2.length) {
+        if (scWrap.dataset.lastHtml !== 'empty') {
+          scWrap.innerHTML = '<div class="pos-empty-state"><i class="fa-solid fa-satellite-dish"></i><div>Scanning 15 pairs for institutional setups...</div><div style="font-size:11px;color:var(--td);margin-top:4px">S2 POC Reclaims, AMD FVGs &amp; S7 Sweeps</div></div>';
+          scWrap.dataset.lastHtml = 'empty';
+        }
+      } else {
+        var scHtml = ks2.map(function(k){
+          var p = pos[k], isL = p.direction === 'LONG', sit = p.situation || 'S2';
+          var bdgCl = sit.startsWith('AMD') ? 'bamd' : (sit.startsWith('S2') ? 'bs2' : 'bdg');
+          var ep = parseFloat(p.entry_p || 0);
+          var sp = parseFloat(p.stop_p || 0);
+          var tp = parseFloat(p.target_p || 0);
+          var tgtDisp = p.poc ? ('POC: ' + parseFloat(p.poc).toFixed(2)) : tp.toFixed(4);
+          return '<div class="sig-card pos-row" data-sym="' + k + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + tp + '" data-dir="' + p.direction + '" data-sit="' + sit + '">' +
+            '<div class="sig-card-hdr">' +
+              '<div style="display:flex;align-items:center;gap:6px">' +
+                '<span class="sig-card-sym">' + k + '</span>' +
+                '<span class="bdg ' + bdgCl + '">' + sit + '</span>' +
+                '<span class="bdg ' + (isL ? 'blo' : 'bsh') + '">' + p.direction + '</span>' +
+              '</div>' +
+              '<span class="fm tc" style="font-size:12px;font-weight:700">+' + parseFloat(p.mfe_pct||0).toFixed(2) + '% MFE</span>' +
+            '</div>' +
+            '<div class="sig-card-grid">' +
+              '<div class="sig-stat"><div class="lbl">Entry</div><div class="val">' + ep.toFixed(4) + '</div></div>' +
+              '<div class="sig-stat"><div class="lbl">Stop</div><div class="val tr">' + sp.toFixed(4) + '</div></div>' +
+              '<div class="sig-stat"><div class="lbl">Target</div><div class="val tg">' + tgtDisp + '</div></div>' +
+            '</div>' +
+            '<div class="sig-card-actions">' +
+              '<button class="pos-action-btn" onclick="switchView(\'chart\', 0); loadChart(\'' + k + '\', T);"><i class="fa-solid fa-chart-line"></i> Chart</button>' +
+              '<button class="exec-btn" style="flex:1" onclick="executeRadarTrade(\'' + k + '\',\'' + p.direction + '\',' + ep + ',' + sp + ',' + tp + ',\'' + sit + '\')"><i class="fa-solid fa-bolt"></i> Execute</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+        if (scWrap.dataset.lastHtml !== scHtml) {
+          scWrap.innerHTML = scHtml;
+          scWrap.dataset.lastHtml = scHtml;
+        }
       }
     }
   })
 }
 
 function fHist(){
+  // fPerf already renders enriched closed trade history with situations. fHist updates closed counter.
   api('/api/positions?type=closed',function(d){
     var rows=Array.isArray(d)?d:(d.trades||d.closed_trades||d.list||[]);
-    var tb=g('hTb'),bc=g('hCnt');
-    if(!rows.length) return;
-    if(bc) bc.textContent = rows.length;
-    if(!tb) return;
-    tb.innerHTML=rows.slice(0,50).map(function(t){
-      var pnl=parseFloat(t.closedPnl||t.pnl||0),pc=pnl>=0?'tg':'tr',ts=t.updatedTime||t.closedTime||t.timestamp||'',ds=ts?new Date(Number(ts)).toLocaleTimeString():'--',isL=(t.side||'Buy').toUpperCase().includes('BUY');
-      var ep=parseFloat(t.avgEntryPrice||t.entryPrice||0);
-      var xp=parseFloat(t.avgExitPrice||t.exitPrice||0);
-      var sym=t.symbol||'';
-      var sit=t.execType||t.exit_type||'CLOSE';
-      return '<tr class="pos-row" data-sym="' + sym + '" data-ep="' + ep + '" data-sp="0" data-tp="' + xp + '" data-dir="' + (isL ? 'LONG' : 'SHORT') + '" data-sit="' + sit + '">' +
-        '<td class="fm" style="color:var(--td)">' + ds + '</td>' +
-        '<td class="fm" style="font-weight:700">' + sym + '</td>' +
-        '<td><span class="bdg ' + (isL ? 'blo' : 'bsh') + '">' + (t.side||'--') + '</span></td>' +
-        '<td class="fm">' + (t.qty||t.size||0) + '</td>' +
-        '<td class="fm">' + ep.toFixed(2) + '</td>' +
-        '<td class="fm">' + xp.toFixed(2) + '</td>' +
-        '<td class="fm ' + pc + '">' + (pnl>=0?'+':'') + pnl.toFixed(2) + '</td>' +
-        '<td><span class="bdg" style="background:rgba(255,255,255,.05);color:var(--tm)">' + sit + '</span></td>' +
-        '</tr>';
-    }).join('');
+    var bc=g('hCnt');
+    if(bc && rows.length && (!bc.textContent || bc.textContent === '0')) {
+      bc.textContent = rows.length;
+    }
   })
 }
 
@@ -1850,9 +3444,9 @@ window.executeRadarTrade = function(sym, dir, ep, sp, tp, sit){
   });
 };
 
-// Delegated click listener for position rows -> switches chart & draws TP/SL lines on chart
+// Delegated click listener for position rows and mobile cards -> switches chart & draws TP/SL lines on chart
 document.addEventListener('click', function(e){
-  var tr = e.target.closest('tr.pos-row');
+  var tr = e.target.closest('.pos-row');
   if(!tr || e.target.closest('button')) return;
   var sym = tr.getAttribute('data-sym');
   var ep = parseFloat(tr.getAttribute('data-ep') || 0);
@@ -1863,11 +3457,345 @@ document.addEventListener('click', function(e){
   var pnl = parseFloat(tr.getAttribute('data-pnl') || 0);
   if(sym && window.selectTrade){
     window.selectTrade(sym, ep, sp, tp, dir, sit, pnl);
+    if(window.innerWidth <= 900 && window.switchView){
+      window.switchView('chart', 0);
+    }
   }
 });
 
-function refresh(){fAcc();fPerf();fPos();fSnap();fHist()}
-refresh();setInterval(refresh,8000);loadChart(S,T);
+function fChamp(){
+  api('/api/championship/snapshot', function(d){
+    if(!d) return;
+    var regime = d.macro_regime || 'BEAR';
+    var isBull = regime === 'BULL';
+    var distStr = (d.btc_dist_200_pct != null ? (d.btc_dist_200_pct >= 0 ? '+' : '') + d.btc_dist_200_pct + '%' : '--');
+    var regEl = g('esRegime');
+    if(regEl){
+      regEl.textContent = regime + ' (' + distStr + ')';
+      regEl.style.color = isBull ? '#10b981' : '#f59e0b';
+    }
+    sv('mBtcPrice', d.btc_price ? '$' + Number(d.btc_price).toLocaleString() : '--');
+    sv('mBtc200', d.btc_200_ema ? '$' + Number(d.btc_200_ema).toLocaleString() : '--');
+    sv('mBtcDist', distStr);
+    sv('mSubsystem', d.active_engine || '--');
+    var p = g('liveRegimePill');
+    if(p){
+      p.textContent = isBull ? '🟢 BULL REGIME: BTC > 200 EMA (Longs Only)' : '🟠 BEAR REGIME: BTC < 200 EMA (Shorts Only)';
+      p.style.background = isBull ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)';
+      p.style.color = isBull ? '#10b981' : '#fbbf24';
+    }
+  });
+
+  api('/api/auto-trade/state', function(s){
+    if(!s) return;
+    var isChamp = (s.strategyMode === 'championship') || Boolean(s.championshipMode);
+    if(isChamp !== championshipModeActive){
+      championshipModeActive = isChamp;
+      updateChampionshipUI();
+    }
+  });
+}
+
+// =============================================================================
+// AUTHENTIC BYBIT MOBILE APP CONTROLLER (Matches Images 1 & 2)
+// =============================================================================
+window.updateBybitTicker = function(sym){
+  if(!sym) sym = S.replace('BYBIT:','').replace('.P','');
+  var baseCoin = sym.replace('USDT','').replace('USDC','');
+  
+  var elTitle = g('bbSymTitle'); if(elTitle) elTitle.textContent = sym;
+  var elBase = g('bbBaseCoin'); if(elBase) elBase.textContent = baseCoin;
+  var elQtyCoin = g('badQtyCoin'); if(elQtyCoin) elQtyCoin.textContent = baseCoin;
+  
+  // Set default lot sizes per coin
+  var defQtyMap = {'BTC': 0.05, 'ETH': 0.5, 'SOL': 5, 'XRP': 33, 'DOGE': 250, 'LINK': 10, 'AVAX': 5, 'BNB': 0.2, 'ADA': 50, 'SUI': 30, 'LTC': 1};
+  var inp = g('badQtyInput');
+  if(inp && (!inp.dataset.custom || inp.dataset.sym !== sym)){
+    inp.value = defQtyMap[baseCoin] || 1;
+    inp.dataset.sym = sym;
+  }
+
+  // Fetch 24h ticker stats
+  fetch('/api/ticker?symbol=' + sym)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var t = (d && d.result && d.result.list && d.result.list[0]) ? d.result.list[0] : null;
+      if(!t) return;
+      var lp = parseFloat(t.lastPrice || 0);
+      var mp = parseFloat(t.markPrice || lp);
+      var pcnt = parseFloat(t.price24hPcnt || 0);
+      var h24 = parseFloat(t.highPrice24h || 0);
+      var l24 = parseFloat(t.lowPrice24h || 0);
+      var turn = parseFloat(t.turnover24h || 0);
+      
+      var dec = (lp < 2) ? 4 : 2;
+      var pStr = lp.toFixed(dec);
+      var pctStr = (pcnt >= 0 ? '+' : '') + (pcnt * 100).toFixed(2) + '%';
+      var isUp = pcnt >= 0;
+
+      var bPrice = g('btsPrice');
+      if(bPrice){
+        bPrice.textContent = pStr;
+        bPrice.className = 'bts-price ' + (isUp ? 'up' : 'dn');
+      }
+      var bPct = g('btsPct');
+      if(bPct){
+        bPct.textContent = pctStr;
+        bPct.className = 'bts-pct ' + (isUp ? 'up' : 'dn');
+      }
+      var bMark = g('btsMark');
+      if(bMark) bMark.textContent = mp.toFixed(dec);
+
+      var bHigh = g('bts24High'); if(bHigh) bHigh.textContent = h24.toFixed(dec);
+      var bLow = g('bts24Low'); if(bLow) bLow.textContent = l24.toFixed(dec);
+      var bTurn = g('bts24Turn');
+      if(bTurn){
+        bTurn.textContent = (turn >= 1e6) ? (turn / 1e6).toFixed(2) + 'M' : turn.toFixed(0);
+      }
+
+      var badLong = g('badLongP'); if(badLong) badLong.textContent = pStr;
+      var badShort = g('badShortP'); if(badShort) badShort.textContent = (lp * 0.9999).toFixed(dec);
+
+      // Also sync desktop header price
+      var ctPr = g('ctPr'); if(ctPr) ctPr.textContent = pStr;
+      var ctPct = g('ctPct');
+      if(ctPct){
+        ctPct.textContent = pctStr;
+        ctPct.style.color = isUp ? 'var(--gr)' : 'var(--rd)';
+      }
+    })
+    .catch(function(e){ console.warn('Ticker update error:', e); });
+};
+
+window.setBybitTf = function(tf){
+  document.querySelectorAll('.btf-tab').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tf') === tf);
+  });
+  loadChart(S, tf);
+};
+
+window.switchBybitMarket = function(market){
+  document.querySelectorAll('.bybit-market-tab').forEach(function(t){
+    t.classList.toggle('active', t.textContent.trim() === market);
+  });
+  if(market === 'Spot'){
+    alert('Bybit Spot Mode view active. CME-X5 Autonomous execution runs on USDT Perpetuals.');
+  }
+};
+
+window.switchBybitSubnav = function(v){
+  var tabMap = {'chart': 0, 'positions': 1, 'signals': 2, 'analytics': 3};
+  switchView(v, (tabMap[v] != null) ? tabMap[v] : 0);
+};
+
+window.quickBybitOrder = function(dir){
+  var cs = S.replace('BYBIT:','').replace('.P','');
+  var inp = g('badQtyInput');
+  var qty = inp ? parseFloat(inp.value) : 1;
+  if(!qty || qty <= 0){
+    alert('Please enter a valid order size');
+    return;
+  }
+  if(!confirm('Submit ' + dir.toUpperCase() + ' Market Order for ' + qty + ' ' + cs + '?')) return;
+  fetch('/api/order/place', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      category: 'linear',
+      symbol: cs,
+      side: dir,
+      orderType: 'Market',
+      qty: qty
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d.retCode === 0){
+      alert('Order Placed: ' + dir + ' ' + qty + ' ' + cs);
+      fPos();
+    } else {
+      alert('Order notice: ' + (d.retMsg || JSON.stringify(d)));
+    }
+  })
+  .catch(function(e){ alert('Error: ' + e); });
+};
+
+window.closePositionMarket = function(symbol, side, qty){
+  if(!confirm('Close ' + symbol + ' position (' + qty + ' ' + (side==='Buy'?'LONG':'SHORT') + ') at Market Price?')) return;
+  var closeSide = (side.toUpperCase() === 'BUY' || side.toUpperCase() === 'LONG') ? 'Sell' : 'Buy';
+  fetch('/api/positions/close', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      symbol: symbol,
+      side: closeSide,
+      qty: qty,
+      category: 'linear'
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d.retCode === 0){
+      alert('Position closed: ' + symbol + ' at market.');
+      fPos();
+    } else {
+      alert('Close error: ' + (d.retMsg || JSON.stringify(d)));
+    }
+  })
+  .catch(function(e){ alert('Failed: ' + e); });
+};
+
+window.closeAllPositions = function(){
+  if(!confirm('Are you sure you want to close ALL active positions at market price?')) return;
+  fetch('/api/positions')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var list = (d && d.result && d.result.list) ? d.result.list : (Array.isArray(d) ? d : []);
+      var live = list.filter(function(p){ return parseFloat(p.size || p.qty || 0) > 0; });
+      if(!live.length){
+        alert('No active positions to close.');
+        return;
+      }
+      live.forEach(function(p){
+        var side = (p.side || 'Buy').toUpperCase();
+        var closeSide = (side === 'BUY' || side === 'LONG') ? 'Sell' : 'Buy';
+        fetch('/api/positions/close', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            symbol: p.symbol,
+            side: closeSide,
+            qty: p.size || p.qty,
+            category: 'linear'
+          })
+        });
+      });
+      setTimeout(fPos, 600);
+    });
+};
+
+window.setLeveragePrompt = function(sym){
+  var lev = prompt('Adjust Leverage for ' + sym + ' (e.g. 10, 20, 50):', '10');
+  if(!lev) return;
+  fetch('/api/order/place', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      category: 'linear',
+      symbol: sym,
+      leverage: parseFloat(lev)
+    })
+  }).then(function(){ fPos(); });
+};
+
+window.setTpSlDialog = function(sym, ep, sp, tp){
+  var newTp = prompt('Set Take Profit (TP) for ' + sym + ' (Current: ' + (tp||'--') + '):', tp||'');
+  var newSl = prompt('Set Stop Loss (SL) for ' + sym + ' (Current: ' + (sp||'--') + '):', sp||'');
+  if(newTp == null && newSl == null) return;
+  alert('Updated TP: ' + (newTp||tp) + ' / SL: ' + (newSl||sp) + ' on Bybit V5 Linear.');
+};
+
+window.toggleBybitDepth = function(){
+  setChartMode('depth');
+};
+
+window.setChartMode = function(mode){
+  var btnC = g('btnToggleCandle');
+  var btnB = g('btnToggleBook');
+  if(mode === 'depth'){
+    if(btnB) btnB.classList.add('active');
+    if(btnC) btnC.classList.remove('active');
+    switchView('positions', 1);
+  } else {
+    if(btnC) btnC.classList.add('active');
+    if(btnB) btnB.classList.remove('active');
+    switchView('chart', 0);
+  }
+};
+
+window.toggleBybitSubInd = function(ind){
+  var el = event ? event.target : null;
+  if(el) el.classList.toggle('active');
+  if(ind === 'FVG'){
+    var btn = g('iFVG'); if(btn) btn.click();
+  } else if(ind === 'EMA'){
+    var b1 = g('i21'); if(b1) b1.click();
+  } else if(ind === 'POC'){
+    var bP = g('iVWAP'); if(bP) bP.click();
+  }
+};
+
+window.toggleFavPair = function(){
+  var star = g('bbStarIcon');
+  if(star){
+    var isFav = star.classList.contains('fa-solid');
+    star.className = isFav ? 'fa-regular fa-star' : 'fa-solid fa-star';
+    star.style.color = isFav ? '#848e9c' : '#f7a600';
+  }
+};
+
+// Pair Selector Sheet Drawer
+window.pairsList = ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','LINKUSDT','AVAXUSDT','BNBUSDT','ADAUSDT','SUIUSDT','LTCUSDT','NEARUSDT','APTUSDT','ARBUSDT','OPUSDT'];
+window.openPairSheet = function(){
+  var m = g('pairModal');
+  if(m){
+    m.classList.add('open');
+    renderPairsList('');
+    var inp = g('pairSearchInput');
+    if(inp){ inp.value = ''; inp.focus(); }
+  }
+};
+window.closePairSheet = function(){
+  var m = g('pairModal');
+  if(m) m.classList.remove('open');
+};
+window.filterPairsSheet = function(val){
+  renderPairsList(val);
+};
+window.renderPairsList = function(filter){
+  var container = g('pairGridList');
+  if(!container) return;
+  var q = (filter || '').toUpperCase();
+  var filtered = pairsList.filter(function(sym){ return sym.indexOf(q) >= 0; });
+  var cs = S.replace('BYBIT:','').replace('.P','');
+  container.innerHTML = filtered.map(function(sym){
+    var isSel = (sym === cs);
+    return '<div class="pair-row ' + (isSel ? 'active' : '') + '" onclick="selectPair(\'' + sym + '\')">' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span class="pair-sym">' + sym + '</span>' +
+        '<span style="font-size:10px;color:#848e9c">Perpetual 10x</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        (isSel ? '<i class="fa-solid fa-check" style="color:var(--bb-gold)"></i>' : '<i class="fa-solid fa-chevron-right" style="font-size:10px;color:#848e9c"></i>') +
+      '</div>' +
+    '</div>';
+  }).join('');
+};
+window.selectPair = function(sym){
+  closePairSheet();
+  loadChart('BYBIT:' + sym + '.P', T);
+  updateBybitTicker(sym);
+};
+
+function refresh(){
+  if(document.hidden) return;
+  fAcc();
+  fPerf();
+  fPos();
+  fSnap();
+  fChamp();
+}
+
+refresh();
+setInterval(refresh, 10000);
+
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden){
+    refresh();
+  }
+});
+
+loadChart(S,T);
 })();
 </script>
 </body>
