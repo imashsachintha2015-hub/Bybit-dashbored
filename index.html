@@ -225,16 +225,54 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 
 /* MODALS */
-.mbk{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center}
+.mbk{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  background:rgba(0,0,0,.75);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:12px;
+}
 .mbk.open{display:flex}
-.mw{background:var(--s2);border:1px solid var(--b2);border-radius:14px;width:560px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;animation:su .2s ease}
+.mw{
+  background:var(--s2);
+  border:1px solid var(--b2);
+  border-radius:16px;
+  width:560px;
+  max-width:96vw;
+  max-height:90vh;
+  max-height:90dvh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 24px 64px rgba(0,0,0,.75);
+  overflow:hidden;
+  animation:su .2s ease;
+  position:relative;
+}
 .mw.wide{width:760px}
 @keyframes su{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-.mh2{padding:14px 18px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.mh2{
+  padding:14px 18px;
+  border-bottom:1px solid var(--b1);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+}
 .mtit{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
 .mxbtn{width:28px;height:28px;border-radius:6px;background:var(--s3);border:1px solid var(--b1);color:var(--td);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:.15s}
 .mxbtn:hover{color:var(--tx);border-color:var(--b2)}
-.mbody{padding:18px;max-height:80vh;overflow-y:auto}
+.mbody{
+  padding:18px;
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
 .mstats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
 .msc{background:var(--s3);border-radius:8px;padding:12px;text-align:center}
 .msl{font-size:9.5px;color:var(--td);font-weight:600;text-transform:uppercase;margin-bottom:4px}
@@ -288,73 +326,130 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
   --bb-tx:#eaecef;
 }
 
-/* Bybit Header Bar */
+/* CME-X5 & Bybit Pro Clean Mobile Topbar */
 .bybit-topbar{
   display:none;
   align-items:center;
   justify-content:space-between;
-  padding:8px 14px 6px;
+  padding:8px 14px;
   background:#000000;
   border-bottom:1px solid #14171d;
   height:48px;
   width:100%;
 }
 .bybit-brand-row{display:flex;align-items:center;gap:8px}
-.bybit-logo-txt{font-weight:900;font-size:19px;letter-spacing:-.5px;color:#fff}
-.bybit-y{color:var(--bb-gold)}
-.bybit-demo-badge{
-  background:rgba(247,166,0,0.16);
-  border:1px solid rgba(247,166,0,0.35);
-  color:var(--bb-gold);
-  font-size:11px;
-  font-weight:700;
-  padding:2px 7px;
-  border-radius:4px;
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  cursor:pointer;
-}
-.bybit-top-right{display:flex;align-items:center;gap:8px}
-.bybit-live-btn{
-  background:#12151b;
-  border:1px solid #23272e;
-  color:#e2e8f0;
-  font-size:11.5px;
-  font-weight:600;
-  padding:4px 10px;
-  border-radius:6px;
-  cursor:pointer;
+.bybit-brand-logo{
+  font-weight:900;
+  font-size:15px;
+  color:#fff;
   display:flex;
   align-items:center;
   gap:5px;
+  letter-spacing:-.3px;
 }
-.bybit-access-pill{
-  width:28px;
-  height:28px;
+.topbar-live-dot{
+  width:7px;
+  height:7px;
   border-radius:50%;
-  background:var(--bb-gold);
-  color:#000;
+  background:#10b981;
+  box-shadow:0 0 8px #10b981;
+  animation:pulseDot 2s infinite;
+}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(0.85)}}
+.bybit-top-right{display:flex;align-items:center;gap:8px}
+
+/* Championship vs Standard 1-Tap Mode Toggle Pill */
+.dash-champ-toggle-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.3px;
+  cursor:pointer;
+  transition:all .15s ease;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:#fff;
+}
+.dash-champ-toggle-btn.champ{
+  background:linear-gradient(135deg, rgba(245,158,11,0.22), rgba(217,119,6,0.15));
+  border-color:rgba(245,158,11,0.45);
+  color:#fbbf24;
+  box-shadow:0 0 12px rgba(245,158,11,0.18);
+}
+.dash-champ-toggle-btn.champ:hover, .dash-champ-toggle-btn.champ:active{
+  background:linear-gradient(135deg, rgba(245,158,11,0.32), rgba(217,119,6,0.25));
+  transform:scale(0.98);
+}
+.dash-champ-toggle-btn.standard{
+  background:linear-gradient(135deg, rgba(14,165,233,0.22), rgba(2,132,199,0.15));
+  border-color:rgba(14,165,233,0.45);
+  color:#38bdf8;
+  box-shadow:0 0 12px rgba(14,165,233,0.18);
+}
+.dash-champ-toggle-btn.standard:hover, .dash-champ-toggle-btn.standard:active{
+  background:linear-gradient(135deg, rgba(14,165,233,0.32), rgba(2,132,199,0.25));
+  transform:scale(0.98);
+}
+
+.macro-regime-pill{
+  font-size:10px;
+  font-weight:800;
+  padding:4px 9px;
+  border-radius:12px;
+  background:rgba(16,185,129,0.15);
+  border:1px solid rgba(16,185,129,0.35);
+  color:#10b981;
+  cursor:pointer;
+  font-family:var(--mo);
+  transition:all .15s;
+}
+.macro-regime-pill:active{transform:scale(0.96)}
+.topbar-icon-btn{
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  background:#12151b;
+  border:1px solid #23272e;
+  color:#848e9c;
   display:flex;
   align-items:center;
   justify-content:center;
   font-size:13px;
   cursor:pointer;
+  transition:all .15s;
+}
+.topbar-icon-btn:hover, .topbar-icon-btn:active{
+  background:#1e2329;
+  color:#fff;
 }
 
-/* Spot | Futures | Options Sub-Bar */
-.bybit-market-tabs{
-  display:none;
-  align-items:center;
-  gap:18px;
-  padding:4px 14px 8px;
-  background:#000000;
-  font-size:13px;
-  font-weight:600;
-  color:#848e9c;
+/* Toast Notification */
+.dash-toast{
+  position:fixed;
+  top:18px;
+  left:50%;
+  transform:translateX(-50%) translateY(-20px);
+  background:#181d24;
+  border:1px solid #2b323c;
+  color:#fff;
+  padding:10px 18px;
+  border-radius:10px;
+  font-size:12px;
+  font-weight:700;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  z-index:99999;
+  opacity:0;
+  pointer-events:none;
+  transition:all .2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.bybit-market-tab{cursor:pointer;transition:color .15s}
-.bybit-market-tab.active{color:#fff;font-weight:700}
+.dash-toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
 
 /* Bybit Symbol Row */
 .bybit-sym-row{
@@ -689,8 +784,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .bybit-subind-row{
   display:flex;
   align-items:center;
-  gap:12px;
-  padding:4px 14px;
+  gap:8px;
+  padding:6px 12px;
   background:#000;
   border-top:1px solid #14171d;
   overflow-x:auto;
@@ -698,15 +793,39 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 }
 .bybit-subind-row::-webkit-scrollbar{display:none}
 .bsi-btn{
-  background:transparent;
-  border:none;
+  background:#12151b;
+  border:1px solid #23272e;
   color:#848e9c;
   font-size:11px;
-  font-weight:600;
+  font-weight:700;
   cursor:pointer;
-  padding:2px 0;
+  padding:4px 9px;
+  border-radius:6px;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+  transition:all .15s ease;
 }
-.bsi-btn.active{color:#fff;font-weight:700}
+.bsi-btn:active{transform:scale(0.96)}
+.bsi-btn.active{
+  background:#18212c;
+  border-color:#38bdf8;
+  color:#fff;
+}
+.bsi-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#555;
+  transition:all .15s;
+}
+.bsi-btn.active .bsi-dot.ema{background:#10b981;box-shadow:0 0 6px #10b981}
+.bsi-btn.active .bsi-dot.poc{background:#f59e0b;box-shadow:0 0 6px #f59e0b}
+.bsi-btn.active .bsi-dot.fvg{background:#38bdf8;box-shadow:0 0 6px #38bdf8}
+.bsi-btn.active .bsi-dot.vol{background:#a855f7;box-shadow:0 0 6px #a855f7}
+.bsi-btn.fit-btn{margin-left:auto;background:transparent;border:1px dashed #333d4b;color:#a0aec0}
+.bsi-btn.fit-btn:hover, .bsi-btn.fit-btn:active{background:#181d24;color:#fff;border-style:solid}
 
 /* Pair Selector Drawer Sheet */
 .pair-grid{display:grid;grid-template-columns:1fr;gap:6px;max-height:360px;overflow-y:auto}
@@ -863,7 +982,43 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .pes-sub{font-size:11px;color:var(--td);max-width:320px;line-height:1.4}
 
 /* Menu Bottom Sheet Modal */
-.menu-sheet{max-width:480px;border-radius:18px}
+.menu-sheet{
+  width:100%;
+  max-width:480px;
+  background:#111622;
+  border:1px solid rgba(255,255,255,0.14);
+  border-radius:20px;
+  max-height:85vh;
+  max-height:85dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,0.8);
+}
+.sheet-drag-handle{
+  width:36px;
+  height:4px;
+  border-radius:2px;
+  background:rgba(255,255,255,0.25);
+  margin:10px auto 2px auto;
+  flex-shrink:0;
+}
+.menu-sheet .mh2{
+  padding:12px 18px;
+  border-bottom:1px solid var(--b1);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+  background:#151b2a;
+}
+.menu-sheet .mbody{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:12px 14px 24px 14px;
+}
 .menu-grid{display:flex;flex-direction:column;gap:8px}
 .menu-item{
   display:flex;
@@ -877,6 +1032,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
   transition:.15s;
 }
 .menu-item:hover{background:rgba(255,255,255,0.06);border-color:var(--b2);transform:translateX(3px)}
+.menu-item:active{background:rgba(255,255,255,0.09);transform:scale(0.99)}
 .menu-icon{
   width:36px;
   height:36px;
@@ -904,7 +1060,6 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .cctick-left{display:flex;align-items:center;gap:10px}
 
 /* Responsive Breakpoints */
-/* Responsive Breakpoints */
 @media(max-width:900px){
   .shell{flex-direction:column;height:100vh;width:100vw;background:#000000}
   .sb{display:none !important}
@@ -914,18 +1069,18 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
   
   /* Activate Bybit Authentic Mobile Elements */
   .bybit-topbar{display:flex !important}
-  .bybit-market-tabs{display:flex !important}
+  .bybit-market-tabs{display:none !important}
   .bybit-sym-row{display:flex !important}
   .bybit-subnav{display:flex !important}
   .bybit-ticker-strip{display:flex !important}
   .bybit-tf-row{display:flex !important}
-  .bybit-action-dock{display:flex !important}
+  .bybit-action-dock{display:none !important}
   .bybit-pos-substrip{display:flex !important}
   .bps-filter-row{display:flex !important}
-  .bybit-app-dock{display:flex !important}
+  .bybit-app-dock{display:none !important}
   .mob-cards-wrap{display:flex;flex-direction:column;gap:0}
   
-  .main{width:100%;height:100vh;padding-bottom:52px;background:#000000}
+  .main{width:100%;height:100vh;padding-bottom:0px;background:#000000}
   .hdr{display:none !important}
   .estrip{display:none !important}
   .ccbar{display:none !important}
@@ -938,12 +1093,12 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
   .app-view.active{display:flex;flex-direction:column;flex:1;animation:viewFade .15s ease}
   @keyframes viewFade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-  .scr{padding:0 0 60px 0;gap:0;background:#000000;height:calc(100vh - 146px);overflow-y:auto}
+  .scr{padding:0 0 20px 0;gap:0;background:#000000;height:calc(100vh - 100px);overflow-y:auto}
   .cc{background:#000000;border:none;border-radius:0}
   .card{background:#000000;border:none;border-radius:0}
 
   /* Mobile Chart Viewport optimization */
-  .ccvp{height:calc(100vh - 435px);min-height:260px;max-height:500px;position:relative}
+  .ccvp{height:calc(100vh - 360px);min-height:300px;position:relative}
   .vp-readout{display:none}
   #view-chart.active{overflow:hidden}
   #view-positions.active, #view-signals.active, #view-analytics.active{overflow-y:auto}
@@ -981,9 +1136,43 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 }
 
 @media(max-width:560px){
-  .mw{width:95vw;max-width:95vw}
-  .menu-sheet{width:100vw;max-width:100vw;border-radius:18px 18px 0 0;margin-top:auto}
-  .mbk.open{align-items:flex-end}
+  .mbk.open{align-items:flex-end;padding:0}
+  .mw{
+    width:100vw;
+    max-width:100vw;
+    max-height:85vh;
+    max-height:85dvh;
+    border-radius:20px 20px 0 0;
+    margin:auto 0 0 0;
+    border-left:none;
+    border-right:none;
+    border-bottom:none;
+  }
+  .menu-sheet{
+    width:100vw;
+    max-width:100vw;
+    border-radius:20px 20px 0 0;
+    margin:auto 0 0 0;
+    max-height:85vh;
+    max-height:85dvh;
+    border-left:none;
+    border-right:none;
+    border-bottom:none;
+  }
+  .menu-sheet .mbody{
+    padding:10px 14px max(28px, env(safe-area-inset-bottom, 28px)) 14px;
+  }
+  #pairModal .mw{
+    width:100vw;
+    max-width:100vw;
+    border-radius:20px 20px 0 0;
+    margin:auto 0 0 0;
+    max-height:80vh;
+    max-height:80dvh;
+    border-left:none;
+    border-right:none;
+    border-bottom:none;
+  }
 }
 
 </style>
@@ -1008,21 +1197,18 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
        ======================================================================== -->
   <div class="bybit-topbar">
     <div class="bybit-brand-row">
-      <span class="bybit-logo-txt">BYB<span class="bybit-y">I</span>T</span>
-      <span class="bybit-demo-badge" onclick="openChampModal()">Demo Trading <i class="fa-solid fa-chevron-right" style="font-size:9px"></i></span>
+      <div class="bybit-brand-logo"><i class="fa-solid fa-bolt" style="color:var(--bb-gold)"></i> CME-X5 <span style="font-size:10px;font-weight:700;color:var(--cy);background:rgba(14,165,233,0.15);padding:1px 5px;border-radius:4px">PRO</span></div>
+      <div class="topbar-live-dot" title="Bybit V5 Stream Connected"></div>
     </div>
     <div class="bybit-top-right">
-      <button class="bybit-live-btn" onclick="openChampModal()"><i class="fa-solid fa-arrow-left"></i> Start Live Trading</button>
-      <div class="bybit-access-pill" onclick="openMenuModal()" title="Accessibility & Tools">
-        <i class="fa-solid fa-person" style="font-size:14px"></i>
-      </div>
+      <!-- 1-Tap Active Mode Switcher (Championship vs CME-X5 Pure) -->
+      <button class="dash-champ-toggle-btn champ active" onclick="toggleDashboardStrategyMode()" title="Tap to switch between Championship and CME-X5 Pure Mode">
+        <i class="fa-solid fa-trophy"></i> <span>CHAMPIONSHIP</span>
+      </button>
+      <button class="topbar-icon-btn" onclick="openMenuModal()" title="Terminal Options">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
     </div>
-  </div>
-
-  <div class="bybit-market-tabs">
-    <span class="bybit-market-tab" onclick="switchBybitMarket('Spot')">Spot</span>
-    <span class="bybit-market-tab active" onclick="switchBybitMarket('Futures')">Futures</span>
-    <span class="bybit-market-tab" onclick="switchBybitMarket('Options')">Options</span>
   </div>
 
   <div class="bybit-sym-row">
@@ -1030,13 +1216,13 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <div class="bybit-sym-name-wrap">
         <span class="bybit-sym-text" id="bbSymTitle">BTCUSDT</span>
         <i class="fa-solid fa-caret-down bybit-sym-caret"></i>
-        <span class="bybit-mm-tag" id="bbMmTag">MM 0.05%</span>
       </div>
-      <span class="bybit-sym-subtext" id="bbBaseCoin">BTC</span>
+      <span class="bybit-sym-subtext" id="bbBaseCoin">BTC / USDT Perpetual</span>
     </div>
-    <div class="bybit-toggle-capsule">
-      <button class="btc-btn active" id="btnToggleCandle" onclick="setChartMode('candle')" title="Candlestick Chart"><i class="fa-solid fa-chart-candlestick"></i></button>
-      <button class="btc-btn" id="btnToggleBook" onclick="setChartMode('depth')" title="Order Book"><i class="fa-solid fa-bars-staggered"></i></button>
+    <div style="display:flex;align-items:center;gap:6px">
+      <!-- Live Macro BTC Regime Pill -->
+      <span class="macro-regime-pill" id="mobileRegimePill" onclick="openChampModal()">BULL (+0.21%)</span>
+      <button class="topbar-icon-btn" onclick="openPairSheet()" title="Switch Pair"><i class="fa-solid fa-magnifying-glass"></i></button>
     </div>
   </div>
 
@@ -1045,11 +1231,11 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <button class="bsn-item active" id="bsnChart" onclick="switchBybitSubnav('chart')">Chart</button>
       <button class="bsn-item" id="bsnPositions" onclick="switchBybitSubnav('positions')">Positions (<span id="bbPosCount">0</span>)</button>
       <button class="bsn-item" id="bsnRadar" onclick="switchBybitSubnav('signals')">Radar</button>
-      <button class="bsn-item" id="bsnOverview" onclick="switchBybitSubnav('analytics')">Overview</button>
+      <button class="bsn-item" id="bsnOverview" onclick="switchBybitSubnav('analytics')">History</button>
     </div>
     <div class="bybit-subnav-icons">
-      <i class="fa-regular fa-star" id="bbStarIcon" onclick="toggleFavPair()" style="cursor:pointer"></i>
-      <i class="fa-solid fa-arrow-up-right-from-square" onclick="window.open('/advanced-chart','_blank')" style="cursor:pointer"></i>
+      <i class="fa-solid fa-arrows-rotate" onclick="refresh()" style="cursor:pointer" title="Refresh"></i>
+      <i class="fa-solid fa-arrow-up-right-from-square" onclick="window.open('/advanced-chart','_blank')" style="cursor:pointer" title="Full Chart"></i>
     </div>
   </div>
 
@@ -1075,7 +1261,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 
     <!-- Desktop Full KPIs Strip -->
     <div class="hkpis">
-      <div class="kpill"><span class="klbl">Demo Equity</span><span class="kval cy fm" id="hEq">--</span></div>
+      <div class="kpill"><span class="klbl">Account Equity</span><span class="kval cy fm" id="hEq">--</span></div>
       <div class="kpill" style="cursor:pointer" onclick="openModal()">
         <span class="klbl">Net P&amp;L</span>
         <span class="kval fm" id="hPnl">--</span>
@@ -1087,8 +1273,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 
     <!-- Header Actions -->
     <div class="hbtns">
-      <button class="hbtn champ-gold-btn" id="dashChampBtn" onclick="openChampModal()" title="Championship Dual-Regime System">
-        <i class="fa-solid fa-trophy"></i> <span class="champ-btn-txt">Championship Mode</span> <span class="champ-dot"></span>
+      <button class="dash-champ-toggle-btn champ active" id="dashChampBtn" onclick="toggleDashboardStrategyMode()" title="Tap to switch between Championship and CME-X5 Pure Mode">
+        <i class="fa-solid fa-trophy"></i> <span>CHAMPIONSHIP</span>
       </button>
       <button class="hbtn pri dt-only" onclick="openPineModal()"><i class="fa-solid fa-crosshairs"></i> AMD FVG + POC</button>
       <button class="hbtn dt-only" onclick="openModal()"><i class="fa-solid fa-calendar-days" style="color:var(--gr)"></i> Calendar</button>
@@ -1153,13 +1339,11 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="ctf" data-tf="D">1D</button>
             </div>
             <div class="indrow">
-              <button class="cind on" id="i21">EMA21</button>
-              <button class="cind on" id="i50">EMA50</button>
-              <button class="cind on" id="iFVG" title="Toggle Active Fair Value Gaps">FVG</button>
-              <button class="cind" id="iRSI" data-s="RSI@tv-basicstudies">RSI</button>
-              <button class="cind" id="iMACD" data-s="MACD@tv-basicstudies">MACD</button>
-              <button class="cind" id="iBB" data-s="BollingerBands@tv-basicstudies">BB</button>
-              <button class="cind" id="iVWAP" data-s="VWAP@tv-basicstudies">VWAP</button>
+              <button class="cind on" id="iEMA" onclick="toggleChartIndicator('ema')">EMA 21/50</button>
+              <button class="cind on" id="iPOC" onclick="toggleChartIndicator('poc')">POC / VAH</button>
+              <button class="cind on" id="iFVG" onclick="toggleChartIndicator('fvg')">FVG</button>
+              <button class="cind on" id="iVOL" onclick="toggleChartIndicator('vol')">VOL</button>
+              <button class="cind" onclick="fitChartScale()" title="Auto Scale Fit"><i class="fa-solid fa-arrows-to-eye"></i> Fit</button>
             </div>
             <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
           </div>
@@ -1216,31 +1400,29 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="btf-tab" data-tf="D" onclick="setBybitTf('D')">1D</button>
             </div>
             <div class="btf-right">
-              <span style="cursor:pointer" onclick="toggleBybitDepth()">Depth</span>
-              <i class="fa-solid fa-pen-to-square" style="cursor:pointer" title="Drawings"></i>
-              <i class="fa-solid fa-gear" style="cursor:pointer" onclick="openPineModal()" title="Indicators"></i>
+              <button class="btf-tab" onclick="fitChartScale()" title="Auto Scale Fit"><i class="fa-solid fa-arrows-to-eye"></i> Fit</button>
+              <button class="btf-tab" onclick="toggleChartEngine()" title="Toggle Engine"><i class="fa-solid fa-chart-line"></i> Engine</button>
               <i class="fa-solid fa-expand" style="cursor:pointer" onclick="window.open('/advanced-chart','_blank')" title="Full Screen"></i>
             </div>
           </div>
 
           <div class="ccvp" id="chartViewport">
-            <!-- Bybit Demo Trading Watermark -->
+            <!-- CME-X5 Pro Watermark -->
             <div class="bybit-watermark">
-              <span>BYB<span style="color:var(--bb-gold)">I</span>T</span>
-              <span class="bybit-wm-pill">Demo Trading</span>
+              <span>CME-X5 <span style="color:var(--bb-gold)">PRO</span></span>
+              <span class="bybit-wm-pill" id="wmStratMode">CHAMPIONSHIP</span>
             </div>
             <div id="lwChart" style="width:100%;height:100%"></div>
             <div id="tvw" style="width:100%;height:100%;display:none"></div>
           </div>
 
-          <!-- Bybit Sub-indicator Row (Photo 1) -->
+          <!-- Interactive Sub-indicator Row with ON/OFF Toggles -->
           <div class="bybit-subind-row">
-            <span class="bsi-btn active" onclick="toggleBybitSubInd('EMA')">EMA</span>
-            <span class="bsi-btn" onclick="toggleBybitSubInd('BOLL')">BOLL</span>
-            <span class="bsi-btn active" onclick="toggleBybitSubInd('FVG')">FVG</span>
-            <span class="bsi-btn" onclick="toggleBybitSubInd('MACD')">MACD</span>
-            <span class="bsi-btn" onclick="toggleBybitSubInd('RSI')">RSI</span>
-            <span class="bsi-btn" onclick="toggleBybitSubInd('POC')">POC</span>
+            <button class="bsi-btn active" id="btnIndEMA" onclick="toggleChartIndicator('ema')"><span class="bsi-dot ema"></span> EMA 21/50</button>
+            <button class="bsi-btn active" id="btnIndPOC" onclick="toggleChartIndicator('poc')"><span class="bsi-dot poc"></span> POC / VAH</button>
+            <button class="bsi-btn active" id="btnIndFVG" onclick="toggleChartIndicator('fvg')"><span class="bsi-dot fvg"></span> FVG</button>
+            <button class="bsi-btn active" id="btnIndVOL" onclick="toggleChartIndicator('vol')"><span class="bsi-dot vol"></span> VOL</button>
+            <button class="bsi-btn fit-btn" onclick="fitChartScale()"><i class="fa-solid fa-arrows-to-eye"></i> Fit Scale</button>
           </div>
 
           <!-- Bybit Action Bar (Bottom of Chart Screen) -->
@@ -1289,17 +1471,16 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             </div>
           </div>
 
-          <!-- Bybit Positions Screen Sub-Bars (Photo 2) -->
+          <!-- Positions Screen Subnav -->
           <div class="bybit-pos-substrip">
             <div class="bps-left">
-              <button class="bps-tab" onclick="switchView('positions',1)">Orders(0)</button>
-              <button class="bps-tab active" onclick="switchView('positions',1)">Positions(<span id="bpsPosCount">0</span>)</button>
-              <button class="bps-tab" onclick="switchView('analytics',3)">Assets</button>
-              <button class="bps-tab" onclick="switchView('positions',1)">Borrowings(0)</button>
+              <button class="bps-tab active" onclick="switchView('positions',1)">Active Positions (<span id="bpsPosCount">0</span>)</button>
+              <button class="bps-tab" onclick="switchView('signals',2)">Radar Setups</button>
+              <button class="bps-tab" onclick="switchView('analytics',3)">History</button>
             </div>
             <div class="bps-right">
-              <i class="fa-solid fa-gear" style="cursor:pointer" onclick="openChampModal()"></i>
-              <i class="fa-solid fa-clipboard-list" style="cursor:pointer" onclick="switchView('analytics',3)"></i>
+              <i class="fa-solid fa-arrows-rotate" style="cursor:pointer" onclick="fPos()" title="Refresh Positions"></i>
+              <i class="fa-solid fa-sliders" style="cursor:pointer" onclick="openChampModal()" title="Championship Dual-Regime Settings"></i>
             </div>
           </div>
 
@@ -1422,52 +1603,13 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 </div>
 </div>
 
-<!-- Mobile Bottom Navigation Bar -->
-<nav class="mob-tab-bar" id="mobTabBar">
-  <button class="mob-tab on" id="mtab0" onclick="switchView('chart', 0)">
-    <i class="fa-solid fa-chart-line"></i>
-    <span>Terminal</span>
-  </button>
-  <button class="mob-tab" id="mtab1" onclick="switchView('positions', 1)">
-    <i class="fa-solid fa-briefcase"></i>
-    <span>Positions</span>
-    <span class="mob-badge" id="mPosBadge">0</span>
-  </button>
-  <button class="mob-tab" id="mtab2" onclick="switchView('signals', 2)">
-    <i class="fa-solid fa-radar"></i>
-    <span>Radar</span>
-    <span class="mob-badge" id="mSigBadge">0</span>
-  </button>
-  <button class="mob-tab" id="mtab3" onclick="switchView('analytics', 3)">
-    <i class="fa-solid fa-chart-pie"></i>
-    <span>Analytics</span>
-  </button>
-</nav>
-
-<!-- Authentic Bybit App Bottom Dock (Images 1 & 2) -->
-<nav class="bybit-app-dock" id="bybitAppDock">
-  <button class="badock-item" id="badockHome" onclick="switchBybitSubnav('chart')">
-    <i class="fa-solid fa-house"></i>
-    <span>Home</span>
-  </button>
-  <button class="badock-item active" id="badockTrade" onclick="switchBybitSubnav('chart')">
-    <i class="fa-solid fa-arrow-trend-up"></i>
-    <span>Trade</span>
-  </button>
-  <button class="badock-item" id="badockPositions" onclick="switchBybitSubnav('positions')">
-    <i class="fa-solid fa-briefcase"></i>
-    <span>Positions</span>
-    <span class="badock-badge" id="badockPosBadge">0</span>
-  </button>
-  <button class="badock-item" id="badockAssets" onclick="switchBybitSubnav('analytics')">
-    <i class="fa-solid fa-wallet"></i>
-    <span>Assets</span>
-  </button>
-</nav>
+<!-- Toast Notification -->
+<div class="dash-toast" id="dashToast"></div>
 
 <!-- Pair Selector Drawer Sheet Modal -->
 <div class="mbk" id="pairModal" onclick="if(event.target===this)closePairSheet()">
   <div class="mw" style="max-width:440px;border-radius:18px 18px 0 0;margin-top:auto">
+    <div class="sheet-drag-handle"></div>
     <div class="mh2">
       <div class="mtit"><i class="fa-solid fa-magnifying-glass" style="color:var(--bb-gold)"></i> Select Bybit Market</div>
       <button class="mxbtn" onclick="closePairSheet()"><i class="fa-solid fa-xmark"></i></button>
@@ -1484,11 +1626,12 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 <!-- Mobile Menu Bottom Sheet Modal -->
 <div class="mbk" id="menuModal" onclick="if(event.target===this)closeMenuModal()">
   <div class="mw menu-sheet">
+    <div class="sheet-drag-handle"></div>
     <div class="mh2">
       <div class="mtit"><i class="fa-solid fa-sliders" style="color:var(--cy)"></i> Terminal Tools &amp; Options</div>
       <button class="mxbtn" onclick="closeMenuModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="mbody" style="padding:14px">
+    <div class="mbody">
       <div class="menu-grid">
         <div class="menu-item" onclick="closeMenuModal(); openChampModal();">
           <div class="menu-icon gold"><i class="fa-solid fa-trophy"></i></div>
@@ -2082,16 +2225,6 @@ window.switchView = function(viewName, tabIdx){
   var activeSubnav = document.getElementById(subnavMap[viewName]);
   if(activeSubnav) activeSubnav.classList.add('active');
 
-  // 3c. Update Bybit app dock tabs
-  document.querySelectorAll('.badock-item').forEach(function(b){ b.classList.remove('active'); });
-  if(viewName === 'chart'){
-    var d = document.getElementById('badockTrade'); if(d) d.classList.add('active');
-  } else if(viewName === 'positions'){
-    var d = document.getElementById('badockPositions'); if(d) d.classList.add('active');
-  } else if(viewName === 'analytics'){
-    var d = document.getElementById('badockAssets'); if(d) d.classList.add('active');
-  }
-
   // 4. Update view visibility on mobile (< 900px)
   var isMobile = window.innerWidth <= 900;
   if(isMobile){
@@ -2504,7 +2637,256 @@ window.selectTrade = function(rawSym, entry, stop, target, dir, sit, pnl){
   nav('a1', 1);
 };
 
-// Initialize Lightweight Charts Engine
+// Toast Notification Engine
+window.showToast = function(msg){
+  var t = document.getElementById('dashToast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._dashToastTimer);
+  window._dashToastTimer = setTimeout(function(){
+    t.classList.remove('show');
+  }, 2200);
+};
+
+// Chart Indicator States (Persisted in localStorage)
+window.indicatorState = {
+  ema: localStorage.getItem('ind_ema') !== '0',
+  poc: localStorage.getItem('ind_poc') !== '0',
+  fvg: localStorage.getItem('ind_fvg') !== '0',
+  vol: localStorage.getItem('ind_vol') !== '0'
+};
+
+// Auto Scale Fit & Reset Zoom
+window.fitChartScale = function(){
+  if(lwChart){
+    lwChart.timeScale().fitContent();
+    if(candleSeries && candleSeries.priceScale){
+      candleSeries.priceScale().applyOptions({ autoScale: true });
+    }
+    showToast('Chart Scale Reset to Fit');
+  }
+};
+
+// Toggle Sub-indicators with zero delay reactive chart update
+window.toggleChartIndicator = function(name){
+  if(!window.indicatorState){
+    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true };
+  }
+  window.indicatorState[name] = !window.indicatorState[name];
+  localStorage.setItem('ind_' + name, window.indicatorState[name] ? '1' : '0');
+  window.updateIndicatorButtonsUI();
+
+  var candles = (typeof currentCandles !== 'undefined' && currentCandles && currentCandles.length) ? currentCandles : (window.currentCandles || []);
+
+  if(lwChart && candleSeries){
+    var activeSym = (typeof S !== 'undefined' ? S : 'BTCUSDT');
+    var dp = activeSym.includes('BTC') ? 1 : (activeSym.includes('ETH') ? 2 : 4);
+    var cData = [], vData = [];
+    if(candles && candles.length){
+      for(var i = 0; i < candles.length; i++){
+        var c = candles[i];
+        var ts = Math.floor(c.start / 1000);
+        cData.push({ time: ts, open: c.open, high: c.high, low: c.low, close: c.close });
+        vData.push({
+          time: ts,
+          value: c.volume,
+          color: c.close >= c.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'
+        });
+      }
+    }
+
+    if(name === 'ema'){
+      var isEma = !!window.indicatorState.ema;
+      if(ema21Series){
+        ema21Series.applyOptions({ visible: isEma });
+        if(isEma && cData.length) ema21Series.setData(calcEMA(cData, 21));
+      }
+      if(ema50Series){
+        ema50Series.applyOptions({ visible: isEma });
+        if(isEma && cData.length) ema50Series.setData(calcEMA(cData, 50));
+      }
+    } else if(name === 'poc'){
+      if(pocPriceLine){ try{ candleSeries.removePriceLine(pocPriceLine); }catch(e){} pocPriceLine = null; }
+      if(vahPriceLine){ try{ candleSeries.removePriceLine(vahPriceLine); }catch(e){} vahPriceLine = null; }
+      if(valPriceLine){ try{ candleSeries.removePriceLine(valPriceLine); }catch(e){} valPriceLine = null; }
+
+      if(window.indicatorState.poc && candles.length){
+        var vp = calcVolumeProfile(candles);
+        if(vp){
+          pocPriceLine = candleSeries.createPriceLine({
+            price: vp.poc, color: '#f59e0b', lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible: true,
+            title: 'POC ' + vp.poc.toFixed(dp)
+          });
+          vahPriceLine = candleSeries.createPriceLine({
+            price: vp.vah, color: '#0ea5e9', lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true,
+            title: 'VAH ' + vp.vah.toFixed(dp)
+          });
+          valPriceLine = candleSeries.createPriceLine({
+            price: vp.val, color: '#38bdf8', lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true,
+            title: 'VAL ' + vp.val.toFixed(dp)
+          });
+          sv('tickPoc', vp.poc.toFixed(dp));
+          sv('tickVah', vp.vah.toFixed(dp));
+          sv('tickVal', vp.val.toFixed(dp));
+        }
+      } else {
+        sv('tickPoc', '--');
+        sv('tickVah', '--');
+        sv('tickVal', '--');
+      }
+    } else if(name === 'fvg'){
+      var isFvg = !!window.indicatorState.fvg;
+      var fvgMarkers = (isFvg && cData.length) ? calcFVGMarkers(cData, dp) : [];
+      try{
+        if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
+          if(!candleSeries._markersPrimitive){
+            candleSeries._markersPrimitive = LightweightCharts.createSeriesMarkers(candleSeries, fvgMarkers);
+          } else {
+            candleSeries._markersPrimitive.setMarkers(fvgMarkers);
+          }
+        } else if(candleSeries.setMarkers){
+          candleSeries.setMarkers(fvgMarkers);
+        }
+      }catch(e){}
+      var amdEl = document.getElementById('tickAmd');
+      if(amdEl && !isFvg){
+        amdEl.textContent = 'FVG: OFF';
+        amdEl.style.color = 'var(--td)';
+        amdEl.style.background = 'rgba(255,255,255,0.05)';
+      }
+    } else if(name === 'vol'){
+      var isVol = !!window.indicatorState.vol;
+      if(volumeSeries){
+        volumeSeries.applyOptions({ visible: isVol });
+        if(isVol && vData.length) volumeSeries.setData(vData);
+      }
+    }
+  }
+
+  showToast((name.toUpperCase()) + (window.indicatorState[name] ? ' Enabled' : ' Disabled'));
+};
+
+window.updateIndicatorButtonsUI = function(){
+  if(!window.indicatorState) return;
+  ['ema', 'poc', 'fvg', 'vol'].forEach(function(k){
+    var on = !!window.indicatorState[k];
+    var mobBtn = document.getElementById('btnInd' + k.toUpperCase());
+    if(mobBtn){
+      if(on) mobBtn.classList.add('active'); else mobBtn.classList.remove('active');
+    }
+    var dtBtn = document.getElementById('i' + k.toUpperCase());
+    if(dtBtn){
+      if(on) dtBtn.classList.add('on'); else dtBtn.classList.remove('on');
+    }
+  });
+};
+
+// Mode Switcher: Championship Dual-Regime vs CME-X5 Pure
+window.currentStrategyMode = localStorage.getItem('cme_strat_mode') || 'championship';
+
+window.toggleDashboardStrategyMode = function(){
+  var newMode = window.currentStrategyMode === 'championship' ? 'pure' : 'championship';
+  window.setDashboardStrategyMode(newMode);
+};
+
+window.setDashboardStrategyMode = function(mode){
+  window.currentStrategyMode = mode;
+  localStorage.setItem('cme_strat_mode', mode);
+
+  var isChamp = mode === 'championship';
+  var payload = {
+    strategyMode: isChamp ? 'championship' : 'standard',
+    championshipMode: isChamp
+  };
+
+  fetch('/api/auto-trade/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); })
+    .then(function(res){
+      console.log('[Dashboard] Backend strategy mode updated:', res);
+    }).catch(function(e){
+      console.warn('[Dashboard] Could not sync mode to backend:', e);
+    });
+
+  window.updateChampionshipUI();
+  showToast(isChamp ? '🏆 Switched to Championship Mode' : '⚡ Switched to CME-X5 Pure Mode');
+};
+
+window.updateChampionshipUI = function(){
+  var isChamp = window.currentStrategyMode === 'championship';
+
+  // Header switcher buttons (mobile & desktop)
+  document.querySelectorAll('.dash-champ-toggle-btn').forEach(function(btn){
+    if(isChamp){
+      btn.className = 'dash-champ-toggle-btn champ active';
+      btn.innerHTML = '<i class="fa-solid fa-trophy"></i> <span>CHAMPIONSHIP</span>';
+      btn.title = 'Current: Championship Dual-Regime (Bull v2.0 + Bear v4.1). Tap to switch to CME-X5 Pure.';
+    } else {
+      btn.className = 'dash-champ-toggle-btn standard';
+      btn.innerHTML = '<i class="fa-solid fa-bolt"></i> <span>CME-X5 PURE</span>';
+      btn.title = 'Current: CME-X5 Pure Strategy. Tap to switch to Championship.';
+    }
+  });
+
+  // Telemetry strip
+  var stripName = document.getElementById('stripName');
+  var stripBadge = document.getElementById('stripBadge');
+  var stripStrat = document.getElementById('stripStrat');
+  var esEngine = document.getElementById('esEngine');
+  var wmStratMode = document.getElementById('wmStratMode');
+
+  if(isChamp){
+    if(stripName) stripName.textContent = 'Championship Dual-Regime';
+    if(stripBadge){
+      stripBadge.textContent = 'BULL v2.0 + BEAR v4.1';
+      stripBadge.style.color = '#fbbf24';
+      stripBadge.style.background = 'rgba(245,158,11,0.15)';
+      stripBadge.style.borderColor = 'rgba(245,158,11,0.4)';
+    }
+    if(stripStrat){
+      stripStrat.innerHTML = '<b>Bull 21 EMA Springboard</b> &nbsp;|&nbsp; <b>Bear 4 Archetypes</b> &nbsp;|&nbsp; <b>9 Golden Vetos</b>';
+    }
+    if(esEngine){
+      esEngine.textContent = 'CHAMPIONSHIP';
+      esEngine.style.color = 'var(--go)';
+    }
+    if(wmStratMode){
+      wmStratMode.textContent = 'CHAMPIONSHIP';
+      wmStratMode.style.color = 'var(--bb-gold)';
+      wmStratMode.style.borderColor = 'rgba(247,166,0,0.3)';
+      wmStratMode.style.background = 'rgba(247,166,0,0.14)';
+    }
+  } else {
+    if(stripName) stripName.textContent = 'CME-X5 Pure Algorithm';
+    if(stripBadge){
+      stripBadge.textContent = 'STANDARD PURE';
+      stripBadge.style.color = '#38bdf8';
+      stripBadge.style.background = 'rgba(14,165,233,0.15)';
+      stripBadge.style.borderColor = 'rgba(14,165,233,0.4)';
+    }
+    if(stripStrat){
+      stripStrat.innerHTML = '<b>AMD FVG Liquidity Expansion</b> &nbsp;|&nbsp; <b>Volume Profile POC</b> &nbsp;|&nbsp; <b>Strict 1R Risk</b>';
+    }
+    if(esEngine){
+      esEngine.textContent = 'CME-X5 PURE';
+      esEngine.style.color = 'var(--cy)';
+    }
+    if(wmStratMode){
+      wmStratMode.textContent = 'CME-X5 PURE';
+      wmStratMode.style.color = 'var(--cy)';
+      wmStratMode.style.borderColor = 'rgba(14,165,233,0.3)';
+      wmStratMode.style.background = 'rgba(14,165,233,0.14)';
+    }
+  }
+};
+
+// Initialize Lightweight Charts Engine with Smooth Mobile Physics
 function initLwChart(){
   var container = document.getElementById('lwChart');
   if(!container) return;
@@ -2512,7 +2894,7 @@ function initLwChart(){
 
   lwChart = LightweightCharts.createChart(container, {
     layout: {
-      background: { type: 'solid', color: '#08090f' },
+      background: { type: 'solid', color: '#000000' },
       textColor: '#8b9bb4',
       fontSize: 11,
       fontFamily: "'JetBrains Mono', monospace"
@@ -2522,27 +2904,36 @@ function initLwChart(){
       horzLines: { color: 'rgba(255, 255, 255, 0.03)' }
     },
     crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: { labelVisible: true, color: 'rgba(255, 255, 255, 0.25)' },
+      horzLine: { labelVisible: true, color: 'rgba(255, 255, 255, 0.25)' }
     },
     handleScroll: {
-      mouseWheel: false,
+      mouseWheel: true,
       pressedMouseMove: true,
       horzTouchDrag: true,
-      vertTouchDrag: false
+      vertTouchDrag: true
     },
     handleScale: {
-      mouseWheel: false,
+      mouseWheel: true,
       pinch: true,
-      axisPressedMouseMove: true
+      axisPressedMouseMove: true,
+      axisDoubleClickReset: true
+    },
+    kineticScroll: {
+      touch: true,
+      mouse: false
     },
     rightPriceScale: {
       borderColor: 'rgba(255, 255, 255, 0.08)',
-      scaleMargins: { top: 0.12, bottom: 0.22 }
+      scaleMargins: { top: 0.12, bottom: 0.18 },
+      autoScale: true
     },
     timeScale: {
       borderColor: 'rgba(255, 255, 255, 0.08)',
       timeVisible: true,
-      secondsVisible: false
+      secondsVisible: false,
+      shiftVisibleRangeOnNewBar: true
     }
   });
 
@@ -2665,58 +3056,68 @@ function loadLwChartData(cs, tf){
       }
 
       candleSeries.setData(cData);
-      volumeSeries.setData(vData);
+
+      // Volume Histogram
+      var showVOL = window.indicatorState ? window.indicatorState.vol : true;
+      if(volumeSeries){
+        volumeSeries.applyOptions({ visible: showVOL });
+        if(showVOL) volumeSeries.setData(vData);
+      }
 
       // 1. EMAs
-      var show21 = document.getElementById('i21') ? document.getElementById('i21').classList.contains('on') : true;
-      var show50 = document.getElementById('i50') ? document.getElementById('i50').classList.contains('on') : true;
-      if(show21 && ema21Series){
-        ema21Series.setData(calcEMA(cData, 21));
-      } else if(ema21Series){
-        ema21Series.setData([]);
+      var showEMA = window.indicatorState ? window.indicatorState.ema : true;
+      if(ema21Series){
+        ema21Series.applyOptions({ visible: showEMA });
+        if(showEMA) ema21Series.setData(calcEMA(cData, 21));
       }
-      if(show50 && ema50Series){
-        ema50Series.setData(calcEMA(cData, 50));
-      } else if(ema50Series){
-        ema50Series.setData([]);
+      if(ema50Series){
+        ema50Series.applyOptions({ visible: showEMA });
+        if(showEMA) ema50Series.setData(calcEMA(cData, 50));
       }
 
       // 2. Volume Profile (POC, VAH, VAL) Lines on Chart
-      var vp = calcVolumeProfile(candles);
-      if(vp){
-        pocPriceLine = candleSeries.createPriceLine({
-          price: vp.poc,
-          color: '#f59e0b',
-          lineWidth: 2,
-          lineStyle: LightweightCharts.LineStyle.Solid,
-          axisLabelVisible: true,
-          title: 'POC ' + vp.poc.toFixed(dp)
-        });
-        vahPriceLine = candleSeries.createPriceLine({
-          price: vp.vah,
-          color: '#0ea5e9',
-          lineWidth: 1,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: 'VAH ' + vp.vah.toFixed(dp)
-        });
-        valPriceLine = candleSeries.createPriceLine({
-          price: vp.val,
-          color: '#38bdf8',
-          lineWidth: 1,
-          lineStyle: LightweightCharts.LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: 'VAL ' + vp.val.toFixed(dp)
-        });
+      var showPOC = window.indicatorState ? window.indicatorState.poc : true;
+      if(showPOC){
+        var vp = calcVolumeProfile(candles);
+        if(vp){
+          pocPriceLine = candleSeries.createPriceLine({
+            price: vp.poc,
+            color: '#f59e0b',
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Solid,
+            axisLabelVisible: true,
+            title: 'POC ' + vp.poc.toFixed(dp)
+          });
+          vahPriceLine = candleSeries.createPriceLine({
+            price: vp.vah,
+            color: '#0ea5e9',
+            lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: 'VAH ' + vp.vah.toFixed(dp)
+          });
+          valPriceLine = candleSeries.createPriceLine({
+            price: vp.val,
+            color: '#38bdf8',
+            lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: 'VAL ' + vp.val.toFixed(dp)
+          });
 
-        // Update toolbar indicators
-        sv('tickPoc', vp.poc.toFixed(dp));
-        sv('tickVah', vp.vah.toFixed(dp));
-        sv('tickVal', vp.val.toFixed(dp));
+          // Update toolbar indicators
+          sv('tickPoc', vp.poc.toFixed(dp));
+          sv('tickVah', vp.vah.toFixed(dp));
+          sv('tickVal', vp.val.toFixed(dp));
+        }
+      } else {
+        sv('tickPoc', '--');
+        sv('tickVah', '--');
+        sv('tickVal', '--');
       }
 
       // 3. AMD FVG (Fair Value Gaps) Markers on Candles - Active Unmitigated Only
-      var showFVG = document.getElementById('iFVG') ? document.getElementById('iFVG').classList.contains('on') : true;
+      var showFVG = window.indicatorState ? window.indicatorState.fvg : true;
       var fvgMarkers = showFVG ? calcFVGMarkers(cData, dp) : [];
       if(fvgMarkers.length){
         try{
@@ -3785,6 +4186,9 @@ function refresh(){
   fSnap();
   fChamp();
 }
+
+if(window.updateIndicatorButtonsUI) window.updateIndicatorButtonsUI();
+if(window.updateChampionshipUI) window.updateChampionshipUI();
 
 refresh();
 setInterval(refresh, 10000);
