@@ -3410,10 +3410,14 @@ function apiUrl(path){
 function api(url,cb){
   var fullUrl = apiUrl(url);
   fetch(fullUrl)
-    .then(function(r){return r.ok?r.json():null})
-    .then(function(d){if(d)cb(d)})
+    .then(function(r){
+      if(!r.ok){ cb(null); return null; }
+      return r.json();
+    })
+    .then(function(d){ if(d !== null && d !== undefined) cb(d); })
     .catch(function(e){
       console.warn('[API]', url, e.message);
+      cb(null);
     });
 }
 
@@ -4260,12 +4264,15 @@ function refresh(){
   if(document.hidden) return;
   api('/api/dashboard/bundle', function(bundle){
     if(bundle && bundle.account && bundle.positions){
+      // Fast path: bundle endpoint available (Railway running new server.py)
       if(bundle.account) handleAcc(bundle.account);
       if(bundle.performance) handlePerf(bundle.performance);
       if(bundle.positions) handlePos(bundle.positions);
       if(bundle.snapshot) handleSnap(bundle.snapshot);
       if(bundle.championship) handleChamp(bundle.championship, bundle.auto_trade_state);
     } else {
+      // Fallback path: bundle not available (Railway running old server.py)
+      // or returned null/404. Call each endpoint individually.
       fAcc();
       fPerf();
       fPos();
