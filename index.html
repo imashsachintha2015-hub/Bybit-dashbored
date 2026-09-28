@@ -3396,10 +3396,15 @@ function g(id){return document.getElementById(id)}function sv(id,v){var e=g(id);
 function apiUrl(path){
   if(!path) return '';
   if(path.startsWith('http://') || path.startsWith('https://')) return path;
-  if(window.location.hostname.endsWith('vercel.app')){
-    return 'https://masis-runner-production.up.railway.app' + (path.startsWith('/') ? path : '/' + path);
+  var cleanPath = path.startsWith('/') ? path : '/' + path;
+  // On localhost dev without the server, point to local port 8070
+  if(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'){
+    if(window.location.port !== '8070') return 'http://localhost:8070' + cleanPath;
   }
-  return path;
+  // On Vercel (and everywhere else): use relative path so Vercel's own
+  // server-side rewrites forward /api/* -> Railway. This avoids CORS
+  // entirely because the request goes Vercel->Railway server-side.
+  return cleanPath;
 }
 
 function api(url,cb){
@@ -3407,10 +3412,8 @@ function api(url,cb){
   fetch(fullUrl)
     .then(function(r){return r.ok?r.json():null})
     .then(function(d){if(d)cb(d)})
-    .catch(function(){
-      if(fullUrl !== url){
-        fetch(url).then(function(r){return r.ok?r.json():null}).then(function(d){if(d)cb(d)}).catch(function(){});
-      }
+    .catch(function(e){
+      console.warn('[API]', url, e.message);
     });
 }
 

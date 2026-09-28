@@ -737,10 +737,8 @@ function resolveApiUrl(url) {
   if (window.location.protocol === 'file:' || (isLocalDev && window.location.port !== '8080')) {
     return 'http://localhost:8080' + cleanUrl;
   }
-  // Bypass Vercel edge proxy entirely — call Railway origin directly to avoid CDN usage charges
-  if (window.location.hostname.endsWith('vercel.app')) {
-    return 'https://masis-runner-production.up.railway.app' + cleanUrl;
-  }
+  // Use relative path on Vercel — the server-side rewrite in vercel.json
+  // forwards /api/* → Railway without any browser CORS exposure.
   return cleanUrl;
 }
 
