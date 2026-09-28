@@ -4,6 +4,7 @@
 api/
 backtest/
 research/
+research_archive/
 scratch/
 node_modules/
 tests/

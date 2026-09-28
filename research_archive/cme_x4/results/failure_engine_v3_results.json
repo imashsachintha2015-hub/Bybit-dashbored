@@ -1,0 +1,231 @@
+{
+  "bootstrap_confidence_test_a": {
+    "trades_analyzed": 91,
+    "ev_mean": 0.108,
+    "ev_ci_95": [
+      -0.06,
+      0.268
+    ],
+    "total_r_mean": 9.8,
+    "total_r_ci_95": [
+      -5.4,
+      24.4
+    ],
+    "win_rate_mean": 81.3,
+    "win_rate_ci_95": [
+      73.6,
+      89.0
+    ],
+    "profit_factor_mean": 1.48,
+    "profit_factor_ci_95": [
+      0.85,
+      2.62
+    ],
+    "max_drawdown_mean": 6.1,
+    "max_drawdown_ci_95": [
+      2.8,
+      12.6
+    ],
+    "prob_positive_ev": 90.0,
+    "prob_pf_above_1": 90.0,
+    "verdict": "INCONCLUSIVE_UNCERTAINTY"
+  },
+  "immediate_failure_expanded_test_b": {
+    "total_sample_size": 288,
+    "holdout_sample_size": 91,
+    "holdout_reversal_wr": 71.4,
+    "holdout_reversal_ev": 0.993,
+    "coin_breakdown": {
+      "BTCUSDT": {
+        "count": 35,
+        "rev_wr": 60.0,
+        "rev_ev": 0.65
+      },
+      "ETHUSDT": {
+        "count": 56,
+        "rev_wr": 53.6,
+        "rev_ev": 0.457
+      },
+      "SOLUSDT": {
+        "count": 61,
+        "rev_wr": 49.2,
+        "rev_ev": 0.325
+      },
+      "XRPUSDT": {
+        "count": 65,
+        "rev_wr": 80.0,
+        "rev_ev": 1.25
+      },
+      "LINKUSDT": {
+        "count": 71,
+        "rev_wr": 63.4,
+        "rev_ev": 0.751
+      }
+    },
+    "trending_regime_ev": 0.962,
+    "ranging_regime_ev": 0.571,
+    "verdict": "CONFIRMED_HIGH_EDGE_ACROSS_COINS"
+  },
+  "component_interactions_test_c": {
+    "baseline_ev": -0.55,
+    "harvest_alone_ev": 0.139,
+    "veto_alone_ev": -0.417,
+    "pullback_alone_ev": 0.066,
+    "confirmation_alone_ev": -0.193,
+    "veto_plus_harvest_ev": 0.168,
+    "pullback_plus_harvest_ev": -0.161,
+    "full_pipeline_ev": -0.213,
+    "verdict": "SUB_ADDITIVE"
+  },
+  "harvest_grid_test_d": {
+    "best_train_tp_pct": 0.4,
+    "best_train_sl_pct": 0.25,
+    "train_ev": 0.15,
+    "holdout_ev": 0.167,
+    "holdout_wr": 74.0,
+    "prior_v2_candidate_holdout_ev": 0.139,
+    "verdict": "VALIDATED_ROBUST_STAGED_HARVEST"
+  },
+  "value_zone_generalization_test_e": {
+    "anchors": {
+      "15m EMA20": {
+        "touches": 195,
+        "touch_pct": 34.9,
+        "win_rate": 40.0,
+        "ev_r": 0.05,
+        "total_r": 9.8
+      },
+      "15m EMA21": {
+        "touches": 190,
+        "touch_pct": 34.1,
+        "win_rate": 40.5,
+        "ev_r": 0.066,
+        "total_r": 12.5
+      },
+      "15m EMA25": {
+        "touches": 170,
+        "touch_pct": 30.5,
+        "win_rate": 35.3,
+        "ev_r": -0.091,
+        "total_r": -15.5
+      },
+      "15m VWAP (20-bar)": {
+        "touches": 187,
+        "touch_pct": 33.5,
+        "win_rate": 28.3,
+        "ev_r": -0.3,
+        "total_r": -56.0
+      },
+      "15m Struct Midpoint": {
+        "touches": 181,
+        "touch_pct": 32.4,
+        "win_rate": 23.2,
+        "ev_r": -0.454,
+        "total_r": -82.2
+      },
+      "5m ATR Band (0.5x)": {
+        "touches": 437,
+        "touch_pct": 78.3,
+        "win_rate": 31.6,
+        "ev_r": -0.203,
+        "total_r": -88.6
+      }
+    },
+    "verdict": "EMA21_SPECIFIC"
+  },
+  "beta_scaled_stops_test_f": {
+    "models": {
+      "1. Fixed Universal (-0.45%)": {
+        "premature_rate": 27.2,
+        "avg_loss_pct": 0.441,
+        "ev_r": -0.473
+      },
+      "2. Coin-Specific Fixed": {
+        "premature_rate": 8.7,
+        "avg_loss_pct": 0.603,
+        "ev_r": -0.301
+      },
+      "3. ATR Stop (1.2x ATR)": {
+        "premature_rate": 28.9,
+        "avg_loss_pct": 0.431,
+        "ev_r": -0.489
+      },
+      "4. Sigma Stop (1.0x Sigma)": {
+        "premature_rate": 60.1,
+        "avg_loss_pct": 0.311,
+        "ev_r": -0.779
+      },
+      "5. Hybrid max(0.35%, 0.90*sigma)": {
+        "premature_rate": 44.5,
+        "avg_loss_pct": 0.352,
+        "ev_r": -0.634
+      }
+    },
+    "verdict": "NEUTRAL"
+  },
+  "failure_signature_test_g": {
+    "metrics": {
+      "imm_fav_pct": {
+        "immediate_mean": 0.023,
+        "normal_mean": 0.19,
+        "ratio": 0.12
+      },
+      "imm_adv_pct": {
+        "immediate_mean": 0.468,
+        "normal_mean": 0.235,
+        "ratio": 1.99
+      },
+      "vol_ratio": {
+        "immediate_mean": 1.325,
+        "normal_mean": 1.179,
+        "ratio": 1.12
+      },
+      "disp": {
+        "immediate_mean": 0.515,
+        "normal_mean": 0.489,
+        "ratio": 1.05
+      },
+      "reversal_win_rate": {
+        "immediate_mean": 61.806,
+        "normal_mean": 41.121,
+        "ratio": 1.5
+      }
+    },
+    "verdict": "DISTINCT_INSTITUTIONAL_SIGNATURE_CONFIRMED"
+  },
+  "false_breakout_model_test_h": {
+    "quintiles": {
+      "Q1 (Low Risk)": {
+        "trades": 112,
+        "actual_fb_rate": 54.5,
+        "baseline_ev": -0.505,
+        "staged_harvest_ev": 0.154
+      },
+      "Q2": {
+        "trades": 111,
+        "actual_fb_rate": 58.6,
+        "baseline_ev": -0.486,
+        "staged_harvest_ev": 0.172
+      },
+      "Q3": {
+        "trades": 112,
+        "actual_fb_rate": 56.2,
+        "baseline_ev": -0.448,
+        "staged_harvest_ev": 0.222
+      },
+      "Q4": {
+        "trades": 111,
+        "actual_fb_rate": 62.2,
+        "baseline_ev": -0.558,
+        "staged_harvest_ev": 0.095
+      },
+      "Q5 (High Risk)": {
+        "trades": 112,
+        "actual_fb_rate": 65.2,
+        "baseline_ev": -0.754,
+        "staged_harvest_ev": 0.052
+      }
+    },
+    "verdict": "STRONG_MONOTONIC_SEPARATION"
+  }
+}

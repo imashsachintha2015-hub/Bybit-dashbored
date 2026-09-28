@@ -1,0 +1,133 @@
+{
+  "program": "CME-X4 Research Program 11: Higher-Timeframe Direction & Destination Engine",
+  "timestamp": "2026-09-24 18:06:33 UTC",
+  "total_instances_evaluated": 5819,
+  "symbols_evaluated": 23,
+  "quintile_analysis": {
+    "STRONG_SHORT": {
+      "n": 1293,
+      "pct_of_market": 22.2,
+      "p_up_24h": 51.0,
+      "p_upper_barrier_1_5sig_first": 41.8,
+      "p_lower_barrier_1_5sig_first": 44.4,
+      "barrier_edge_ratio": 0.94,
+      "avg_mfe_sig": 2.9,
+      "avg_mae_sig": 1.64,
+      "mfe_mae_ratio": 1.77,
+      "path_distribution": {
+        "direct_expansion_pct": 8.7,
+        "pullback_then_continuation_pct": 46.3,
+        "failure_collapse_pct": 12.1,
+        "chop_range_pct": 32.8
+      }
+    },
+    "MOD_SHORT": {
+      "n": 1194,
+      "pct_of_market": 20.5,
+      "p_up_24h": 51.1,
+      "p_upper_barrier_1_5sig_first": 41.4,
+      "p_lower_barrier_1_5sig_first": 36.9,
+      "barrier_edge_ratio": 1.12,
+      "avg_mfe_sig": 2.37,
+      "avg_mae_sig": 1.5,
+      "mfe_mae_ratio": 1.58,
+      "path_distribution": {
+        "direct_expansion_pct": 9.9,
+        "pullback_then_continuation_pct": 45.0,
+        "failure_collapse_pct": 13.3,
+        "chop_range_pct": 31.8
+      }
+    },
+    "NEUTRAL": {
+      "n": 616,
+      "pct_of_market": 10.6,
+      "p_up_24h": 52.3,
+      "p_upper_barrier_1_5sig_first": 49.4,
+      "p_lower_barrier_1_5sig_first": 33.9,
+      "barrier_edge_ratio": 1.46,
+      "avg_mfe_sig": 3.39,
+      "avg_mae_sig": 1.58,
+      "mfe_mae_ratio": 2.15,
+      "path_distribution": {
+        "direct_expansion_pct": 15.3,
+        "pullback_then_continuation_pct": 41.7,
+        "failure_collapse_pct": 14.6,
+        "chop_range_pct": 28.4
+      }
+    },
+    "MOD_LONG": {
+      "n": 867,
+      "pct_of_market": 14.9,
+      "p_up_24h": 59.1,
+      "p_upper_barrier_1_5sig_first": 56.3,
+      "p_lower_barrier_1_5sig_first": 31.3,
+      "barrier_edge_ratio": 1.8,
+      "avg_mfe_sig": 3.83,
+      "avg_mae_sig": 1.47,
+      "mfe_mae_ratio": 2.61,
+      "path_distribution": {
+        "direct_expansion_pct": 17.6,
+        "pullback_then_continuation_pct": 44.8,
+        "failure_collapse_pct": 12.8,
+        "chop_range_pct": 24.8
+      }
+    },
+    "STRONG_LONG": {
+      "n": 1849,
+      "pct_of_market": 31.8,
+      "p_up_24h": 56.1,
+      "p_upper_barrier_1_5sig_first": 54.7,
+      "p_lower_barrier_1_5sig_first": 31.9,
+      "barrier_edge_ratio": 1.71,
+      "avg_mfe_sig": 3.29,
+      "avg_mae_sig": 1.4,
+      "mfe_mae_ratio": 2.35,
+      "path_distribution": {
+        "direct_expansion_pct": 15.6,
+        "pullback_then_continuation_pct": 49.8,
+        "failure_collapse_pct": 8.7,
+        "chop_range_pct": 25.9
+      }
+    }
+  },
+  "cross_sectional": {
+    "majors": {
+      "name": "Top 5 Majors (BTC, ETH, SOL, XRP, LINK)",
+      "total_instances": 1265,
+      "strong_bullish_n": 558,
+      "p_up_24h": 52.9,
+      "p_upper_barrier_1_5sig_first": 46.6,
+      "p_lower_barrier_1_5sig_first": 37.3,
+      "edge_ratio": 1.25
+    },
+    "alts": {
+      "name": "20 Cross-Sectional Altcoins",
+      "total_instances": 4554,
+      "strong_bullish_n": 1291,
+      "p_up_24h": 57.5,
+      "p_upper_barrier_1_5sig_first": 58.2,
+      "p_lower_barrier_1_5sig_first": 29.5,
+      "edge_ratio": 1.97
+    }
+  },
+  "bayesian_prior_simulation": {
+    "aligned_with_htf_prior": {
+      "n": 2330,
+      "win_rate": 28.1,
+      "ev_per_trade_r": -0.442,
+      "total_r": -1029.6
+    },
+    "neutral_htf": {
+      "n": 1757,
+      "win_rate": 25.7,
+      "ev_per_trade_r": -0.492,
+      "total_r": -864.3
+    },
+    "opposing_htf": {
+      "n": 1732,
+      "win_rate": 20.0,
+      "ev_per_trade_r": -0.603,
+      "total_r": -1044.9
+    }
+  }
+}

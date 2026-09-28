@@ -1,0 +1,305 @@
+{
+  "hypothesis_A_B": {
+    "total_losses": 1452,
+    "false_breakout_count": 1217,
+    "false_breakout_pct": 83.8,
+    "avg_mfe_pct": 0.604,
+    "median_mfe_pct": 0.597,
+    "reached_032_pct": 82.1,
+    "verdict": "CONFIRMED_STATISTICALLY"
+  },
+  "exact_harvest_simulation": {
+    "strategy_a_baseline": {
+      "win_rate": 31.0,
+      "ev_r": -0.55,
+      "total_r": -306.9,
+      "max_dd": 332.0
+    },
+    "strategy_b_staged": {
+      "win_rate": 79.6,
+      "ev_r": 0.139,
+      "total_r": 77.7,
+      "max_dd": 25.6
+    },
+    "verdict": "VALIDATED_POSITIVE_EXPECTANCY"
+  },
+  "mae_survival_curves": {
+    "0.10": {
+      "BTCUSDT": 29.2,
+      "ETHUSDT": 27.8,
+      "SOLUSDT": 30.6,
+      "XRPUSDT": 32.9,
+      "LINKUSDT": 28.9,
+      "UNIVERSAL": 29.9
+    },
+    "0.15": {
+      "BTCUSDT": 24.0,
+      "ETHUSDT": 23.6,
+      "SOLUSDT": 28.9,
+      "XRPUSDT": 31.1,
+      "LINKUSDT": 27.9,
+      "UNIVERSAL": 27.3
+    },
+    "0.20": {
+      "BTCUSDT": 18.2,
+      "ETHUSDT": 19.9,
+      "SOLUSDT": 24.8,
+      "XRPUSDT": 29.6,
+      "LINKUSDT": 26.7,
+      "UNIVERSAL": 24.1
+    },
+    "0.25": {
+      "BTCUSDT": 12.9,
+      "ETHUSDT": 15.0,
+      "SOLUSDT": 19.9,
+      "XRPUSDT": 27.8,
+      "LINKUSDT": 25.5,
+      "UNIVERSAL": 20.8
+    },
+    "0.30": {
+      "BTCUSDT": 7.9,
+      "ETHUSDT": 10.2,
+      "SOLUSDT": 16.8,
+      "XRPUSDT": 24.5,
+      "LINKUSDT": 24.2,
+      "UNIVERSAL": 17.5
+    },
+    "0.35": {
+      "BTCUSDT": 6.4,
+      "ETHUSDT": 5.9,
+      "SOLUSDT": 12.0,
+      "XRPUSDT": 19.9,
+      "LINKUSDT": 19.8,
+      "UNIVERSAL": 13.5
+    },
+    "0.40": {
+      "BTCUSDT": 5.9,
+      "ETHUSDT": 3.4,
+      "SOLUSDT": 9.3,
+      "XRPUSDT": 16.6,
+      "LINKUSDT": 16.3,
+      "UNIVERSAL": 10.8
+    },
+    "0.45": {
+      "BTCUSDT": 4.2,
+      "ETHUSDT": 2.0,
+      "SOLUSDT": 6.7,
+      "XRPUSDT": 14.4,
+      "LINKUSDT": 13.4,
+      "UNIVERSAL": 8.6
+    },
+    "0.50": {
+      "BTCUSDT": 2.2,
+      "ETHUSDT": 1.7,
+      "SOLUSDT": 5.6,
+      "XRPUSDT": 10.6,
+      "LINKUSDT": 10.9,
+      "UNIVERSAL": 6.7
+    },
+    "0.75": {
+      "BTCUSDT": 0.0,
+      "ETHUSDT": 0.0,
+      "SOLUSDT": 1.7,
+      "XRPUSDT": 3.6,
+      "LINKUSDT": 4.5,
+      "UNIVERSAL": 2.3
+    },
+    "1.00": {
+      "BTCUSDT": 0.0,
+      "ETHUSDT": 0.0,
+      "SOLUSDT": 0.0,
+      "XRPUSDT": 0.0,
+      "LINKUSDT": 0.5,
+      "UNIVERSAL": 0.2
+    }
+  },
+  "p90_mae_per_coin": {
+    "BTCUSDT": 0.337,
+    "ETHUSDT": 0.364,
+    "SOLUSDT": 0.484,
+    "XRPUSDT": 0.58,
+    "LINKUSDT": 0.669
+  },
+  "absorption_reversal_scaled": {
+    "sample_size_total": 152,
+    "sample_size_holdout": 31,
+    "breakout_chase_wr": 33.6,
+    "fading_trap_wr_full": 32.9,
+    "fading_trap_ev_full": -0.163,
+    "fading_trap_wr_oos": 35.5,
+    "fading_trap_ev_oos": -0.085,
+    "verdict": "REJECTED_SAMPLE_TOO_SMALL_OR_NEGATIVE"
+  },
+  "counterfactual_timing_holdout": {
+    "immediate_market_ev": -0.55,
+    "post_signal_5m_ev": -0.193,
+    "pullback_limit_ev": 0.143,
+    "verdict_h": "CONFIRMED",
+    "verdict_i": "CONFIRMED"
+  },
+  "veto_optimization_curve": [
+    {
+      "veto_top_pct": 10,
+      "val_trades": 502,
+      "val_ev": -0.391,
+      "val_dd": 202.4,
+      "holdout_trades": 497,
+      "holdout_ev": -0.482,
+      "holdout_dd": 264.9
+    },
+    {
+      "veto_top_pct": 20,
+      "val_trades": 446,
+      "val_ev": -0.427,
+      "val_dd": 192.1,
+      "holdout_trades": 425,
+      "holdout_ev": -0.417,
+      "holdout_dd": 199.1
+    },
+    {
+      "veto_top_pct": 30,
+      "val_trades": 390,
+      "val_ev": -0.407,
+      "val_dd": 160.2,
+      "holdout_trades": 371,
+      "holdout_ev": -0.398,
+      "holdout_dd": 171.3
+    },
+    {
+      "veto_top_pct": 40,
+      "val_trades": 335,
+      "val_ev": -0.408,
+      "val_dd": 138.1,
+      "holdout_trades": 325,
+      "holdout_ev": -0.382,
+      "holdout_dd": 145.8
+    },
+    {
+      "veto_top_pct": 50,
+      "val_trades": 279,
+      "val_ev": -0.448,
+      "val_dd": 126.4,
+      "holdout_trades": 280,
+      "holdout_ev": -0.395,
+      "holdout_dd": 132.4
+    },
+    {
+      "veto_top_pct": 60,
+      "val_trades": 223,
+      "val_ev": -0.415,
+      "val_dd": 96.8,
+      "holdout_trades": 243,
+      "holdout_ev": -0.401,
+      "holdout_dd": 120.5
+    },
+    {
+      "veto_top_pct": 70,
+      "val_trades": 168,
+      "val_ev": -0.491,
+      "val_dd": 84.0,
+      "holdout_trades": 200,
+      "holdout_ev": -0.348,
+      "holdout_dd": 89.2
+    },
+    {
+      "veto_top_pct": 80,
+      "val_trades": 112,
+      "val_ev": -0.422,
+      "val_dd": 57.3,
+      "holdout_trades": 152,
+      "holdout_ev": -0.323,
+      "holdout_dd": 69.9
+    }
+  ],
+  "wrong_thesis_reversal": {
+    "full_sample_n": 91,
+    "full_reversal_wr": 92.3,
+    "full_reversal_ev": 1.619,
+    "holdout_n": 24,
+    "holdout_reversal_wr": 100.0,
+    "holdout_reversal_ev": 1.85,
+    "verdict": "CONFIRMED_EDGE"
+  },
+  "failure_taxonomy_l9": {
+    "FAILED_CONTINUATION_FALSE_BREAKOUT": {
+      "count": 1217,
+      "pct": 83.8,
+      "avg_mfe_pct": 0.6,
+      "avg_mae_pct": 1.01
+    },
+    "EXECUTION_NOISE_DRIFT": {
+      "count": 125,
+      "pct": 8.6,
+      "avg_mfe_pct": 0.11,
+      "avg_mae_pct": 1.56
+    },
+    "IMMEDIATE_THESIS_FAILURE": {
+      "count": 91,
+      "pct": 6.3,
+      "avg_mfe_pct": 0.03,
+      "avg_mae_pct": 1.62
+    },
+    "ABSORPTION_TRAP": {
+      "count": 15,
+      "pct": 1.0,
+      "avg_mfe_pct": 0.08,
+      "avg_mae_pct": 1.4
+    },
+    "REGIME_STAGNATION_DECAY": {
+      "count": 4,
+      "pct": 0.3,
+      "avg_mfe_pct": 0.12,
+      "avg_mae_pct": 0.62
+    }
+  },
+  "information_density_l10": {
+    "low_info": {
+      "trades": 184,
+      "win_rate": 30.4,
+      "ev_r": -0.579
+    },
+    "high_info": {
+      "trades": 190,
+      "win_rate": 31.6,
+      "ev_r": -0.513
+    },
+    "verdict": "CONFIRMED_HIGH_INFO_EDGE"
+  },
+  "final_selectivity_pipeline_l12": {
+    "raw_baseline": {
+      "trades": 558,
+      "win_rate": 31.0,
+      "ev_r": -0.55,
+      "total_r": -306.9,
+      "max_dd": 332.0,
+      "profit_factor": 0.46
+    },
+    "state_filtered": {
+      "trades": 110,
+      "rejection_pct": 80.3,
+      "win_rate": 29.1,
+      "ev_r": -0.58,
+      "total_r": -63.8,
+      "max_dd": 78.1,
+      "profit_factor": 0.44
+    },
+    "loss_veto_filtered": {
+      "trades": 91,
+      "rejection_pct": 83.7,
+      "win_rate": 31.9,
+      "ev_r": -0.488,
+      "total_r": -44.4,
+      "max_dd": 58.7,
+      "profit_factor": 0.51
+    },
+    "staged_harvest_pipeline": {
+      "trades": 91,
+      "rejection_pct": 83.7,
+      "win_rate": 81.3,
+      "ev_r": 0.108,
+      "total_r": 9.8,
+      "max_dd": 7.7,
+      "profit_factor": 1.39
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-09-27T15:33:11.720440+00:00",
+  "total_trades": 1000,
+  "generic_model": {
+    "win_rate": 39.8,
+    "total_r": -239.66,
+    "net_ev": -0.24,
+    "profit_factor": 0.43,
+    "final_equity_usd": 0.51,
+    "max_drawdown_pct": 95.0
+  },
+  "profit_champion_model": {
+    "win_rate": 60.9,
+    "total_r": -14.05,
+    "net_ev": -0.014,
+    "profit_factor": 0.97,
+    "final_equity_usd": 22.41,
+    "roi_pct": 124.1,
+    "max_drawdown_pct": 45.6
+  },
+  "situation_breakdown": {
+    "S1_AMD_LIQUIDITY_FAILURE": {
+      "count": 34,
+      "gen_r": -13.629,
+      "champ_r": -13.943999999999999,
+      "champ_wins": 18
+    },
+    "S2_POC_RECLAIM": {
+      "count": 87,
+      "gen_r": -21.70199999999999,
+      "champ_r": 65.22700000000005,
+      "champ_wins": 64
+    },
+    "S3_SR_DOUBLE_BOUNCE": {
+      "count": 342,
+      "gen_r": -115.35899999999997,
+      "champ_r": 11.628000000000004,
+      "champ_wins": 177
+    },
+    "S4_SQUEEZE_EXPANSION": {
+      "count": 42,
+      "gen_r": 3.8569999999999998,
+      "champ_r": 11.893000000000002,
+      "champ_wins": 14
+    },
+    "S7_CME_X4_VALUE_CONTINUATION": {
+      "count": 495,
+      "gen_r": -92.82699999999991,
+      "champ_r": -88.85499999999995,
+      "champ_wins": 336
+    }
+  },
+  "s6_reversals": {
+    "count": 240,
+    "total_r": -60.95
+  }
+}

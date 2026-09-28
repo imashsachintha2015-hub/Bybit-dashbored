@@ -4,5 +4,6 @@ __pycache__
 *.pyc
 tests
 research
+research_archive
 backtest
 .env

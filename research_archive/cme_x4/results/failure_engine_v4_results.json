@@ -1,0 +1,335 @@
+{
+  "parameter_perturbation_test_a": {
+    "plateau_fraction_pct": 100.0,
+    "min_ev": 0.145,
+    "max_ev": 0.302,
+    "mean_ev": 0.234,
+    "verdict": "BROAD_STABLE_PLATEAU"
+  },
+  "walk_forward_test_b": {
+    "windows": [
+      {
+        "fold": 1,
+        "start": "2026-09-20",
+        "end": "2026-09-24",
+        "trades": 356,
+        "wr": 71.6,
+        "ev": 0.14,
+        "tot_r": 49.8,
+        "dd": 41.5,
+        "pf": 1.33
+      },
+      {
+        "fold": 2,
+        "start": "2026-09-24",
+        "end": "2026-09-20",
+        "trades": 356,
+        "wr": 74.2,
+        "ev": 0.19,
+        "tot_r": 67.8,
+        "dd": 45.5,
+        "pf": 1.49
+      },
+      {
+        "fold": 3,
+        "start": "2026-09-20",
+        "end": "2026-09-24",
+        "trades": 356,
+        "wr": 78.9,
+        "ev": 0.275,
+        "tot_r": 97.9,
+        "dd": 43.6,
+        "pf": 1.87
+      },
+      {
+        "fold": 4,
+        "start": "2026-09-24",
+        "end": "2026-09-20",
+        "trades": 356,
+        "wr": 84.6,
+        "ev": 0.393,
+        "tot_r": 139.8,
+        "dd": 13.8,
+        "pf": 2.73
+      },
+      {
+        "fold": 5,
+        "start": "2026-09-20",
+        "end": "2026-09-24",
+        "trades": 357,
+        "wr": 75.4,
+        "ev": 0.219,
+        "tot_r": 78.2,
+        "dd": 22.5,
+        "pf": 1.6
+      }
+    ],
+    "positive_windows": 5,
+    "verdict": "CHRONOLOGICALLY_PERSISTENT"
+  },
+  "regime_stress_test_c": {
+    "STRONG_BEAR": {
+      "trades": 148,
+      "wr": 76.4,
+      "ev": 0.19,
+      "tot_r": 28.2,
+      "dd": 9.3
+    },
+    "STRONG_BULL": {
+      "trades": 251,
+      "wr": 82.9,
+      "ev": 0.393,
+      "tot_r": 98.7,
+      "dd": 8.4
+    },
+    "WEAK_BEAR": {
+      "trades": 543,
+      "wr": 72.2,
+      "ev": 0.13,
+      "tot_r": 70.4,
+      "dd": 40.4
+    },
+    "WEAK_BULL": {
+      "trades": 842,
+      "wr": 78.9,
+      "ev": 0.289,
+      "tot_r": 243.5,
+      "dd": 31.1
+    }
+  },
+  "coin_generalization_test_d": {
+    "BTCUSDT": {
+      "class": "Large-Cap (Baseline)",
+      "trades": 359,
+      "wr": 71.0,
+      "ev": 0.126,
+      "tot_r": 45.3,
+      "dd": 41.5
+    },
+    "ETHUSDT": {
+      "class": "Large-Cap (Liquid)",
+      "trades": 351,
+      "wr": 74.4,
+      "ev": 0.195,
+      "tot_r": 68.5,
+      "dd": 46.4
+    },
+    "SOLUSDT": {
+      "class": "Mid-Cap (High-Beta)",
+      "trades": 363,
+      "wr": 78.2,
+      "ev": 0.258,
+      "tot_r": 93.6,
+      "dd": 44.1
+    },
+    "XRPUSDT": {
+      "class": "High-Beta (Momentum)",
+      "trades": 352,
+      "wr": 85.2,
+      "ev": 0.408,
+      "tot_r": 143.7,
+      "dd": 13.8
+    },
+    "LINKUSDT": {
+      "class": "Mid-Cap (DeFi Oracle)",
+      "trades": 358,
+      "wr": 75.4,
+      "ev": 0.22,
+      "tot_r": 78.8,
+      "dd": 22.5
+    }
+  },
+  "fee_slippage_stress_test_e": {
+    "records": [
+      {
+        "friction_bps": 15,
+        "ev": 0.254,
+        "wr": 77.4,
+        "pf": 1.75
+      },
+      {
+        "friction_bps": 20,
+        "ev": 0.09,
+        "wr": 77.4,
+        "pf": 1.24
+      },
+      {
+        "friction_bps": 25,
+        "ev": -0.073,
+        "wr": 77.4,
+        "pf": 0.82
+      },
+      {
+        "friction_bps": 30,
+        "ev": -0.236,
+        "wr": 77.4,
+        "pf": 0.47
+      },
+      {
+        "friction_bps": 40,
+        "ev": -0.563,
+        "wr": 25.3,
+        "pf": 0.13
+      },
+      {
+        "friction_bps": 50,
+        "ev": -0.889,
+        "wr": 2.4,
+        "pf": 0.0
+      }
+    ],
+    "breakeven_friction_bps": 20,
+    "headroom_vs_bybit_vip0": 9.0,
+    "verdict": "VULNERABLE_TO_FEES"
+  },
+  "latency_stress_test_f": [
+    {
+      "delay_ms": 0,
+      "ev": 0.254,
+      "wr": 77.4,
+      "delta_r": 0.0
+    },
+    {
+      "delay_ms": 100,
+      "ev": 0.249,
+      "wr": 77.4,
+      "delta_r": -0.004
+    },
+    {
+      "delay_ms": 250,
+      "ev": 0.247,
+      "wr": 77.4,
+      "delta_r": -0.006
+    },
+    {
+      "delay_ms": 500,
+      "ev": 0.244,
+      "wr": 77.4,
+      "delta_r": -0.009
+    },
+    {
+      "delay_ms": 1000,
+      "ev": 0.241,
+      "wr": 77.4,
+      "delta_r": -0.013
+    },
+    {
+      "delay_ms": 2000,
+      "ev": 0.235,
+      "wr": 77.4,
+      "delta_r": -0.018
+    },
+    {
+      "delay_ms": 5000,
+      "ev": 0.225,
+      "wr": 77.4,
+      "delta_r": -0.029
+    }
+  ],
+  "limit_order_realism_test_g": {
+    "submitted_orders": 2231,
+    "touch_fill_rate_pct": 28.5,
+    "deep_fill_rate_pct": 18.2,
+    "touch_ev": 0.029,
+    "deep_ev": -0.106,
+    "verdict": "DESTROYED_BY_QUEUE"
+  },
+  "path_dependency_test_h": {
+    "conservative_ev": 0.254,
+    "optimistic_ev": 0.294,
+    "path_distortion_delta": 0.041,
+    "verdict": "CONSERVATIVE_EDGE_HOLDS"
+  },
+  "reversal_tail_risk_test_i_j": {
+    "reversal_episodes": 137,
+    "reversal_win_rate": 82.5,
+    "reversal_ev": 0.988,
+    "worst_loss": -1.5,
+    "p95_loss": -1.5,
+    "verdict": "NO_HIDDEN_TAIL_RISK"
+  },
+  "monte_carlo_sizing_test_k_l": {
+    "median_dd_r": 11.3,
+    "p95_dd_r": 16.3,
+    "p99_dd_r": 19.6,
+    "worst_dd_r": 29.0,
+    "median_losing_streak": 5,
+    "p99_losing_streak": 7,
+    "worst_losing_streak": 10,
+    "sizing_table": [
+      {
+        "risk_pct": 0.1,
+        "dd_99_equity_pct": 2.0,
+        "p_ruin_25_pct": 0.0
+      },
+      {
+        "risk_pct": 0.25,
+        "dd_99_equity_pct": 4.9,
+        "p_ruin_25_pct": 0.0
+      },
+      {
+        "risk_pct": 0.5,
+        "dd_99_equity_pct": 9.8,
+        "p_ruin_25_pct": 0.0
+      },
+      {
+        "risk_pct": 0.75,
+        "dd_99_equity_pct": 14.7,
+        "p_ruin_25_pct": 0.0
+      },
+      {
+        "risk_pct": 1.0,
+        "dd_99_equity_pct": 19.6,
+        "p_ruin_25_pct": 0.05
+      }
+    ],
+    "recommended_risk_per_trade_pct": 0.5
+  },
+  "component_ablation_test_m": {
+    "Full Validated System": {
+      "trades": 1784,
+      "wr": 77.4,
+      "ev": 0.254,
+      "tot_r": 452.3,
+      "dd": 47.0,
+      "delta_ev": 0.0
+    },
+    "No Staged Harvest (Hold 2R)": {
+      "trades": 1784,
+      "wr": 36.9,
+      "ev": -0.382,
+      "tot_r": -682.0,
+      "dd": 707.8,
+      "delta_ev": -0.636
+    },
+    "No Loss Veto Gatekeeper": {
+      "trades": 2231,
+      "wr": 74.4,
+      "ev": 0.185,
+      "tot_r": 413.7,
+      "dd": 76.8,
+      "delta_ev": -0.068
+    },
+    "No MTF State Filter": {
+      "trades": 1784,
+      "wr": 77.4,
+      "ev": 0.254,
+      "tot_r": 452.3,
+      "dd": 47.0,
+      "delta_ev": 0.0
+    },
+    "No 5m Confirmation Delay": {
+      "trades": 1784,
+      "wr": 77.4,
+      "ev": 0.254,
+      "tot_r": 452.3,
+      "dd": 47.0,
+      "delta_ev": 0.0
+    }
+  },
+  "leakage_audit_test_n": {
+    "checks_passed": 7,
+    "total_checks": 7,
+    "verdict": "ZERO_DATA_LEAKAGE_CONFIRMED"
+  }
+}

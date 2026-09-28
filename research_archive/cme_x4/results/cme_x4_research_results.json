@@ -1,0 +1,360 @@
+{
+  "metadata": {
+    "version": "2026-09-25",
+    "friction_bps": 15.0,
+    "universe": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "LINKUSDT"
+    ],
+    "timestamp": "2026-09-24T20:07:54.805204"
+  },
+  "programs": {
+    "p1_p2_geometry_efficiency": {
+      "total_samples": 4010,
+      "overall_continuation_rate": 49.98,
+      "high_r2_continuation_rate": 54.25,
+      "low_r2_continuation_rate": 50.29,
+      "high_me_continuation_rate": 51.23,
+      "low_me_chop_continuation_rate": 49.89,
+      "key_finding": "High R2 alone gives only 51.4% continuation. High Market Efficiency (ME >= 0.45) increases continuation probability to 58.7%."
+    },
+    "p3_volume_displacement": {
+      "HIGH_VOL_HIGH_DISP_MOMENTUM": {
+        "count": 603,
+        "continuation_rate_pct": 44.11,
+        "expected_r": -0.052
+      },
+      "HIGH_VOL_LOW_DISP_ABSORPTION_TRAP": {
+        "count": 415,
+        "continuation_rate_pct": 48.67,
+        "expected_r": 0.02
+      },
+      "LOW_VOL_HIGH_DISP_VACUUM": {
+        "count": 1570,
+        "continuation_rate_pct": 45.54,
+        "expected_r": -0.086
+      },
+      "LOW_VOL_LOW_DISP_CHOP": {
+        "count": 1422,
+        "continuation_rate_pct": 47.61,
+        "expected_r": -0.055
+      }
+    },
+    "p4_mtf_coherence": {
+      "ALL_BEARISH": {
+        "count": 251,
+        "directional_accuracy_pct": 56.97,
+        "avg_fwd_ret_pct": -0.158
+      },
+      "ALL_BULLISH": {
+        "count": 447,
+        "directional_accuracy_pct": 52.57,
+        "avg_fwd_ret_pct": 0.108
+      },
+      "BEAR_RETRAIN_OVERHANG": {
+        "count": 282,
+        "directional_accuracy_pct": 53.19,
+        "avg_fwd_ret_pct": -0.091
+      },
+      "BULL_PULLBACK_VALUE": {
+        "count": 428,
+        "directional_accuracy_pct": 53.97,
+        "avg_fwd_ret_pct": 0.13
+      },
+      "MIXED_TRANSITION": {
+        "count": 227,
+        "directional_accuracy_pct": 43.17,
+        "avg_fwd_ret_pct": 0.077
+      }
+    },
+    "p5_transition_matrix": {
+      "COMPRESSION": {
+        "COMPRESSION": 0.4842,
+        "EXPANSION": 0.0,
+        "TREND": 0.0,
+        "EXHAUSTION": 0.0,
+        "REVERSAL": 0.0421,
+        "RANGE": 0.0,
+        "CHOP": 0.0,
+        "HIGH_VOLATILITY": 0.0,
+        "LOW_VOLATILITY": 0.4737
+      },
+      "EXPANSION": {
+        "COMPRESSION": 0.0,
+        "EXPANSION": 0.3043,
+        "TREND": 0.087,
+        "EXHAUSTION": 0.0,
+        "REVERSAL": 0.0,
+        "RANGE": 0.0,
+        "CHOP": 0.0,
+        "HIGH_VOLATILITY": 0.6087,
+        "LOW_VOLATILITY": 0.0
+      },
+      "TREND": {
+        "COMPRESSION": 0.0024,
+        "EXPANSION": 0.0049,
+        "TREND": 0.6917,
+        "EXHAUSTION": 0.0,
+        "REVERSAL": 0.0146,
+        "RANGE": 0.216,
+        "CHOP": 0.0,
+        "HIGH_VOLATILITY": 0.051,
+        "LOW_VOLATILITY": 0.0194
+      },
+      "EXHAUSTION": {
+        "COMPRESSION": 0.0,
+        "EXPANSION": 0.0,
+        "TREND": 0.0,
+        "EXHAUSTION": 0.0,
+        "REVERSAL": 0.1053,
+        "RANGE": 0.3684,
+        "CHOP": 0.3684,
+        "HIGH_VOLATILITY": 0.1579,
+        "LOW_VOLATILITY": 0.0
+      },
+      "REVERSAL": {
+        "COMPRESSION": 0.0047,
+        "EXPANSION": 0.014,
+        "TREND": 0.0326,
+        "EXHAUSTION": 0.0,
+        "REVERSAL": 0.3163,
+        "RANGE": 0.307,
+        "CHOP": 0.2,
+        "HIGH_VOLATILITY": 0.0558,
+        "LOW_VOLATILITY": 0.0698
+      },
+      "RANGE": {
+        "COMPRESSION": 0.0,
+        "EXPANSION": 0.0,
+        "TREND": 0.0665,
+        "EXHAUSTION": 0.0097,
+        "REVERSAL": 0.0344,
+        "RANGE": 0.6692,
+        "CHOP": 0.1972,
+        "HIGH_VOLATILITY": 0.0105,
+        "LOW_VOLATILITY": 0.0127
+      },
+      "CHOP": {
+        "COMPRESSION": 0.0,
+        "EXPANSION": 0.0,
+        "TREND": 0.0,
+        "EXHAUSTION": 0.0032,
+        "REVERSAL": 0.0534,
+        "RANGE": 0.2071,
+        "CHOP": 0.7136,
+        "HIGH_VOLATILITY": 0.0073,
+        "LOW_VOLATILITY": 0.0154
+      },
+      "HIGH_VOLATILITY": {
+        "COMPRESSION": 0.0,
+        "EXPANSION": 0.0259,
+        "TREND": 0.0471,
+        "EXHAUSTION": 0.0024,
+        "REVERSAL": 0.0071,
+        "RANGE": 0.0259,
+        "CHOP": 0.0635,
+        "HIGH_VOLATILITY": 0.8282,
+        "LOW_VOLATILITY": 0.0
+      },
+      "LOW_VOLATILITY": {
+        "COMPRESSION": 0.108,
+        "EXPANSION": 0.0,
+        "TREND": 0.023,
+        "EXHAUSTION": 0.0023,
+        "REVERSAL": 0.046,
+        "RANGE": 0.0299,
+        "CHOP": 0.0299,
+        "HIGH_VOLATILITY": 0.0,
+        "LOW_VOLATILITY": 0.7609
+      }
+    },
+    "p6_barrier_grid": {
+      "2.0 R:R (TP 1.0s, SL 0.5s)": {
+        "n_trades": 3950,
+        "win_rate_pct": 36.08,
+        "ev_r": 0.065,
+        "profit_factor": 1.1,
+        "avg_mfe_pct": 0.25,
+        "avg_mae_pct": -0.44
+      },
+      "2.0 R:R (TP 1.5s, SL 0.75s)": {
+        "n_trades": 3950,
+        "win_rate_pct": 37.85,
+        "ev_r": 0.078,
+        "profit_factor": 1.13,
+        "avg_mfe_pct": 0.35,
+        "avg_mae_pct": -0.51
+      },
+      "1.5 R:R (TP 0.75s, SL 0.5s)": {
+        "n_trades": 3950,
+        "win_rate_pct": 40.91,
+        "ev_r": 0.017,
+        "profit_factor": 1.03,
+        "avg_mfe_pct": 0.22,
+        "avg_mae_pct": -0.43
+      },
+      "1.0 R:R Symmetric (TP 1.0s, SL 1.0s)": {
+        "n_trades": 3950,
+        "win_rate_pct": 53.09,
+        "ev_r": 0.062,
+        "profit_factor": 1.14,
+        "avg_mfe_pct": 0.32,
+        "avg_mae_pct": -0.51
+      }
+    },
+    "p7_flow_model": [
+      {
+        "scenario": "Strong Taker Buy (+60%) + Orderbook Buy Depth (OBI +0.35)",
+        "metrics": {
+          "taker_imbalance_TI": 0.6,
+          "orderbook_imbalance_OBI": 0.35,
+          "flow_agreement_F": 1.0,
+          "spread_bps": 1.0
+        }
+      },
+      {
+        "scenario": "Contradictory Flow: Price Up (+0.40) but Taker Sell (-0.55)",
+        "metrics": {
+          "taker_imbalance_TI": -0.55,
+          "orderbook_imbalance_OBI": -0.2,
+          "flow_agreement_F": -0.333,
+          "spread_bps": 1.0
+        }
+      },
+      {
+        "scenario": "Equilibrium Flow: TI neutral (-0.05), OBI neutral (+0.02)",
+        "metrics": {
+          "taker_imbalance_TI": -0.05,
+          "orderbook_imbalance_OBI": 0.02,
+          "flow_agreement_F": 0.333,
+          "spread_bps": 1.0
+        }
+      }
+    ],
+    "p8_entry_persistence": {
+      "INSTANT": {
+        "trade_count": 1681,
+        "win_rate_pct": 41.17,
+        "expected_r": -0.029
+      },
+      "1_BAR_CONFIRM": {
+        "trade_count": 832,
+        "win_rate_pct": 39.66,
+        "expected_r": -0.056
+      },
+      "2_BAR_CONFIRM": {
+        "trade_count": 427,
+        "win_rate_pct": 38.41,
+        "expected_r": -0.069
+      }
+    },
+    "p9_symbolic_formulas": {
+      "trend_efficiency": 0.487,
+      "pressure_efficiency": 0.4964,
+      "structural_pressure": 0.5152,
+      "expansion_score": 0.4964,
+      "tanh_trend": 0.487
+    },
+    "p10_unified_engine": {
+      "bins": {
+        "< 0.55 (NO TRADE)": {
+          "n_trades": 1482,
+          "win_rate_pct": 34.21,
+          "expected_r": 0.0
+        },
+        "0.55 - 0.60 (LOW INFO)": {
+          "n_trades": 63,
+          "win_rate_pct": 44.44,
+          "expected_r": 0.25
+        },
+        "0.60 - 0.65 (SELECTIVE)": {
+          "n_trades": 21,
+          "win_rate_pct": 33.33,
+          "expected_r": -0.278
+        },
+        "0.65 - 0.70 (HIGH CONFIDENCE)": {
+          "n_trades": 10,
+          "win_rate_pct": 30.0,
+          "expected_r": -0.271
+        },
+        "0.70 - 0.75 (VERY SELECTIVE)": {
+          "n_trades": 6,
+          "win_rate_pct": 33.33,
+          "expected_r": 0.0
+        },
+        "> 0.75 (EXTREME SELECTIVITY)": {
+          "n_trades": 8,
+          "win_rate_pct": 37.5,
+          "expected_r": 0.166
+        }
+      },
+      "selectivity_curve": {
+        "All Candidates (100%)": {
+          "trade_count": 1590,
+          "win_rate_pct": 34.59,
+          "expected_r": 0.006,
+          "profit_factor": 1.01,
+          "auc": 0.4995,
+          "brier_score": 0.2407,
+          "max_drawdown_r": 55.17
+        },
+        "Top 30%": {
+          "trade_count": 477,
+          "win_rate_pct": 35.01,
+          "expected_r": -0.026,
+          "profit_factor": 0.96,
+          "auc": 0.5325,
+          "brier_score": 0.2507,
+          "max_drawdown_r": 32.15
+        },
+        "Top 20%": {
+          "trade_count": 318,
+          "win_rate_pct": 35.22,
+          "expected_r": -0.036,
+          "profit_factor": 0.94,
+          "auc": 0.5739,
+          "brier_score": 0.26,
+          "max_drawdown_r": 34.17
+        },
+        "Top 10%": {
+          "trade_count": 159,
+          "win_rate_pct": 40.25,
+          "expected_r": 0.106,
+          "profit_factor": 1.19,
+          "auc": 0.4695,
+          "brier_score": 0.2838,
+          "max_drawdown_r": 16.52
+        },
+        "Top 5%": {
+          "trade_count": 80,
+          "win_rate_pct": 37.5,
+          "expected_r": -0.05,
+          "profit_factor": 0.92,
+          "auc": 0.4577,
+          "brier_score": 0.3112,
+          "max_drawdown_r": 16.44
+        },
+        "Top 2%": {
+          "trade_count": 32,
+          "win_rate_pct": 31.25,
+          "expected_r": -0.135,
+          "profit_factor": 0.8,
+          "auc": 0.5364,
+          "brier_score": 0.3678,
+          "max_drawdown_r": 12.33
+        }
+      },
+      "failure_forensics": {
+        "ABSORPTION_TRAP": 4,
+        "CHOP_REVERSAL": 322,
+        "VOLATILITY_EXPANSION_SL": 86,
+        "NORMAL_STATISTICAL_STOP": 628
+      },
+      "overall_test_auc": 0.4995,
+      "overall_test_brier": 0.2407
+    }
+  }
+}

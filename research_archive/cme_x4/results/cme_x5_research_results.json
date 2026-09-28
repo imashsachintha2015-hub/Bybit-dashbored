@@ -1,0 +1,134 @@
+{
+  "generated_at": "2026-09-27T14:36:22.731594+00:00",
+  "total_samples": 791,
+  "train_samples": 474,
+  "holdout_samples": 317,
+  "core_hypothesis": {
+    "simple_fvg": {
+      "n": 28,
+      "win_rate": 75.0,
+      "net_ev": -0.071,
+      "profit_factor": 0.75,
+      "harvest_rate": 75.0
+    },
+    "asymmetric_confluence": {
+      "n": 0,
+      "win_rate": 0.0,
+      "net_ev": 0.0,
+      "profit_factor": 0.0,
+      "harvest_rate": 0.0
+    }
+  },
+  "ablations_holdout": [
+    {
+      "model": "1. X4 Baseline (All Sweeps Unfiltered)",
+      "metrics": {
+        "n": 317,
+        "win_rate": 60.3,
+        "net_ev": -0.286,
+        "profit_factor": 0.47,
+        "harvest_rate": 60.3
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "2. X4 + Accumulation (At >= 0.60)",
+      "metrics": {
+        "n": 201,
+        "win_rate": 66.7,
+        "net_ev": -0.165,
+        "profit_factor": 0.64,
+        "harvest_rate": 66.7
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "3. X4 + Manipulation Sweep (Mt >= 0.55)",
+      "metrics": {
+        "n": 181,
+        "win_rate": 60.8,
+        "net_ev": -0.258,
+        "profit_factor": 0.51,
+        "harvest_rate": 60.8
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "4. X4 + FVG Imbalance (has_fvg == True)",
+      "metrics": {
+        "n": 10,
+        "win_rate": 70.0,
+        "net_ev": -0.284,
+        "profit_factor": 0.27,
+        "harvest_rate": 70.0
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "5. X4 + Value Area Reclaim (Pt >= 0.60)",
+      "metrics": {
+        "n": 97,
+        "win_rate": 66.0,
+        "net_ev": -0.222,
+        "profit_factor": 0.51,
+        "harvest_rate": 66.0
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "6. X4 + POC Reclaim (reclaimed_poc == True)",
+      "metrics": {
+        "n": 15,
+        "win_rate": 80.0,
+        "net_ev": -0.032,
+        "profit_factor": 0.88,
+        "harvest_rate": 80.0
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "7. X4 + Volume Profile Concentration (Vt >= 0.58)",
+      "metrics": {
+        "n": 106,
+        "win_rate": 65.1,
+        "net_ev": -0.22,
+        "profit_factor": 0.52,
+        "harvest_rate": 65.1
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "8. X4 + AMD Sequence (At>=0.55 & Mt>=0.50 & Dt>=0.50)",
+      "metrics": {
+        "n": 82,
+        "win_rate": 65.9,
+        "net_ev": -0.201,
+        "profit_factor": 0.56,
+        "harvest_rate": 65.9
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "9. CME-X5 COMPOSITE (At>=0.55 + Mt>=0.50 + Pt>=0.60 + Dt>=0.50)",
+      "metrics": {
+        "n": 38,
+        "win_rate": 65.8,
+        "net_ev": -0.222,
+        "profit_factor": 0.5,
+        "harvest_rate": 65.8
+      },
+      "status": "DRAG"
+    },
+    {
+      "model": "10. CME-X5 INSTITUTIONAL (Model 9 + MTF Trend Aligned)",
+      "metrics": {
+        "n": 19,
+        "win_rate": 57.9,
+        "net_ev": -0.367,
+        "profit_factor": 0.3,
+        "harvest_rate": 57.9
+      },
+      "status": "DRAG"
+    }
+  ]
+}

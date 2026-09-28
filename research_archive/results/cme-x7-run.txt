@@ -1,0 +1,41 @@
+
+  STUDY 26 — CME-X7: per-coin model selection
+  16 coins, 20089 bars. Select on bars 0-12053, report on 12053-20089 (never seen by selection).
+  3 models x 2 pools x 3 thresholds = 18 candidates per coin.
+  Breakeven 52.0% at 4bps.
+
+  coin      chosen configuration           in-sample WR  HOLDOUT WR  holdout n  holdout expR
+  ────────────────────────────────────────────────────────────────────────────────────────
+  BTCUSDT   full15|self|5%                        70.2%       53.3%         60         0.027
+  ETHUSDT   momentum|pooled|2%                    70.3%       58.8%         51         0.136
+  SOLUSDT   full15|pooled|2%                      60.7%       40.5%         37        -0.229
+  DOGEUSDT  full15|self|5%                        60.8%       44.9%         98        -0.142
+  LINKUSDT  momentum+BA|self|2%                   62.8%       51.0%         49        -0.020
+  AVAXUSDT  full15|self|2%                        63.5%           —         28             —
+  XRPUSDT   full15|pooled|2%                      62.3%       41.9%         31        -0.201
+  ADAUSDT   momentum|pooled|2%                    63.0%       50.8%        130        -0.025
+  DOTUSDT   full15|self|2%                        65.6%       47.3%         55        -0.095
+  LTCUSDT   momentum+BA|pooled|2%                 65.0%       40.6%         32        -0.228
+  BCHUSDT   momentum+BA|self|10%                  52.4%       41.8%        282        -0.203
+  ATOMUSDT  full15|pooled|2%                      59.6%       30.8%         39        -0.425
+  NEARUSDT  momentum+BA|self|2%                   57.8%       47.7%        128        -0.087
+  APTUSDT   momentum|pooled|2%                    56.0%       43.1%        109        -0.178
+  ARBUSDT   full15|self|2%                        58.8%       51.9%        108        -0.003
+  OPUSDT    full15|self|2%                        61.4%       44.2%         95        -0.156
+
+  ────────────────────────────────────────────────────────────────────────────────────────
+  mean in-sample WR (what selection saw)  61.8%
+  mean HOLDOUT WR (what you would get)    45.9%
+  OVERFITTING TAX                         15.9 points
+  coins above breakeven on holdout        2/15
+
+  Best SINGLE configuration applied to every coin, on the same holdout:
+    momentum|pooled|5%             mean holdout WR 54.1%
+    momentum|pooled|2%             mean holdout WR 54.1%
+    momentum|self|5%               mean holdout WR 53.8%
+    momentum|self|2%               mean holdout WR 53.6%
+
+  per-coin selection: 45.9%   vs   one config everywhere: 54.1%
+  => per-coin selection does NOT beat a single configuration. The per-coin win rates
+     seen in-sample were selection noise, not per-coin structure.
+

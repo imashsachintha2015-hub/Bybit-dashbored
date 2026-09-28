@@ -1,0 +1,100 @@
+=== fetch finished, 16 coins cached ===
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  STUDY 24 — CME-X5: IS BA THE ENGINE, AND IS THIS A LARGE-CAP EFFECT?
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PART A — IS BREADTH ACCELERATION REALLY THE ENGINE? (6 coins, full history)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  6 coins, 40099 aligned bars, rows/coin ~39755
+
+  Reference + explicit removals (full 15-feature model, refit each time):
+    full 15-feature (reference)      BTC: AUC=0.557  n=  636  WR=62.6%  expR=0.212  p=0.003
+                                     ETH: AUC=0.547  n= 1093  WR=58.8%  expR=0.137  p=0.003
+    minus BA                         BTC: AUC=0.563  n=  701  WR=61.1%  expR=0.181  p=0.003
+                                     ETH: AUC=0.547  n= 1048  WR=58.2%  expR=0.124  p=0.003
+    minus momentum (M_COH)           BTC: AUC=0.552  n=  646  WR=62.1%  expR=0.201  p=0.003
+                                     ETH: AUC=0.544  n= 1085  WR=57.1%  expR=0.101  p=0.003
+    minus ALL cross-asset (8 terms)  BTC: AUC=0.571  n=  809  WR=59.7%  expR=0.154  p=0.003
+                                     ETH: AUC=0.551  n= 1313  WR=57.7%  expR=0.115  p=0.003
+    BA only (1 feature)              BTC: AUC=0.554  n=  703  WR=54.5%  expR=0.050  p=0.027
+                                     ETH: AUC=0.547  n= 1376  WR=54.2%  expR=0.044  p=0.017
+    momentum only (1 feature)        BTC: AUC=0.574  n=  827  WR=60.8%  expR=0.176  p=0.003
+                                     ETH: AUC=0.558  n= 1350  WR=56.7%  expR=0.095  p=0.003
+    momentum + BA (2 features)       BTC: AUC=0.559  n=  717  WR=55.4%  expR=0.067  p=0.007
+                                     ETH: AUC=0.550  n= 1377  WR=55.2%  expR=0.064  p=0.003
+
+  BA differencing-lag sweep (momentum + BA, 2-feature model):
+    BA lag  4 bars  BTC AUC=0.563 WR=57.5%   ETH AUC=0.556 WR=57.8%
+    BA lag  8 bars  BTC AUC=0.569 WR=60.0%   ETH AUC=0.554 WR=57.0%
+    BA lag 16 bars  BTC AUC=0.559 WR=55.4%   ETH AUC=0.550 WR=55.2%
+    BA lag 32 bars  BTC AUC=0.570 WR=59.9%   ETH AUC=0.555 WR=56.8%
+    BA lag 64 bars  BTC AUC=0.574 WR=60.5%   ETH AUC=0.557 WR=57.3%
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PART B — "BTC/ETH FACT" OR "LARGE-CAP FACT"? (wide universe, leave-one-asset-out)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  16 coins, 20089 aligned bars (2026-02-15 -> 2026-09-12)
+  NOTE: shorter window than Part A -- absolute numbers are not comparable across parts.
+
+  Liquidity ranking (median dollar volume per 15m bar, causal descriptive):
+     1. ETHUSDT     $46,633,843
+     2. BTCUSDT     $39,555,684
+     3. SOLUSDT     $5,297,660
+     4. DOGEUSDT    $2,378,923
+     5. XRPUSDT     $1,524,385
+     6. ADAUSDT     $375,624
+     7. LINKUSDT    $240,573
+     8. NEARUSDT    $234,454
+     9. BCHUSDT     $224,055
+    10. AVAXUSDT    $174,025
+    11. LTCUSDT     $169,668
+    12. DOTUSDT     $137,995
+    13. ARBUSDT     $85,168
+    14. OPUSDT      $76,041
+    15. APTUSDT     $75,263
+    16. ATOMUSDT    $28,245
+
+  Leave-one-asset-out (train on all others, test on held-out), 2-feature momentum+BA model:
+  rank  coin            AUC   topN      WR     expR       p
+     1  ETHUSDT       0.565    591   57.4%    0.107   0.003
+     2  BTCUSDT       0.587    379   60.4%    0.168   0.003
+     3  SOLUSDT       0.539    725   54.1%    0.041   0.040
+     4  DOGEUSDT      0.547    702   51.1%   -0.017   0.615
+     5  XRPUSDT       0.541    629   54.4%    0.047   0.083
+     6  ADAUSDT       0.526    950   53.2%    0.023   0.090
+     7  LINKUSDT      0.533    794   56.3%    0.086   0.003
+     8  NEARUSDT      0.503   1111   48.5%   -0.070   0.243
+     9  BCHUSDT       0.518    728   47.3%   -0.095   0.176
+    10  AVAXUSDT      0.543    724   55.8%    0.076   0.007
+    11  LTCUSDT       0.533    493   53.1%    0.023   0.276
+    12  DOTUSDT       0.521   1037   53.4%    0.028   0.053
+    13  ARBUSDT       0.518   1084   52.0%    0.001   0.262
+    14  OPUSDT        0.520   1299   52.4%    0.008   0.126
+    15  APTUSDT       0.515   1120   49.8%   -0.044   0.927
+    16  ATOMUSDT      0.505    909   50.7%   -0.026   0.704
+
+  Spearman(liquidity rank, AUC) = -0.762   (negative = more liquid -> higher AUC)
+  Spearman(liquidity rank, win rate) = -0.576
+
+  Mean AUC, top 2 by liquidity (ETH/BTC):  0.5762
+  Mean AUC, all others:                       0.5257
+  Mean AUC, top 5 by liquidity:               0.5557
+  Mean AUC, bottom 5 by liquidity:            0.5156
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  PART C — BREADTH PROVENANCE: is BA market-wide info, or BTC/ETH momentum in disguise?
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  BTC+ETH are 89.5% of the dollar-volume weight in the reference BREADTH_M average.
+  Each variant below recomposes that average, refits momentum+BA on DOGE/LINK/AVAX, tests on BTC/ETH.
+
+    dollar-vol wtd, ALL coins (reference)      BTC AUC=0.559 WR=55.4%       ETH AUC=0.550 WR=55.2%
+    dollar-vol wtd, EXCLUDING the test coin    BTC AUC=0.557 WR=54.5%       ETH AUC=0.546 WR=55.3%
+    EQUAL wtd, all coins                       BTC AUC=0.555 WR=54.1%       ETH AUC=0.549 WR=54.3%
+    EQUAL wtd, excluding the test coin         BTC AUC=0.554 WR=55.1%       ETH AUC=0.548 WR=54.9%
+    BTC+ETH ONLY (pure mega-cap momentum)      BTC AUC=0.559 WR=56.9%       ETH AUC=0.550 WR=55.1%
+    ALTS ONLY (BTC+ETH removed entirely)       BTC AUC=0.554 WR=57.6%       ETH AUC=0.547 WR=56.3%
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
