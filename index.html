@@ -3989,8 +3989,9 @@ window.updateBybitTicker = function(sym){
     inp.dataset.sym = sym;
   }
 
-  // Fetch 24h ticker stats
-  fetch('/api/ticker?symbol=' + sym)
+  // Fetch 24h ticker stats — call Bybit public API directly (no auth, no CORS restriction)
+  // This bypasses the /api/ticker proxy which may not exist on all Railway deployments
+  fetch('https://api.bybit.com/v5/market/tickers?category=linear&symbol=' + sym)
     .then(function(r){ return r.json(); })
     .then(function(d){
       var t = (d && d.result && d.result.list && d.result.list[0]) ? d.result.list[0] : null;
