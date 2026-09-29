@@ -28,7 +28,7 @@ def main():
         except Exception:
             pass
 
-    port = os.environ.get("PORT", "8070")
+    port = os.environ.get("PORT", "8080" if (os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RAILWAY_PROJECT_ID")) else "8070")
     os.environ["PORT"] = port
     print("=" * 70)
     print(f"  MASIS — UNIFIED AUTONOMOUS PLATFORM  (PORT: {port})")

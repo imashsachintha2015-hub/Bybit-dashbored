@@ -23,7 +23,7 @@ import sys
 import threading
 import xml.etree.ElementTree as ET
 
-PORT = int(os.environ.get("PORT", 8070))
+PORT = int(os.environ.get("PORT", 8080 if (os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RAILWAY_PROJECT_ID")) else 8070))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -1092,6 +1092,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/favicon.ico":
             self.send_response(204)
             self.end_headers()
+            return
+
+        # Health check for Railway deployment & cloud uptime monitoring
+        if self.path in ("/api/health", "/health"):
+            self._send_json(200, {
+                "status": "healthy",
+                "service": "masis-runner",
+                "version": "B.2.0",
+                "uptime": time.time(),
+                "port": PORT
+            })
             return
 
         # 0. API: Consolidated Dashboard Telemetry Bundle (Cuts network requests by 83%)
