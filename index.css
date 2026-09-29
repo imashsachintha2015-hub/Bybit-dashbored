@@ -2427,23 +2427,36 @@ body {
   border-color: #fbbf24 !important;
 }
 
-/* DeepSeek / CME-X5 Market Reader Modal */
+/* DeepSeek / CME-X5 Market Reader Modal - Bybit Pro Concept */
 .deepseek-modal {
   max-width: 860px !important;
   width: 95vw !important;
   max-height: 90vh !important;
   display: flex !important;
   flex-direction: column !important;
-  background: var(--s1) !important;
-  border: 1px solid var(--b2) !important;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85) !important;
-  border-radius: 12px !important;
+  background: #12151c !important;
+  border: 1px solid rgba(247, 166, 0, 0.22) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(247, 166, 0, 0.08) !important;
+  border-radius: 14px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.deepseek-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, #f7a600 0%, #fbbf24 50%, #f59e0b 100%);
+  z-index: 10;
 }
 
 .ds-modal-header {
-  border-bottom: 1px solid var(--b1) !important;
-  background: var(--s2) !important;
-  padding: 12px 18px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: #171b26 !important;
+  padding: 13px 18px !important;
 }
 
 .ds-modal-title {
@@ -2883,6 +2896,26 @@ body {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  #deepseekModal.mbk.open {
+    display: flex !important;
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .deepseek-modal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    max-height: 85vh !important;
+    border-radius: 18px 18px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    margin: 0 !important;
+    animation: slideUpBybit .25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes slideUpBybit {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
   .ds-grid {
     grid-template-columns: 1fr;
   }

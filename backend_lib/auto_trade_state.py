@@ -11,7 +11,7 @@ through kv.py so every browser tab/device sees the same selected strategy.
 from .kv import kv_get_json, kv_set_json
 
 STATE_KEY = "auto_trade_state"
-VALID_STRATEGY_MODES = {"standard", "scalp", "sureshot", "championship"}
+VALID_STRATEGY_MODES = {"standard", "pure", "cme_x5", "scalp", "sureshot", "championship"}
 
 DEFAULT_STATE = {
     "armed": False,
@@ -34,6 +34,8 @@ DEFAULT_STATE = {
 
 def _normalize_strategy_mode(state):
     mode = str(state.get("strategyMode") or "").lower().strip()
+    if mode in ("pure", "cme_x5", "cme-x5"):
+        mode = "standard"
 
     if mode not in VALID_STRATEGY_MODES:
         if state.get("championshipMode"):
@@ -93,11 +95,16 @@ def save(
         else None
     )
 
-    # IMPORTANT: Only an explicit strategy_mode, or an explicit positive
-    # scalp/sureshot/championship flag, may change the persisted strategy.
+    if requested_mode in ("pure", "cme_x5", "cme-x5"):
+        requested_mode = "standard"
+
+    # IMPORTANT: Only an explicit strategy_mode, or an explicit positive/negative
+    # championship flag, may change the persisted strategy.
     if requested_mode not in VALID_STRATEGY_MODES:
         if championship_mode is True:
             requested_mode = "championship"
+        elif championship_mode is False and current.get("strategyMode") == "championship":
+            requested_mode = "standard"
         elif sure_shot_mode is True:
             requested_mode = "sureshot"
         elif scalp_mode is True:

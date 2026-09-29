@@ -1436,6 +1436,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
+        # 7b. API: Direct strategy mode status
+        if self.path in ("/api/cme_x5/mode", "/api/mode"):
+            try:
+                from backend_lib import auto_trade_state
+                st = auto_trade_state.load()
+                self._send_json(200, {
+                    "mode": st.get("strategyMode", "standard"),
+                    "strategyMode": st.get("strategyMode", "standard"),
+                    "championshipMode": st.get("championshipMode", False)
+                })
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
         # 8. API: CME-X5 Engine live snapshot
         if self.path == "/api/cme_x5/snapshot":
             snapshot_file = os.path.join(DIRECTORY, "scratch", "cme_x5_live.json")
@@ -2026,9 +2040,14 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
             return
 
         # 5. API: Autonomous execution settings & arm state
-        if self.path == "/api/auto-trade/state":
+        if self.path in ("/api/auto-trade/state", "/api/cme_x5/mode", "/api/mode"):
             try:
                 from backend_lib import auto_trade_state
+                req_mode = body.get("mode") or body.get("strategyMode") or body.get("strategy_mode")
+                is_champ = body.get("championshipMode")
+                if is_champ is None and req_mode:
+                    is_champ = req_mode == "championship"
+
                 state = auto_trade_state.save(
                     body.get("armed"),
                     body.get("riskPerTradePct"),
@@ -2041,11 +2060,39 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
                     target_notional=body.get("targetNotional"),
                     virtual_equity=body.get("virtualEquity"),
                     max_concurrent_positions=body.get("maxConcurrentPositions"),
-                    strategy_mode=body.get("strategyMode"),
+                    strategy_mode=req_mode,
                     scalp_mode=body.get("scalpMode"),
                     sure_shot_mode=body.get("sureShotMode"),
-                    championship_mode=body.get("championshipMode"),
+                    championship_mode=is_champ,
                 )
+
+                # Immediately synchronize live snapshot caches so all API readers see the new mode instantly
+                strat_mode = state.get("strategyMode", "standard")
+                is_champ_active = strat_mode == "championship"
+                snap_p = os.path.join(DIRECTORY, "scratch", "cme_x5_live.json")
+                if os.path.exists(snap_p):
+                    try:
+                        with open(snap_p, "r", encoding="utf-8") as f:
+                            snap_data = json.load(f)
+                        snap_data["strategy_mode"] = strat_mode
+                        snap_data["engine"] = "Championship Dual-Regime" if is_champ_active else "CME-X5 Model B"
+                        with open(snap_p, "w", encoding="utf-8") as f:
+                            json.dump(snap_data, f, indent=2)
+                    except Exception:
+                        pass
+                champ_p = os.path.join(DIRECTORY, "scratch", "championship_live_state.json")
+                if os.path.exists(champ_p):
+                    try:
+                        with open(champ_p, "r", encoding="utf-8") as f:
+                            champ_data = json.load(f)
+                        champ_data["strategy_mode"] = strat_mode
+                        champ_data["mode_active"] = is_champ_active
+                        champ_data["active_engine"] = "CHAMPIONSHIP DUAL-REGIME" if is_champ_active else "CME-X5 MODEL B"
+                        with open(champ_p, "w", encoding="utf-8") as f:
+                            json.dump(champ_data, f, indent=2)
+                    except Exception:
+                        pass
+
                 self._send_json(200, state)
             except Exception as e:
                 self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
