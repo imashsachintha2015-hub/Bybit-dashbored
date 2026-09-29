@@ -1,11 +1,11 @@
 """
-CME-X5 Model B — Unified Production Launcher for Railway.
-Single daemon: Model B Engine with intelligent agent layer.
+MASIS — Unified Production Launcher for Railway.
+Single daemon process with runtime-selectable strategies:
+  • CME-X5 Model B Pure
+  • Championship Dual-Regime
 
-Eliminated: continuous_market_scanner, deepseek_gatekeeper,
-            historical_pattern_archaeologist, cme_x4 engines,
-            smart_growth_executor, trade_decision_trace,
-            Node live-engine, and all JS-side agents/swarm.
+The dashboard's shared strategy state controls which strategy the daemon
+executes; there is no second competing Championship daemon.
 """
 import os
 import sys
@@ -31,16 +31,15 @@ def main():
     port = os.environ.get("PORT", "8070")
     os.environ["PORT"] = port
     print("=" * 70)
-    print(f"  CME-X5 MODEL B — FINAL AUTONOMOUS PLATFORM  (PORT: {port})")
-    print("  Agent Layer: S/R(40%) + POC(30%) + FVG(30%) = Confluence Scorer")
+    print(f"  MASIS — UNIFIED AUTONOMOUS PLATFORM  (PORT: {port})")
+    print("  Runtime strategy: CME-X5 Pure <-> Championship Dual-Regime")
     print("  Zero Browser Tab Dependency — Full Cloud Headless Execution")
     print("=" * 70)
 
-    # FINAL PRODUCTION: CME-X5 Model B is the single authoritative scanner/executor.
-    # The Championship daemon is research/observer-only and must not compete with
-    # or mask Model B execution on Railway.
+    # One authoritative daemon. The engine itself selects the active strategy
+    # from shared auto_trade_state and can switch at runtime.
     daemon_cmds = [
-        ("CME-X5 Model B Engine", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
+        ("Unified Strategy Engine", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
     ]
 
     procs = []
