@@ -1553,23 +1553,34 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <span class="cbadge fm" style="background:rgba(16,185,129,0.15);color:var(--gr);border:1px solid rgba(16,185,129,0.3)"><span class="live-dot"></span>24H ARMED</span>
             </div>
             <div class="cardh-actions">
-              <button class="hbtn ds-radar-btn" id="dsRadarBtn" onclick="openDeepSeekMarketReader()" title="DeepSeek Institutional AI Market Structure Reader">
-                <span class="ds-pulse-dot"></span>
-                <i class="fa-solid fa-brain"></i> DeepSeek Market Reader
-              </button>
+              <!-- CME-X5 Themed Market Reader Controls -->
+              <div class="cme-market-reader-bar">
+                <select id="radarMarketSelect" class="cme-market-select fm" onchange="onRadarMarketSelectChange(this.value)" title="Select Market / Symbol">
+                  <option value="ALL">Overall (15 Pairs)</option>
+                  <option value="BTCUSDT">BTCUSDT</option>
+                  <option value="ETHUSDT">ETHUSDT</option>
+                  <option value="SOLUSDT">SOLUSDT</option>
+                  <option value="XRPUSDT">XRPUSDT</option>
+                  <option value="LINKUSDT">LINKUSDT</option>
+                  <option value="SEIUSDT">SEIUSDT</option>
+                  <option value="AVAXUSDT">AVAXUSDT</option>
+                  <option value="DOGEUSDT">DOGEUSDT</option>
+                  <option value="BNBUSDT">BNBUSDT</option>
+                  <option value="ADAUSDT">ADAUSDT</option>
+                  <option value="DOTUSDT">DOTUSDT</option>
+                  <option value="POLUSDT">POLUSDT</option>
+                  <option value="LTCUSDT">LTCUSDT</option>
+                  <option value="NEARUSDT">NEARUSDT</option>
+                  <option value="APTUSDT">APTUSDT</option>
+                </select>
+                <button class="hbtn cme-read-market-btn" id="radarReadMarketBtn" onclick="readMarketFromRadar()" title="Read Market with DeepSeek Quantitative Intelligence">
+                  <i class="fa-solid fa-brain" style="color:var(--go)"></i>
+                  <span>Read Market</span>
+                </button>
+              </div>
               <button class="hbtn" onclick="openChampModal()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i> Archetypes</button>
               <a href="/monitor.html" target="_blank" class="hbtn" style="text-decoration:none;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)"><i class="fa-solid fa-satellite-dish"></i> Cloud Monitor</a>
             </div>
-          </div>
-
-          <!-- DeepSeek Live Market Reader Banner -->
-          <div class="ds-radar-banner" onclick="openDeepSeekMarketReader()">
-            <div class="ds-rb-left">
-              <i class="fa-solid fa-brain" style="color:#c084fc;font-size:13px"></i>
-              <span style="font-weight:700;color:#c084fc">DeepSeek Market Intelligence:</span>
-              <span class="ds-rb-sub" id="dsRadarBannerSub">Click for BTC Macro Spillover, Liquidity Hunts, 3x S/R Rejections &amp; Forecast Levels</span>
-            </div>
-            <span class="ds-rb-badge"><i class="fa-solid fa-bolt"></i> DeepSeek AI Scan</span>
           </div>
 
           <!-- Mobile Signals Cards -->
@@ -1772,26 +1783,38 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
     <div class="mbody ds-modal-body">
       <!-- Pair Selector & Controls Bar -->
       <div class="ds-controls-bar">
-        <div class="ds-symbols-scroll" id="dsSymbolChips">
-          <button class="ds-sym-chip active" onclick="selectDsSymbol('ALL')"><i class="fa-solid fa-globe"></i> 15-Pair Matrix</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('BTCUSDT')">BTC</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('ETHUSDT')">ETH</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('SOLUSDT')">SOL</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('XRPUSDT')">XRP</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('DOGEUSDT')">DOGE</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('NEARUSDT')">NEAR</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('AVAXUSDT')">AVAX</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('LINKUSDT')">LINK</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('SEIUSDT')">SEI</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('BNBUSDT')">BNB</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('ADAUSDT')">ADA</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('DOTUSDT')">DOT</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('POLUSDT')">POL</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('LTCUSDT')">LTC</button>
-          <button class="ds-sym-chip" onclick="selectDsSymbol('APTUSDT')">APT</button>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;flex-wrap:wrap">
+          <select id="modalMarketSelect" class="cme-market-select fm" onchange="selectDsSymbol(this.value)" style="height:30px;min-width:165px">
+            <option value="ALL">Overall (15 Pairs)</option>
+            <option value="BTCUSDT">BTCUSDT</option>
+            <option value="ETHUSDT">ETHUSDT</option>
+            <option value="SOLUSDT">SOLUSDT</option>
+            <option value="XRPUSDT">XRPUSDT</option>
+            <option value="LINKUSDT">LINKUSDT</option>
+            <option value="SEIUSDT">SEIUSDT</option>
+            <option value="AVAXUSDT">AVAXUSDT</option>
+            <option value="DOGEUSDT">DOGEUSDT</option>
+            <option value="BNBUSDT">BNBUSDT</option>
+            <option value="ADAUSDT">ADAUSDT</option>
+            <option value="DOTUSDT">DOTUSDT</option>
+            <option value="POLUSDT">POLUSDT</option>
+            <option value="LTCUSDT">LTCUSDT</option>
+            <option value="NEARUSDT">NEARUSDT</option>
+            <option value="APTUSDT">APTUSDT</option>
+          </select>
+          <div class="ds-symbols-scroll" id="dsSymbolChips">
+            <button class="ds-sym-chip active" onclick="selectDsSymbol('ALL')">Overall</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('BTCUSDT')">BTC</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('ETHUSDT')">ETH</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('SOLUSDT')">SOL</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('XRPUSDT')">XRP</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('DOGEUSDT')">DOGE</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('NEARUSDT')">NEAR</button>
+            <button class="ds-sym-chip" onclick="selectDsSymbol('AVAXUSDT')">AVAX</button>
+          </div>
         </div>
         <div class="ds-action-buttons">
-          <button class="ds-refresh-btn" id="dsRefreshBtn" onclick="refreshDeepSeekAnalysis()">
+          <button class="hbtn cme-read-market-btn" id="dsRefreshBtn" onclick="refreshDeepSeekAnalysis()" style="height:30px">
             <i class="fa-solid fa-arrows-rotate" id="dsRefreshIcon"></i> Re-Analyze
           </button>
         </div>
@@ -2450,9 +2473,11 @@ window.openMenuModal=function(){document.getElementById('menuModal').classList.a
 window.closeMenuModal=function(){document.getElementById('menuModal').classList.remove('open')};
 
 window.openDeepSeekMarketReader = function(sym) {
+  var sel = document.getElementById('radarMarketSelect');
+  var target = sym || (sel ? sel.value : 'ALL');
   var m = document.getElementById('deepseekModal');
   if (m) m.classList.add('open');
-  selectDsSymbol(sym || 'ALL');
+  selectDsSymbol(target);
 };
 
 window.closeDeepSeekModal = function() {
@@ -2460,12 +2485,31 @@ window.closeDeepSeekModal = function() {
   if (m) m.classList.remove('open');
 };
 
+window.readMarketFromRadar = function() {
+  var sel = document.getElementById('radarMarketSelect');
+  var sym = sel ? sel.value : 'ALL';
+  openDeepSeekMarketReader(sym);
+};
+
+window.onRadarMarketSelectChange = function(sym) {
+  var m = document.getElementById('deepseekModal');
+  if (m && m.classList.contains('open')) {
+    selectDsSymbol(sym);
+  }
+};
+
 var currentDsSymbol = 'ALL';
 window.selectDsSymbol = function(sym) {
   currentDsSymbol = sym || 'ALL';
+  var rSel = document.getElementById('radarMarketSelect');
+  if (rSel && rSel.value !== currentDsSymbol) rSel.value = currentDsSymbol;
+  var mSel = document.getElementById('modalMarketSelect');
+  if (mSel && mSel.value !== currentDsSymbol) mSel.value = currentDsSymbol;
+
   document.querySelectorAll('.ds-sym-chip').forEach(function(c) {
     var txt = c.textContent.trim();
-    var isAct = (sym === 'ALL' && txt.includes('15-Pair')) || (sym !== 'ALL' && txt === sym.replace('USDT', ''));
+    var isAct = (currentDsSymbol === 'ALL' && (txt === 'Overall' || txt.includes('15-Pair'))) || 
+                (currentDsSymbol !== 'ALL' && (txt === currentDsSymbol || txt === currentDsSymbol.replace('USDT', '')));
     c.classList.toggle('active', isAct);
   });
   fetchDeepSeekAnalysis(currentDsSymbol, false);
