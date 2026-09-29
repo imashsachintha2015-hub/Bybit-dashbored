@@ -314,6 +314,50 @@ def build_local_fallback_analysis(sym, btc_data, coin_data, sr_data, liq_data, v
         f"Resistance has been challenged {res_tests} time(s)."
     )
 
+    # Calculate trade suggestion & institutional veto audit
+    trade_dir = "LONG" if (bias.startswith("BULL") or not btc_data["is_bear"]) else "SHORT"
+    setup_name = "S2 POC Reclaim & Bullish FVG Sweep" if trade_dir == "LONG" else "S2 Resistance Rejection & Bearish Expansion"
+    
+    veto_reason = None
+    if trade_dir == "LONG" and btc_data["is_bear"] and coin_24h < 0:
+        veto_reason = "VETO: BTC Macro Regime is Bearish (< 15M EMA200). Long setups are vetoed to prevent catching falling knife alts."
+    elif trade_dir == "LONG" and cur_p >= res * 0.99:
+        veto_reason = f"VETO: Price is directly under Multi-Touch Resistance (${res} tested {res_tests}x). Longs vetoed into overhead supply."
+    elif trade_dir == "SHORT" and not btc_data["is_bear"] and coin_24h > 0:
+        veto_reason = "VETO: BTC Macro Regime is Bullish (> 15M EMA200). Shorting into macro uptrend is vetoed by Trend Guard."
+    elif sup_tests < 2 and res_tests < 2 and action == "WAIT_CONFIRMATION":
+        veto_reason = "VETO: Low structural confluence (< 2 multi-touch tests). Invalidation risk too high."
+
+    trade_status = "VETOED" if veto_reason else "READY"
+
+    if trade_dir == "LONG":
+        s_entry = round(cur_p, 4)
+        s_stop = round(sup * 0.993, 4)
+        s_tp = round(res * 0.998, 4)
+    else:
+        s_entry = round(cur_p, 4)
+        s_stop = round(res * 1.007, 4)
+        s_tp = round(sup * 1.002, 4)
+    
+    risk = abs(s_entry - s_stop)
+    reward = abs(s_tp - s_entry)
+    rr_ratio = round(reward / risk, 2) if risk > 0 else 2.1
+
+    if trade_status == "READY" and rr_ratio < 1.6:
+        trade_status = "VETOED"
+        veto_reason = f"VETO: Risk/Reward ratio ({rr_ratio}R) is below institutional threshold (minimum 1.8R)."
+
+    trade_suggestion = {
+        "direction": trade_dir,
+        "setup_name": setup_name,
+        "status": trade_status,
+        "veto_reason": veto_reason,
+        "suggested_entry": str(s_entry),
+        "suggested_stop": str(s_stop),
+        "suggested_tp": str(s_tp),
+        "risk_reward": f"{rr_ratio}R"
+    }
+
     return {
         "symbol": sym,
         "bias": bias,
@@ -337,6 +381,7 @@ def build_local_fallback_analysis(sym, btc_data, coin_data, sr_data, liq_data, v
             "invalidation_level": str(invalidation),
             "projected_path": path
         },
+        "trade_suggestion": trade_suggestion,
         "tactical_action": action,
         "key_takeaway": f"Focus on {action} near {sup} with invalidation at {invalidation}. Respect BTC {btc_regime} macro trend."
     }
@@ -351,7 +396,7 @@ def get_market_analysis(target_symbol="ALL", force_refresh=False):
     cache_key = target_symbol.upper()
     if not force_refresh and cache_key in _ANALYSIS_CACHE:
         cached = _ANALYSIS_CACHE[cache_key]
-        if now - cached["_cached_at"] < CACHE_TTL:
+        if (now - cached["_cached_at"] < CACHE_TTL) and ("trade_suggestion" in cached.get("data", {})):
             return cached["data"]
 
     # 1. Fetch BTC Macro data
@@ -510,6 +555,10 @@ Respond with ONLY a strict JSON object (no markdown quotes, no triple backticks)
     # Fallback to local quant analysis if API call failed or no key
     if not result_payload:
         result_payload = build_local_fallback_analysis(focus_sym, btc_data, coin_data, sr_data, liq_data, vp_data)
+
+    if not result_payload.get("trade_suggestion"):
+        fb = build_local_fallback_analysis(focus_sym, btc_data, coin_data, sr_data, liq_data, vp_data)
+        result_payload["trade_suggestion"] = fb.get("trade_suggestion")
 
     # Attach BTC macro context and 15-pair matrix
     result_payload["btc_macro"] = btc_data

@@ -928,6 +928,59 @@ def compute_performance_summary():
     r_losses = [abs(r) for r in r_values if r <= 0]
     expectancy_r = round(sum(r_values) / len(r_values), 3) if r_values else None
 
+    seven_days_ago_ts = (time.time() - 7 * 86400) * 1000
+    seven_day_gp = 0.0
+    seven_day_gl = 0.0
+    daily_groups = {}
+
+    for m in merged:
+        d_str = m["time"][:10]
+        pnl_val = float(m.get("pnl", 0))
+        exit_ts = int(m.get("exitTime") or m.get("createdTime") or 0)
+        if exit_ts >= seven_days_ago_ts:
+            if pnl_val > 0:
+                seven_day_gp += pnl_val
+            elif pnl_val < 0:
+                seven_day_gl += abs(pnl_val)
+
+        if d_str not in daily_groups:
+            daily_groups[d_str] = {
+                "date": d_str,
+                "total_trades": 0,
+                "wins": 0,
+                "losses": 0,
+                "gross_profit": 0.0,
+                "gross_loss": 0.0,
+                "net_pnl": 0.0,
+                "win_rate": 0.0,
+                "trades": []
+            }
+        dg = daily_groups[d_str]
+        dg["total_trades"] += 1
+        if pnl_val > 0:
+            dg["wins"] += 1
+            dg["gross_profit"] = round(dg["gross_profit"] + pnl_val, 4)
+        elif pnl_val < 0:
+            dg["losses"] += 1
+            dg["gross_loss"] = round(dg["gross_loss"] + abs(pnl_val), 4)
+        dg["net_pnl"] = round(dg["gross_profit"] - dg["gross_loss"], 4)
+        dg["win_rate"] = round((dg["wins"] / dg["total_trades"]) * 100, 1)
+        dg["trades"].append({
+            "id": m.get("id"),
+            "time": m.get("time"),
+            "symbol": m.get("symbol"),
+            "side": m.get("side"),
+            "entry": m.get("entry"),
+            "exit": m.get("exit"),
+            "qty": m.get("qty"),
+            "pnl": m.get("pnl"),
+            "status": m.get("status"),
+            "exit_reason": m.get("exit_reason") or m.get("setup_type") or "CLOSED"
+        })
+
+    daily_list = sorted(daily_groups.values(), key=lambda x: x["date"], reverse=True)
+    seven_day_net = round(seven_day_gp - seven_day_gl, 2)
+
     tot_today = today_w + today_l
     tot_yest = yest_w + yest_l
 
@@ -940,6 +993,8 @@ def compute_performance_summary():
         "gross_profit": round(g_profit, 2),
         "gross_loss": round(g_loss, 2),
         "net_pnl": round(g_profit - g_loss, 2),
+        "seven_day_pnl": seven_day_net,
+        "daily_pnl": daily_list,
         "profit_factor": profit_factor,
         "reset_anchor_time": reset_anchor,
         "today": {
@@ -998,6 +1053,67 @@ def compute_performance_summary():
     return res
 
 
+def get_live_championship_state():
+    champ_file = os.path.join(DIRECTORY, "scratch", "championship_live_state.json")
+    if os.path.exists(champ_file):
+        try:
+            mtime = os.path.getmtime(champ_file)
+            if time.time() - mtime < 20:
+                with open(champ_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if data.get("btc_price") and data.get("btc_200_ema"):
+                        return data
+        except Exception:
+            pass
+
+    # Compute live BTC 15m 200 EMA & regime directly
+    candles = get_cached_klines("BTCUSDT", "15", 200)
+    btc_price = 0.0
+    btc_200 = 0.0
+    dist_pct = 0.0
+    regime = "SCANNING"
+    if candles and len(candles) >= 30:
+        closes = [c["close"] for c in candles]
+        btc_price = round(closes[-1], 2)
+        period = min(200, len(closes))
+        k = 2.0 / (period + 1.0)
+        ema = closes[0]
+        for p in closes[1:]:
+            ema = p * k + ema * (1.0 - k)
+        btc_200 = round(ema, 2)
+        if btc_200 > 0:
+            dist_pct = round(((btc_price - btc_200) / btc_200) * 100.0, 2)
+        regime = "BULL" if btc_price >= btc_200 else "BEAR"
+
+    try:
+        from backend_lib import auto_trade_state
+        auto_st = auto_trade_state.load()
+        strat_mode = auto_st.get("strategyMode", "championship")
+        is_champ = strat_mode == "championship" or bool(auto_st.get("championshipMode", True))
+    except Exception:
+        strat_mode = "championship"
+        is_champ = True
+
+    live_state = {
+        "timestamp": int(time.time()),
+        "mode_active": is_champ,
+        "strategy_mode": strat_mode,
+        "btc_price": btc_price,
+        "btc_200_ema": btc_200,
+        "btc_dist_200_pct": dist_pct,
+        "macro_regime": regime,
+        "active_engine": "CHAMPIONSHIP DUAL-REGIME" if is_champ else "CME-X5 MODEL B",
+        "signals_detected": [],
+        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+    }
+    try:
+        with open(champ_file, "w", encoding="utf-8") as f:
+            json.dump(live_state, f, indent=2)
+    except Exception:
+        pass
+    return live_state
+
+
 def get_dashboard_bundle():
     try:
         acc = bybit_client.get_wallet_balance()
@@ -1027,18 +1143,8 @@ def get_dashboard_bundle():
         except Exception:
             pass
 
-    # Championship Snapshot
-    champ_file = os.path.join(DIRECTORY, "scratch", "championship_live_state.json")
-    champ_data = {
-        "timestamp": int(time.time()), "mode_active": False,
-        "strategy_mode": "championship", "macro_regime": "SCANNING", "active_engine": "CHAMPIONSHIP DUAL-REGIME"
-    }
-    if os.path.exists(champ_file):
-        try:
-            with open(champ_file, "r", encoding="utf-8") as f:
-                champ_data = json.load(f)
-        except Exception:
-            pass
+    # Championship Snapshot — Always live computed if daemon is inactive
+    champ_data = get_live_championship_state()
 
     # Auto Trade State
     try:
@@ -1513,27 +1619,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         # 10. API: Championship Live Snapshot & Telemetry
         if self.path == "/api/championship/snapshot":
-            live_file = os.path.join(DIRECTORY, "scratch", "championship_live_state.json")
-            if os.path.exists(live_file):
-                try:
-                    with open(live_file, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    self._send_json(200, data)
-                    return
-                except Exception:
-                    pass
-            self._send_json(200, {
-                "timestamp": int(time.time()),
-                "mode_active": False,
-                "strategy_mode": "championship",
-                "btc_price": 0.0,
-                "btc_200_ema": 0.0,
-                "btc_dist_200_pct": 0.0,
-                "macro_regime": "SCANNING",
-                "active_engine": "CHAMPIONSHIP DUAL-REGIME",
-                "signals_detected": [],
-                "last_updated": "Initializing..."
-            })
+            data = get_live_championship_state()
+            self._send_json(200, data)
             return
 
         # Rewrite advanced chart paths to advanced-chart.html
