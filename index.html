@@ -2812,6 +2812,36 @@ window.updateIndicatorButtonsUI = function(){
   });
 };
 
+// Championship modal switch — kept as a single source of truth with the
+// dashboard strategy-mode switcher above. The old UI called this function but
+// no implementation existed, so the button was a dead control.
+window.toggleChampionshipMode = function(){
+  var nextMode = window.currentStrategyMode === 'championship' ? 'pure' : 'championship';
+
+  // Use the same backend sync path as the header switcher.
+  window.setDashboardStrategyMode(nextMode);
+
+  var active = nextMode === 'championship';
+  var stateText = document.getElementById('champModeStateText');
+  var toggleText = document.getElementById('champToggleText');
+  var toggleIcon = document.getElementById('champToggleIcon');
+  var regimeBadge = document.getElementById('modalRegimeBadge');
+  var toggleBtn = document.getElementById('btnToggleChamp');
+
+  if (stateText) stateText.textContent = active ? 'CHAMPIONSHIP ARMED' : 'CME-X5 PURE ACTIVE';
+  if (toggleText) toggleText.textContent = active ? 'Mode: ACTIVE' : 'Mode: INACTIVE';
+  if (toggleIcon) {
+    toggleIcon.className = active ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off';
+  }
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('champ-gold-btn', active);
+    toggleBtn.classList.toggle('hbtn', true);
+  }
+  if (regimeBadge) {
+    regimeBadge.textContent = active ? 'BULL v2.0 + BEAR v4.1' : 'CME-X5 PURE';
+  }
+};
+
 // Mode Switcher: Championship Dual-Regime vs CME-X5 Pure
 window.currentStrategyMode = localStorage.getItem('cme_strat_mode') || 'championship';
 
