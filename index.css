@@ -2344,29 +2344,29 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   CME-X5 THEMED MARKET READER (DEEPSEEK QUANT INTELLIGENCE)
+   CME-X5 THEMED MARKET READER CONTROLS & MODAL
    ══════════════════════════════════════════════════════════════════════════ */
 .cme-market-reader-bar {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: var(--s2, #131924);
-  border: 1px solid var(--b2, rgba(255,255,255,0.13));
+  gap: 4px;
+  background: var(--s2);
+  border: 1px solid var(--b2);
   border-radius: 7px;
-  padding: 2px 5px;
+  padding: 2px 3px;
   transition: border-color .15s ease;
 }
 
 .cme-market-reader-bar:hover {
-  border-color: rgba(245,158,11,0.45);
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 .cme-market-select {
   height: 24px;
   background: transparent;
   border: none;
-  color: var(--tx, #e2e8f0);
-  font-family: var(--mo, monospace);
+  color: var(--tx);
+  font-family: var(--mo);
   font-size: 11px;
   font-weight: 700;
   padding: 0 4px;
@@ -2375,70 +2375,74 @@ body {
 }
 
 .cme-market-select option {
-  background: #0d1117;
-  color: #e2e8f0;
-  font-family: var(--mo, monospace);
+  background: var(--s1);
+  color: var(--tx);
+  font-family: var(--mo);
 }
 
 .cme-read-market-btn {
-  height: 24px !important;
-  padding: 0 9px !important;
-  font-size: 10.5px !important;
-  font-weight: 700 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 5px !important;
-  border-radius: 5px !important;
-  background: var(--go0, rgba(245,158,11,0.15)) !important;
-  border: 1px solid rgba(245,158,11,0.4) !important;
-  color: #fbbf24 !important;
-  cursor: pointer !important;
-  transition: all .15s ease !important;
-  white-space: nowrap !important;
-  font-family: 'Inter', sans-serif !important;
+  height: 24px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 5px;
+  background: var(--go0);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--go);
+  cursor: pointer;
+  transition: all .15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
 }
 
 .cme-read-market-btn:hover {
-  background: rgba(245,158,11,0.28) !important;
-  color: #ffffff !important;
-  border-color: #fbbf24 !important;
-  box-shadow: 0 0 10px rgba(245,158,11,0.3) !important;
+  background: rgba(245, 158, 11, 0.28);
+  color: #ffffff;
+  border-color: #fbbf24;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
 }
 
 .ds-pill-btn {
   font-size: 9.5px !important;
   font-weight: 700 !important;
+  font-family: var(--mo) !important;
   padding: 2px 7px !important;
-  background: var(--go0, rgba(245,158,11,0.15)) !important;
-  color: #fbbf24 !important;
-  border: 1px solid rgba(245,158,11,0.35) !important;
+  background: var(--go0) !important;
+  color: var(--go) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
   border-radius: 4px !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 
 .ds-pill-btn:hover {
-  background: rgba(245,158,11,0.3) !important;
+  background: rgba(245, 158, 11, 0.25) !important;
   color: #ffffff !important;
   border-color: #fbbf24 !important;
 }
 
-/* Modal Window — Matching CME-X5 & Bybit Pro Style */
+/* DeepSeek / CME-X5 Market Reader Modal */
 .deepseek-modal {
   max-width: 860px !important;
   width: 95vw !important;
   max-height: 90vh !important;
   display: flex !important;
   flex-direction: column !important;
-  background: var(--s1, #0d1117) !important;
-  border: 1px solid rgba(245,158,11,0.35) !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(245,158,11,0.1) !important;
+  background: var(--s1) !important;
+  border: 1px solid var(--b2) !important;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85) !important;
   border-radius: 12px !important;
 }
 
 .ds-modal-header {
-  border-bottom: 1px solid var(--b1, rgba(255,255,255,0.08)) !important;
-  background: linear-gradient(180deg, rgba(245,158,11,0.1), rgba(13,17,23,0.95)) !important;
+  border-bottom: 1px solid var(--b1) !important;
+  background: var(--s2) !important;
   padding: 12px 18px !important;
 }
 
@@ -2449,31 +2453,32 @@ body {
 }
 
 .ds-title-icon-wrap {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
-  background: rgba(245,158,11,0.15);
-  border: 1px solid rgba(245,158,11,0.4);
+  background: var(--go0);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  color: var(--go, #f59e0b);
+  color: var(--go);
 }
 
 .ds-subtitle {
   font-size: 10.5px;
-  color: var(--td, #64748b);
+  color: var(--td, #94a3b8);
   margin-top: 2px;
   font-weight: 500;
 }
 
 .ds-ai-badge {
-  background: rgba(245,158,11,0.15) !important;
-  color: #fbbf24 !important;
-  border: 1px solid rgba(245,158,11,0.35) !important;
+  background: var(--go0) !important;
+  color: var(--go) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
   font-size: 10px !important;
   padding: 2px 7px !important;
+  font-family: var(--mo) !important;
 }
 
 .ds-modal-body {
@@ -2490,8 +2495,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: var(--s2, #131924);
-  border: 1px solid var(--b1, rgba(255,255,255,0.08));
+  background: var(--s2);
+  border: 1px solid var(--b1);
   border-radius: 8px;
   padding: 8px 12px;
   flex-wrap: wrap;
@@ -2511,13 +2516,13 @@ body {
 }
 
 .ds-sym-chip {
-  background: var(--s3, #1a2235);
-  border: 1px solid var(--b1, rgba(255,255,255,0.08));
-  color: var(--td, #64748b);
-  font-size: 10.5px;
-  font-family: var(--mo, monospace);
+  background: var(--s3);
+  border: 1px solid var(--b1);
+  color: var(--tm);
+  font-size: 10px;
   font-weight: 700;
-  padding: 4px 10px;
+  font-family: var(--mo);
+  padding: 4px 9px;
   border-radius: 5px;
   cursor: pointer;
   white-space: nowrap;
@@ -2525,35 +2530,34 @@ body {
 }
 
 .ds-sym-chip:hover {
-  background: var(--cy0, rgba(14,165,233,0.15));
-  color: #7dd3fc;
-  border-color: rgba(14,165,233,0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--tx);
 }
 
 .ds-sym-chip.active {
-  background: var(--go0, rgba(245,158,11,0.18));
-  border-color: var(--go, #f59e0b);
-  color: #fbbf24;
-  box-shadow: 0 0 8px rgba(245,158,11,0.25);
+  background: var(--go0);
+  border-color: var(--go);
+  color: var(--go);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
 }
 
 /* Loading State */
 .ds-loading-state {
   text-align: center;
   padding: 36px 16px;
-  background: var(--s2, #131924);
-  border: 1px solid rgba(245,158,11,0.25);
+  background: var(--s2);
+  border: 1px solid var(--b1);
   border-radius: 10px;
 }
 
 .ds-loading-spinner {
-  font-size: 38px;
-  color: #fbbf24;
+  font-size: 34px;
+  color: var(--go);
   margin-bottom: 12px;
 }
 
 .ds-loading-title {
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 800;
   color: #ffffff;
 }
@@ -2582,11 +2586,11 @@ body {
 }
 
 .ds-step.active {
-  color: #38bdf8;
+  color: var(--cy);
 }
 
 .ds-step.pulse {
-  color: #fbbf24;
+  color: var(--go);
   font-weight: 700;
 }
 
@@ -2594,11 +2598,11 @@ body {
 .ds-telemetry-ribbon {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  background: var(--s2, #131924);
-  border: 1px solid var(--b1, rgba(255,255,255,0.08));
+  gap: 8px;
+  background: var(--s2);
+  border: 1px solid var(--b1);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 8px 12px;
 }
 
 .ds-titem {
@@ -2622,15 +2626,15 @@ body {
 
 /* Verdict Card */
 .ds-card {
-  background: var(--s2, #131924);
-  border: 1px solid var(--b1, rgba(255,255,255,0.08));
+  background: var(--s2);
+  border: 1px solid var(--b1);
   border-radius: 10px;
   padding: 14px;
 }
 
 .ds-verdict-card {
-  background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(19,25,36,0.95));
-  border: 1px solid rgba(245,158,11,0.3);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(19, 25, 36, 0.95));
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .ds-verdict-top {
@@ -2667,8 +2671,8 @@ body {
 }
 
 .ds-bias-pill.range {
-  background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
+  background: var(--go0);
+  color: var(--go);
   border-color: rgba(245, 158, 11, 0.4);
 }
 
@@ -2690,8 +2694,8 @@ body {
   font-weight: 800;
   padding: 4px 8px;
   border-radius: 5px;
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: var(--go0);
+  color: var(--go);
   border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
@@ -2717,12 +2721,12 @@ body {
 .ds-pillar-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--b1, rgba(255,255,255,0.08));
-  background: var(--s2, #131924);
+  border: 1px solid var(--b1);
+  background: var(--s2);
 }
 
 .ds-pillar-card:hover {
-  border-color: var(--b2, rgba(255,255,255,0.15));
+  border-color: var(--b2);
 }
 
 .ds-card-hdr {
@@ -2742,11 +2746,11 @@ body {
   font-size: 12px;
 }
 
-.ds-card-icon.btc { background: rgba(247, 147, 26, 0.18); color: #f7931a; }
-.ds-card-icon.liq { background: rgba(56, 189, 248, 0.18); color: #38bdf8; }
-.ds-card-icon.sr { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
-.ds-card-icon.target { background: rgba(14, 165, 233, 0.18); color: #38bdf8; }
-.ds-card-icon.matrix { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+.ds-card-icon.btc { background: rgba(245, 158, 11, 0.15); color: var(--go); }
+.ds-card-icon.liq { background: var(--cy0); color: var(--cy); }
+.ds-card-icon.sr { background: var(--go0); color: var(--go); }
+.ds-card-icon.target { background: var(--gr0); color: var(--gr); }
+.ds-card-icon.matrix { background: var(--go0); color: var(--go); }
 
 .ds-card-title {
   font-size: 11px;
@@ -2771,7 +2775,7 @@ body {
 }
 
 .ds-sr-badge {
-  background: var(--s3, #1a2235);
+  background: var(--s3);
   border-radius: 6px;
   padding: 6px 10px;
   display: flex;
@@ -2797,7 +2801,7 @@ body {
 .ds-sr-badge .tests-count {
   font-size: 9.5px;
   font-weight: 700;
-  color: #fbbf24;
+  color: var(--go);
 }
 
 /* Targets Row */
@@ -2809,7 +2813,7 @@ body {
 }
 
 .ds-level-item {
-  background: var(--s3, #1a2235);
+  background: var(--s3);
   border-radius: 6px;
   padding: 6px 8px;
   display: flex;
@@ -2818,7 +2822,7 @@ body {
 }
 
 .ds-level-item.primary { border-top: 2px solid #38bdf8; }
-.ds-level-item.secondary { border-top: 2px solid #fbbf24; }
+.ds-level-item.secondary { border-top: 2px solid var(--go); }
 .ds-level-item.invalidation { border-top: 2px solid #ef4444; }
 
 .ds-level-item .lbl {
@@ -2839,7 +2843,7 @@ body {
 
 /* Takeaway Banner */
 .ds-takeaway-banner {
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--go0);
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 8px;
   padding: 10px 14px;
@@ -2865,7 +2869,7 @@ body {
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--b1, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--b1);
 }
 
 .ds-table td {
@@ -2888,9 +2892,6 @@ body {
   .cme-market-reader-bar {
     width: 100%;
     justify-content: space-between;
-  }
-  .cme-market-select {
-    flex: 1;
   }
 }
 
