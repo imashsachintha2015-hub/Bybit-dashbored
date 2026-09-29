@@ -695,6 +695,10 @@ class CMEX5Engine:
             previous = self.strategy_mode
             self.strategy_mode = mode
             LOG_STRATEGY_LABEL = "CHAMPIONSHIP" if mode == "championship" else "CME-X5"
+            # Signal candidates belong to the active strategy. Never carry
+            # stale setups from the previous mode into the new mode.
+            if hasattr(self, "scanned_signals") and previous != mode:
+                self.scanned_signals.clear()
             if force:
                 log(f"[MODE] Active strategy at startup: {mode.upper()}")
             else:
