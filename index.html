@@ -2862,7 +2862,7 @@ window.setDashboardStrategyMode = function(mode){
     championshipMode: isChamp
   };
 
-  fetch('/api/auto-trade/state', {
+  fetch(apiUrl('/api/auto-trade/state'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
