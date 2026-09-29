@@ -36,10 +36,11 @@ def main():
     print("  Zero Browser Tab Dependency — Full Cloud Headless Execution")
     print("=" * 70)
 
-    # Autonomous daemons: Model B Engine & Championship Dual-Regime System
+    # FINAL PRODUCTION: CME-X5 Model B is the single authoritative scanner/executor.
+    # The Championship daemon is research/observer-only and must not compete with
+    # or mask Model B execution on Railway.
     daemon_cmds = [
         ("CME-X5 Model B Engine", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
-        ("Championship Dual-Regime Daemon", [sys.executable, "daemons/championship_mode_daemon.py"]),
     ]
 
     procs = []
