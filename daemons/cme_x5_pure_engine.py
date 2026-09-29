@@ -374,9 +374,9 @@ class PositionManager:
     def is_occupied(self, sym): return sym in self.positions
 
     def open(self, sym, sig, now_ts):
-        # 0. CME-X5 Model B is the sole production execution authority.
-        # Strategy/UI modes must never silently disable the production executor.
-        # Championship research is no longer an execution handoff.
+        # 0. Unified production executor.
+        # The active strategy is selected by shared dashboard state; this
+        # manager executes whichever strategy generated the candidate.
         # 1. Concurrency & duplicate guards
         if len(self.positions) >= MAX_CONCURRENT_POS:
             log(f"[24H EXECUTOR] Max concurrent positions ({MAX_CONCURRENT_POS}) reached. Skipping {sym}.")
@@ -891,6 +891,9 @@ class CMEX5Engine:
             "signals": 0,
             "agent_reject": 0,
         }
+        champ_regime = "SCANNING"
+        champ_btc_price = 0.0
+        champ_btc_200 = 0.0
 
         if self.cycle % 6 == 1:
             log(f"Cycle #{self.cycle} | Mode:{self.strategy_mode.upper()} "
@@ -912,6 +915,8 @@ class CMEX5Engine:
                 self.scan_metrics["data_reject"] += len(SYMBOLS)
                 log("[CHAMPIONSHIP] BTC 15m regime anchor unavailable; skipping cycle.", "WARN")
             else:
+                champ_regime, champ_btc_price, champ_btc_200 = self.championship_engine.evaluate_regime(btc_bars)
+                log(f"[REGIME] BTC 15m: {champ_regime} | Price={champ_btc_price:.2f} | EMA200={champ_btc_200:.2f}")
                 for sym in SYMBOLS:
                     try:
                         self._scan_championship(sym, ts, btc_bars)
@@ -954,6 +959,31 @@ class CMEX5Engine:
                     "daily_r":round(self.pm.daily_r,4),
                     "open_count":len(self.pm.positions),
                     "positions":radar_display
+                }, f, indent=2)
+        except Exception:
+            pass
+
+        # Keep the legacy Championship endpoint synchronized with the real
+        # unified engine instead of serving a permanently inactive/stale file.
+        try:
+            champ_file = os.path.join(ROOT_DIR, "scratch", "championship_live_state.json")
+            champ_signals = [
+                v for v in self.scanned_signals.values()
+                if v.get("strategy_mode") == "championship"
+            ]
+            with open(champ_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "timestamp": int(time.time()),
+                    "mode_active": self.strategy_mode == "championship",
+                    "strategy_mode": self.strategy_mode,
+                    "btc_price": champ_btc_price,
+                    "btc_200_ema": champ_btc_200,
+                    "btc_dist_200_pct": ((champ_btc_price - champ_btc_200) / champ_btc_200 * 100.0) if champ_btc_200 else 0.0,
+                    "macro_regime": champ_regime,
+                    "active_engine": "CHAMPIONSHIP DUAL-REGIME" if self.strategy_mode == "championship" else "CME-X5 MODEL B",
+                    "signals_detected": champ_signals,
+                    "scan_metrics": self.scan_metrics,
+                    "last_updated": now,
                 }, f, indent=2)
         except Exception:
             pass
