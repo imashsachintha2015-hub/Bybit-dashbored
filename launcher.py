@@ -54,7 +54,7 @@ def main():
             print(f"[WARN] Failed to spawn {name}: {e}")
 
     def cleanup(sig=None, frame=None):
-        print("\n[SHUTDOWN] Terminating Model B engine...")
+        print("\n[SHUTDOWN] Terminating unified strategy engine...")
         for name, p in procs:
             try:
                 p.terminate()
