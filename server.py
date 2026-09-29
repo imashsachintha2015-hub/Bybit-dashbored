@@ -1258,6 +1258,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, summary)
             return
 
+        # 3d-2. API: DeepSeek AI Institutional Market Reader
+        if self.path.startswith("/api/deepseek/market-reader"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            sym = query_params.get("symbol", ["ALL"])[0].upper()
+            force = query_params.get("refresh", ["false"])[0].lower() in ("true", "1")
+            try:
+                from backend_lib.deepseek_market_reader import get_market_analysis
+                analysis = get_market_analysis(sym, force_refresh=force)
+                self._send_json(200, analysis)
+            except Exception as e:
+                self._send_json(500, {"error": str(e), "status": "failed"})
+            return
+
         # 3e-1. API: CME-X4 V4 Shadow Candidates (Upgraded to Model B)
         if self.path.startswith("/api/cme-x4/shadow/candidates"):
             self._send_json(200, {"candidates": [], "count": 0, "status": "UPGRADED_TO_MODEL_B"})
@@ -1816,6 +1830,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "analysis": "The free-text synthesis endpoint has been retired. It generated ~700 tokens per call on a timer, no code parsed the result, and it could not change any decision. See /api/llm/status for current model spend.",
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
             })
+            return
+
+        # POST /api/deepseek/market-reader
+        if self.path == "/api/deepseek/market-reader":
+            sym = body.get("symbol", "ALL").upper()
+            force = bool(body.get("refresh", False))
+            try:
+                from backend_lib.deepseek_market_reader import get_market_analysis
+                analysis = get_market_analysis(sym, force_refresh=force)
+                self._send_json(200, analysis)
+            except Exception as e:
+                self._send_json(500, {"error": str(e), "status": "failed"})
             return
 
         # POST /api/deepseek/chart-analyze

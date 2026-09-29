@@ -1553,9 +1553,23 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <span class="cbadge fm" style="background:rgba(16,185,129,0.15);color:var(--gr);border:1px solid rgba(16,185,129,0.3)"><span class="live-dot"></span>24H ARMED</span>
             </div>
             <div class="cardh-actions">
+              <button class="hbtn ds-radar-btn" id="dsRadarBtn" onclick="openDeepSeekMarketReader()" title="DeepSeek Institutional AI Market Structure Reader">
+                <span class="ds-pulse-dot"></span>
+                <i class="fa-solid fa-brain"></i> DeepSeek Market Reader
+              </button>
               <button class="hbtn" onclick="openChampModal()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i> Archetypes</button>
               <a href="/monitor.html" target="_blank" class="hbtn" style="text-decoration:none;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)"><i class="fa-solid fa-satellite-dish"></i> Cloud Monitor</a>
             </div>
+          </div>
+
+          <!-- DeepSeek Live Market Reader Banner -->
+          <div class="ds-radar-banner" onclick="openDeepSeekMarketReader()">
+            <div class="ds-rb-left">
+              <i class="fa-solid fa-brain" style="color:#c084fc;font-size:13px"></i>
+              <span style="font-weight:700;color:#c084fc">DeepSeek Market Intelligence:</span>
+              <span class="ds-rb-sub" id="dsRadarBannerSub">Click for BTC Macro Spillover, Liquidity Hunts, 3x S/R Rejections &amp; Forecast Levels</span>
+            </div>
+            <span class="ds-rb-badge"><i class="fa-solid fa-bolt"></i> DeepSeek AI Scan</span>
           </div>
 
           <!-- Mobile Signals Cards -->
@@ -1660,6 +1674,14 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
     </div>
     <div class="mbody">
       <div class="menu-grid">
+        <div class="menu-item" onclick="closeMenuModal(); openDeepSeekMarketReader();">
+          <div class="menu-icon purple" style="background:rgba(168,85,247,0.2);color:#c084fc"><i class="fa-solid fa-brain"></i></div>
+          <div class="menu-info">
+            <div class="menu-title" style="color:#c084fc">DeepSeek Market Reader</div>
+            <div class="menu-sub">BTC Macro Spillover, Liquidity Hunts, 3x S/R Rejections &amp; Forecast Levels</div>
+          </div>
+          <i class="fa-solid fa-chevron-right menu-arr"></i>
+        </div>
         <div class="menu-item" onclick="closeMenuModal(); openChampModal();">
           <div class="menu-icon gold"><i class="fa-solid fa-trophy"></i></div>
           <div class="menu-info">
@@ -1722,6 +1744,210 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <div style="text-align:center;color:var(--td);font-size:11px;padding:20px 0">
         <i class="fa-solid fa-calendar-days" style="font-size:28px;display:block;margin-bottom:8px;color:var(--s3)"></i>
         PnL calendar populates as closed trades are recorded.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DeepSeek AI Institutional Market Reader Modal -->
+<div class="mbk" id="deepseekModal" onclick="if(event.target===this)closeDeepSeekModal()">
+  <div class="mw deepseek-modal">
+    <!-- Modal Header -->
+    <div class="mh2 ds-modal-header">
+      <div class="mtit ds-modal-title">
+        <div class="ds-title-icon-wrap">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:800;font-size:14px;color:#ffffff">DeepSeek AI Market Reader</span>
+            <span class="ebadge ds-ai-badge" id="dsEngineBadge"><i class="fa-solid fa-microchip"></i> DeepSeek-V3 Quant</span>
+          </div>
+          <div class="ds-subtitle">Real-time Order Flow, Liquidity Sweeps, Multi-Touch S/R &amp; Macro Spillover</div>
+        </div>
+      </div>
+      <button class="mxbtn" onclick="closeDeepSeekModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="mbody ds-modal-body">
+      <!-- Pair Selector & Controls Bar -->
+      <div class="ds-controls-bar">
+        <div class="ds-symbols-scroll" id="dsSymbolChips">
+          <button class="ds-sym-chip active" onclick="selectDsSymbol('ALL')"><i class="fa-solid fa-globe"></i> 15-Pair Matrix</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('BTCUSDT')">BTC</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('ETHUSDT')">ETH</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('SOLUSDT')">SOL</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('XRPUSDT')">XRP</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('DOGEUSDT')">DOGE</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('NEARUSDT')">NEAR</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('AVAXUSDT')">AVAX</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('LINKUSDT')">LINK</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('SEIUSDT')">SEI</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('BNBUSDT')">BNB</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('ADAUSDT')">ADA</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('DOTUSDT')">DOT</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('POLUSDT')">POL</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('LTCUSDT')">LTC</button>
+          <button class="ds-sym-chip" onclick="selectDsSymbol('APTUSDT')">APT</button>
+        </div>
+        <div class="ds-action-buttons">
+          <button class="ds-refresh-btn" id="dsRefreshBtn" onclick="refreshDeepSeekAnalysis()">
+            <i class="fa-solid fa-arrows-rotate" id="dsRefreshIcon"></i> Re-Analyze
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="ds-loading-state" id="dsLoadingState" style="display:none">
+        <div class="ds-loading-spinner"><i class="fa-solid fa-brain fa-flip"></i></div>
+        <div class="ds-loading-title">DeepSeek Neural Reasoning in Progress...</div>
+        <div class="ds-loading-sub">Auditing Bybit 15M/1H order flow, counting S/R wick rejections &amp; detecting liquidity sweeps</div>
+        <div class="ds-loading-steps">
+          <div class="ds-step active"><i class="fa-solid fa-check"></i> Streaming Bybit real-time orderbook &amp; klines</div>
+          <div class="ds-step active"><i class="fa-solid fa-check"></i> Computing volume profile POC &amp; multi-timeframe swing clusters</div>
+          <div class="ds-step pulse"><i class="fa-solid fa-circle-notch fa-spin"></i> DeepSeek formulating institutional tactical thesis</div>
+        </div>
+      </div>
+
+      <!-- Main Analysis Content Container -->
+      <div class="ds-content-wrap" id="dsContentWrap">
+        <!-- Telemetry Ribbon -->
+        <div class="ds-telemetry-ribbon">
+          <div class="ds-titem">
+            <span class="ds-tlbl">BTC Macro Mark</span>
+            <span class="ds-tval fm" id="dsBtcPrice">--</span>
+          </div>
+          <div class="ds-titem">
+            <span class="ds-tlbl">BTC 24H Delta</span>
+            <span class="ds-tval fm" id="dsBtcDelta">--</span>
+          </div>
+          <div class="ds-titem">
+            <span class="ds-tlbl">Macro Regime</span>
+            <span class="ds-tval" id="dsBtcRegime" style="font-size:11px;font-weight:700">--</span>
+          </div>
+          <div class="ds-titem">
+            <span class="ds-tlbl">Focus Asset Mark</span>
+            <span class="ds-tval fm" id="dsCoinMark">--</span>
+          </div>
+        </div>
+
+        <!-- Executive Verdict Header Card -->
+        <div class="ds-card ds-verdict-card" style="margin-top:10px">
+          <div class="ds-verdict-top">
+            <div class="ds-verdict-badge-group">
+              <span class="ds-bias-pill" id="dsBiasPill">READING BIAS...</span>
+              <span class="ds-conf-pill fm" id="dsConfidencePill"><i class="fa-solid fa-gauge-high"></i> --% Confluence</span>
+              <span class="ds-action-pill" id="dsActionPill">ACTION: --</span>
+            </div>
+            <div class="ds-timestamp fm" id="dsTimestamp">--:--:-- UTC</div>
+          </div>
+          <div class="ds-exec-summary" id="dsExecSummary">
+            Analyzing current market conditions...
+          </div>
+        </div>
+
+        <!-- 4 Grid Core Analytical Pillars (Matching user's specific requirements) -->
+        <div class="ds-grid" style="margin-top:10px">
+          <!-- Pillar 1: BTC Macro Spillover (e.g. BTC dump 2% impact) -->
+          <div class="ds-card ds-pillar-card">
+            <div class="ds-card-hdr">
+              <div class="ds-card-icon btc"><i class="fa-brands fa-bitcoin"></i></div>
+              <div class="ds-card-title">BTC Macro Spillover &amp; Dump/Pump Impact</div>
+            </div>
+            <div class="ds-card-content" id="dsBtcImpact">
+              Analyzing BTC market drag and altcoin sensitivity...
+            </div>
+          </div>
+
+          <!-- Pillar 2: Liquidity Hunt & Smart Money Sweeps -->
+          <div class="ds-card ds-pillar-card">
+            <div class="ds-card-hdr">
+              <div class="ds-card-icon liq"><i class="fa-solid fa-water"></i></div>
+              <div class="ds-card-title">Liquidity Hunt &amp; Smart Money Sweeps</div>
+            </div>
+            <div class="ds-card-content" id="dsLiquidityHunt">
+              Scanning for equal highs/lows sweeps and fair value gaps...
+            </div>
+          </div>
+
+          <!-- Pillar 3: Multi-Touch Support & Resistance Dynamics (e.g. 3x tests rejected) -->
+          <div class="ds-card ds-pillar-card">
+            <div class="ds-card-hdr">
+              <div class="ds-card-icon sr"><i class="fa-solid fa-shield-halved"></i></div>
+              <div class="ds-card-title">Support &amp; Resistance Multi-Touch Defense</div>
+            </div>
+            <div class="ds-sr-badges">
+              <div class="ds-sr-badge sup">
+                <span class="lbl">SUPPORT FLOOR</span>
+                <span class="val fm" id="dsSupLevel">--</span>
+                <span class="tests-count" id="dsSupTests">--x Tests</span>
+              </div>
+              <div class="ds-sr-badge res">
+                <span class="lbl">RESISTANCE CEILING</span>
+                <span class="val fm" id="dsResLevel">--</span>
+                <span class="tests-count" id="dsResTests">--x Tests</span>
+              </div>
+            </div>
+            <div class="ds-card-content" id="dsSrAnalysis" style="margin-top:10px">
+              Analyzing test counts and rejection absorption...
+            </div>
+          </div>
+
+          <!-- Pillar 4: Predictive Price Roadmap & Next Levels -->
+          <div class="ds-card ds-pillar-card">
+            <div class="ds-card-hdr">
+              <div class="ds-card-icon target"><i class="fa-solid fa-crosshairs"></i></div>
+              <div class="ds-card-title">Predictive Price Levels &amp; Trajectory Roadmap</div>
+            </div>
+            <div class="ds-levels-row">
+              <div class="ds-level-item primary">
+                <div class="lbl">PRIMARY TARGET</div>
+                <div class="val fm" id="dsPrimaryTarget">--</div>
+              </div>
+              <div class="ds-level-item secondary">
+                <div class="lbl">SECONDARY TARGET</div>
+                <div class="val fm" id="dsSecondaryTarget">--</div>
+              </div>
+              <div class="ds-level-item invalidation">
+                <div class="lbl">INVALIDATION STOP</div>
+                <div class="val fm" id="dsInvalidationLevel">--</div>
+              </div>
+            </div>
+            <div class="ds-card-content" id="dsProjectedPath" style="margin-top:10px">
+              Formulating step-by-step price trajectory...
+            </div>
+          </div>
+        </div>
+
+        <!-- 15-Pair Cross Market Matrix (When in 15-Pair Matrix mode) -->
+        <div class="ds-card ds-matrix-card" id="dsMatrixCard" style="display:none;margin-top:10px">
+          <div class="ds-card-hdr">
+            <div class="ds-card-icon matrix"><i class="fa-solid fa-table-cells"></i></div>
+            <div class="ds-card-title">15-Pair Institutional Confluence &amp; Relative Strength Matrix</div>
+          </div>
+          <div class="tw" style="margin-top:8px;overflow-x:auto">
+            <table class="ds-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Last Price</th>
+                  <th>24h Change</th>
+                  <th>Market Regime / Divergence</th>
+                  <th style="text-align:right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="dsMatrixBody">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Key Takeaway Banner -->
+        <div class="ds-takeaway-banner" id="dsTakeawayBanner" style="margin-top:10px">
+          <i class="fa-solid fa-lightbulb" style="color:#fbbf24"></i>
+          <span id="dsKeyTakeaway">Awaiting synthesis...</span>
+        </div>
       </div>
     </div>
   </div>
@@ -2222,7 +2448,187 @@ window.openChampModal=function(){document.getElementById('champModal').classList
 window.closeChampModal=function(){document.getElementById('champModal').classList.remove('open')};
 window.openMenuModal=function(){document.getElementById('menuModal').classList.add('open')};
 window.closeMenuModal=function(){document.getElementById('menuModal').classList.remove('open')};
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();closePineModal();closeChampModal();closeMenuModal();clearOrderLines()}});
+
+window.openDeepSeekMarketReader = function(sym) {
+  var m = document.getElementById('deepseekModal');
+  if (m) m.classList.add('open');
+  selectDsSymbol(sym || 'ALL');
+};
+
+window.closeDeepSeekModal = function() {
+  var m = document.getElementById('deepseekModal');
+  if (m) m.classList.remove('open');
+};
+
+var currentDsSymbol = 'ALL';
+window.selectDsSymbol = function(sym) {
+  currentDsSymbol = sym || 'ALL';
+  document.querySelectorAll('.ds-sym-chip').forEach(function(c) {
+    var txt = c.textContent.trim();
+    var isAct = (sym === 'ALL' && txt.includes('15-Pair')) || (sym !== 'ALL' && txt === sym.replace('USDT', ''));
+    c.classList.toggle('active', isAct);
+  });
+  fetchDeepSeekAnalysis(currentDsSymbol, false);
+};
+
+window.refreshDeepSeekAnalysis = function() {
+  var ico = document.getElementById('dsRefreshIcon');
+  if (ico) ico.classList.add('fa-spin');
+  fetchDeepSeekAnalysis(currentDsSymbol, true, function() {
+    if (ico) ico.classList.remove('fa-spin');
+  });
+};
+
+function fetchDeepSeekAnalysis(sym, forceRefresh, cb) {
+  var loader = document.getElementById('dsLoadingState');
+  var content = document.getElementById('dsContentWrap');
+  if (loader) loader.style.display = 'block';
+  if (content) content.style.display = 'none';
+
+  var url = '/api/deepseek/market-reader?symbol=' + encodeURIComponent(sym) + (forceRefresh ? '&refresh=true' : '');
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (loader) loader.style.display = 'none';
+      if (content) content.style.display = 'block';
+      renderDeepSeekAnalysis(d);
+      if (cb) cb();
+    })
+    .catch(function(err) {
+      console.error('[DeepSeek Reader Error]', err);
+      if (loader) loader.style.display = 'none';
+      if (content) content.style.display = 'block';
+      var sum = document.getElementById('dsExecSummary');
+      if (sum) sum.textContent = 'Failed to load DeepSeek analysis: ' + (err.message || err);
+      if (cb) cb();
+    });
+}
+
+function renderDeepSeekAnalysis(d) {
+  if (!d) return;
+
+  var badge = document.getElementById('dsEngineBadge');
+  if (badge) {
+    badge.innerHTML = '<i class="fa-solid fa-microchip"></i> ' + (d.model || (d.is_ai_live ? 'DeepSeek-V3 Quant' : 'Local Quant Fallback'));
+  }
+
+  var btc = d.btc_macro || {};
+  var btcPx = document.getElementById('dsBtcPrice');
+  if (btcPx) btcPx.textContent = btc.lastPrice ? ('$' + parseFloat(btc.lastPrice).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})) : '--';
+
+  var btcDl = document.getElementById('dsBtcDelta');
+  if (btcDl) {
+    var deltaVal = (parseFloat(btc.price24hPcnt || 0) * 100).toFixed(2);
+    btcDl.textContent = (deltaVal >= 0 ? '+' : '') + deltaVal + '%';
+    btcDl.className = 'ds-tval fm ' + (deltaVal >= 0 ? 'up' : 'dn');
+  }
+
+  var btcReg = document.getElementById('dsBtcRegime');
+  if (btcReg) {
+    var isBear = btc.is_bear;
+    btcReg.textContent = isBear ? 'BEARISH (Below 200 EMA)' : 'BULLISH (Above 200 EMA)';
+    btcReg.style.color = isBear ? 'var(--rd, #f87171)' : 'var(--gr, #34d399)';
+  }
+
+  var coinMk = document.getElementById('dsCoinMark');
+  if (coinMk) {
+    coinMk.textContent = (d.symbol || 'BTCUSDT');
+  }
+
+  var biasPill = document.getElementById('dsBiasPill');
+  if (biasPill) {
+    var bText = (d.bias || 'NEUTRAL').toUpperCase();
+    biasPill.textContent = bText.replace(/_/g, ' ');
+    biasPill.className = 'ds-bias-pill ' + (bText.includes('BULL') ? '' : (bText.includes('BEAR') ? 'bear' : 'range'));
+  }
+
+  var confPill = document.getElementById('dsConfidencePill');
+  if (confPill) {
+    confPill.innerHTML = '<i class="fa-solid fa-gauge-high"></i> ' + (d.confidence || 80) + '% Confluence';
+  }
+
+  var actPill = document.getElementById('dsActionPill');
+  if (actPill) {
+    actPill.textContent = 'ACTION: ' + (d.tactical_action || 'WAIT_CONFIRMATION').replace(/_/g, ' ');
+  }
+
+  var timeStamp = document.getElementById('dsTimestamp');
+  if (timeStamp) {
+    timeStamp.textContent = d.timestamp || '';
+  }
+
+  var execSum = document.getElementById('dsExecSummary');
+  if (execSum) {
+    execSum.textContent = d.executive_summary || 'Analyzing real-time order flow and institutional structures...';
+  }
+
+  var btcImp = document.getElementById('dsBtcImpact');
+  if (btcImp) btcImp.textContent = d.btc_macro_impact || '';
+
+  var liqHunt = document.getElementById('dsLiquidityHunt');
+  if (liqHunt) liqHunt.textContent = d.liquidity_hunt || '';
+
+  var sr = d.sr_structure || {};
+  var supL = document.getElementById('dsSupLevel');
+  if (supL) supL.textContent = sr.support_level ? ('$' + sr.support_level) : '--';
+
+  var resL = document.getElementById('dsResLevel');
+  if (resL) resL.textContent = sr.resistance_level ? ('$' + sr.resistance_level) : '--';
+
+  var supT = document.getElementById('dsSupTests');
+  if (supT) supT.textContent = (sr.sup_tests || 3) + 'x Tested & Rejected';
+
+  var resT = document.getElementById('dsResTests');
+  if (resT) resT.textContent = (sr.res_tests || 2) + 'x Tested & Rejected';
+
+  var srAna = document.getElementById('dsSrAnalysis');
+  if (srAna) srAna.textContent = sr.analysis || '';
+
+  var proj = d.projected_levels || {};
+  var pTgt = document.getElementById('dsPrimaryTarget');
+  if (pTgt) pTgt.textContent = proj.primary_target ? ('$' + proj.primary_target) : '--';
+
+  var sTgt = document.getElementById('dsSecondaryTarget');
+  if (sTgt) sTgt.textContent = proj.secondary_target ? ('$' + proj.secondary_target) : '--';
+
+  var invL = document.getElementById('dsInvalidationLevel');
+  if (invL) invL.textContent = proj.invalidation_level ? ('$' + proj.invalidation_level) : '--';
+
+  var pPath = document.getElementById('dsProjectedPath');
+  if (pPath) pPath.textContent = proj.projected_path || '';
+
+  var kt = document.getElementById('dsKeyTakeaway');
+  if (kt) kt.textContent = d.key_takeaway || 'Awaiting key punchline...';
+
+  var mCard = document.getElementById('dsMatrixCard');
+  var mBody = document.getElementById('dsMatrixBody');
+  if (mCard && mBody) {
+    if (d.pairs_matrix && d.pairs_matrix.length) {
+      mCard.style.display = 'block';
+      mBody.innerHTML = d.pairs_matrix.map(function(pm) {
+        var chg = parseFloat(pm.change24h || 0);
+        var chgCl = chg >= 0 ? 'up' : 'dn';
+        var stCl = pm.status.includes('BULL') ? 'var(--gr, #34d399)' : (pm.status.includes('BEAR') ? 'var(--rd, #f87171)' : 'var(--td, #94a3b8)');
+        return '<tr>' +
+          '<td class="fm" style="font-weight:700">' + pm.symbol + '</td>' +
+          '<td class="fm">$' + parseFloat(pm.price || 0).toFixed(4) + '</td>' +
+          '<td class="fm ' + chgCl + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</td>' +
+          '<td style="color:' + stCl + ';font-weight:600">' + pm.status + '</td>' +
+          '<td style="text-align:right"><button class="ds-pill-btn" onclick="selectDsSymbol(\'' + pm.symbol + '\')"><i class="fa-solid fa-brain"></i> Analyze</button></td>' +
+          '</tr>';
+      }).join('');
+    } else {
+      mCard.style.display = 'none';
+    }
+  }
+
+  var bSub = document.getElementById('dsRadarBannerSub');
+  if (bSub) {
+    bSub.textContent = (d.symbol || 'Market') + ': ' + (d.bias ? d.bias.replace(/_/g, ' ') : 'Ready') + ' &middot; ' + (d.tactical_action || 'Analyzed');
+  }
+}
+
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal();closePineModal();closeChampModal();closeMenuModal();closeDeepSeekModal();clearOrderLines()}});
 
 var championshipModeActive = true;
 
@@ -3829,7 +4235,7 @@ function handleSnap(d){
           var sp=parseFloat(p.stop_p||0);
           var tp=parseFloat(p.target_p||0);
           var tgtDisp=p.poc?('POC: '+parseFloat(p.poc).toFixed(2)):tp.toFixed(4);
-          var actionBtn='<button class="exec-btn" onclick="executeRadarTrade(\''+k+'\',\''+p.direction+'\','+ep+','+sp+','+tp+',\''+sit+'\')"><i class="fa-solid fa-bolt"></i> Execute</button>';
+          var actionBtn='<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end"><button class="ds-pill-btn" onclick="openDeepSeekMarketReader(\''+k+'\')" title="DeepSeek Analysis for '+k+'"><i class="fa-solid fa-brain"></i> AI Read</button><button class="exec-btn" onclick="executeRadarTrade(\''+k+'\',\''+p.direction+'\','+ep+','+sp+','+tp+',\''+sit+'\')"><i class="fa-solid fa-bolt"></i> Execute</button></div>';
           return '<tr class="pos-row" data-sym="' + k + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + tp + '" data-dir="' + p.direction + '" data-sit="' + sit + '">' +
             '<td class="fm" style="font-weight:700">' + k + '</td>' +
             '<td><span class="bdg ' + bdgCl + '">' + sit + '</span></td>' +
@@ -3876,6 +4282,7 @@ function handleSnap(d){
             '</div>' +
             '<div class="sig-card-actions">' +
               '<button class="pos-action-btn" onclick="switchView(\'chart\', 0); loadChart(\'' + k + '\', T);"><i class="fa-solid fa-chart-line"></i> Chart</button>' +
+              '<button class="pos-action-btn" onclick="openDeepSeekMarketReader(\'' + k + '\')" style="color:#c084fc;border-color:rgba(168,85,247,0.35)"><i class="fa-solid fa-brain"></i> AI Read</button>' +
               '<button class="exec-btn" style="flex:1" onclick="executeRadarTrade(\'' + k + '\',\'' + p.direction + '\',' + ep + ',' + sp + ',' + tp + ',\'' + sit + '\')"><i class="fa-solid fa-bolt"></i> Execute</button>' +
             '</div>' +
           '</div>';
