@@ -46,6 +46,7 @@ _load_env()
 
 from backend_lib.bybit_client import get_client
 from backend_lib import auto_trade_state
+from backend_lib.championship_engine import ChampionshipDualRegimeEngine
 from backend_lib.trading_utils import round_qty, round_price, compute_order_sizing
 
 # Model B Agent Layer
@@ -79,6 +80,8 @@ MAX_CONCURRENT_POS   = 3     # Maximum simultaneous open positions
 os.makedirs(os.path.join(ROOT_DIR, "scratch"), exist_ok=True)
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
+LOG_STRATEGY_LABEL = "CME-X5"
+
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -88,7 +91,7 @@ if sys.platform == "win32":
 
 def log(msg, level="INFO"):
     ts  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    out = f"[CME-X5 {level} {ts}] {msg}"
+    out = f"[{LOG_STRATEGY_LABEL} {level} {ts}] {msg}"
     try:
         print(out, flush=True)
     except Exception:
@@ -364,11 +367,9 @@ class PositionManager:
         else:
             log(f"[24H EXECUTOR WARN] Bybit Client error: {self.client_err}", "WARN")
 
-        # Arm auto_trade_state so monitoring tools reflect active execution
-        try:
-            auto_trade_state.save(armed=True, strategy_mode="standard", championship_mode=False)
-        except Exception:
-            pass
+        # Do not overwrite the user's selected strategy mode here.
+        # The dashboard/API persists the authoritative mode in shared KV,
+        # and the engine reads it every cycle.
 
     def is_occupied(self, sym): return sym in self.positions
 
@@ -453,6 +454,14 @@ class PositionManager:
                     log(f"[24H EXECUTOR] ❌ Bybit Order Rejected: retCode={rc} retMsg={order_res.get('retMsg')}", "WARN")
             except Exception as e_ord:
                 log(f"[24H EXECUTOR ERR] Bybit place_order failed: {e_ord}", "ERROR")
+
+            # Never create a local "active trade" when a live broker order was
+            # rejected or its response was unavailable. This prevents phantom
+            # Railway positions/trade counts when Bybit declines the order.
+            if self.client and not bybit_order_id:
+                log(f"[24H EXECUTOR] Local registration aborted for {sym}; "
+                    f"no confirmed Bybit order id.", "WARN")
+                return
 
         cand = {"cand_id":cand_id,"symbol":sym,"direction":sig["direction"],
                 "situation":sig["situation"],"created_at":now_str,"updated_at":now_str,
@@ -640,9 +649,17 @@ class PositionManager:
 class CMEX5Engine:
     def __init__(self):
         db_init()
-        self.pm    = PositionManager()
         self.cycle = 0
         self.scanned_signals = {}
+        self.strategy_mode = "standard"
+        self.scan_metrics = {}
+        self.championship_engine = ChampionshipDualRegimeEngine()
+
+        # Resolve the persisted dashboard selection BEFORE constructing the
+        # executor so startup logs and runtime behavior agree immediately.
+        self._refresh_strategy_mode(force=True)
+
+        self.pm    = PositionManager()
 
         # Model B Agent Layer
         self.sr_agent  = SRAgent()
@@ -651,23 +668,132 @@ class CMEX5Engine:
         self.scorer    = ConfluenceScorer()
 
         log("=" * 70)
-        log("  CME-X5 MODEL B — FINAL AUTONOMOUS EXECUTION ENGINE")
-        log("  Agent Layer: S/R(40%) + POC(30%) + FVG(30%) = Confluence Scorer")
-        log("  Mode: 24/7 Cloud Daemon (Zero Browser Tab Dependency)")
+        log("  MASIS — UNIFIED AUTONOMOUS EXECUTION ENGINE")
+        log("  Active Strategy: " + ("CHAMPIONSHIP DUAL-REGIME" if self.strategy_mode == "championship" else "CME-X5 MODEL B PURE"))
+        log("  Strategy switching is runtime-controlled by dashboard state")
         log("  Execution: Direct Bybit Demo V5 Linear | 10x Leverage | Auto SL/TP")
         log("=" * 70)
+
+    def _refresh_strategy_mode(self, force=False):
+        """Read the shared dashboard strategy selection and apply it live."""
+        global LOG_STRATEGY_LABEL
+        try:
+            state = auto_trade_state.load() or {}
+        except Exception as e:
+            log(f"[MODE WARN] Could not read auto-trade state: {e}", "WARN")
+            state = {}
+
+        mode = str(state.get("strategyMode") or "").strip().lower()
+        if mode == "championship" or bool(state.get("championshipMode")):
+            mode = "championship"
+        else:
+            # The current UI uses 'standard' for CME-X5 Pure. Other legacy
+            # modes remain in the backend but are not selected by this switch.
+            mode = "standard"
+
+        if force or mode != self.strategy_mode:
+            previous = self.strategy_mode
+            self.strategy_mode = mode
+            LOG_STRATEGY_LABEL = "CHAMPIONSHIP" if mode == "championship" else "CME-X5"
+            if force:
+                log(f"[MODE] Active strategy at startup: {mode.upper()}")
+            else:
+                log(f"[MODE] Strategy switched: {previous.upper()} -> {mode.upper()}")
+
+        return state
+
+    def _scan_championship(self, sym, ts, btc_bars):
+        """Scan one symbol using the dedicated Championship Dual-Regime engine."""
+        k15 = btc_bars if sym == "BTCUSDT" else fetch_klines(sym, "15", 250)
+        if len(k15) < 200 or len(btc_bars) < 200:
+            self.scan_metrics["data_reject"] += 1
+            return
+
+        self.scan_metrics["data_ok"] += 1
+        candidate = self.championship_engine.scan_candidate(sym, k15, btc_bars)
+
+        if not candidate:
+            self.scan_metrics["no_signal"] += 1
+            return
+
+        self.scan_metrics["signals"] += 1
+        entry = float(candidate["entry_price"])
+        stop = float(candidate["stop_loss"])
+        tp1 = float(candidate["tp1"])
+        tp2 = float(candidate["tp2"])
+        risk_pct = abs(entry - stop) / entry
+
+        sig = {
+            "situation": candidate["archetype"],
+            "direction": candidate["direction"],
+            "entry_p": entry,
+            "stop_p": stop,
+            "target_p": tp2,
+            "tp1_p": tp1,
+            "tp2_p": tp2,
+            "risk_pct": risk_pct,
+            "poc": None,
+            "val": None,
+            "vah": None,
+            "me14": None,
+            "ema21_15m": None,
+            "ema50_15m": None,
+            "strategy_mode": "championship",
+            "championship_regime": candidate.get("regime"),
+            "championship_archetype": candidate.get("archetype"),
+            "championship_candidate": candidate,
+        }
+
+        log(f"[SIGNAL] 🏆 {sym} {candidate.get('regime')} {candidate['direction']} | "
+            f"{candidate['archetype']} | Entry={entry:.6f} "
+            f"SL={stop:.6f} TP1={tp1:.6f} TP2={tp2:.6f} "
+            f"Risk={risk_pct*100:.2f}% RVOL={candidate.get('rvol','-')} RSI={candidate.get('rsi','-')}")
+
+        self.scanned_signals[sym] = {
+            "symbol": sym,
+            "direction": candidate["direction"],
+            "situation": candidate["archetype"],
+            "entry_p": entry,
+            "stop_p": stop,
+            "target_p": tp2,
+            "tp1_p": tp1,
+            "tp2_p": tp2,
+            "agent_score": None,
+            "agent_decision": "CHAMPIONSHIP_PASS",
+            "strategy_mode": "championship",
+            "regime": candidate.get("regime"),
+            "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+        }
+
+        if not self.pm.is_occupied(sym):
+            self.pm.open(sym, sig, ts)
 
     def _scan(self, sym, ts):
         k15  = fetch_klines(sym, "15", 100)
         book = fetch_book(sym)
-        if len(k15) < VP_LOOKBACK+10 or not book: return
-        if book["spread_bps"] > MAX_SPREAD_BPS: return
+        if len(k15) < VP_LOOKBACK+10 or not book:
+            self.scan_metrics["data_reject"] += 1
+            return
+        self.scan_metrics["data_ok"] += 1
+
+        if book["spread_bps"] > MAX_SPREAD_BPS:
+            self.scan_metrics["spread_reject"] += 1
+            return
 
         # FINAL MODEL B: only the audited S2 + gated S7 setups may create orders.
         # AMD/FVG remains research-only and cannot silently become a live order source.
-        sig = detect_s2(sym, k15, book) or detect_s7(sym, k15, book)
+        s2_sig = detect_s2(sym, k15, book)
+        s7_sig = detect_s7(sym, k15, book)
+        sig = s2_sig or s7_sig
         if not sig:
+            self.scan_metrics["no_signal"] += 1
             return
+
+        self.scan_metrics["signals"] += 1
+        detector_name = "S2_POC_RECLAIM" if s2_sig else "S7_GATED_CONTINUATION"
+        log(f"[SIGNAL] {sym} {detector_name} {sig['direction']} | "
+            f"Entry={sig['entry_p']:.6f} SL={sig['stop_p']:.6f} "
+            f"TP={sig['target_p']:.6f} Risk={sig['risk_pct']*100:.2f}%")
 
         # ─── Model B: Agent Layer Pre-Validation ─────────────────────────
         try:
@@ -708,6 +834,7 @@ class CMEX5Engine:
             log(f"[AGENT REPORT]\n{verdict['report']}")
 
         if verdict["decision"] == "REJECT":
+            self.scan_metrics["agent_reject"] += 1
             log(f"[AGENT] REJECTED {sym} -- agents blocked trade (score={verdict['final_score']:.3f})")
             return
 
@@ -747,9 +874,24 @@ class CMEX5Engine:
         self.cycle += 1
         ts  = datetime.now(timezone.utc).strftime("%H%M%S")
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+        # Runtime mode is shared across browser/server/daemon processes.
+        self._refresh_strategy_mode()
+
+        self.scan_metrics = {
+            "symbols": len(SYMBOLS),
+            "data_ok": 0,
+            "data_reject": 0,
+            "spread_reject": 0,
+            "no_signal": 0,
+            "signals": 0,
+            "agent_reject": 0,
+        }
+
         if self.cycle % 6 == 1:
-            log(f"Cycle #{self.cycle} | Open:{len(self.pm.positions)} "
-                f"| Trades:{self.pm.trade_count} | DailyR:{self.pm.daily_r:+.3f}")
+            log(f"Cycle #{self.cycle} | Mode:{self.strategy_mode.upper()} "
+                f"| Open:{len(self.pm.positions)} | Trades:{self.pm.trade_count} "
+                f"| DailyR:{self.pm.daily_r:+.3f}")
 
         # Update open positions
         for sym in list(self.pm.positions):
@@ -759,13 +901,34 @@ class CMEX5Engine:
             except Exception as e:
                 log(f"[UPD ERR] {sym}: {e}", "WARN")
 
-        # FINAL MODEL B: always scan the Model B universe.
-        # A dashboard strategy-mode flag must not disable scanning/execution.
-        for sym in SYMBOLS:
-            try:
-                self._scan(sym, ts)
-            except Exception as e:
-                log(f"[SCAN ERR] {sym}: {e}", "WARN")
+        if self.strategy_mode == "championship":
+            # Championship uses BTC 15m as the global macro regime anchor.
+            btc_bars = fetch_klines("BTCUSDT", "15", 250)
+            if len(btc_bars) < 200:
+                self.scan_metrics["data_reject"] += len(SYMBOLS)
+                log("[CHAMPIONSHIP] BTC 15m regime anchor unavailable; skipping cycle.", "WARN")
+            else:
+                for sym in SYMBOLS:
+                    try:
+                        self._scan_championship(sym, ts, btc_bars)
+                    except Exception as e:
+                        log(f"[CHAMPIONSHIP SCAN ERR] {sym}: {e}", "WARN")
+        else:
+            # CME-X5 Pure: scan S2 + S7 through the Model B agent layer.
+            for sym in SYMBOLS:
+                try:
+                    self._scan(sym, ts)
+                except Exception as e:
+                    log(f"[SCAN ERR] {sym}: {e}", "WARN")
+
+        if self.cycle % 6 == 1:
+            log(f"[SCAN SUMMARY] Mode={self.strategy_mode.upper()} "
+                f"Symbols={self.scan_metrics['symbols']} "
+                f"DataOK={self.scan_metrics['data_ok']} "
+                f"SpreadReject={self.scan_metrics['spread_reject']} "
+                f"NoSignal={self.scan_metrics['no_signal']} "
+                f"Signals={self.scan_metrics['signals']} "
+                f"AgentReject={self.scan_metrics['agent_reject']}")
 
         # Merge active positions + scanned setups for Radar display
         radar_display = dict(self.pm.snapshot())
@@ -777,9 +940,10 @@ class CMEX5Engine:
         try:
             with open(SNAPSHOT_PATH, "w", encoding="utf-8") as f:
                 json.dump({
-                    "engine":"CME-X5 Model B",
+                    "engine":"Championship Dual-Regime" if self.strategy_mode == "championship" else "CME-X5 Model B",
+                    "strategy_mode": self.strategy_mode,
                     "status":"ACTIVE_24H_EXECUTOR",
-                    "version":"B.1.0",
+                    "version":"B.2.0",
                     "updated_at":now,
                     "cycle":self.cycle,
                     "trade_count":self.pm.trade_count,
