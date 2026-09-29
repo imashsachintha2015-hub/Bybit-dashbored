@@ -2843,7 +2843,8 @@ window.toggleChampionshipMode = function(){
 };
 
 // Mode Switcher: Championship Dual-Regime vs CME-X5 Pure
-window.currentStrategyMode = localStorage.getItem('cme_strat_mode') || 'championship';
+// Backend/Supabase state is authoritative across devices; localStorage is only a first-paint fallback.
+window.currentStrategyMode = localStorage.getItem('cme_strat_mode') || 'standard';
 
 window.toggleDashboardStrategyMode = function(){
   var newMode = window.currentStrategyMode === 'championship' ? 'pure' : 'championship';
@@ -2851,6 +2852,7 @@ window.toggleDashboardStrategyMode = function(){
 };
 
 window.setDashboardStrategyMode = function(mode){
+  mode = mode === 'championship' ? 'championship' : 'standard';
   window.currentStrategyMode = mode;
   localStorage.setItem('cme_strat_mode', mode);
 
@@ -3985,7 +3987,11 @@ function handleChamp(d, s){
   }
   if(s){
     var isChamp = (s.strategyMode === 'championship') || Boolean(s.championshipMode);
-    if(isChamp !== championshipModeActive){
+    var backendMode = isChamp ? 'championship' : 'standard';
+    var currentMode = window.currentStrategyMode === 'championship' ? 'championship' : 'standard';
+    if(backendMode !== currentMode){
+      window.currentStrategyMode = backendMode;
+      localStorage.setItem('cme_strat_mode', backendMode);
       championshipModeActive = isChamp;
       updateChampionshipUI();
     }
@@ -4315,6 +4321,16 @@ function refresh(){
 
 if(window.updateIndicatorButtonsUI) window.updateIndicatorButtonsUI();
 if(window.updateChampionshipUI) window.updateChampionshipUI();
+
+// Reconcile visible mode with shared Railway/Supabase state.
+api('/api/auto-trade/state', function(state){
+  var backendMode = (state && (state.strategyMode === 'championship' || state.championshipMode))
+    ? 'championship' : 'standard';
+  window.currentStrategyMode = backendMode;
+  localStorage.setItem('cme_strat_mode', backendMode);
+  championshipModeActive = backendMode === 'championship';
+  if(window.updateChampionshipUI) window.updateChampionshipUI();
+});
 
 refresh();
 setInterval(refresh, 15000);
