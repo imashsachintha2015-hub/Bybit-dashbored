@@ -83,7 +83,12 @@ def kv_get_json(key, default):
     now = time.time()
 
     # 1. In-memory cache hit (0ms, 0 bytes egress)
-    if key in _memory_store and (now - _memory_ts.get(key, 0) < CACHE_TTL):
+    # Strategy/mode state is interactive and must cross processes quickly:
+    # the browser writes it through the web server while the Railway daemon
+    # reads it from its own Python process. Keep this one key on a short TTL
+    # instead of the generic 30s configuration cache.
+    cache_ttl = 3 if key == "auto_trade_state" else CACHE_TTL
+    if key in _memory_store and (now - _memory_ts.get(key, 0) < cache_ttl):
         return _memory_store[key]
 
     # 2. Excluded heavy keys: read local scratch file (0 egress)
