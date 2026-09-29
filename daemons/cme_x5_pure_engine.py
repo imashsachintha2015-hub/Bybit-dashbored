@@ -373,16 +373,9 @@ class PositionManager:
     def is_occupied(self, sym): return sym in self.positions
 
     def open(self, sym, sig, now_ts):
-        # 0. Strategy Mode Guard -- Yield to Championship Mode if active
-        try:
-            state = auto_trade_state.load()
-            strat_mode = state.get("strategyMode", "standard")
-            if (strat_mode == "championship") or state.get("championshipMode", False):
-                log(f"[24H EXECUTOR] Championship Mode active. Skipping standard CME-X5 order for {sym}.")
-                return
-        except Exception:
-            pass
-
+        # 0. CME-X5 Model B is the sole production execution authority.
+        # Strategy/UI modes must never silently disable the production executor.
+        # Championship research is no longer an execution handoff.
         # 1. Concurrency & duplicate guards
         if len(self.positions) >= MAX_CONCURRENT_POS:
             log(f"[24H EXECUTOR] Max concurrent positions ({MAX_CONCURRENT_POS}) reached. Skipping {sym}.")
@@ -670,8 +663,9 @@ class CMEX5Engine:
         if len(k15) < VP_LOOKBACK+10 or not book: return
         if book["spread_bps"] > MAX_SPREAD_BPS: return
 
-        # Signal detection priority: S2 POC Reclaim -> AMD FVG -> S7 Gated Continuation
-        sig = detect_s2(sym, k15, book) or detect_amd_fvg(sym, k15, book) or detect_s7(sym, k15, book)
+        # FINAL MODEL B: only the audited S2 + gated S7 setups may create orders.
+        # AMD/FVG remains research-only and cannot silently become a live order source.
+        sig = detect_s2(sym, k15, book) or detect_s7(sym, k15, book)
         if not sig:
             return
 
@@ -765,19 +759,13 @@ class CMEX5Engine:
             except Exception as e:
                 log(f"[UPD ERR] {sym}: {e}", "WARN")
 
-        # Check active strategy mode from auto_trade_state
-        state = auto_trade_state.load()
-        strat_mode = state.get("strategyMode", "standard")
-        is_champ = (strat_mode == "championship") or state.get("championshipMode", False)
-
-        if not is_champ:
-            # Scan all 15 symbols for institutional setups
-            for sym in SYMBOLS:
-                try: self._scan(sym, ts)
-                except Exception as e: log(f"[SCAN ERR] {sym}: {e}", "WARN")
-        else:
-            if self.cycle % 6 == 1:
-                log("[CME-X5] Yielding scans to Championship Dual-Regime Engine (Mode: CHAMPIONSHIP active)")
+        # FINAL MODEL B: always scan the Model B universe.
+        # A dashboard strategy-mode flag must not disable scanning/execution.
+        for sym in SYMBOLS:
+            try:
+                self._scan(sym, ts)
+            except Exception as e:
+                log(f"[SCAN ERR] {sym}: {e}", "WARN")
 
         # Merge active positions + scanned setups for Radar display
         radar_display = dict(self.pm.snapshot())
