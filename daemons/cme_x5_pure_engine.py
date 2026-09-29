@@ -366,7 +366,7 @@ class PositionManager:
 
         # Arm auto_trade_state so monitoring tools reflect active execution
         try:
-            auto_trade_state.save(armed=True)
+            auto_trade_state.save(armed=True, strategy_mode="standard", championship_mode=False)
         except Exception:
             pass
 
