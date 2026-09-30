@@ -1,0 +1,150 @@
+agent decisions: {'PASS': 39, 'ADJUST': 3, 'REJECT': 4229}
+
+=== MODEL B, no agent filter  (raw signals 4271)
+ entry=close    tie=STOP-first real: n=1663 win= 33.2% avgR=-0.166 PF=0.63 CI95=[-0.211,-0.123]
+     booked(executor labels): n=1663 win= 35.7% avgR=-0.169 PF=0.64 CI95=[-0.215,-0.125]
+     exits: {'TP': 314, 'STOP': 617, 'BE': 454, 'TRAIL': 220, 'TIMEOUT': 58}
+     S2                                       n=1633 avgR=-0.165 win=33%
+     S7                                       n= 30 avgR=-0.231 win=33%
+ entry=close    tie=TP-first   real: n=1663 win= 33.3% avgR=-0.163 PF=0.64 CI95=[-0.209,-0.119]
+ entry=nextopen tie=STOP-first real: n=1664 win= 33.0% avgR=-0.167 PF=0.64 CI95=[-0.215,-0.121]
+ nextopen+unlimited positions: n=2940 win= 32.7% avgR=-0.164 PF=0.63 CI95=[-0.208,-0.122]
+ friction 8bps (nextopen): n=1664 win= 57.9% avgR=-0.100 PF=0.76 CI95=[-0.148,-0.055]
+ friction 20bps (nextopen): n=1664 win= 32.6% avgR=-0.233 PF=0.54 CI95=[-0.282,-0.187]
+ friction 30bps (nextopen): n=1664 win= 31.1% avgR=-0.344 PF=0.40 CI95=[-0.393,-0.295]
+ MIRROR control (flip dir, same geometry, nextopen): n=1636 win= 35.5% avgR=-0.130 PF=0.70 CI95=[-0.173,-0.084]
+ MIRROR control (close entry): n=1639 win= 35.4% avgR=-0.129 PF=0.70 CI95=[-0.169,-0.085]
+ first half : n= 832 win= 34.3% avgR=-0.134 PF=0.69 CI95=[-0.206,-0.064]
+ second half: n= 832 win= 31.7% avgR=-0.199 PF=0.58 CI95=[-0.263,-0.131]
+
+=== MODEL B, agents applied (REJECT dropped, TP adj applied)  (raw signals 42)
+ entry=close    tie=STOP-first real: n=  41 win= 31.7% avgR=-0.253 PF=0.52 CI95=[-0.556,+0.054]
+     booked(executor labels): n=  41 win= 31.7% avgR=-0.244 PF=0.55 CI95=[-0.551,+0.078]
+     exits: {'TP': 11, 'BE': 8, 'STOP': 17, 'TIMEOUT': 3, 'TRAIL': 2}
+     S2                                       n= 35 avgR=-0.280 win=31%
+     S7                                       n=  6 avgR=-0.095 win=33%
+ entry=close    tie=TP-first   real: n=  41 win= 34.1% avgR=-0.239 PF=0.54 CI95=[-0.539,+0.072]
+ entry=nextopen tie=STOP-first real: n=  41 win= 34.1% avgR=-0.219 PF=0.56 CI95=[-0.522,+0.089]
+ nextopen+unlimited positions: n=  41 win= 34.1% avgR=-0.219 PF=0.56 CI95=[-0.522,+0.089]
+ friction 8bps (nextopen): n=  41 win= 48.8% avgR=-0.138 PF=0.69 CI95=[-0.439,+0.177]
+ friction 20bps (nextopen): n=  41 win= 31.7% avgR=-0.300 PF=0.45 CI95=[-0.600,+0.008]
+ friction 30bps (nextopen): n=  41 win= 29.3% avgR=-0.435 PF=0.32 CI95=[-0.732,-0.126]
+ MIRROR control (flip dir, same geometry, nextopen): n=  41 win= 41.5% avgR=-0.003 PF=0.99 CI95=[-0.276,+0.266]
+ MIRROR control (close entry): n=  41 win= 41.5% avgR=+0.003 PF=1.01 CI95=[-0.271,+0.270]
+ first half : n=  20 win= 25.0% avgR=-0.409 PF=0.35 CI95=[-0.766,+0.020]
+ second half: n=  21 win= 42.9% avgR=-0.039 PF=0.90 CI95=[-0.457,+0.326]
+
+===   S2 only (no agents)  (raw signals 4197)
+ entry=close    tie=STOP-first real: n=1640 win= 33.1% avgR=-0.164 PF=0.64 CI95=[-0.209,-0.118]
+     booked(executor labels): n=1640 win= 35.6% avgR=-0.167 PF=0.64 CI95=[-0.213,-0.120]
+     exits: {'TP': 316, 'STOP': 609, 'BE': 449, 'TRAIL': 208, 'TIMEOUT': 58}
+     S2                                       n=1640 avgR=-0.164 win=33%
+ entry=close    tie=TP-first   real: n=1640 win= 33.2% avgR=-0.161 PF=0.65 CI95=[-0.206,-0.115]
+ entry=nextopen tie=STOP-first real: n=1640 win= 32.8% avgR=-0.167 PF=0.64 CI95=[-0.215,-0.121]
+ nextopen+unlimited positions: n=2887 win= 32.6% avgR=-0.166 PF=0.63 CI95=[-0.210,-0.124]
+ friction 8bps (nextopen): n=1640 win= 57.6% avgR=-0.101 PF=0.76 CI95=[-0.147,-0.054]
+ friction 20bps (nextopen): n=1640 win= 32.4% avgR=-0.234 PF=0.54 CI95=[-0.282,-0.186]
+ friction 30bps (nextopen): n=1640 win= 31.0% avgR=-0.345 PF=0.41 CI95=[-0.395,-0.295]
+ MIRROR control (flip dir, same geometry, nextopen): n=1619 win= 35.4% avgR=-0.129 PF=0.71 CI95=[-0.173,-0.084]
+ MIRROR control (close entry): n=1622 win= 35.4% avgR=-0.127 PF=0.71 CI95=[-0.169,-0.082]
+ first half : n= 820 win= 33.8% avgR=-0.138 PF=0.69 CI95=[-0.210,-0.070]
+ second half: n= 820 win= 31.8% avgR=-0.197 PF=0.59 CI95=[-0.262,-0.126]
+
+===   S7 only (no agents)  (raw signals 74)
+ entry=close    tie=STOP-first real: n=  68 win= 39.7% avgR=-0.013 PF=0.96 CI95=[-0.218,+0.212]
+     booked(executor labels): n=  68 win= 44.1% avgR=+0.014 PF=1.05 CI95=[-0.199,+0.234]
+     exits: {'TRAIL': 20, 'BE': 23, 'STOP': 17, 'TP': 7, 'TIMEOUT': 1}
+     S7                                       n= 68 avgR=-0.013 win=40%
+ entry=close    tie=TP-first   real: n=  68 win= 39.7% avgR=-0.013 PF=0.96 CI95=[-0.218,+0.212]
+ entry=nextopen tie=STOP-first real: n=  68 win= 39.7% avgR=-0.033 PF=0.90 CI95=[-0.252,+0.203]
+ nextopen+unlimited positions: n=  70 win= 40.0% avgR=-0.033 PF=0.90 CI95=[-0.250,+0.202]
+ friction 8bps (nextopen): n=  68 win= 64.7% avgR=+0.012 PF=1.04 CI95=[-0.207,+0.250]
+ friction 20bps (nextopen): n=  68 win= 39.7% avgR=-0.079 PF=0.78 CI95=[-0.297,+0.158]
+ friction 30bps (nextopen): n=  68 win= 38.2% avgR=-0.154 PF=0.62 CI95=[-0.374,+0.086]
+ MIRROR control (flip dir, same geometry, nextopen): n=  68 win= 39.7% avgR=-0.053 PF=0.85 CI95=[-0.326,+0.202]
+ MIRROR control (close entry): n=  68 win= 39.7% avgR=-0.042 PF=0.88 CI95=[-0.306,+0.212]
+ first half : n=  34 win= 41.2% avgR=+0.043 PF=1.16 CI95=[-0.288,+0.427]
+ second half: n=  34 win= 38.2% avgR=-0.109 PF=0.72 CI95=[-0.383,+0.159]
+
+===   agent-REJECTED signals only  (raw signals 4229)
+ entry=close    tie=STOP-first real: n=1655 win= 33.3% avgR=-0.162 PF=0.64 CI95=[-0.209,-0.117]
+     booked(executor labels): n=1655 win= 35.7% avgR=-0.165 PF=0.64 CI95=[-0.212,-0.120]
+     exits: {'TP': 314, 'STOP': 611, 'BE': 454, 'TRAIL': 219, 'TIMEOUT': 57}
+     S2                                       n=1626 avgR=-0.161 win=33%
+     S7                                       n= 29 avgR=-0.254 win=31%
+ entry=close    tie=TP-first   real: n=1655 win= 33.4% avgR=-0.159 PF=0.65 CI95=[-0.205,-0.114]
+ entry=nextopen tie=STOP-first real: n=1656 win= 33.2% avgR=-0.161 PF=0.65 CI95=[-0.209,-0.114]
+ nextopen+unlimited positions: n=2919 win= 32.6% avgR=-0.163 PF=0.63 CI95=[-0.207,-0.121]
+ friction 8bps (nextopen): n=1656 win= 58.2% avgR=-0.094 PF=0.77 CI95=[-0.142,-0.048]
+ friction 20bps (nextopen): n=1656 win= 32.9% avgR=-0.227 PF=0.54 CI95=[-0.276,-0.180]
+ friction 30bps (nextopen): n=1656 win= 31.3% avgR=-0.338 PF=0.41 CI95=[-0.388,-0.289]
+ MIRROR control (flip dir, same geometry, nextopen): n=1627 win= 35.4% avgR=-0.134 PF=0.69 CI95=[-0.177,-0.087]
+ MIRROR control (close entry): n=1630 win= 35.4% avgR=-0.133 PF=0.69 CI95=[-0.175,-0.089]
+ first half : n= 828 win= 34.2% avgR=-0.135 PF=0.69 CI95=[-0.205,-0.065]
+ second half: n= 828 win= 32.1% avgR=-0.187 PF=0.60 CI95=[-0.250,-0.117]
+
+=== CHAMPIONSHIP (TP=2R as live, no partial)  (raw signals 465)
+ entry=close    tie=STOP-first real: n= 381 win= 35.2% avgR=-0.124 PF=0.75 CI95=[-0.265,+0.038]
+     booked(executor labels): n= 381 win= 35.7% avgR=-0.126 PF=0.75 CI95=[-0.266,+0.037]
+     exits: {'TP': 63, 'STOP': 149, 'BE': 94, 'TRAIL': 69, 'TIMEOUT': 6}
+     BEAR: 200 EMA + POC/PIC Exhaustion       n=  5 avgR=+0.067 win=60%
+     BEAR: 50 EMA Volume Climax               n=  8 avgR=+0.186 win=62%
+     BEAR: FVG 50% CE Rejection               n=  4 avgR=-0.047 win=50%
+     BEAR: Structural SFP Sweep               n= 73 avgR=-0.093 win=34%
+     BULL: 21 EMA Springboard + 38% Wick      n=291 avgR=-0.145 win=34%
+ entry=close    tie=TP-first   real: n= 381 win= 35.2% avgR=-0.120 PF=0.75 CI95=[-0.258,+0.042]
+ entry=nextopen tie=STOP-first real: n= 381 win= 36.0% avgR=-0.116 PF=0.76 CI95=[-0.252,+0.041]
+ nextopen+unlimited positions: n= 424 win= 37.3% avgR=-0.066 PF=0.86 CI95=[-0.209,+0.090]
+ friction 8bps (nextopen): n= 381 win= 57.2% avgR=-0.041 PF=0.91 CI95=[-0.176,+0.114]
+ friction 20bps (nextopen): n= 381 win= 35.7% avgR=-0.190 PF=0.64 CI95=[-0.328,-0.033]
+ friction 30bps (nextopen): n= 381 win= 33.6% avgR=-0.314 PF=0.49 CI95=[-0.453,-0.154]
+ MIRROR control (flip dir, same geometry, nextopen): n= 384 win= 29.7% avgR=-0.174 PF=0.64 CI95=[-0.314,-0.034]
+ MIRROR control (close entry): n= 385 win= 30.4% avgR=-0.174 PF=0.64 CI95=[-0.318,-0.034]
+ first half : n= 190 win= 28.4% avgR=-0.284 PF=0.51 CI95=[-0.446,-0.108]
+ second half: n= 191 win= 43.5% avgR=+0.052 PF=1.13 CI95=[-0.151,+0.242]
+
+=== CHAMPIONSHIP if exit at TP1 only  (raw signals 465)
+ entry=close    tie=STOP-first real: n= 388 win= 37.4% avgR=-0.140 PF=0.71 CI95=[-0.264,+0.003]
+     booked(executor labels): n= 388 win= 37.4% avgR=-0.146 PF=0.70 CI95=[-0.269,-0.002]
+     exits: {'TP': 132, 'STOP': 150, 'BE': 91, 'TRAIL': 12, 'TIMEOUT': 3}
+     BEAR: 200 EMA + POC/PIC Exhaustion       n=  5 avgR=+0.067 win=60%
+     BEAR: 50 EMA Volume Climax               n=  8 avgR=+0.589 win=88%
+     BEAR: FVG 50% CE Rejection               n=  4 avgR=-0.172 win=50%
+     BEAR: Structural SFP Sweep               n= 74 avgR=-0.150 win=42%
+     BULL: 21 EMA Springboard + 38% Wick      n=297 avgR=-0.160 win=34%
+ entry=close    tie=TP-first   real: n= 388 win= 37.9% avgR=-0.133 PF=0.72 CI95=[-0.257,+0.010]
+ entry=nextopen tie=STOP-first real: n= 389 win= 38.0% avgR=-0.128 PF=0.73 CI95=[-0.250,+0.014]
+ nextopen+unlimited positions: n= 426 win= 39.2% avgR=-0.095 PF=0.79 CI95=[-0.218,+0.041]
+ friction 8bps (nextopen): n= 389 win= 58.6% avgR=-0.054 PF=0.88 CI95=[-0.175,+0.087]
+ friction 20bps (nextopen): n= 389 win= 38.0% avgR=-0.203 PF=0.61 CI95=[-0.326,-0.059]
+ friction 30bps (nextopen): n= 389 win= 37.8% avgR=-0.327 PF=0.46 CI95=[-0.453,-0.183]
+ MIRROR control (flip dir, same geometry, nextopen): n= 387 win= 30.7% avgR=-0.201 PF=0.59 CI95=[-0.323,-0.086]
+ MIRROR control (close entry): n= 388 win= 31.4% avgR=-0.194 PF=0.60 CI95=[-0.319,-0.080]
+ first half : n= 194 win= 29.9% avgR=-0.301 PF=0.47 CI95=[-0.449,-0.122]
+ second half: n= 195 win= 46.2% avgR=+0.044 PF=1.12 CI95=[-0.126,+0.206]
+
+=== CHAMPIONSHIP BULL only  (raw signals 359)
+ entry=close    tie=STOP-first real: n= 291 win= 34.0% avgR=-0.145 PF=0.71 CI95=[-0.320,+0.046]
+     booked(executor labels): n= 291 win= 34.7% avgR=-0.148 PF=0.70 CI95=[-0.325,+0.049]
+     exits: {'BE': 75, 'TP': 46, 'STOP': 114, 'TRAIL': 54, 'TIMEOUT': 2}
+     BULL: 21 EMA Springboard + 38% Wick      n=291 avgR=-0.145 win=34%
+ entry=close    tie=TP-first   real: n= 291 win= 34.0% avgR=-0.140 PF=0.72 CI95=[-0.317,+0.050]
+ entry=nextopen tie=STOP-first real: n= 291 win= 34.7% avgR=-0.134 PF=0.72 CI95=[-0.304,+0.046]
+ nextopen+unlimited positions: n= 329 win= 36.2% avgR=-0.080 PF=0.82 CI95=[-0.253,+0.091]
+ friction 8bps (nextopen): n= 291 win= 57.0% avgR=-0.057 PF=0.87 CI95=[-0.223,+0.120]
+ friction 20bps (nextopen): n= 291 win= 34.4% avgR=-0.212 PF=0.61 CI95=[-0.382,-0.028]
+ friction 30bps (nextopen): n= 291 win= 32.0% avgR=-0.341 PF=0.46 CI95=[-0.515,-0.153]
+ MIRROR control (flip dir, same geometry, nextopen): n= 293 win= 30.0% avgR=-0.173 PF=0.65 CI95=[-0.343,+0.004]
+ MIRROR control (close entry): n= 294 win= 31.0% avgR=-0.173 PF=0.65 CI95=[-0.346,+0.009]
+ first half : n= 145 win= 26.2% avgR=-0.303 PF=0.47 CI95=[-0.499,-0.111]
+ second half: n= 146 win= 43.2% avgR=+0.033 PF=1.08 CI95=[-0.228,+0.272]
+
+=== CHAMPIONSHIP BEAR only  (raw signals 106)
+ entry=close    tie=STOP-first real: n=  90 win= 38.9% avgR=-0.057 PF=0.88 CI95=[-0.285,+0.175]
+     booked(executor labels): n=  90 win= 38.9% avgR=-0.053 PF=0.89 CI95=[-0.279,+0.175]
+     exits: {'TP': 17, 'STOP': 35, 'TRAIL': 15, 'BE': 19, 'TIMEOUT': 4}
+     BEAR: 200 EMA + POC/PIC Exhaustion       n=  5 avgR=+0.067 win=60%
+     BEAR: 50 EMA Volume Climax               n=  8 avgR=+0.186 win=62%
+     BEAR: FVG 50% CE Rejection               n=  4 avgR=-0.047 win=50%
+     BEAR: Structural SFP Sweep               n= 73 avgR=-0.093 win=34%
+ entry=close    tie=TP-first   real: n=  90 win= 38.9% avgR=-0.057 PF=0.88 CI95=[-0.285,+0.175]
