@@ -565,7 +565,24 @@ class PositionManager:
                         pnl = float(hit.get("closedPnl", 0))
                         is_w = pnl > 0
                         reason = "BROKER_TP" if is_w else "BROKER_SL"
-                        r_mult = 2.0 if is_w else -1.0
+                        # Real R from actual PnL / original dollar risk, not a
+                        # hardcoded +2.0/-1.0. A broker-side close can land at
+                        # the original stop, at a breakeven ratchet, at a
+                        # trailing stop, or via a partial harvest fill — those
+                        # are very different outcomes, and hardcoding here
+                        # logged a trade that had already been ratcheted to
+                        # breakeven as a full -1.000R loss (confirmed on
+                        # DOTUSDT 2026-09-30 12:16 UTC: +0.75R reached and
+                        # broker-side stop moved to breakeven at 12:13:05,
+                        # then recorded as R=-1.000 three minutes later on
+                        # this exact line). pos["cand"]["stop_p"] is the
+                        # ORIGINAL entry-time stop — it's set once when the
+                        # position opens and never mutated by the ratchet
+                        # logic below (only pos["stop_p"] is), so it's the
+                        # right denominator for "risk actually taken".
+                        orig_stop = pos.get("cand", {}).get("stop_p", pos["stop_p"])
+                        dollar_risk = abs(pos["entry_p"] - orig_stop) * pos.get("qty", 0)
+                        r_mult = (pnl / dollar_risk) if dollar_risk > 0 else (2.0 if is_w else -1.0)
                         self._close(sym, pos, cur_p, reason, r_mult, is_w)
                         return
             except Exception:
