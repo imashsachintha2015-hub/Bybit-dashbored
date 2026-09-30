@@ -40,9 +40,11 @@ def feats(d,btc_feat,rs_ret16):
     F["sweepdn"]=np.maximum(m24-l,0)/atr*(c>m24); F["sweepup"]=np.maximum(h-M24,0)/atr*(c<M24)
     rr=np.concatenate([[0],(c[1:]/c[:-1]-1)]); F["z1"]=rr/np.maximum(roll(np.abs(rr),96,np.mean),1e-9)
     hr=((t//3600000)%24); F["hsin"]=np.sin(2*np.pi*hr/24); F["hcos"]=np.cos(2*np.pi*hr/24); F["dow"]=((t//86400000)+3)%7
+    if os.environ.get("MATH","0")=="1":
+        import mathfeat; F.update(mathfeat.compute(d,atr,cl,F["vrel"]))
     for k,arr in btc_feat.items(): F[k]=arr
     F["rs16"]=F["ret16"]*atrp-rs_ret16  # coin 16-bar return minus universe median (in price fraction terms)
-    names=list(F); X=np.column_stack([F[k] for k in names]); return names,X,atr
+    names=list(F); X=np.column_stack([F[k] for k in names]); X[~np.isfinite(X)]=np.nan; return names,X,atr
 def labels(d,atr,side,fee):
     t,o,h,l,c,v=[d[:,i] for i in range(6)]; n=len(t); N=n-HORIZ-2
     idx=np.arange(N); entry=o[idx+1]; risk=np.maximum(STOP_ATR*atr[idx],MIN_STOP*entry)
@@ -79,5 +81,6 @@ def build(coins,fee):
         rs=np.array([med.get(int(x),np.nan) for x in ts])
         names,X,atr=feats(d,btc_feat,rs)
         lL,xL,rL=labels(d,atr,"L",fee); lS,xS,rS=labels(d,atr,"S",fee)
-        out[c]=dict(names=names,X=X,t=d[:,0],yL=lL,xL=xL,rL=rL,yS=lS,xS=xS,rS=rS)
+        cc=d[:,4]; fr=np.full(len(cc),np.nan); fr[:-16]=(cc[16:]-cc[:-16])/atr[:-16]
+        out[c]=dict(names=names,X=X,t=d[:,0],yL=lL,xL=xL,rL=rL,yS=lS,xS=xS,rS=rS,fr=fr)
     return out
