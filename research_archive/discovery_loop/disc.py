@@ -1,7 +1,7 @@
 import json, os, sys, math, random, pickle, time
 from collections import defaultdict
 from multiprocessing import Pool
-FEE_MKT=14e-4; FEE_LMT=8e-4; A_FEE=[FEE_LMT]; EXIT={}
+FEE_MKT=14e-4; FEE_LMT=8e-4; A_FEE=[FEE_LMT]; EXIT={}; FEAT={}; BTCX={}
 NS=(12,24,48,96)
 def ema(x,p):
     k=2/(p+1); r=[x[0]]
@@ -122,7 +122,14 @@ def scan(A,P):
                 tp=RH
             else: tp=ce+P["tp"]*risk
             r=sim_fill(A,filled,ce,sl,tp,P["tmax"],A_FEE[0])
-            if r is not None: out.append((A["t"][filled],A["sym"],r))
+            if r is not None:
+                out.append((A["t"][filled],A["sym"],r))
+                if fam=="AMD":
+                    tf_=A["t"][filled]; bx=BTCX.get(tf_-tf_%3600000,(0,0)); sg=1 if A["side"]=="L" else -1
+                    vv_=sum(A["v"][k]*abs(c[k]) for k in range(max(0,i-480),i))/max(1,min(480,i))
+                    FEAT[(A["sym"],tf_)]=dict(side=A["side"],rp=risk/abs(ce)*100,disc=(c[i-1]-o[i-1])/atr[i-1],dvol=vr[i-1],sweep=(RL-l[j])/atr[j],
+                        comp=(RH-RL)/atr[j],fvg=(zt-zb)/at,wait=filled-i,room=(RH-ce)/risk,drift=abs(c[i]/c[i-96]-1)*100,
+                        btc=sg*bx[0],btcatr=bx[1],atrp=at/abs(c[i])*100,hour=(tf_//3600000)%24,gap=i-j,prevol=vr[filled-1],liq=vv_,dow=(tf_//86400000+3)%7)
         elif fam=="VACUUM":
             RB=A["rmax"][N][i]
             if RB is None or c[i]<=RB or (c[i]-o[i])<P["D"]*at or vr[i]<P["v"]: continue
@@ -149,7 +156,10 @@ def init(folder,tf):
         p=f"{folder}/{s}_{tf}.json"
         rows=load(p)
         if len(rows)<600: continue
-        G[(s,"L")]=prep(rows,s); G[(s,"S")]=prep(load(p,True),s)
+        G[(s,"L")]=prep(rows,s); G[(s,"S")]=prep(load(p,True),s); G[(s,"L")]["side"]="L"; G[(s,"S")]["side"]="S"
+    if ("BTC","L") in G:
+        B=G[("BTC","L")]; n=B["n"]
+        for i in range(96,n): BTCX[B["t"][i]]=((B["c"][i]/B["c"][i-96]-1)*100,B["atr"][i]/B["c"][i]*100)
 def run_cfg(P):
     res=[]
     for (s,side),A in G.items(): res+=[(t,sy,r,side) for t,sy,r in scan(A,P)]
