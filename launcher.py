@@ -40,6 +40,8 @@ def main():
     # from shared auto_trade_state and can switch at runtime.
     daemon_cmds = [
         ("Unified Strategy Engine", [sys.executable, "daemons/cme_x5_pure_engine.py"]),
+        # Record-only research: AMD-FVG 1H forward test + order-flow recorder (no orders).
+        ("Forward Lab", [sys.executable, "daemons/forward_lab.py"]),
     ]
 
     procs = []

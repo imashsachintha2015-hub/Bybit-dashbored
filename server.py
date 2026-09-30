@@ -1211,6 +1211,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             })
             return
 
+        # Forward lab scoreboard (record-only AMD-FVG forward test + order-flow recorder)
+        if self.path.startswith("/api/forward-lab"):
+            try:
+                from backend_lib import forward_store
+                self._send_json(200, forward_store.report())
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
         # 0. API: Consolidated Dashboard Telemetry Bundle (Cuts network requests by 83%)
         if self.path.startswith("/api/dashboard/bundle"):
             bundle = get_dashboard_bundle()
