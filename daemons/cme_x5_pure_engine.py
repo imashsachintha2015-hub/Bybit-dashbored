@@ -56,7 +56,7 @@ from daemons.agents import SRAgent, POCPathfinderAgent, FVGImpactAgent, Confluen
 BASE_URL      = os.environ.get("BYBIT_BASE_URL", "https://api-demo.bybit.com")
 POLL_INTERVAL = 10
 LOG_FILE      = os.path.join(ROOT_DIR, "scratch", "cme_x5_engine.log")
-DB_PATH       = os.path.join(ROOT_DIR, "cme_x5_model_b.db")
+DB_PATH       = os.path.join(os.environ.get("DATA_DIR") or ("/data" if os.path.isdir("/data") else ROOT_DIR), "cme_x5_model_b.db")
 SNAPSHOT_PATH = os.path.join(ROOT_DIR, "scratch", "cme_x5_live.json")
 
 SYMBOLS = [
@@ -356,6 +356,14 @@ class PositionManager:
         self.daily_r     = 0.0
         self.trade_count = 0
         self.client, self.client_err = get_client()
+        # Record-only by default: every replay of Model B and Championship lost money after
+        # costs (research_archive/historical_replay), so the engine keeps scanning and paper-
+        # tracks every signal locally but places no exchange orders unless explicitly enabled.
+        self.record_only = os.environ.get("CME_X5_RECORD_ONLY", "1").strip().lower() not in ("0", "false", "no")
+        if self.record_only and self.client:
+            log("[24H EXECUTOR] RECORD-ONLY mode: signals are paper-tracked, no Bybit orders are placed "
+                "(set CME_X5_RECORD_ONLY=0 to re-enable demo execution)")
+            self.client = None
         if self.client:
             log(f"[24H EXECUTOR] Bybit Demo Client connected to {self.client.base_url}")
             try:
