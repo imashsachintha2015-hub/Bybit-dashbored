@@ -189,7 +189,7 @@ class BybitDemoClient:
         }
         return self.signed_request("POST", "/v5/position/switch-isolated", body=body)
 
-    def place_order(self, category, symbol, side, order_type, qty, price=None, tp=None, sl=None):
+    def place_order(self, category, symbol, side, order_type, qty, price=None, tp=None, sl=None, order_link_id=None):
         body = {
             "category": category,
             "symbol": symbol,
@@ -204,6 +204,10 @@ class BybitDemoClient:
             body["takeProfit"] = str(tp)
         if sl:
             body["stopLoss"] = str(sl)
+        if order_link_id:
+            # Client-side id (max 36 chars). Bybit rejects a second order with the same id,
+            # which makes a retry after a crash or timeout idempotent.
+            body["orderLinkId"] = str(order_link_id)
         return self.signed_request("POST", "/v5/order/create", body=body)
 
     def set_trading_stop(self, category, symbol, stop_loss=None, take_profit=None, position_idx=0):

@@ -1565,6 +1565,42 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
+        # 7b. API: strategy runner status / log (read-only)
+        if self.path.startswith("/api/runner/status") or self.path.startswith("/api/runner/log"):
+            data_dir = os.environ.get("RUNNER_DATA_DIR") or os.path.join(DIRECTORY, "scratch", "runner")
+            try:
+                if self.path.startswith("/api/runner/status"):
+                    p = os.path.join(data_dir, "runner_status.json")
+                    if not os.path.exists(p):
+                        self._send_json(200, {"running": False, "note": "no status file yet"})
+                        return
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    data["running"] = (time.time() * 1000 - data.get("loop_ts", 0)) < 180_000 if data.get("loop_ts") else False
+                    self._send_json(200, data)
+                    return
+                n = 100
+                if "n=" in self.path:
+                    try:
+                        n = max(1, min(500, int(self.path.split("n=")[1].split("&")[0])))
+                    except ValueError:
+                        pass
+                p = os.path.join(data_dir, "runner_log.jsonl")
+                rows = []
+                if os.path.exists(p):
+                    with open(p, "rb") as f:
+                        f.seek(0, os.SEEK_END)
+                        f.seek(max(0, f.tell() - 400_000))
+                        for line in f.read().decode("utf-8", "replace").splitlines()[-n:]:
+                            try:
+                                rows.append(json.loads(line))
+                            except Exception:
+                                pass
+                self._send_json(200, {"events": rows})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
         # 8. API: CME-X5 Engine live snapshot
         if self.path == "/api/cme_x5/snapshot":
             snapshot_file = os.path.join(DIRECTORY, "scratch", "cme_x5_live.json")
@@ -1665,6 +1701,25 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
 
     def _route_post(self, body):
+        # -1. API: strategy runner control.  Can only halt / pause / resume the runner's own strategies;
+        # set RUNNER_CONTROL_TOKEN to require a matching X-Runner-Token header.
+        if self.path == "/api/runner/control":
+            token = os.environ.get("RUNNER_CONTROL_TOKEN", "")
+            if token and self.headers.get("X-Runner-Token", "") != token:
+                self._send_json(403, {"ok": False, "error": "bad or missing X-Runner-Token"})
+                return
+            from daemons.runner import core as runner_core
+            out = {}
+            if "halt" in body:
+                out = runner_core.set_control(halt=bool(body["halt"]), note=str(body.get("note", ""))[:120])
+            if body.get("pause") in ("trend4h", "snapback"):
+                ctl = runner_core.get_control()
+                out = runner_core.set_control(pause={**(ctl.get("pause") or {}), body["pause"]: True})
+            if body.get("resume") in ("trend4h", "snapback", "all"):
+                out = runner_core.control_resume(body["resume"])
+            self._send_json(200, {"ok": True, "control": out or runner_core.get_control()})
+            return
+
         # 0. API: Configure Agent Target Mode
         if self.path == "/api/agent/target-mode":
             from backend_lib.market_knowledge import kb
