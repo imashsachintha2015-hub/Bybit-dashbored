@@ -27,6 +27,24 @@ TF_MS = {"1": 60_000, "3": 180_000, "5": 300_000, "15": 900_000, "30": 1_800_000
 DEPTHS = (0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618)
 ODDS = {"15": dict(base=63.0, cont=(62.8, 59.1, 53.8, 48.0, 39.2, 27.5, 16.5, 6.9), t618=37, t100=28),
         "60": dict(base=61.0, cont=(61.0, 57.2, 51.4, 45.3, 36.4, 25.1, 14.9, 6.2), t618=35, t100=26)}
+# Pullback ladder ('a more accurate Fibonacci'): pullback size does not scale with the push, it is set by volatility.
+# Per level below the top (in VU at the top's confirmation): % of continuing pullbacks that had ended before it, and
+# the chance the big trend still makes a new extreme if price reaches it (43 coins 2023-2026, same in research and
+# unseen coins and in all three periods). 8 VU is where the big trend flips by definition.
+LADDER = {"15": ((4.0, 27), (4.7, 51), (5.7, 74), (6.9, 90)), "60": ((4.0, 24), (4.7, 48), (5.7, 72), (6.9, 89))}
+# chance the trend continues once price reached a depth (rows: the LADDER levels in VU) for the size of the last push
+# (columns: <5, 5-8, 8-12, 12+ VU); 'base' = the pullback just confirmed. Depth in VU predicts far better than depth as
+# a share of the push (at 61.8% of the push the odds run from 83% for small pushes to 4% for big ones).
+ODDS_VU = {"15": dict(base=(83.2, 63.9, 57.5, 56.9), table=((77.8, 56.5, 50.1, 49.8), (69.5, 46.6, 40.4, 40.7), (53.1, 30.8, 26.9, 27.6), (29.1, 15.2, 13.4, 14.7))),
+           "60": dict(base=(81.4, 63.3, 55.2, 56.8), table=((76.4, 56.6, 48.7, 50.6), (67.4, 46.5, 39.3, 42.9), (50.0, 31.1, 25.9, 30.9), (26.6, 14.9, 11.9, 15.8)))}
+PUSH_START_CONT = {"15": 27.5, "60": 25.1}          # trend continues after the pullback passed 100% of the push
+# backtest average R per trade (compare_strategies.py): (interval, volume-confirmed) -> R
+EXP_R = {("15", True): 0.36, ("15", False): 0.04, ("60", True): 0.50, ("60", False): 0.17}
+RADAR_COINS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "LINKUSDT", "SEIUSDT", "AVAXUSDT", "DOGEUSDT", "BNBUSDT",
+               "ADAUSDT", "DOTUSDT", "LTCUSDT", "NEARUSDT", "APTUSDT", "SUIUSDT", "ARBUSDT", "OPUSDT", "INJUSDT", "FILUSDT",
+               "UNIUSDT", "1000PEPEUSDT", "AAVEUSDT", "ALGOUSDT", "ATOMUSDT", "BCHUSDT", "CRVUSDT", "ENAUSDT", "ETCUSDT",
+               "GALAUSDT", "HBARUSDT", "ICPUSDT", "IMXUSDT", "MANAUSDT", "RENDERUSDT", "RUNEUSDT", "SANDUSDT", "STXUSDT",
+               "TAOUSDT", "TIAUSDT", "TRXUSDT", "WLDUSDT", "XLMUSDT"]      # the runner's 42 coins
 NAN = float("nan")
 
 
@@ -230,13 +248,27 @@ def compute(candles, interval="15", prm=None):
         if zs.p[1] == zs.p[1] and zs.dir == -zt.dir:
             top, bot = zs.p[0], zs.p[1]; push = abs(top - bot)
             depth = abs(top - zs.ext) / push if push > 0 else NAN
-            cont = od["base"]
-            for dd, pc in zip(DEPTHS, od["cont"]):
-                if depth >= dd: cont = pc
             d = zt.dir
-            panel["pullback"] = dict(depth=depth, continue_pct=cont, base_pct=od["base"],
+            uc = vu[zs.piv[-1][3]] if zs.piv else u                 # VU when the top was confirmed (as in the research)
+            depth_vu = abs(top - zs.ext) / uc if uc > 0 else NAN; push_vu = push / uc if uc > 0 else NAN
+            ov = ODDS_VU.get(str(interval), ODDS_VU["15"])
+            col = 0 if push_vu < 5 else 1 if push_vu < 8 else 2 if push_vu < 12 else 3
+            cont = ov["base"][col]
+            for (lv, _), row in zip(LADDER.get(str(interval), LADDER["15"]), ov["table"]):
+                if depth_vu >= lv: cont = row[col]
+            panel["pullback"] = dict(depth=depth, depth_vu=depth_vu, push_vu=push_vu, continue_pct=cont, base_pct=ov["base"][col],
                                      t618=top + d * 0.618 * push, t618_pct=od["t618"],
                                      t100=top + d * push, t100_pct=od["t100"])
+            lad = LADDER.get(str(interval), LADDER["15"])
+            over = zt.ext - d * p["trend_k"] * u                  # the big trend flips on a close beyond this (today's VU)
+            before = lambda x: d * (x - over) > 0                    # a level only matters if it comes before the flip
+            ladder = [dict(vu=m, price=top - d * m * uc, ended_pct=e, cont_pct=row[col]) for (m, e), row in zip(lad, ov["table"])]
+            panel["pmap"] = dict(top=top, depth_vu=depth_vu, ladder=[x for x in ladder if before(x["price"])],
+                                 cut_levels=sum(1 for x in ladder if not before(x["price"])),
+                                 push_start=bot if before(bot) else None, push_start_cont=PUSH_START_CONT.get(str(interval), PUSH_START_CONT["15"]),
+                                 trend_over=over)
+        else:
+            panel["pmap"] = dict(trend_over=zt.ext - zt.dir * p["trend_k"] * u)   # push in progress: only the trend-over line
     for key, done in (("stats", out["trades"]), ("stats_v", out["trades_v"])):
         if done:
             Rs = [t["R"] for t in done]
@@ -303,3 +335,45 @@ def get(symbol, interval="15", bars=1000, ttl=30):
         if len(_cache) > 64:
             for k in sorted(_cache, key=lambda k: _cache[k][0])[:16]: _cache.pop(k, None)
     return res
+
+
+_radar = {}
+_radar_lock = threading.Lock()
+
+
+def radar(intervals=("15", "60"), coins=None, ttl=150):
+    """Every strong-break setup (waiting) and open SBGZ trade across the coins and intervals, for the dashboard radar.
+    Reuses get() (and its cache), so the chart shows the same numbers. One scan at a time; cached for ttl seconds."""
+    from concurrent.futures import ThreadPoolExecutor
+    coins = list(coins or RADAR_COINS); key = (tuple(intervals), tuple(coins))
+    with _radar_lock:
+        hit = _radar.get(key)
+        if hit and time.time() - hit[0] < ttl: return hit[1]
+        jobs = [(s, iv) for s in coins for iv in intervals]; rows = []; errors = []
+        with ThreadPoolExecutor(16) as ex:                      # the time is the Bybit downloads, not the maths
+            results = list(ex.map(lambda j: get(j[0], j[1], 1000), jobs))
+        for (sym, iv), r in zip(jobs, results):
+            if not r or not r.get("ok"):
+                errors.append(sym + " " + iv); continue
+            pn = r.get("panel") or {}; times = r.get("times") or []
+            price = r["candles"][-1]["close"]; vu_now = pn.get("vu") or 0
+            base = dict(symbol=sym, interval=iv, price=price, trend=pn.get("trend"), warnings=(pn.get("warnings") or {}).get("n", 0))
+            for z in r.get("setups") or []:
+                if not z.get("strong"): continue
+                sd = 1 if z["side"] == "LONG" else -1
+                dist = sd * (price - z["entry"])
+                rows.append(dict(base, kind="setup", side=z["side"], entry=z["entry"], zone_top=z["zone_top"], zone_bottom=z["zone_bottom"],
+                                 stop=z["stop"], target=z["target"], rr=abs(z["target"] - z["entry"]) / abs(z["entry"] - z["stop"]),
+                                 break_vu=z["break_vu"], bvol=z.get("bvol"), vol_ok=bool(z.get("vol_ok")),
+                                 dist_pct=dist / price * 100 if price else None, dist_vu=dist / vu_now if vu_now else None,
+                                 since=times[z["since_bar"]] if z.get("since_bar") is not None and z["since_bar"] < len(times) else None,
+                                 exp_r=EXP_R.get((iv, bool(z.get("vol_ok")))) ))
+            for t in r.get("open_trades") or []:
+                rows.append(dict(base, kind="open", side=t["side"], entry=t["entry"], stop=t["stop"], target=t["target"], rr=t["rr"],
+                                 break_vu=t["break_vu"], bvol=t.get("bvol"), vol_ok=bool(t.get("vol_ok")),
+                                 since=times[t["fill_bar"]] if t["fill_bar"] < len(times) else None,
+                                 exp_r=EXP_R.get((iv, bool(t.get("vol_ok")))) ))
+        res = _clean(dict(ok=True, generated=int(time.time()), scanned=len(jobs), rows=rows, errors=errors))
+        _radar[key] = (time.time(), res)
+        return res
+

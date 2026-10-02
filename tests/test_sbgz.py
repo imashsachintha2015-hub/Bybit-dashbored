@@ -100,6 +100,48 @@ def test_hand_built_long():
           f"volume-confirmed only with a {tv[-1]['bvol']:.1f}x break candle")
 
 
+def test_pullback_map_ladder():
+    seen = 0
+    for seed in range(12):
+        c = walk(3000, 100 + seed)
+        for cut in range(1200, 3000, 150):                     # the last bar lands in many different states
+            pn = sbgz.compute(c[:cut], "15")["panel"]; pm = pn.get("pmap")
+            if not pm or not pm.get("ladder"): continue
+            seen += 1
+            d = 1 if pn["trend"]["dir"] == "UP" else -1
+            prices = [lv["price"] for lv in pm["ladder"]]; odds = [lv["cont_pct"] for lv in pm["ladder"]]
+            assert all(d * (a - b) > 0 for a, b in zip(prices, prices[1:])), "ladder must step away from the top"
+            assert all(d * (pm["top"] - x) > 0 for x in prices), "ladder lies on the pullback side of the top"
+            assert all(d * (x - pm["trend_over"]) > 0 for x in prices), "no level beyond the line where the trend flips"
+            assert pm["push_start"] is None or d * (pm["push_start"] - pm["trend_over"]) > 0
+            assert all(a >= b for a, b in zip(odds, odds[1:])) and all(0 < x < 100 for x in odds), odds
+            pb = pn["pullback"]
+            assert 0 < pb["continue_pct"] < 100 and pb["depth_vu"] >= 0
+    assert seen > 5, "random walks should often end inside a pullback"
+    print(f"  pullback map ladder consistent in {seen} pullback states")
+
+
+def test_radar_rows_without_network():
+    real_get = sbgz.get
+    def fake_get(sym, interval="15", bars=1000, ttl=30):
+        c = walk(1600, sum(map(ord, sym + interval)))
+        r = sbgz.compute(c[:-1], interval)
+        r.update(ok=True, symbol=sym, interval=interval, candles=c, times=[x["start"] // 1000 for x in c[:-1]])
+        return sbgz._clean(r)
+    try:
+        sbgz.get = fake_get
+        res = sbgz.radar(("15", "60"), [f"C{k}USDT" for k in range(24)], ttl=0)
+    finally:
+        sbgz.get = real_get
+    assert res["ok"] and res["scanned"] == 48 and not res["errors"]
+    for r in res["rows"]:
+        assert r["kind"] in ("setup", "open") and r["side"] in ("LONG", "SHORT") and r["exp_r"] is not None
+        if r["kind"] == "setup":                              # the forming candle may already be through the entry
+            assert r["dist_pct"] is not None and r["dist_vu"] is not None and r["vol_ok"] in (True, False)
+    json.dumps(res, allow_nan=False)
+    print(f"  radar: {len(res['rows'])} rows from 48 fake charts, all well-formed")
+
+
 def test_parity_with_research_twin():
     scratch = os.path.join(ROOT, "scratch")
     if not os.path.exists(os.path.join(scratch, "binance_15m", "BTCUSDT.npz")):

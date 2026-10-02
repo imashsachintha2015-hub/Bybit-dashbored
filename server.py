@@ -1490,6 +1490,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {"retCode": 0, "symbol": symbol, "interval": interval, "list": candles})
             return
 
+        # 6a-0. API: SBGZ radar - every strong-break setup / open SBGZ trade across the runner's 42 coins (15m + 1h)
+        if self.path.startswith("/api/sbgz/radar"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            ivs = [x for x in (q.get("tf") or ["15,60"])[0].split(",") if x in ("15", "60", "240")] or ["15", "60"]
+            coins = [re.sub(r"[^A-Z0-9]", "", x.upper()) for x in (q.get("coins") or [""])[0].split(",") if x.strip()][:60] or None
+            try:
+                from backend_lib import sbgz as _sbgz
+                self._send_json(200, _sbgz.radar(tuple(ivs), coins))
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"sbgz radar failed: {e}"})
+            return
+
         # 6a-1. API: Strong-Break Golden Zone indicator + trend map for the Fast Canvas chart (backend_lib/sbgz.py)
         if self.path.startswith("/api/sbgz"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)

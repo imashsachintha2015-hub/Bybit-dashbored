@@ -871,7 +871,16 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-panel .sbgz-r span:first-child{color:#64748b;flex:0 0 92px}
 .sbgz-panel .sbgz-up{color:#10b981}.sbgz-panel .sbgz-dn{color:#ef4444}.sbgz-panel .sbgz-warn{color:#f59e0b}.sbgz-panel .sbgz-mut{color:#64748b}
 .sbgz-panel .sbgz-f{margin-top:4px;color:#64748b;font-size:9.5px}
-.sbgz-panel .sbgz-mode{cursor:pointer}.sbgz-panel .sbgz-link{color:#7dd3fc;text-decoration:underline dotted}
+.sbgz-panel .sbgz-mode,.sbgz-panel .sbgz-pmapt{cursor:pointer}.sbgz-panel .sbgz-link{color:#7dd3fc;text-decoration:underline dotted}
+/* SBGZ radar card (Radar & Signals view) */
+.sbgz-radar-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--b1);font-size:11px;color:var(--td)}
+.sbgz-radar-bar b{color:#e2e8f0}
+.sbgz-radar-bar .sbgz-rbtn{background:rgba(20,184,166,.12);border:1px solid rgba(20,184,166,.35);color:#5eead4;border-radius:4px;padding:3px 8px;font-size:10.5px;cursor:pointer;font-family:var(--mo)}
+.sbgz-rrow{cursor:pointer}.sbgz-rrow:hover td{background:rgba(255,255,255,.03)}
+.sbgz-rrow td{white-space:nowrap;font-family:var(--mo);font-size:11px}
+.sbgz-rrow .up{color:#10b981}.sbgz-rrow .dn{color:#ef4444}.sbgz-rrow .mut{color:#64748b}.sbgz-rrow .ok{color:#14b8a6;font-weight:700}
+.sbgz-rrow .open{background:rgba(56,189,248,.15);color:#7dd3fc;border-radius:3px;padding:0 4px;font-size:9.5px}
+.sbgz-radar-foot{padding:6px 12px 9px;font-size:10px;color:#64748b}
 .sbgz-panel.min .sbgz-r,.sbgz-panel.min .sbgz-f{display:none}
 @media (max-width:640px){.sbgz-panel{font-size:9.5px;max-width:70%}.sbgz-panel .sbgz-r span:first-child{flex-basis:72px}}
 .bsi-btn.fit-btn{margin-left:auto;background:transparent;border:1px dashed #333d4b;color:#a0aec0}
@@ -2415,6 +2424,27 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 
       <!-- View 3: Radar & Signals -->
       <section class="app-view" id="view-signals">
+        <!-- SBGZ Radar: every strong-break golden-zone setup across the runner's 42 coins, 15m + 1h (/api/sbgz/radar) -->
+        <div class="card" id="sbgzRadarCard" style="margin-bottom:12px">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-crosshairs" style="color:#14b8a6"></i> SBGZ Radar · strong-break golden zone</span>
+              <span class="cbadge fm" id="sbgzRadarBadge" style="background:rgba(20,184,166,.15);color:#5eead4;border:1px solid rgba(20,184,166,.35)">42 coins · 15m + 1h</span>
+            </div>
+          </div>
+          <div class="sbgz-radar-bar">
+            <span id="sbgzRadarInfo">Scanning…</span>
+            <button class="sbgz-rbtn" id="sbgzRadarModeBtn" onclick="sbgzRadarToggleMode()">volume-confirmed only</button>
+            <button class="sbgz-rbtn" onclick="sbgzRadarLoad(true)"><i class="fa-solid fa-rotate"></i> Refresh</button>
+          </div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>Status</th><th>Entry zone</th><th>Stop</th><th>Target</th><th>R:R</th><th>Break</th><th>Volume</th><th>Trend</th><th>Backtest</th></tr></thead>
+              <tbody id="sbgzRadarTb"><tr><td colspan="12" class="emp">Scanning 42 coins on 15m and 1h…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="sbgz-radar-foot">Limit orders at the 0.5 entry, stop-market at the stop. Backtest = average R per trade 2023-26 (43 coins, after fees): volume-confirmed 15m +0.36R, 1h +0.50R; unconfirmed about 0 to +0.2R. Tap a row to open its chart. Paper-test before real money.</div>
+        </div>
         <div class="card bgo" id="a3">
           <div class="cardh">
             <div class="cardt-group">
@@ -4230,6 +4260,8 @@ window.sbgzLoad = function(cs, tf, refresh){
 
 // 'volume-confirmed only' mode: break candle volume >= 2x its average (research: +0.33R vs ~0R for the rest, 15m)
 function sbgzVonly(){ try{ return localStorage.getItem('sbgz_vonly') === '1'; }catch(e){ return false; } }
+// pullback map lines on the chart (default on)
+function sbgzPmapOn(){ try{ return localStorage.getItem('sbgz_pmap') !== '0'; }catch(e){ return true; } }
 
 function sbgzDraw(d, resetView){
   sbgzMakeSeries();
@@ -4306,6 +4338,15 @@ function sbgzDraw(d, resetView){
     addPL(t.stop, '#ef4444', LS.Solid, 1, 'SBGZ SL');
     addPL(t.target, '#10b981', LS.Solid, 1, 'SBGZ TP');
   });
+  // pullback map ("a more accurate Fibonacci"): levels in VU from the swing top, each with the chance the trend continues
+  var pm = (d.panel || {}).pmap;
+  if(pm && sbgzPmapOn()){
+    (pm.ladder || []).forEach(function(lv){
+      addPL(lv.price, 'rgba(96,165,250,0.85)', LS.Dotted, 1, 'PB ' + lv.vu.toFixed(1) + 'VU ' + Math.round(lv.cont_pct) + '%');
+    });
+    if(pm.push_start != null) addPL(pm.push_start, '#f59e0b', LS.Dashed, 1, '100% push ' + Math.round(pm.push_start_cont) + '%');
+    if(pm.trend_over != null) addPL(pm.trend_over, '#f87171', LS.Dotted, 1, 'trend over');
+  }
   if(resetView){
     var n = cData.length;
     try{ lwChart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 220), to: n + 4 }); }catch(e){}
@@ -4323,10 +4364,14 @@ function sbgzPanel(d, cs, tf){
     var savedMin = localStorage.getItem('sbgz_min');
     if(savedMin === '1' || (savedMin === null && window.innerWidth < 640)) el.classList.add('min');   // phones start collapsed
     el.addEventListener('click', function(e){
-      if(e.target.closest('.sbgz-mode')){
-        try{ localStorage.setItem('sbgz_vonly', sbgzVonly() ? '0' : '1'); }catch(err){}
+      if(e.target.closest('.sbgz-mode') || e.target.closest('.sbgz-pmapt')){
+        try{
+          if(e.target.closest('.sbgz-mode')) localStorage.setItem('sbgz_vonly', sbgzVonly() ? '0' : '1');
+          else localStorage.setItem('sbgz_pmap', sbgzPmapOn() ? '0' : '1');
+        }catch(err){}
         var last = window._sbgzLast;
         if(last && last.d){ sbgzDraw(last.d, false); sbgzPanel(last.d, last.cs, last.tf); }
+        if(window.sbgzRadarRender) window.sbgzRadarRender();
         return;
       }
       if(!e.target.closest('.sbgz-h')) return;
@@ -4352,13 +4397,26 @@ function sbgzPanel(d, cs, tf){
   } else {
     row('Big trend', 'forming', 'sbgz-mut');
   }
-  var pb = p.pullback;
+  var pb = p.pullback, pm = p.pmap;
   if(pb){
-    row('Now', 'pullback ' + Math.round(pb.depth * 100) + '% of the last push');
-    row(t && t.dir === 'DOWN' ? 'New low odds' : 'New high odds', pb.continue_pct.toFixed(1) + '% (normal ' + pb.base_pct + '%)', pb.continue_pct < 45 ? 'sbgz-warn' : '');
+    var dvu = pb.depth_vu != null ? ' · ' + pb.depth_vu.toFixed(1) + ' VU deep' : '';
+    row('Now', 'pullback ' + Math.round(pb.depth * 100) + '% of the last push' + dvu);
+    row(t && t.dir === 'DOWN' ? 'New low odds' : 'New high odds', pb.continue_pct.toFixed(1) + '% (just after the turn ' + pb.base_pct.toFixed(0) + '%)', pb.continue_pct < 45 ? 'sbgz-warn' : '');
     row('Targets', sbgzFmt(pb.t618) + ' (' + pb.t618_pct + '%) · ' + sbgzFmt(pb.t100) + ' (' + pb.t100_pct + '%)');
   } else if(t){
     row('Now', 'push in the trend direction');
+  }
+  if(pm){
+    var pmTxt;
+    if(pm.top != null){
+      var nxt = (pm.ladder || []).filter(function(lv){ return lv.vu > (pm.depth_vu || 0); })[0];
+      pmTxt = (nxt ? 'next ' + nxt.vu.toFixed(1) + ' VU at ' + sbgzFmt(nxt.price) + ' (' + nxt.ended_pct + '% of continuing pullbacks end before it; trend odds ' + Math.round(nxt.cont_pct) + '% there) · '
+                   : 'the trend flips before the next ladder level · ') +
+              (pm.push_start != null ? '100% push ' + sbgzFmt(pm.push_start) + ' · ' : '') + 'trend over ' + sbgzFmt(pm.trend_over);
+    } else {
+      pmTxt = 'trend over beyond ' + sbgzFmt(pm.trend_over) + ' (8 VU from the extreme)';
+    }
+    rows.push('<div class="sbgz-r sbgz-pmapt"><span>Pullback map</span><span>' + sbgzEsc(pmTxt) + ' <span class="sbgz-link">(' + (sbgzPmapOn() ? 'lines on' : 'lines off') + ', tap)</span></span></div>');
   }
   var w = p.warnings || { n: 0, items: [] };
   row('Top warnings', w.n + '/7' + (w.items && w.items.length ? ': ' + w.items.join(', ') : ''), w.n >= 3 ? 'sbgz-warn' : '');
@@ -4389,6 +4447,84 @@ function sbgzPanel(d, cs, tf){
   var foot = '<div class="sbgz-f">Backtest 2023-26 · 43 coins · 15m: all strong breaks +0.21R per trade (22% wins); volume-confirmed (break candle ≥2x volume) +0.33R (24% wins), the rest ~0R. Few trades per coin per month: judge over many trades, paper-test first.</div>';
   el.innerHTML = head + rows.join('') + foot;
 }
+
+// ── SBGZ Radar: every strong-break setup and open SBGZ trade across the runner's 42 coins, 15m + 1h ─────────────
+window.sbgzRadarLoad = function(force){
+  var tb = document.getElementById('sbgzRadarTb');
+  if(!tb) return;
+  clearTimeout(window._sbgzRadarTimer);
+  var info = document.getElementById('sbgzRadarInfo');
+  if(info && (force || !window._sbgzRadarData)) info.textContent = 'Scanning 84 charts (42 coins × 15m, 1h)…';
+  fetch('/api/sbgz/radar?tf=15,60')
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.ok){
+        tb.innerHTML = '<tr><td colspan="12" class="emp">Radar unavailable: ' + sbgzEsc((d && d.error) || 'no answer from /api/sbgz/radar (server not updated yet?)') + '</td></tr>';
+        if(info) info.textContent = 'Radar unavailable';
+        return;
+      }
+      window._sbgzRadarData = d;
+      window.sbgzRadarRender();
+    })
+    .catch(function(e){
+      tb.innerHTML = '<tr><td colspan="12" class="emp">Radar error: ' + sbgzEsc(String(e)) + '</td></tr>';
+    })
+    .then(function(){ window._sbgzRadarTimer = setTimeout(function(){ window.sbgzRadarLoad(false); }, 150000); });
+};
+
+window.sbgzRadarRender = function(){
+  var d = window._sbgzRadarData, tb = document.getElementById('sbgzRadarTb');
+  var info = document.getElementById('sbgzRadarInfo'), btn = document.getElementById('sbgzRadarModeBtn');
+  var vonly = sbgzVonly();
+  if(btn) btn.textContent = vonly ? 'showing: volume-confirmed only (tap for all)' : 'showing: all strong breaks (tap for confirmed only)';
+  if(!d || !tb) return;
+  var rows = (d.rows || []).filter(function(r){ return !vonly || r.vol_ok; });
+  rows.sort(function(a, b){
+    if(a.kind !== b.kind) return a.kind === 'open' ? -1 : 1;          // open trades first
+    if(a.vol_ok !== b.vol_ok) return a.vol_ok ? -1 : 1;               // then volume-confirmed
+    return (a.dist_vu == null ? 99 : a.dist_vu) - (b.dist_vu == null ? 99 : b.dist_vu);   // then closest to the entry
+  });
+  var when = d.generated ? new Date(d.generated * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+  var nOpen = rows.filter(function(r){ return r.kind === 'open'; }).length;
+  if(info) info.innerHTML = '<b>' + (rows.length - nOpen) + '</b> waiting setups · <b>' + nOpen + '</b> open trades · scanned ' + (d.scanned || 0) + ' charts at ' + sbgzEsc(when) + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' failed' : '');
+  if(!rows.length){
+    tb.innerHTML = '<tr><td colspan="12" class="emp">No ' + (vonly ? 'volume-confirmed ' : '') + 'strong-break setups on 42 coins right now (15m / 1h). They appear a few times a day.</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(function(r){
+    var L = r.side === 'LONG', coin = r.symbol.replace('USDT', ''), tfl = r.interval === '60' ? '1h' : r.interval === '240' ? '4h' : r.interval + 'm';
+    // the setup uses closed candles only; a negative distance means the still-open candle already traded through the entry
+    var status = r.kind === 'open' ? '<span class="open">OPEN</span> @ ' + sbgzFmt(r.entry)
+               : (r.dist_pct != null && r.dist_pct <= 0) ? '<span class="open" style="background:rgba(245,158,11,.18);color:#fbbf24">AT ENTRY</span> fills at the candle close'
+               : 'waiting · ' + (r.dist_pct != null ? r.dist_pct.toFixed(2) + '% away' : '--') + (r.dist_vu != null ? ' (' + r.dist_vu.toFixed(1) + ' VU)' : '');
+    var zone = r.kind === 'open' ? sbgzFmt(r.entry) : sbgzFmt(Math.min(r.zone_top, r.zone_bottom)) + '–' + sbgzFmt(Math.max(r.zone_top, r.zone_bottom));
+    var vol = r.bvol == null ? '<span class="mut">?</span>' : (r.vol_ok ? '<span class="ok">✓ ' : '<span class="mut">✗ ') + r.bvol.toFixed(1) + 'x</span>';
+    var tr = r.trend ? '<span class="' + (r.trend.dir === 'UP' ? 'up' : 'dn') + '">' + (r.trend.dir === 'UP' ? '▲ ' : '▼ ') + (r.trend.pct >= 0 ? '+' : '') + r.trend.pct.toFixed(1) + '%</span>' : '<span class="mut">--</span>';
+    var exp = r.exp_r != null ? (r.exp_r >= 0 ? '+' : '') + r.exp_r.toFixed(2) + 'R' : '--';
+    return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
+      '<td><b>' + sbgzEsc(coin) + '</b></td><td>' + tfl + '</td><td class="' + (L ? 'up' : 'dn') + '">' + r.side + '</td><td>' + status + '</td>' +
+      '<td>' + zone + '</td><td>' + sbgzFmt(r.stop) + '</td><td>' + sbgzFmt(r.target) + '</td><td>' + (r.rr != null ? r.rr.toFixed(1) : '--') + '</td>' +
+      '<td>' + (r.break_vu != null ? r.break_vu.toFixed(1) + ' VU' : '--') + '</td><td>' + vol + '</td><td>' + tr + '</td><td class="' + (r.vol_ok ? 'ok' : 'mut') + '">' + exp + '</td></tr>';
+  }).join('');
+};
+
+window.sbgzRadarToggleMode = function(){
+  try{ localStorage.setItem('sbgz_vonly', sbgzVonly() ? '0' : '1'); }catch(e){}
+  window.sbgzRadarRender();
+  var last = window._sbgzLast;
+  if(last && last.d && chartEngine === 'bybit'){ sbgzDraw(last.d, false); sbgzPanel(last.d, last.cs, last.tf); }
+};
+
+window.sbgzRadarOpen = function(sym, tf){
+  if(!window.indicatorState.sbgz){
+    window.indicatorState.sbgz = true;
+    try{ localStorage.setItem('ind_sbgz', '1'); }catch(e){}
+    window.updateIndicatorButtonsUI();
+  }
+  if(window.switchView) window.switchView('chart', 0);
+  if(chartEngine !== 'bybit') window.toggleChartEngine();
+  loadChart('BYBIT:' + sym + '.P', tf);
+};
 
 // Chart Indicator States (Persisted in localStorage)
 window.indicatorState = {
@@ -6243,6 +6379,7 @@ document.addEventListener('visibilitychange', function(){
 // SBGZ lives on the Fast Canvas chart: open on that engine when the user left SBGZ switched on
 if(window.indicatorState && window.indicatorState.sbgz && chartEngine !== 'bybit') window.toggleChartEngine();
 else loadChart(S,T);
+setTimeout(function(){ if(window.sbgzRadarLoad) window.sbgzRadarLoad(false); }, 2500);   // SBGZ radar card (Radar view)
 })();
 </script>
 </body>
