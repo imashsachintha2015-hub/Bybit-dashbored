@@ -6,6 +6,9 @@ which reproduced the backtest: +0.23R per trade, 22% winners on 15m, 43 coins, 2
   * big trend = close-confirmed zigzag of 8 VU, swing (push / pullback) = 3 VU
   * setup = break of structure (a close beyond the previous swing) whose impulse is >= 13 VU,
     limit at 50% of the impulse, stop at 66%, target 27.2% beyond the impulse extreme; one trade per side
+  * volume confirmation: the break candle's volume >= 2x its previous-100-candle average. In the research this
+    split strong breaks into +0.33R per trade (confirmed) and ~0R (not confirmed) on 15m; trades and stats are
+    reported both for all strong breaks and for a confirmed-only run (which skips unconfirmed setups)
 Only closed candles are used, so a confirmed swing or trade never changes afterwards.
 Standard library only: the deployment has no numpy.
 """
@@ -16,7 +19,7 @@ import urllib.parse
 import urllib.request
 
 P = dict(vu_len=100, swing_k=3.0, trend_k=8.0, min_break=13.0, entry=0.5, stop=0.66, target=0.272,
-         fee_limit=0.0002, fee_stop=0.0008, warmup=150)
+         fee_limit=0.0002, fee_stop=0.0008, warmup=150, vol_mult=2.0)
 TF_MS = {"1": 60_000, "3": 180_000, "5": 300_000, "15": 900_000, "30": 1_800_000, "60": 3_600_000,
          "120": 7_200_000, "240": 14_400_000, "D": 86_400_000}
 # research odds (pullbacks inside a confirmed big trend): chance the trend still makes a new extreme
@@ -95,11 +98,19 @@ class _ZZ:
 class _Setup:
     """One side of the strong-break golden zone; prices kept in 'long space' (x -1 for shorts)."""
 
-    def __init__(self, side, prm):
-        self.side, self.prm = side, prm
+    def __init__(self, side, prm, need_vol=False):
+        self.side, self.prm, self.need_vol = side, prm, need_vol      # need_vol: trade only volume-confirmed breaks
         self.pending = self.armed = self.inTrade = False
-        self.L = self.Hp = self.M = self.E = self.S = self.T = NAN
+        self.L = self.Hp = self.M = self.E = self.S = self.T = self.bvol = NAN
         self.armBar = self.fillBar = None; self.lastExit = -1; self.trades = []; self.armedSince = None
+
+    def _arm(self, i, bos, V, VA):
+        """Armed at bar i; bos = the bar whose close broke the previous swing (its volume confirms the break)."""
+        self.pending, self.armed, self.armBar = False, True, i
+        self.bvol = V[bos] / VA[bos] if VA[bos] > 0 else NAN
+
+    def vol_ok(self):
+        return not _isn(self.bvol) and self.bvol >= self.prm["vol_mult"]
 
     def _close(self, i, xp, win):
         risk = self.E - self.S; cost = self.prm["fee_limit"] + (self.prm["fee_limit"] if win else self.prm["fee_stop"])
@@ -108,7 +119,7 @@ class _Setup:
                   R=(xp - self.E) / risk - cost * abs(self.E) / risk)
         self.inTrade = False; self.lastExit = i
 
-    def step(self, i, O, H, L, C, z, u):
+    def step(self, i, O, H, L, C, V, VA, z, u):
         sd, p = self.side, self.prm
         hS, lS = (H[i], L[i]) if sd == 1 else (-L[i], -H[i])
         cS, oS = sd * C[i], sd * O[i]
@@ -119,26 +130,27 @@ class _Setup:
             self.armed = False
             self.pending = not _isn(z.p[1])
             self.L, self.Hp, self.M = sd * z.p[0], sd * z.p[1], sd * z.ext
-            nb = i - z.b[0]
-            mc = max(sd * C[i - q] for q in range(min(nb, 2900))) if nb >= 1 else NAN
-            if self.pending and not _isn(mc) and mc > self.Hp:
-                self.pending, self.armed, self.armBar = False, True, i
+            if self.pending:                   # did a close already break the previous swing since the swing low?
+                for j in range(max(z.b[0] + 1, i - 2899), i + 1):
+                    if sd * C[j] > self.Hp:
+                        self._arm(i, j, V, VA); break
         else:
             mPrev = self.M
             if self.pending or self.armed: self.M = max(self.M, hS)
             if self.pending:
-                if sd * z.dir == 1 and cS > self.Hp: self.pending, self.armed, self.armBar = False, True, i
+                if sd * z.dir == 1 and cS > self.Hp: self._arm(i, i, V, VA)
                 elif sd * z.dir == -1: self.pending = False
             elif self.armed and i > self.armBar:
                 imp = self.M - self.L; ent = self.M - p["entry"] * imp
                 if lS < ent:
-                    if imp >= p["min_break"] * u and not self.inTrade and i > self.lastExit:
+                    vok = self.vol_ok()
+                    if imp >= p["min_break"] * u and not self.inTrade and i > self.lastExit and (vok or not self.need_vol):
                         self.E = ent if hS > mPrev else min(oS, ent)
                         self.S, self.T = self.M - p["stop"] * imp, self.M + p["target"] * imp
                         self.inTrade, self.fillBar = True, i
                         self.trades.append(dict(side="LONG" if sd == 1 else "SHORT", fill_bar=i, entry=sd * self.E,
                                                 stop=sd * self.S, target=sd * self.T, break_vu=imp / u,
-                                                rr=(self.T - self.E) / (self.E - self.S)))
+                                                rr=(self.T - self.E) / (self.E - self.S), bvol=self.bvol, vol_ok=vok))
                         if lS <= self.S: self._close(i, self.S, False)
                     self.armed = False
 
@@ -149,7 +161,8 @@ class _Setup:
         a, b = sd * (self.M - p["entry"] * imp), sd * (self.M - 0.618 * imp)
         return dict(side="LONG" if sd == 1 else "SHORT", entry=a, zone_top=max(a, b), zone_bottom=min(a, b),
                     stop=sd * (self.M - p["stop"] * imp), target=sd * (self.M + p["target"] * imp),
-                    break_vu=imp / u, strong=imp >= p["min_break"] * u, since_bar=self.armBar)
+                    break_vu=imp / u, strong=imp >= p["min_break"] * u, since_bar=self.armBar,
+                    bvol=self.bvol, vol_ok=self.vol_ok())
 
 
 def compute(candles, interval="15", prm=None):
@@ -157,7 +170,7 @@ def compute(candles, interval="15", prm=None):
     bar indices refer to positions in `candles`."""
     p = dict(P, **(prm or {}))
     n = len(candles)
-    out = dict(params=p, bars=n, trend=[], swings=[], trades=[], setups=[], open_trades=[], panel={})
+    out = dict(params=p, bars=n, trend=[], swings=[], trades=[], setups=[], open_trades=[], trades_v=[], open_trades_v=[], panel={})
     if n <= p["warmup"] + 5:
         out["panel"]["note"] = "not enough candles"
         return out
@@ -173,12 +186,13 @@ def compute(candles, interval="15", prm=None):
     for x in V: cs.append(cs[-1] + x)
     vavg = [V[0]] + [(cs[i] - cs[max(0, i - 100)]) / (i - max(0, i - 100)) for i in range(1, n)]
     zs, zt = _ZZ(p["swing_k"], H, L, C), _ZZ(p["trend_k"], H, L, C)
-    lg, sh = _Setup(1, p), _Setup(-1, p)
+    lg, sh = _Setup(1, p), _Setup(-1, p)                                   # all strong breaks
+    lgv, shv = _Setup(1, p, need_vol=True), _Setup(-1, p, need_vol=True)   # volume-confirmed breaks only
     warn = dict(n=0, items=[], bar=None)
     for i in range(p["warmup"], n):
         u = vu[i]
         zs.update(i, u); zt.update(i, u)
-        lg.step(i, O, H, L, C, zs, u); sh.step(i, O, H, L, C, zs, u)
+        for st in (lg, sh, lgv, shv): st.step(i, O, H, L, C, V, vavg, zs, u)
         if zs.isNew and zt.dir != 0 and zs.k1 == zt.dir and zs.b[1] is not None and zt.b[0] is not None:
             d = zt.dir; hb = zs.b[0]; lb = zs.b[1]
             push = d * (zs.p[0] - zs.p[1])
@@ -204,7 +218,10 @@ def compute(candles, interval="15", prm=None):
             (out["trades"] if "result" in t else out["open_trades"]).append(t)
         z = s.zone(u)
         if z: out["setups"].append(z)
-    out["trades"].sort(key=lambda t: t["fill_bar"])
+    for s in (lgv, shv):
+        for t in s.trades:
+            (out["trades_v"] if "result" in t else out["open_trades_v"]).append(t)
+    out["trades"].sort(key=lambda t: t["fill_bar"]); out["trades_v"].sort(key=lambda t: t["fill_bar"])
     odds = ODDS.get(str(interval)); od = odds or ODDS["15"]
     panel = dict(tested=odds is not None, vu=u, min_break_price=p["min_break"] * u, warnings=warn)
     if zt.dir != 0 and zt.b[0] is not None:
@@ -220,10 +237,10 @@ def compute(candles, interval="15", prm=None):
             panel["pullback"] = dict(depth=depth, continue_pct=cont, base_pct=od["base"],
                                      t618=top + d * 0.618 * push, t618_pct=od["t618"],
                                      t100=top + d * push, t100_pct=od["t100"])
-    done = out["trades"]
-    if done:
-        Rs = [t["R"] for t in done]
-        panel["stats"] = dict(n=len(Rs), wins=sum(1 for r in Rs if r > 0), avg_r=sum(Rs) / len(Rs), total_r=sum(Rs))
+    for key, done in (("stats", out["trades"]), ("stats_v", out["trades_v"])):
+        if done:
+            Rs = [t["R"] for t in done]
+            panel[key] = dict(n=len(Rs), wins=sum(1 for r in Rs if r > 0), avg_r=sum(Rs) / len(Rs), total_r=sum(Rs))
     out["panel"] = panel
     return out
 

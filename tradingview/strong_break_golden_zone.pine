@@ -7,6 +7,8 @@
 //     order at 50% of the impulse, stop at 66%, target 27.2% beyond the impulse extreme. One trade per side.
 //     Backtest: +0.21R (research coins) / +0.22R (unseen coins) per trade, 22% winners of about +4.8R,
 //     about 1.9 trades per coin per month on 15m. The ordinary BOS + golden zone (no 13 VU filter) LOST money.
+//   * Volume confirmation: a break candle with >= 2x its previous-100-candle volume. On 15m those strong breaks made
+//     +0.33R per trade (24% winners) and the rest about 0R; tick 'Trade only volume-confirmed breaks' to skip the rest.
 //   * Panel numbers (trend continuation odds, target odds, reversal warnings) are averages from the same data.
 //   Paper-trade before using real money. Past results do not guarantee future results.
 indicator("Strong-Break Golden Zone + Trend Map", shorttitle = "SBGZ", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 200, max_bars_back = 3000)
@@ -20,6 +22,8 @@ minBreak = input.float(13.0, "Minimum break impulse (VU)", minval = 0.0, step = 
 entryFib = input.float(0.5, "Entry retracement", minval = 0.1, maxval = 0.9, step = 0.01, group = grpS)
 stopFib  = input.float(0.66, "Stop retracement", minval = 0.2, maxval = 1.2, step = 0.01, group = grpS)
 tgtExt   = input.float(0.272, "Target beyond the impulse extreme (x impulse)", minval = 0.0, step = 0.01, group = grpS)
+volMult  = input.float(2.0, "Volume confirmation: break candle >= x its average volume", minval = 0.0, step = 0.5, group = grpS)
+needVol  = input.bool(false, "Trade only volume-confirmed breaks", group = grpS)
 grpC = "Costs for the on-chart stats (% of price)"
 feeLimit = input.float(0.02, "Limit order fee % (entry, target)", minval = 0.0, step = 0.01, group = grpC)
 feeStop  = input.float(0.08, "Stop exit fee + slippage %", minval = 0.0, step = 0.01, group = grpC)
@@ -209,6 +213,7 @@ type Setup
     int   wins      = 0
     float sumR      = 0.0
     float lastR     = na
+    float bvol      = na
     box   pZone     = na
     line  pSL       = na
     line  pTP       = na
@@ -277,16 +282,19 @@ method step(Setup st, ZZ z, float u) =>
         st.Hp := s * z.p2
         st.M := s * z.ext
         st.readySent := false
+        st.bvol := na
         int nb = bar_index - z.b1
-        float mc = na
-        if nb >= 1
-            for i = 0 to math.min(nb, 2900) - 1
-                float ci = s * close[i]
-                mc := na(mc) ? ci : math.max(mc, ci)
-        if st.pending and not na(mc) and mc > st.Hp
+        int bosOff = -1
+        if st.pending and nb >= 1                          // first close beyond the previous swing since the swing low
+            for q = math.min(nb, 2900) - 1 to 0 by -1
+                if s * close[q] > st.Hp
+                    bosOff := q
+                    break
+        if bosOff >= 0
             st.pending := false
             st.armed := true
             st.armBar := bar_index
+            st.bvol := vavg[bosOff] > 0 ? nz(volume[bosOff]) / vavg[bosOff] : na
     else
         float mPrev = st.M
         if st.pending or st.armed
@@ -296,6 +304,7 @@ method step(Setup st, ZZ z, float u) =>
                 st.pending := false
                 st.armed := true
                 st.armBar := bar_index
+                st.bvol := vavg > 0 ? nz(volume) / vavg : na
             else if s * z.dir == -1
                 st.pending := false
         else if st.armed and bar_index > st.armBar
@@ -303,7 +312,8 @@ method step(Setup st, ZZ z, float u) =>
             float ent = st.M - entryFib * imp
             if lS < ent
                 bool strong = imp >= minBreak * u
-                if strong and not st.inTrade and bar_index > st.lastExit
+                bool vok = not na(st.bvol) and st.bvol >= volMult
+                if strong and (vok or not needVol) and not st.inTrade and bar_index > st.lastExit
                     st.E := hS > mPrev ? ent : math.min(oS, ent)
                     st.S := st.M - stopFib * imp
                     st.T := st.M + tgtExt * imp
@@ -314,7 +324,7 @@ method step(Setup st, ZZ z, float u) =>
                     st.tSL := line.new(bar_index, s * st.S, bar_index + 1, s * st.S, color = color.new(color.red, 0), width = 2)
                     st.tTP := line.new(bar_index, s * st.T, bar_index + 1, s * st.T, color = color.new(color.green, 0), width = 2)
                     float rr = (st.T - st.E) / (st.E - st.S)
-                    string txt = (s == 1 ? "LONG " : "SHORT ") + f_px(s * st.E) + "\nSL " + f_px(s * st.S) + "\nTP " + f_px(s * st.T) + "\nR:R " + str.tostring(math.round(rr, 1)) + " | break " + str.tostring(math.round(imp / u, 1)) + " VU"
+                    string txt = (s == 1 ? "LONG " : "SHORT ") + f_px(s * st.E) + "\nSL " + f_px(s * st.S) + "\nTP " + f_px(s * st.T) + "\nR:R " + str.tostring(math.round(rr, 1)) + " | break " + str.tostring(math.round(imp / u, 1)) + " VU" + "\nvol " + (vok ? "✓ " : "✗ ") + (na(st.bvol) ? "?" : str.tostring(math.round(st.bvol, 1)) + "x")
                     label.new(bar_index, s * st.E, txt, color = s == 1 ? color.new(color.teal, 0) : color.new(color.maroon, 0), textcolor = color.white, style = s == 1 ? label.style_label_up : label.style_label_down, size = size.small)
                     if not na(st.pZone)
                         box.set_right(st.pZone, bar_index)
@@ -331,15 +341,17 @@ method step(Setup st, ZZ z, float u) =>
     if st.armed
         float imp = st.M - st.L
         bool strong = imp >= minBreak * u
-        if strong and not st.readySent
+        bool vok = not na(st.bvol) and st.bvol >= volMult
+        bool tradable = strong and (vok or not needVol)
+        if tradable and not st.readySent
             st.readySent := true
             st.evReady := true
-        if strong or showWeak
+        if tradable or showWeak
             float z1 = s * (st.M - entryFib * imp)
             float z2 = s * (st.M - 0.618 * imp)
             float sl = s * (st.M - stopFib * imp)
             float tp = s * (st.M + tgtExt * imp)
-            color zc = strong ? (s == 1 ? color.new(color.teal, 70) : color.new(color.maroon, 70)) : color.new(color.gray, 85)
+            color zc = tradable ? (vok ? (s == 1 ? color.new(color.teal, 70) : color.new(color.maroon, 70)) : color.new(color.gray, 75)) : color.new(color.gray, 88)
             if na(st.pZone)
                 st.pZone := box.new(st.armBar, math.max(z1, z2), bar_index + 3, math.min(z1, z2), border_color = color.new(color.gray, 60), bgcolor = zc)
                 st.pSL := line.new(st.armBar, sl, bar_index + 3, sl, color = color.new(color.red, 40), style = line.style_dashed)
@@ -455,14 +467,16 @@ if showPanel and barstate.islast
     if lg.armed
         float imp = lg.M - lg.L
         bool strong = imp >= minBreak * vu
-        stTxt := "LONG zone " + f_px(lg.M - 0.618 * imp) + " - " + f_px(lg.M - entryFib * imp) + " | SL " + f_px(lg.M - stopFib * imp) + " | TP " + f_px(lg.M + tgtExt * imp) + (strong ? "" : " (break too small)")
-        stCol := strong ? color.lime : color.gray
+        bool vok = not na(lg.bvol) and lg.bvol >= volMult
+        stTxt := "LONG zone " + f_px(lg.M - 0.618 * imp) + " - " + f_px(lg.M - entryFib * imp) + " | SL " + f_px(lg.M - stopFib * imp) + " | TP " + f_px(lg.M + tgtExt * imp) + (strong ? "" : " (break too small)") + " | vol " + (vok ? "✓ " : "✗ ") + (na(lg.bvol) ? "?" : str.tostring(math.round(lg.bvol, 1)) + "x") + (needVol and not vok ? " (not traded)" : "")
+        stCol := strong and vok ? color.lime : color.gray
     if sh.armed
         float imp = sh.M - sh.L
         bool strong = imp >= minBreak * vu
-        string t2 = "SHORT zone " + f_px(-(sh.M - entryFib * imp)) + " - " + f_px(-(sh.M - 0.618 * imp)) + " | SL " + f_px(-(sh.M - stopFib * imp)) + " | TP " + f_px(-(sh.M + tgtExt * imp)) + (strong ? "" : " (break too small)")
+        bool vok = not na(sh.bvol) and sh.bvol >= volMult
+        string t2 = "SHORT zone " + f_px(-(sh.M - entryFib * imp)) + " - " + f_px(-(sh.M - 0.618 * imp)) + " | SL " + f_px(-(sh.M - stopFib * imp)) + " | TP " + f_px(-(sh.M + tgtExt * imp)) + (strong ? "" : " (break too small)") + " | vol " + (vok ? "✓ " : "✗ ") + (na(sh.bvol) ? "?" : str.tostring(math.round(sh.bvol, 1)) + "x") + (needVol and not vok ? " (not traded)" : "")
         stTxt := lg.armed ? stTxt + "\n" + t2 : t2
-        stCol := strong ? color.red : stCol
+        stCol := strong and vok ? color.red : stCol
     f_row(6, "Setup", stTxt, stCol)
     string trTxt = "flat"
     if lg.inTrade
@@ -483,10 +497,10 @@ alertcondition(lg.evFill or sh.evFill, "SBGZ entry filled", "SBGZ: entry filled 
 alertcondition(lg.evWin or lg.evLoss or sh.evWin or sh.evLoss, "SBGZ trade closed", "SBGZ: trade closed on {{ticker}} {{interval}}")
 if lg.evReady
     float imp = lg.M - lg.L
-    alert("SBGZ LONG zone ready " + syminfo.ticker + " " + timeframe.period + ": buy limit " + f_px(lg.M - entryFib * imp) + ", stop " + f_px(lg.M - stopFib * imp) + ", target " + f_px(lg.M + tgtExt * imp) + " (levels move up while price keeps rising)", alert.freq_once_per_bar_close)
+    alert("SBGZ LONG zone ready " + syminfo.ticker + " " + timeframe.period + ": buy limit " + f_px(lg.M - entryFib * imp) + ", stop " + f_px(lg.M - stopFib * imp) + ", target " + f_px(lg.M + tgtExt * imp) + " | break volume " + (na(lg.bvol) ? "?" : str.tostring(math.round(lg.bvol, 1)) + "x") + (not na(lg.bvol) and lg.bvol >= volMult ? " (confirmed)" : " (not confirmed)") + " (levels move up while price keeps rising)", alert.freq_once_per_bar_close)
 if sh.evReady
     float imp = sh.M - sh.L
-    alert("SBGZ SHORT zone ready " + syminfo.ticker + " " + timeframe.period + ": sell limit " + f_px(-(sh.M - entryFib * imp)) + ", stop " + f_px(-(sh.M - stopFib * imp)) + ", target " + f_px(-(sh.M + tgtExt * imp)) + " (levels move down while price keeps falling)", alert.freq_once_per_bar_close)
+    alert("SBGZ SHORT zone ready " + syminfo.ticker + " " + timeframe.period + ": sell limit " + f_px(-(sh.M - entryFib * imp)) + ", stop " + f_px(-(sh.M - stopFib * imp)) + ", target " + f_px(-(sh.M + tgtExt * imp)) + " | break volume " + (na(sh.bvol) ? "?" : str.tostring(math.round(sh.bvol, 1)) + "x") + (not na(sh.bvol) and sh.bvol >= volMult ? " (confirmed)" : " (not confirmed)") + " (levels move down while price keeps falling)", alert.freq_once_per_bar_close)
 if lg.evFill
     alert("SBGZ LONG filled " + syminfo.ticker + " @ " + f_px(lg.E) + "  SL " + f_px(lg.S) + "  TP " + f_px(lg.T), alert.freq_once_per_bar)
 if sh.evFill

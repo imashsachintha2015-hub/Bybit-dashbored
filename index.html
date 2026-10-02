@@ -871,6 +871,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-panel .sbgz-r span:first-child{color:#64748b;flex:0 0 92px}
 .sbgz-panel .sbgz-up{color:#10b981}.sbgz-panel .sbgz-dn{color:#ef4444}.sbgz-panel .sbgz-warn{color:#f59e0b}.sbgz-panel .sbgz-mut{color:#64748b}
 .sbgz-panel .sbgz-f{margin-top:4px;color:#64748b;font-size:9.5px}
+.sbgz-panel .sbgz-mode{cursor:pointer}.sbgz-panel .sbgz-link{color:#7dd3fc;text-decoration:underline dotted}
 .sbgz-panel.min .sbgz-r,.sbgz-panel.min .sbgz-f{display:none}
 @media (max-width:640px){.sbgz-panel{font-size:9.5px;max-width:70%}.sbgz-panel .sbgz-r span:first-child{flex-basis:72px}}
 .bsi-btn.fit-btn{margin-left:auto;background:transparent;border:1px dashed #333d4b;color:#a0aec0}
@@ -4217,6 +4218,7 @@ window.sbgzLoad = function(cs, tf, refresh){
       if(!d || !d.ok){
         sbgzPanel({ error: (d && d.error) || 'no answer from /api/sbgz (server not updated yet?)' }, cs, tf);
       } else {
+        window._sbgzLast = { d: d, cs: cs, tf: tf };
         sbgzDraw(d, key !== sbgzKey);
         sbgzKey = key;
         sbgzPanel(d, cs, tf);
@@ -4226,8 +4228,13 @@ window.sbgzLoad = function(cs, tf, refresh){
     .catch(function(e){ sbgzPanel({ error: String(e) }, cs, tf); again(); });
 };
 
+// 'volume-confirmed only' mode: break candle volume >= 2x its average (research: +0.33R vs ~0R for the rest, 15m)
+function sbgzVonly(){ try{ return localStorage.getItem('sbgz_vonly') === '1'; }catch(e){ return false; } }
+
 function sbgzDraw(d, resetView){
   sbgzMakeSeries();
+  var vonly = sbgzVonly();
+  var trades = vonly ? (d.trades_v || []) : (d.trades || []), opens = vonly ? (d.open_trades_v || []) : (d.open_trades || []);
   var cData = [], vData = [];
   (d.candles || []).forEach(function(c){
     var ts = Math.floor(c.start / 1000);
@@ -4265,10 +4272,10 @@ function sbgzDraw(d, resetView){
   }
   // trade markers: fill arrow, then a TP / SL circle with the result in R (after fees)
   var mk = [];
-  (d.trades || []).concat(d.open_trades || []).forEach(function(t){
+  trades.concat(opens).forEach(function(t){
     var L = t.side === 'LONG', ft = times[t.fill_bar];
     if(ft != null) mk.push({ time: ft, position: L ? 'belowBar' : 'aboveBar', color: L ? '#14b8a6' : '#f43f5e',
-                             shape: L ? 'arrowUp' : 'arrowDown', text: (L ? 'SBGZ L ' : 'SBGZ S ') + sbgzFmt(t.entry) });
+                             shape: L ? 'arrowUp' : 'arrowDown', text: (L ? 'SBGZ L ' : 'SBGZ S ') + sbgzFmt(t.entry) + (t.vol_ok ? ' vol✓' : ' vol✗') });
     if(t.result && times[t.exit_bar] != null){
       var win = t.result === 'TP';
       mk.push({ time: times[t.exit_bar], position: (L === win) ? 'aboveBar' : 'belowBar', color: win ? '#10b981' : '#ef4444',
@@ -4287,14 +4294,14 @@ function sbgzDraw(d, resetView){
     sbgzPriceLines.push(candleSeries.createPriceLine({ price: price, color: color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title: title + ' ' + sbgzFmt(price) }));
   };
   (d.setups || []).forEach(function(s){
-    if(!s.strong) return;
-    var L = s.side === 'LONG', c = L ? '#14b8a6' : '#f43f5e';
-    addPL(s.entry, c, LS.Dashed, 2, 'SBGZ ' + (L ? 'BUY' : 'SELL') + ' 0.5');
+    if(!s.strong || (vonly && !s.vol_ok)) return;
+    var L = s.side === 'LONG', grey = '#64748b', c = s.vol_ok ? (L ? '#14b8a6' : '#f43f5e') : grey, tag = s.vol_ok ? '' : ' (no vol)';
+    addPL(s.entry, c, LS.Dashed, 2, 'SBGZ ' + (L ? 'BUY' : 'SELL') + ' 0.5' + tag);
     addPL(L ? s.zone_bottom : s.zone_top, c, LS.Dotted, 1, '0.618');
-    addPL(s.stop, '#ef4444', LS.Dashed, 1, 'SBGZ SL');
-    addPL(s.target, '#10b981', LS.Dashed, 1, 'SBGZ TP');
+    addPL(s.stop, s.vol_ok ? '#ef4444' : grey, LS.Dashed, 1, 'SBGZ SL');
+    addPL(s.target, s.vol_ok ? '#10b981' : grey, LS.Dashed, 1, 'SBGZ TP');
   });
-  (d.open_trades || []).forEach(function(t){
+  opens.forEach(function(t){
     addPL(t.entry, '#38bdf8', LS.Solid, 2, 'SBGZ ' + t.side);
     addPL(t.stop, '#ef4444', LS.Solid, 1, 'SBGZ SL');
     addPL(t.target, '#10b981', LS.Solid, 1, 'SBGZ TP');
@@ -4316,6 +4323,12 @@ function sbgzPanel(d, cs, tf){
     var savedMin = localStorage.getItem('sbgz_min');
     if(savedMin === '1' || (savedMin === null && window.innerWidth < 640)) el.classList.add('min');   // phones start collapsed
     el.addEventListener('click', function(e){
+      if(e.target.closest('.sbgz-mode')){
+        try{ localStorage.setItem('sbgz_vonly', sbgzVonly() ? '0' : '1'); }catch(err){}
+        var last = window._sbgzLast;
+        if(last && last.d){ sbgzDraw(last.d, false); sbgzPanel(last.d, last.cs, last.tf); }
+        return;
+      }
       if(!e.target.closest('.sbgz-h')) return;
       el.classList.toggle('min');
       localStorage.setItem('sbgz_min', el.classList.contains('min') ? '1' : '0');
@@ -4349,17 +4362,21 @@ function sbgzPanel(d, cs, tf){
   }
   var w = p.warnings || { n: 0, items: [] };
   row('Top warnings', w.n + '/7' + (w.items && w.items.length ? ': ' + w.items.join(', ') : ''), w.n >= 3 ? 'sbgz-warn' : '');
+  var vonly = sbgzVonly();
+  rows.push('<div class="sbgz-r sbgz-mode"><span>Mode</span><span class="sbgz-link">' + (vonly ? 'volume-confirmed only' : 'all strong breaks') + ' (tap to switch)</span></div>');
   var strong = (d.setups || []).filter(function(s){ return s.strong; });
   if(strong.length){
     strong.forEach(function(s){
       var lo = Math.min(s.zone_top, s.zone_bottom), hi = Math.max(s.zone_top, s.zone_bottom);
       var rr = Math.abs(s.target - s.entry) / Math.abs(s.entry - s.stop);
-      row(s.side === 'LONG' ? 'Setup LONG' : 'Setup SHORT', 'zone ' + sbgzFmt(lo) + '–' + sbgzFmt(hi) + ' · SL ' + sbgzFmt(s.stop) + ' · TP ' + sbgzFmt(s.target) + ' · R:R ' + rr.toFixed(1) + ' · break ' + s.break_vu.toFixed(1) + ' VU', s.side === 'LONG' ? 'sbgz-up' : 'sbgz-dn');
+      var vtxt = s.bvol == null ? 'vol ?' : (s.vol_ok ? 'vol ✓ ' : 'vol ✗ ') + s.bvol.toFixed(1) + 'x';
+      var cls = !s.vol_ok ? 'sbgz-mut' : (s.side === 'LONG' ? 'sbgz-up' : 'sbgz-dn');
+      row(s.side === 'LONG' ? 'Setup LONG' : 'Setup SHORT', 'zone ' + sbgzFmt(lo) + '–' + sbgzFmt(hi) + ' · SL ' + sbgzFmt(s.stop) + ' · TP ' + sbgzFmt(s.target) + ' · R:R ' + rr.toFixed(1) + ' · break ' + s.break_vu.toFixed(1) + ' VU · ' + vtxt + (!s.vol_ok && vonly ? ' (not traded in this mode)' : ''), cls);
     });
   } else {
     row('Setup', 'waiting for a strong break (13 VU ≈ ' + sbgzFmt(p.min_break_price) + ')', 'sbgz-mut');
   }
-  var ot = d.open_trades || [];
+  var ot = (vonly ? d.open_trades_v : d.open_trades) || [];
   if(ot.length){
     ot.forEach(function(o){ row('Open trade', o.side + ' @ ' + sbgzFmt(o.entry) + ' · SL ' + sbgzFmt(o.stop) + ' · TP ' + sbgzFmt(o.target), o.side === 'LONG' ? 'sbgz-up' : 'sbgz-dn'); });
   } else {
@@ -4367,9 +4384,9 @@ function sbgzPanel(d, cs, tf){
   }
   var mins = tf === 'D' ? 1440 : (parseInt(tf, 10) || 15);
   var days = Math.round((d.bars || 0) * mins / 1440);
-  var st = p.stats;
+  var st = vonly ? p.stats_v : p.stats;
   row('Last ' + days + ' days', st ? (st.n + ' trades · ' + st.wins + ' wins · avg ' + (st.avg_r >= 0 ? '+' : '') + st.avg_r.toFixed(2) + 'R · total ' + (st.total_r >= 0 ? '+' : '') + st.total_r.toFixed(1) + 'R') : 'no closed trade yet', st ? (st.total_r >= 0 ? 'sbgz-up' : 'sbgz-dn') : 'sbgz-mut');
-  var foot = '<div class="sbgz-f">Backtest 2023-26 · 43 coins · 15m: +0.21R per trade, 22% wins, ~4.8R winners. Few trades per coin per month: judge it over many trades, paper-test first.</div>';
+  var foot = '<div class="sbgz-f">Backtest 2023-26 · 43 coins · 15m: all strong breaks +0.21R per trade (22% wins); volume-confirmed (break candle ≥2x volume) +0.33R (24% wins), the rest ~0R. Few trades per coin per month: judge over many trades, paper-test first.</div>';
   el.innerHTML = head + rows.join('') + foot;
 }
 
