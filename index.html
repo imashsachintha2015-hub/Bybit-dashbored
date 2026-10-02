@@ -4283,7 +4283,8 @@ function sbgzDraw(d, resetView){
   var LS = LightweightCharts.LineStyle;
   var addPL = function(price, color, style, width, title){
     if(price == null || !isFinite(price)) return;
-    sbgzPriceLines.push(candleSeries.createPriceLine({ price: price, color: color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title: title }));
+    // the price is in the title too: the axis label rounds to the chart's precision (0.11 on low-priced coins)
+    sbgzPriceLines.push(candleSeries.createPriceLine({ price: price, color: color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title: title + ' ' + sbgzFmt(price) }));
   };
   (d.setups || []).forEach(function(s){
     if(!s.strong) return;
