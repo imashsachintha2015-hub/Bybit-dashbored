@@ -37,7 +37,9 @@ LADDER = {"15": ((4.0, 27), (4.7, 51), (5.7, 74), (6.9, 90)), "60": ((4.0, 24), 
 # a share of the push (at 61.8% of the push the odds run from 83% for small pushes to 4% for big ones).
 ODDS_VU = {"15": dict(base=(83.2, 63.9, 57.5, 56.9), table=((77.8, 56.5, 50.1, 49.8), (69.5, 46.6, 40.4, 40.7), (53.1, 30.8, 26.9, 27.6), (29.1, 15.2, 13.4, 14.7))),
            "60": dict(base=(81.4, 63.3, 55.2, 56.8), table=((76.4, 56.6, 48.7, 50.6), (67.4, 46.5, 39.3, 42.9), (50.0, 31.1, 25.9, 30.9), (26.6, 14.9, 11.9, 15.8)))}
-PUSH_START_CONT = {"15": 27.5, "60": 25.1}          # trend continues after the pullback passed 100% of the push
+# trend continues after the pullback passed 100% of the push, by the size of that push (<5, 5-8, 8-12, 12+ VU);
+# a 100% retracement of a big push is past the 8-VU flip, which is why those odds are ~0
+PUSH_START_CONT = {"15": (75.6, 23.7, 1.0, 0.0), "60": (73.4, 23.3, 1.1, 0.3)}
 # backtest average R per trade (compare_strategies.py): (interval, volume-confirmed) -> R
 EXP_R = {("15", True): 0.36, ("15", False): 0.04, ("60", True): 0.50, ("60", False): 0.17}
 RADAR_COINS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "LINKUSDT", "SEIUSDT", "AVAXUSDT", "DOGEUSDT", "BNBUSDT",
@@ -265,7 +267,7 @@ def compute(candles, interval="15", prm=None):
             ladder = [dict(vu=m, price=top - d * m * uc, ended_pct=e, cont_pct=row[col]) for (m, e), row in zip(lad, ov["table"])]
             panel["pmap"] = dict(top=top, depth_vu=depth_vu, ladder=[x for x in ladder if before(x["price"])],
                                  cut_levels=sum(1 for x in ladder if not before(x["price"])),
-                                 push_start=bot if before(bot) else None, push_start_cont=PUSH_START_CONT.get(str(interval), PUSH_START_CONT["15"]),
+                                 push_start=bot if before(bot) else None, push_start_cont=PUSH_START_CONT.get(str(interval), PUSH_START_CONT["15"])[col],
                                  trend_over=over)
         else:
             panel["pmap"] = dict(trend_over=zt.ext - zt.dir * p["trend_k"] * u)   # push in progress: only the trend-over line
