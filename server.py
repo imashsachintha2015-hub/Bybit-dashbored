@@ -2,7 +2,7 @@
 Bybit V5 Demo Trading & DeepSeek Agent Intelligence Server
 Integrates:
 - Bybit Demo Trading API (Account Balance, Live Positions, Order Placement, Closed PnL)
-- DeepSeek AI Institutional Analysis Engine (with MASIS local fallback)
+- DeepSeek AI analysis: OFF unless DEEPSEEK_ENABLED=1 (MASIS local fallback otherwise)
 - Real-time Performance Tracking (Win/Loss Count, Profit, Loss, Win Rate)
 - Static File Server for Terminal Frontend
 """
@@ -22,6 +22,8 @@ import re
 import sys
 import threading
 import xml.etree.ElementTree as ET
+
+from backend_lib.deepseek_switch import deepseek_enabled, deepseek_key
 
 PORT = int(os.environ.get("PORT", 8080 if (os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RAILWAY_PROJECT_ID")) else 8070))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -76,7 +78,11 @@ BYBIT_API_KEY = _env("BYBIT_API_KEY", required=True)
 BYBIT_API_SECRET = _env("BYBIT_API_SECRET", required=True)
 BYBIT_BASE_URL = _env("BYBIT_BASE_URL", "https://api-demo.bybit.com")
 
-DEEPSEEK_API_KEY = _env("DEEPSEEK_API_KEY")
+# DeepSeek is OFF unless DEEPSEEK_ENABLED=1 (backend_lib/deepseek_switch.py). While it is off the key counts as
+# unset, so every call site below takes its local fallback and nothing is sent to the provider -- even if a
+# DEEPSEEK_API_KEY is still present in .env or in the host's variables.
+DEEPSEEK_ENABLED = deepseek_enabled()
+DEEPSEEK_API_KEY = deepseek_key()
 DEEPSEEK_URL = _env("DEEPSEEK_URL", "https://api.deepseek.com/v1/chat/completions")
 DEEPSEEK_MODEL = _env("DEEPSEEK_MODEL", "deepseek-chat")
 
@@ -422,6 +428,7 @@ def llm_budget_status():
             "by_caller": dict(llm_budget["by_caller"]),
             "refused": llm_budget["refused"],
             "cache_hits": llm_budget["cache_hits"],
+            "enabled": DEEPSEEK_ENABLED,
             "configured": bool(DEEPSEEK_API_KEY),
         }
 
@@ -626,7 +633,9 @@ def fetch_benzinga_news():
         news_cache["headline"] = articles[0]["title"] if articles else "No major catalysts detected"
         news_cache["updated_at"] = time.time()
         news_cache["is_fallback"] = scored is None
-        news_cache["fallback_reason"] = "" if scored is not None else "DeepSeek scoring unavailable; used keyword heuristic"
+        news_cache["fallback_reason"] = "" if scored is not None else (
+            "DeepSeek scoring unavailable; used keyword heuristic" if DEEPSEEK_API_KEY
+            else "DeepSeek is off; headlines scored by keyword heuristic")
 
 
 def get_news_state(force=False):
@@ -2074,7 +2083,10 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
             if not DEEPSEEK_API_KEY:
                 self._send_json(200, {
                     "bias": "NEUTRAL", "confidence": 50, "level": last_price,
-                    "action": "WAIT", "rationale": "DeepSeek API key not configured. Configure DEEPSEEK_API_KEY in .env to enable AI analysis.",
+                    "action": "WAIT", "rationale": (
+                        "DeepSeek API key not configured. Configure DEEPSEEK_API_KEY in .env to enable AI analysis."
+                        if DEEPSEEK_ENABLED else
+                        "DeepSeek is switched off (DEEPSEEK_ENABLED is not set), so there is no AI chart read."),
                     "is_fallback": True, "model": "local"
                 })
                 return
@@ -2290,7 +2302,7 @@ def run_server():
         print("  MASIS V3 — Multi-Timeframe Confluence Engine & Demo Trading Server")
         print(f"  Dashboard:        http://localhost:{PORT}")
         print(f"  Bybit endpoint:   {BYBIT_BASE_URL}")
-        print(f"  Supervisor model: {'configured, budget ' + str(DEEPSEEK_DAILY_CALL_BUDGET) + '/day' if DEEPSEEK_API_KEY else 'NOT configured — running on local gates only'}")
+        print(f"  DeepSeek:         {'ON, budget ' + str(DEEPSEEK_DAILY_CALL_BUDGET) + '/day' if DEEPSEEK_API_KEY else ('ON but no DEEPSEEK_API_KEY' if DEEPSEEK_ENABLED else 'OFF (DEEPSEEK_ENABLED not set) — local gates and fallbacks only')}")
         print(f"  News sentinel:    {'Benzinga live' if BENZINGA_API_KEY else 'disabled (no BENZINGA_API_KEY)'}")
         print(f"  Macro feed:       {'CoinGecko live' if COINGECKO_API_KEY else 'disabled (no COINGECKO_API_KEY)'}")
         print("=" * 64)

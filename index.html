@@ -2442,7 +2442,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
                   <option value="NEARUSDT">NEARUSDT</option>
                   <option value="APTUSDT">APTUSDT</option>
                 </select>
-                <button class="hbtn cme-read-market-btn" id="radarReadMarketBtn" onclick="readMarketFromRadar()" title="Read Market with DeepSeek Quantitative Intelligence">
+                <button class="hbtn cme-read-market-btn" id="radarReadMarketBtn" onclick="readMarketFromRadar()" title="Read the market: structure, liquidity sweeps and a trade read">
                   <i class="fa-solid fa-brain" style="color:var(--go)"></i>
                   <span>Read Market</span>
                 </button>
@@ -2652,7 +2652,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
         <div>
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-weight:800;font-size:14px;color:#ffffff">CME-X5 Market Reader</span>
-            <span class="ebadge ds-ai-badge" id="dsEngineBadge"><i class="fa-solid fa-microchip"></i> DeepSeek-V3 Quant</span>
+            <span class="ebadge ds-ai-badge" id="dsEngineBadge"><i class="fa-solid fa-microchip"></i> Quant Read</span>
           </div>
         </div>
       </div>
@@ -2702,12 +2702,12 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <!-- Loading State -->
       <div class="ds-loading-state" id="dsLoadingState" style="display:none">
         <div class="ds-loading-spinner"><i class="fa-solid fa-brain fa-flip"></i></div>
-        <div class="ds-loading-title">DeepSeek Neural Reasoning in Progress...</div>
+        <div class="ds-loading-title">Reading the market...</div>
         <div class="ds-loading-sub">Auditing Bybit 15M/1H order flow, counting S/R wick rejections &amp; detecting liquidity sweeps</div>
         <div class="ds-loading-steps">
           <div class="ds-step active"><i class="fa-solid fa-check"></i> Streaming Bybit real-time orderbook &amp; klines</div>
           <div class="ds-step active"><i class="fa-solid fa-check"></i> Computing volume profile POC &amp; multi-timeframe swing clusters</div>
-          <div class="ds-step pulse"><i class="fa-solid fa-circle-notch fa-spin"></i> DeepSeek formulating institutional tactical thesis</div>
+          <div class="ds-step pulse"><i class="fa-solid fa-circle-notch fa-spin"></i> Building the tactical thesis</div>
         </div>
       </div>
 
@@ -5705,7 +5705,7 @@ function handleSnap(d){
           var sp=parseFloat(p.stop_p||0);
           var tp=parseFloat(p.target_p||0);
           var tgtDisp=p.poc?('POC: '+parseFloat(p.poc).toFixed(2)):tp.toFixed(4);
-          var actionBtn='<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end"><button class="ds-pill-btn" onclick="openDeepSeekMarketReader(\''+k+'\')" title="DeepSeek Analysis for '+k+'"><i class="fa-solid fa-brain"></i> AI Read</button><button class="exec-btn" onclick="executeRadarTrade(\''+k+'\',\''+p.direction+'\','+ep+','+sp+','+tp+',\''+sit+'\')"><i class="fa-solid fa-bolt"></i> Execute</button></div>';
+          var actionBtn='<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end"><button class="ds-pill-btn" onclick="openDeepSeekMarketReader(\''+k+'\')" title="Market read for '+k+'"><i class="fa-solid fa-brain"></i> AI Read</button><button class="exec-btn" onclick="executeRadarTrade(\''+k+'\',\''+p.direction+'\','+ep+','+sp+','+tp+',\''+sit+'\')"><i class="fa-solid fa-bolt"></i> Execute</button></div>';
           return '<tr class="pos-row" data-sym="' + k + '" data-ep="' + ep + '" data-sp="' + sp + '" data-tp="' + tp + '" data-dir="' + p.direction + '" data-sit="' + sit + '">' +
             '<td class="fm" style="font-weight:700">' + k + '</td>' +
             '<td><span class="bdg ' + bdgCl + '">' + sit + '</span></td>' +

@@ -14,6 +14,7 @@ import math
 import urllib.request
 from datetime import datetime
 
+from .deepseek_switch import deepseek_key
 from .supabase_client import (
     supabase_get,
     supabase_post,
@@ -36,7 +37,8 @@ if os.path.exists(ENV_PATH):
                 k, v = line.split("=", 1)
                 env[k.strip()] = v.strip().strip("'\"")
 
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY") or env.get("DEEPSEEK_API_KEY")
+# "" unless DEEPSEEK_ENABLED=1 (backend_lib/deepseek_switch.py): the post-trade reflection then keeps its local default notes.
+DEEPSEEK_API_KEY = deepseek_key({**env, **os.environ})
 DEEPSEEK_URL = os.environ.get("DEEPSEEK_URL") or env.get("DEEPSEEK_URL", "https://api.deepseek.com/v1/chat/completions")
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL") or env.get("DEEPSEEK_MODEL", "deepseek-chat")
 

@@ -219,6 +219,12 @@ required ones rather than falling back to a default.
 
 ## 3. Why DeepSeek credit was burning
 
+> **Current state: DeepSeek is switched off.** No code path sends anything to it unless `DEEPSEEK_ENABLED=1`,
+> and a `DEEPSEEK_API_KEY` left in `.env` or in Railway's variables is ignored while it is off (the logic is the
+> few lines in `backend_lib/deepseek_switch.py`). The news score falls back to keywords, the market read to the
+> local quant read, the chart read to WAIT. `GET /api/llm/status` reports `"enabled": false` on a running server.
+> `tests/test_deepseek_off.py` fails if any route sends a request to DeepSeek while it is off.
+
 Three uncapped call sites, none gated on whether the answer could change a
 decision:
 

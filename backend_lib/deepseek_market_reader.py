@@ -15,6 +15,7 @@ import re
 import os
 from daemons.agents.sr_agent import SRAgent
 from daemons.agents.fvg_agent import FVGImpactAgent
+from .deepseek_switch import deepseek_key
 
 def _init_env():
     global DEEPSEEK_API_KEY, BYBIT_BASE_URL, DEEPSEEK_URL, DEEPSEEK_MODEL
@@ -32,7 +33,7 @@ def _init_env():
         except Exception:
             pass
     BYBIT_BASE_URL = os.environ.get("BYBIT_BASE_URL", "https://api-demo.bybit.com")
-    DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+    DEEPSEEK_API_KEY = deepseek_key()   # "" unless DEEPSEEK_ENABLED=1; with no key the local quant read is used
     DEEPSEEK_URL = os.environ.get("DEEPSEEK_URL", "https://api.deepseek.com/v1/chat/completions")
     DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 
@@ -389,7 +390,8 @@ def build_local_fallback_analysis(sym, btc_data, coin_data, sr_data, liq_data, v
 def get_market_analysis(target_symbol="ALL", force_refresh=False):
     """
     Main entry point for DeepSeek Market Reader.
-    Gathers real Bybit market data, runs quant metrics, queries DeepSeek,
+    Gathers real Bybit market data, runs quant metrics, queries DeepSeek only when it is
+    switched on (DEEPSEEK_ENABLED=1; otherwise the local quant read is returned),
     and returns rich structured market analysis.
     """
     now = time.time()
