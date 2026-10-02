@@ -1481,6 +1481,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {"retCode": 0, "symbol": symbol, "interval": interval, "list": candles})
             return
 
+        # 6a-1. API: Strong-Break Golden Zone indicator + trend map for the Fast Canvas chart (backend_lib/sbgz.py)
+        if self.path.startswith("/api/sbgz"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            symbol = re.sub(r"[^A-Z0-9]", "", (q.get("symbol") or ["BTCUSDT"])[0].upper()) or "BTCUSDT"
+            interval = (q.get("interval") or ["15"])[0]
+            if interval not in ("1", "3", "5", "15", "30", "60", "120", "240", "D"):
+                interval = "15"
+            try:
+                bars = min(3000, max(300, int((q.get("bars") or ["1000"])[0])))
+            except Exception:
+                bars = 1000
+            try:
+                from backend_lib import sbgz as _sbgz
+                self._send_json(200, _sbgz.get(symbol, interval, bars))
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"sbgz failed: {e}"})
+            return
+
         # 6a-2. API: 24h Market Ticker for Bybit Mobile UI
         if self.path.startswith("/api/ticker"):
             parsed_url = urllib.parse.urlparse(self.path)

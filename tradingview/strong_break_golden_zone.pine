@@ -1,0 +1,495 @@
+//@version=6
+// Strong-Break Golden Zone (SBGZ) + trend map
+// Research basis (Binance USDT perpetuals, 15m, 43 coins, Jan 2023 - Sep 2026, after fees):
+//   * VU (volatility unit) = EMA-100 of true range.  Big trend = swing of >= 8 VU, swing/pullback = >= 3 VU.
+//     A swing is confirmed only when a CLOSE is k VU beyond the running extreme, so confirmed swings never repaint.
+//   * Setup: break of structure (a close beyond the previous swing) whose impulse is >= 13 VU, then a limit
+//     order at 50% of the impulse, stop at 66%, target 27.2% beyond the impulse extreme. One trade per side.
+//     Backtest: +0.21R (research coins) / +0.22R (unseen coins) per trade, 22% winners of about +4.8R,
+//     about 1.9 trades per coin per month on 15m. The ordinary BOS + golden zone (no 13 VU filter) LOST money.
+//   * Panel numbers (trend continuation odds, target odds, reversal warnings) are averages from the same data.
+//   Paper-trade before using real money. Past results do not guarantee future results.
+indicator("Strong-Break Golden Zone + Trend Map", shorttitle = "SBGZ", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 200, max_bars_back = 3000)
+
+// ───────────────────────────── inputs
+grpS = "Setup (research rules - change only if you know why)"
+vuLen    = input.int(100, "Volatility unit: EMA length of true range", minval = 10, group = grpS)
+swingK   = input.float(3.0, "Swing size (VU)", minval = 0.5, step = 0.5, group = grpS)
+trendK   = input.float(8.0, "Big-trend size (VU)", minval = 1.0, step = 0.5, group = grpS)
+minBreak = input.float(13.0, "Minimum break impulse (VU)", minval = 0.0, step = 0.5, group = grpS)
+entryFib = input.float(0.5, "Entry retracement", minval = 0.1, maxval = 0.9, step = 0.01, group = grpS)
+stopFib  = input.float(0.66, "Stop retracement", minval = 0.2, maxval = 1.2, step = 0.01, group = grpS)
+tgtExt   = input.float(0.272, "Target beyond the impulse extreme (x impulse)", minval = 0.0, step = 0.01, group = grpS)
+grpC = "Costs for the on-chart stats (% of price)"
+feeLimit = input.float(0.02, "Limit order fee % (entry, target)", minval = 0.0, step = 0.01, group = grpC)
+feeStop  = input.float(0.08, "Stop exit fee + slippage %", minval = 0.0, step = 0.01, group = grpC)
+grpV = "Display"
+showTrend  = input.bool(true, "Big-trend lines", group = grpV)
+showSwings = input.bool(false, "Swing lines (pushes and pullbacks)", group = grpV)
+showWeak   = input.bool(false, "Show setups below the minimum break (grey, never traded)", group = grpV)
+showPanel  = input.bool(true, "Info panel", group = grpV)
+
+// ───────────────────────────── series
+float vu    = ta.ema(ta.tr(true), vuLen)
+float ema50 = ta.ema(close, 50)
+float rsi14 = ta.rsi(close, 14)
+float vavg  = ta.sma(nz(volume), 100)[1]          // average volume of the previous 100 bars
+bool  ready = bar_index >= 150 and not na(vu)
+
+// ───────────────────────────── helpers
+f_px(float x) => str.tostring(x, format.mintick)
+f_pct(float x) => str.tostring(math.round(x * 100, 1)) + "%"
+f_r(float x) => (x >= 0 ? "+" : "") + str.tostring(math.round(x, 2)) + "R"
+
+// chance the trend still makes a new extreme once the pullback has reached depth d (share of the last push)
+f_cont(float d, bool hourly) =>
+    array<float> th  = array.from(0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618)
+    array<float> p15 = array.from(62.8, 59.1, 53.8, 48.0, 39.2, 27.5, 16.5, 6.9)
+    array<float> p60 = array.from(61.0, 57.2, 51.4, 45.3, 36.4, 25.1, 14.9, 6.2)
+    float r = hourly ? 61.0 : 63.0
+    for k = 0 to 7
+        if d >= array.get(th, k)
+            r := hourly ? array.get(p60, k) : array.get(p15, k)
+    r
+
+// ───────────────────────────── causal zigzag (close-confirmed)
+type ZZ
+    float k
+    int   dir    = 0
+    float ext    = na
+    int   extBar = na
+    float opp    = na
+    int   oppBar = na
+    float hi     = na
+    int   hiBar  = na
+    float lo     = na
+    int   loBar  = na
+    float lah    = na
+    int   lahBar = na
+    float hal    = na
+    int   halBar = na
+    float p1     = na
+    int   b1     = na
+    int   k1     = 0
+    float p2     = na
+    int   b2     = na
+    float p3     = na
+    int   b3     = na
+    float p4     = na
+    int   b4     = na
+    bool  isNew  = false
+
+method push(ZZ z, float p, int b, int kind) =>
+    z.p4 := z.p3
+    z.b4 := z.b3
+    z.p3 := z.p2
+    z.b3 := z.b2
+    z.p2 := z.p1
+    z.b2 := z.b1
+    z.p1 := p
+    z.b1 := b
+    z.k1 := kind
+    z.isNew := true
+    z
+
+// highest high (kind 1) / lowest low (kind -1) of the bars after fromBar up to now; oldest bar wins ties
+method after(ZZ z, int fromBar, int kind) =>
+    float best = na
+    int bestBar = na
+    if not na(fromBar) and bar_index > fromBar
+        int nb = math.min(bar_index - fromBar, 2900)
+        for q = 0 to nb - 1
+            float v = kind == 1 ? high[q] : low[q]
+            if na(best) or (kind == 1 ? v >= best : v <= best)
+                best := v
+                bestBar := bar_index - q
+    [best, bestBar]
+
+method update(ZZ z, float u) =>
+    z.isNew := false
+    if z.dir == 0
+        if na(z.hi)
+            z.hi := high
+            z.hiBar := bar_index
+            z.lo := low
+            z.loBar := bar_index
+        else
+            if high > z.hi
+                z.hi := high
+                z.hiBar := bar_index
+                z.lah := na
+            else if na(z.lah) or low < z.lah
+                z.lah := low
+                z.lahBar := bar_index
+            if low < z.lo
+                z.lo := low
+                z.loBar := bar_index
+                z.hal := na
+            else if na(z.hal) or high > z.hal
+                z.hal := high
+                z.halBar := bar_index
+            if z.hiBar < bar_index and close <= z.hi - z.k * u
+                z.push(z.hi, z.hiBar, 1)
+                z.dir := -1
+                z.ext := z.lah
+                z.extBar := z.lahBar
+                [o, ob] = z.after(z.extBar, 1)
+                z.opp := o
+                z.oppBar := ob
+            else if z.loBar < bar_index and close >= z.lo + z.k * u
+                z.push(z.lo, z.loBar, -1)
+                z.dir := 1
+                z.ext := z.hal
+                z.extBar := z.halBar
+                [o, ob] = z.after(z.extBar, -1)
+                z.opp := o
+                z.oppBar := ob
+    else if z.dir == 1
+        if high > z.ext
+            z.ext := high
+            z.extBar := bar_index
+            z.opp := na
+            z.oppBar := na
+        else if na(z.opp) or low < z.opp
+            z.opp := low
+            z.oppBar := bar_index
+        if close <= z.ext - z.k * u
+            z.push(z.ext, z.extBar, 1)
+            z.dir := -1
+            if na(z.opp)
+                z.ext := close
+                z.extBar := bar_index
+            else
+                z.ext := z.opp
+                z.extBar := z.oppBar
+            [o, ob] = z.after(z.extBar, 1)
+            z.opp := o
+            z.oppBar := ob
+    else
+        if low < z.ext
+            z.ext := low
+            z.extBar := bar_index
+            z.opp := na
+            z.oppBar := na
+        else if na(z.opp) or high > z.opp
+            z.opp := high
+            z.oppBar := bar_index
+        if close >= z.ext + z.k * u
+            z.push(z.ext, z.extBar, -1)
+            z.dir := 1
+            if na(z.opp)
+                z.ext := close
+                z.extBar := bar_index
+            else
+                z.ext := z.opp
+                z.extBar := z.oppBar
+            [o, ob] = z.after(z.extBar, -1)
+            z.opp := o
+            z.oppBar := ob
+    z
+
+// ───────────────────────────── strong-break golden zone setup (one object per side)
+// All prices are kept in "long space": for the short side they are multiplied by -1, so one code path does both.
+type Setup
+    int   side
+    bool  pending   = false
+    bool  armed     = false
+    bool  readySent = false
+    float L         = na
+    float Hp        = na
+    float M         = na
+    int   armBar    = na
+    bool  inTrade   = false
+    float E         = na
+    float S         = na
+    float T         = na
+    int   fillBar   = na
+    int   lastExit  = -1
+    int   n         = 0
+    int   wins      = 0
+    float sumR      = 0.0
+    float lastR     = na
+    box   pZone     = na
+    line  pSL       = na
+    line  pTP       = na
+    line  tEn       = na
+    line  tSL       = na
+    line  tTP       = na
+    bool  evReady   = false
+    bool  evFill    = false
+    bool  evWin     = false
+    bool  evLoss    = false
+
+method clearPreview(Setup st) =>
+    box.delete(st.pZone)
+    line.delete(st.pSL)
+    line.delete(st.pTP)
+    st.pZone := na
+    st.pSL := na
+    st.pTP := na
+    st
+
+method closeTrade(Setup st, float xp, bool win) =>
+    float risk = st.E - st.S
+    float cost = (feeLimit + (win ? feeLimit : feeStop)) / 100.0
+    st.lastR := (xp - st.E) / risk - cost * math.abs(st.E) / risk
+    st.inTrade := false
+    st.lastExit := bar_index
+    st.n := st.n + 1
+    st.wins := st.wins + (win ? 1 : 0)
+    st.sumR := st.sumR + st.lastR
+    st.evWin := win
+    st.evLoss := not win
+    line.set_x2(st.tEn, bar_index)
+    line.set_x2(st.tSL, bar_index)
+    line.set_x2(st.tTP, bar_index)
+    int s = st.side
+    label.new(bar_index, s * xp, (win ? "TP " : "SL ") + f_r(st.lastR), color = win ? color.new(color.green, 10) : color.new(color.red, 10), textcolor = color.white, style = (s == 1) == win ? label.style_label_down : label.style_label_up, size = size.small)
+    st
+
+method step(Setup st, ZZ z, float u) =>
+    int   s  = st.side
+    float hS = s == 1 ? high : -low
+    float lS = s == 1 ? low : -high
+    float cS = s * close
+    float oS = s * open
+    st.evReady := false
+    st.evFill := false
+    st.evWin := false
+    st.evLoss := false
+    // 1) the open trade: stop first (conservative), then target
+    if st.inTrade and bar_index > st.fillBar
+        if lS <= st.S
+            st.closeTrade(math.min(oS, st.S), false)
+        else if hS >= st.T
+            st.closeTrade(math.max(oS, st.T), true)
+        else
+            line.set_x2(st.tEn, bar_index)
+            line.set_x2(st.tSL, bar_index)
+            line.set_x2(st.tTP, bar_index)
+    // 2) a newly confirmed swing low (long side) / swing high (short side) starts a new candidate
+    if z.isNew and z.k1 == -s
+        if st.armed
+            st.armed := false
+            st.clearPreview()
+        st.pending := not na(z.p2)
+        st.L := s * z.p1
+        st.Hp := s * z.p2
+        st.M := s * z.ext
+        st.readySent := false
+        int nb = bar_index - z.b1
+        float mc = na
+        if nb >= 1
+            for i = 0 to math.min(nb, 2900) - 1
+                float ci = s * close[i]
+                mc := na(mc) ? ci : math.max(mc, ci)
+        if st.pending and not na(mc) and mc > st.Hp
+            st.pending := false
+            st.armed := true
+            st.armBar := bar_index
+    else
+        float mPrev = st.M
+        if st.pending or st.armed
+            st.M := math.max(st.M, hS)
+        if st.pending
+            if s * z.dir == 1 and cS > st.Hp
+                st.pending := false
+                st.armed := true
+                st.armBar := bar_index
+            else if s * z.dir == -1
+                st.pending := false
+        else if st.armed and bar_index > st.armBar
+            float imp = st.M - st.L
+            float ent = st.M - entryFib * imp
+            if lS < ent
+                bool strong = imp >= minBreak * u
+                if strong and not st.inTrade and bar_index > st.lastExit
+                    st.E := hS > mPrev ? ent : math.min(oS, ent)
+                    st.S := st.M - stopFib * imp
+                    st.T := st.M + tgtExt * imp
+                    st.inTrade := true
+                    st.fillBar := bar_index
+                    st.evFill := true
+                    st.tEn := line.new(bar_index, s * st.E, bar_index + 1, s * st.E, color = color.new(color.blue, 0), width = 2)
+                    st.tSL := line.new(bar_index, s * st.S, bar_index + 1, s * st.S, color = color.new(color.red, 0), width = 2)
+                    st.tTP := line.new(bar_index, s * st.T, bar_index + 1, s * st.T, color = color.new(color.green, 0), width = 2)
+                    float rr = (st.T - st.E) / (st.E - st.S)
+                    string txt = (s == 1 ? "LONG " : "SHORT ") + f_px(s * st.E) + "\nSL " + f_px(s * st.S) + "\nTP " + f_px(s * st.T) + "\nR:R " + str.tostring(math.round(rr, 1)) + " | break " + str.tostring(math.round(imp / u, 1)) + " VU"
+                    label.new(bar_index, s * st.E, txt, color = s == 1 ? color.new(color.teal, 0) : color.new(color.maroon, 0), textcolor = color.white, style = s == 1 ? label.style_label_up : label.style_label_down, size = size.small)
+                    if not na(st.pZone)
+                        box.set_right(st.pZone, bar_index)
+                    line.delete(st.pSL)
+                    line.delete(st.pTP)
+                    st.pZone := na
+                    st.pSL := na
+                    st.pTP := na
+                    if lS <= st.S
+                        st.closeTrade(st.S, false)
+                st.armed := false
+                st.clearPreview()
+    // 3) draw or update the waiting setup
+    if st.armed
+        float imp = st.M - st.L
+        bool strong = imp >= minBreak * u
+        if strong and not st.readySent
+            st.readySent := true
+            st.evReady := true
+        if strong or showWeak
+            float z1 = s * (st.M - entryFib * imp)
+            float z2 = s * (st.M - 0.618 * imp)
+            float sl = s * (st.M - stopFib * imp)
+            float tp = s * (st.M + tgtExt * imp)
+            color zc = strong ? (s == 1 ? color.new(color.teal, 70) : color.new(color.maroon, 70)) : color.new(color.gray, 85)
+            if na(st.pZone)
+                st.pZone := box.new(st.armBar, math.max(z1, z2), bar_index + 3, math.min(z1, z2), border_color = color.new(color.gray, 60), bgcolor = zc)
+                st.pSL := line.new(st.armBar, sl, bar_index + 3, sl, color = color.new(color.red, 40), style = line.style_dashed)
+                st.pTP := line.new(st.armBar, tp, bar_index + 3, tp, color = color.new(color.green, 40), style = line.style_dashed)
+            else
+                box.set_top(st.pZone, math.max(z1, z2))
+                box.set_bottom(st.pZone, math.min(z1, z2))
+                box.set_right(st.pZone, bar_index + 3)
+                box.set_bgcolor(st.pZone, zc)
+                line.set_xy1(st.pSL, st.armBar, sl)
+                line.set_xy2(st.pSL, bar_index + 3, sl)
+                line.set_xy1(st.pTP, st.armBar, tp)
+                line.set_xy2(st.pTP, bar_index + 3, tp)
+        else
+            st.clearPreview()
+    st
+
+// ───────────────────────────── run
+var ZZ    zs = ZZ.new(swingK)
+var ZZ    zt = ZZ.new(trendK)
+var Setup lg = Setup.new(1)
+var Setup sh = Setup.new(-1)
+if ready
+    zs.update(vu)
+    zt.update(vu)
+    lg.step(zs, vu)
+    sh.step(zs, vu)
+
+// trend and swing lines
+if showTrend and zt.isNew and not na(zt.b2)
+    line.new(zt.b2, zt.p2, zt.b1, zt.p1, color = zt.k1 == 1 ? color.new(color.green, 25) : color.new(color.red, 25), width = 3)
+if showSwings and zs.isNew and not na(zs.b2)
+    line.new(zs.b2, zs.p2, zs.b1, zs.p1, color = color.new(color.gray, 30), width = 1, style = line.style_dashed)
+var line liveT = na
+if showTrend and barstate.islast and not na(zt.b1) and not na(zt.extBar)
+    line.delete(liveT)
+    liveT := line.new(zt.b1, zt.p1, zt.extBar, zt.ext, color = zt.dir == 1 ? color.new(color.green, 55) : color.new(color.red, 55), width = 3, style = line.style_dotted)
+
+// reversal warnings, measured when a pullback starts inside a big trend (each one lowered the continuation odds)
+var string warnTxt = "-"
+var int    warnN   = 0
+if ready and zs.isNew and zt.dir != 0 and zs.k1 == zt.dir and not na(zs.b2) and not na(zt.b1)
+    int   d    = zt.dir
+    int   off  = bar_index - zs.b1
+    int   offL = math.min(bar_index - zs.b2, 2900)
+    float push = d * (zs.p1 - zs.p2)
+    bool  wFast  = off <= 2
+    bool  wRsi   = d == 1 ? rsi14[off] >= 80 : rsi14[off] <= 20
+    float vTop   = math.max(nz(volume[off]), math.max(nz(volume[off + 1]), nz(volume[off + 2])))
+    bool  wSpike = vavg[off + 2] > 0 and vTop / vavg[off + 2] > 4
+    float vSum = 0.0
+    int   cnt  = 0
+    if offL > off
+        for j = off to offL - 1
+            vSum += nz(volume[j])
+            cnt += 1
+    bool  wPushV = cnt > 0 and vavg[offL] > 0 and vSum / cnt / vavg[offL] > 2.5
+    bool  prevInTrend = not na(zs.b3) and zs.b3 > zt.b1
+    bool  wFirst = not prevInTrend
+    bool  wAccel = prevInTrend and not na(zs.b4) and zs.b4 >= zt.b1 and push > 1.6 * d * (zs.p3 - zs.p4)
+    bool  wExt   = d * (zs.p1 - ema50[off]) / vu[off] > 6
+    warnN := (wFast ? 1 : 0) + (wRsi ? 1 : 0) + (wSpike ? 1 : 0) + (wPushV ? 1 : 0) + (wAccel ? 1 : 0) + (wExt ? 1 : 0) + (wFirst ? 1 : 0)
+    string w = ""
+    w := wFast ? w + "fast drop, " : w
+    w := wRsi ? w + (d == 1 ? "RSI 80+, " : "RSI 20-, ") : w
+    w := wSpike ? w + "volume spike 4x, " : w
+    w := wPushV ? w + "push volume 2.5x, " : w
+    w := wAccel ? w + "push 1.6x bigger, " : w
+    w := wExt ? w + "6 VU from EMA50, " : w
+    w := wFirst ? w + "1st pullback, " : w
+    warnTxt := str.tostring(warnN) + "/7" + (warnN > 0 ? ": " + str.substring(w, 0, str.length(w) - 2) : "")
+
+// ───────────────────────────── info panel
+var table panel = table.new(position.top_right, 2, 9, bgcolor = color.new(#0b1220, 15), frame_color = color.new(color.gray, 60), frame_width = 1, border_color = color.new(color.gray, 80), border_width = 1)
+f_row(int r, string a, string b, color bc) =>
+    table.cell(panel, 0, r, a, text_color = color.new(color.white, 25), text_size = size.small, text_halign = text.align_left)
+    table.cell(panel, 1, r, b, text_color = bc, text_size = size.small, text_halign = text.align_left)
+
+if showPanel and barstate.islast
+    int  tfs    = timeframe.in_seconds()
+    bool hourly = tfs >= 3600
+    bool tested = tfs == 900 or tfs == 3600
+    f_row(0, "SBGZ", tested ? (hourly ? "odds from 1h research" : "odds from 15m research") : "untested timeframe (odds are 15m/1h)", tested ? color.gray : color.orange)
+    string tTxt = "forming"
+    color  tCol = color.gray
+    if zt.dir == 1 and not na(zt.p1)
+        tTxt := "UP " + f_pct(zt.ext / zt.p1 - 1) + " from " + f_px(zt.p1)
+        tCol := color.lime
+    else if zt.dir == -1 and not na(zt.p1)
+        tTxt := "DOWN " + f_pct(zt.ext / zt.p1 - 1) + " from " + f_px(zt.p1)
+        tCol := color.red
+    f_row(1, "Big trend", tTxt, tCol)
+    string nowTxt  = "-"
+    string contTxt = "-"
+    string tgtTxt  = "-"
+    int td = zt.dir
+    if td != 0 and not na(zs.p2)
+        if zs.dir == -td
+            float top   = zs.p1
+            float push  = math.abs(zs.p1 - zs.p2)
+            float depth = push > 0 ? math.abs(top - zs.ext) / push : na
+            nowTxt  := "pullback " + f_pct(depth) + " of the last push"
+            contTxt := str.tostring(f_cont(depth, hourly)) + "% (normal " + (hourly ? "61" : "63") + "%)"
+            tgtTxt  := f_px(top + td * 0.618 * push) + " (" + (hourly ? "35" : "37") + "%)   " + f_px(top + td * push) + " (" + (hourly ? "26" : "28") + "%)"
+        else
+            nowTxt := "push in the trend direction"
+    f_row(2, "Now", nowTxt, color.white)
+    f_row(3, "Chance of a new extreme", contTxt, color.white)
+    f_row(4, "Targets +0.618 / +1.0 push", tgtTxt, color.white)
+    f_row(5, "Top warnings", warnTxt, warnN >= 3 ? color.orange : color.white)
+    string stTxt = "waiting for a strong break (" + str.tostring(minBreak) + " VU = " + f_px(minBreak * vu) + ")"
+    color  stCol = color.gray
+    if lg.armed
+        float imp = lg.M - lg.L
+        bool strong = imp >= minBreak * vu
+        stTxt := "LONG zone " + f_px(lg.M - 0.618 * imp) + " - " + f_px(lg.M - entryFib * imp) + " | SL " + f_px(lg.M - stopFib * imp) + " | TP " + f_px(lg.M + tgtExt * imp) + (strong ? "" : " (break too small)")
+        stCol := strong ? color.lime : color.gray
+    if sh.armed
+        float imp = sh.M - sh.L
+        bool strong = imp >= minBreak * vu
+        string t2 = "SHORT zone " + f_px(-(sh.M - entryFib * imp)) + " - " + f_px(-(sh.M - 0.618 * imp)) + " | SL " + f_px(-(sh.M - stopFib * imp)) + " | TP " + f_px(-(sh.M + tgtExt * imp)) + (strong ? "" : " (break too small)")
+        stTxt := lg.armed ? stTxt + "\n" + t2 : t2
+        stCol := strong ? color.red : stCol
+    f_row(6, "Setup", stTxt, stCol)
+    string trTxt = "flat"
+    if lg.inTrade
+        trTxt := "LONG @ " + f_px(lg.E) + "  SL " + f_px(lg.S) + "  TP " + f_px(lg.T)
+    if sh.inTrade
+        string t3 = "SHORT @ " + f_px(-sh.E) + "  SL " + f_px(-sh.S) + "  TP " + f_px(-sh.T)
+        trTxt := lg.inTrade ? trTxt + "\n" + t3 : t3
+    f_row(7, "Open trade", trTxt, color.white)
+    int   nT = lg.n + sh.n
+    float sR = lg.sumR + sh.sumR
+    string stats = nT == 0 ? "no closed trades on the loaded bars" : str.tostring(nT) + " trades, " + str.tostring(math.round(100.0 * (lg.wins + sh.wins) / nT)) + "% wins, avg " + f_r(sR / nT) + ", total " + f_r(sR)
+    f_row(8, "This chart (after fees)", stats, nT == 0 ? color.gray : sR >= 0 ? color.lime : color.red)
+
+// ───────────────────────────── alerts (create one alert with "Any alert() function call" for the detailed messages)
+alertcondition(lg.evReady, "SBGZ long zone ready", "SBGZ: strong-break LONG zone ready on {{ticker}} {{interval}}")
+alertcondition(sh.evReady, "SBGZ short zone ready", "SBGZ: strong-break SHORT zone ready on {{ticker}} {{interval}}")
+alertcondition(lg.evFill or sh.evFill, "SBGZ entry filled", "SBGZ: entry filled on {{ticker}} {{interval}}")
+alertcondition(lg.evWin or lg.evLoss or sh.evWin or sh.evLoss, "SBGZ trade closed", "SBGZ: trade closed on {{ticker}} {{interval}}")
+if lg.evReady
+    float imp = lg.M - lg.L
+    alert("SBGZ LONG zone ready " + syminfo.ticker + " " + timeframe.period + ": buy limit " + f_px(lg.M - entryFib * imp) + ", stop " + f_px(lg.M - stopFib * imp) + ", target " + f_px(lg.M + tgtExt * imp) + " (levels move up while price keeps rising)", alert.freq_once_per_bar_close)
+if sh.evReady
+    float imp = sh.M - sh.L
+    alert("SBGZ SHORT zone ready " + syminfo.ticker + " " + timeframe.period + ": sell limit " + f_px(-(sh.M - entryFib * imp)) + ", stop " + f_px(-(sh.M - stopFib * imp)) + ", target " + f_px(-(sh.M + tgtExt * imp)) + " (levels move down while price keeps falling)", alert.freq_once_per_bar_close)
+if lg.evFill
+    alert("SBGZ LONG filled " + syminfo.ticker + " @ " + f_px(lg.E) + "  SL " + f_px(lg.S) + "  TP " + f_px(lg.T), alert.freq_once_per_bar)
+if sh.evFill
+    alert("SBGZ SHORT filled " + syminfo.ticker + " @ " + f_px(-sh.E) + "  SL " + f_px(-sh.S) + "  TP " + f_px(-sh.T), alert.freq_once_per_bar)
+if lg.evWin or lg.evLoss or sh.evWin or sh.evLoss
+    alert("SBGZ trade closed " + syminfo.ticker + ": " + ((lg.evWin or lg.evLoss) ? "LONG " + f_r(lg.lastR) : "SHORT " + f_r(sh.lastR)), alert.freq_once_per_bar)

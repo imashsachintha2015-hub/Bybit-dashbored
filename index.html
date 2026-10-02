@@ -862,6 +862,17 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .bsi-btn.active .bsi-dot.poc{background:#f59e0b;box-shadow:0 0 6px #f59e0b}
 .bsi-btn.active .bsi-dot.fvg{background:#38bdf8;box-shadow:0 0 6px #38bdf8}
 .bsi-btn.active .bsi-dot.vol{background:#a855f7;box-shadow:0 0 6px #a855f7}
+.bsi-btn.active .bsi-dot.sbgz{background:#14b8a6;box-shadow:0 0 6px #14b8a6}
+/* SBGZ (strong-break golden zone + trend map) info panel on the Fast Canvas chart */
+.sbgz-panel{position:absolute;top:8px;left:8px;z-index:6;max-width:min(360px,78%);background:rgba(8,9,15,.88);border:1px solid rgba(255,255,255,.09);border-radius:6px;padding:7px 9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.45;color:#cbd5e1;box-shadow:0 4px 18px rgba(0,0,0,.45)}
+.sbgz-panel .sbgz-h{display:flex;justify-content:space-between;gap:8px;cursor:pointer;font-weight:700;color:#e2e8f0;margin-bottom:3px}
+.sbgz-panel .sbgz-h small{font-weight:500;color:#64748b}
+.sbgz-panel .sbgz-r{display:flex;gap:6px}
+.sbgz-panel .sbgz-r span:first-child{color:#64748b;flex:0 0 92px}
+.sbgz-panel .sbgz-up{color:#10b981}.sbgz-panel .sbgz-dn{color:#ef4444}.sbgz-panel .sbgz-warn{color:#f59e0b}.sbgz-panel .sbgz-mut{color:#64748b}
+.sbgz-panel .sbgz-f{margin-top:4px;color:#64748b;font-size:9.5px}
+.sbgz-panel.min .sbgz-r,.sbgz-panel.min .sbgz-f{display:none}
+@media (max-width:640px){.sbgz-panel{font-size:9.5px;max-width:70%}.sbgz-panel .sbgz-r span:first-child{flex-basis:72px}}
 .bsi-btn.fit-btn{margin-left:auto;background:transparent;border:1px dashed #333d4b;color:#a0aec0}
 .bsi-btn.fit-btn:hover, .bsi-btn.fit-btn:active{background:#181d24;color:#fff;border-style:solid}
 
@@ -2225,6 +2236,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="cind on" id="iPOC" onclick="toggleChartIndicator('poc')">POC / VAH</button>
               <button class="cind on" id="iFVG" onclick="toggleChartIndicator('fvg')">FVG</button>
               <button class="cind on" id="iVOL" onclick="toggleChartIndicator('vol')">VOL</button>
+              <button class="cind" id="iSBGZ" onclick="toggleChartIndicator('sbgz')" title="Strong-Break Golden Zone + trend map (draws on the Bybit Fast Canvas chart)">SBGZ</button>
               <button class="cind" onclick="fitChartScale()" title="Auto Scale Fit"><i class="fa-solid fa-arrows-to-eye"></i> Fit</button>
             </div>
             <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
@@ -2304,6 +2316,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <button class="bsi-btn active" id="btnIndPOC" onclick="toggleChartIndicator('poc')"><span class="bsi-dot poc"></span> POC / VAH</button>
             <button class="bsi-btn active" id="btnIndFVG" onclick="toggleChartIndicator('fvg')"><span class="bsi-dot fvg"></span> FVG</button>
             <button class="bsi-btn active" id="btnIndVOL" onclick="toggleChartIndicator('vol')"><span class="bsi-dot vol"></span> VOL</button>
+            <button class="bsi-btn" id="btnIndSBGZ" onclick="toggleChartIndicator('sbgz')"><span class="bsi-dot sbgz"></span> SBGZ</button>
             <button class="bsi-btn fit-btn" onclick="fitChartScale()"><i class="fa-solid fa-arrows-to-eye"></i> Fit Scale</button>
           </div>
 
@@ -4128,12 +4141,244 @@ window.showToast = function(msg){
   }, 2200);
 };
 
+// ── SBGZ: Strong-Break Golden Zone + trend map ─────────────────────────────────────────────────────
+// Computed server-side (/api/sbgz -> backend_lib/sbgz.py) with the same rules as
+// tradingview/strong_break_golden_zone.pine; drawn here on the Lightweight (Bybit Fast Canvas) chart.
+var sbgzSeries = null, sbgzPriceLines = [], sbgzKey = null;
+window._fvgMarkers = window._fvgMarkers || [];
+window._sbgzMarkers = window._sbgzMarkers || [];
+
+// FVG and SBGZ markers share the candle series' single marker set, so both always go through here
+window.applyChartMarkers = function(){
+  if(!candleSeries) return;
+  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || []);
+  m.sort(function(a, b){ return a.time - b.time; });
+  try{
+    if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
+      if(!candleSeries._markersPrimitive) candleSeries._markersPrimitive = LightweightCharts.createSeriesMarkers(candleSeries, m);
+      else candleSeries._markersPrimitive.setMarkers(m);
+    } else if(candleSeries.setMarkers){
+      candleSeries.setMarkers(m);
+    }
+  }catch(e){ console.warn('[Chart] Marker update notice:', e); }
+};
+
+function sbgzEsc(s){
+  return String(s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+}
+
+function sbgzFmt(x){
+  if(x == null || !isFinite(x)) return '--';
+  var a = Math.abs(x);
+  if(a >= 1000) return x.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if(a >= 10) return x.toFixed(2);
+  if(a >= 1) return x.toFixed(3);
+  return x.toPrecision(4);
+}
+
+function sbgzMakeSeries(){
+  if(sbgzSeries || !lwChart) return;
+  var solid = LightweightCharts.LineStyle.Solid, dashed = LightweightCharts.LineStyle.Dashed;
+  var mk = function(color, width, style){
+    var o = { color: color, lineWidth: width, lineStyle: style, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false };
+    return (lwChart.addSeries && LightweightCharts.LineSeries) ? lwChart.addSeries(LightweightCharts.LineSeries, o) : lwChart.addLineSeries(o);
+  };
+  sbgzSeries = {
+    upA: mk('rgba(16,185,129,0.8)', 3, solid), upB: mk('rgba(16,185,129,0.8)', 3, solid),
+    dnA: mk('rgba(239,68,68,0.8)', 3, solid), dnB: mk('rgba(239,68,68,0.8)', 3, solid),
+    live: mk('rgba(148,163,184,0.9)', 2, dashed)
+  };
+}
+
+window.sbgzClear = function(){
+  clearTimeout(window._sbgzTimer);
+  if(sbgzSeries){ for(var k in sbgzSeries){ try{ sbgzSeries[k].setData([]); }catch(e){} } }
+  sbgzPriceLines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} });
+  sbgzPriceLines = [];
+  sbgzKey = null;
+  if(window._sbgzMarkers && window._sbgzMarkers.length){ window._sbgzMarkers = []; window.applyChartMarkers(); }
+  var p = document.getElementById('sbgzPanel');
+  if(p) p.style.display = 'none';
+};
+
+window.sbgzLoad = function(cs, tf, refresh){
+  if(!window.indicatorState || !window.indicatorState.sbgz || chartEngine !== 'bybit') return;
+  initLwChart();
+  if(!lwChart || !candleSeries) return;
+  clearTimeout(window._sbgzTimer);
+  var key = cs + '|' + tf;
+  if(!refresh) sbgzPanel({ loading: true }, cs, tf);
+  var again = function(){ window._sbgzTimer = setTimeout(function(){ window.sbgzLoad(cs, tf, true); }, 60000); };
+  fetch('/api/sbgz?symbol=' + encodeURIComponent(cs) + '&interval=' + encodeURIComponent(tf) + '&bars=1000')
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      var nowCs = S.replace('BYBIT:','').replace('.P',''), nowTf = T === 'D' ? 'D' : T;
+      if(!window.indicatorState.sbgz || chartEngine !== 'bybit' || nowCs !== cs || nowTf !== tf) return;   // user moved on
+      if(!d || !d.ok){
+        sbgzPanel({ error: (d && d.error) || 'no answer from /api/sbgz (server not updated yet?)' }, cs, tf);
+      } else {
+        sbgzDraw(d, key !== sbgzKey);
+        sbgzKey = key;
+        sbgzPanel(d, cs, tf);
+      }
+      again();
+    })
+    .catch(function(e){ sbgzPanel({ error: String(e) }, cs, tf); again(); });
+};
+
+function sbgzDraw(d, resetView){
+  sbgzMakeSeries();
+  var cData = [], vData = [];
+  (d.candles || []).forEach(function(c){
+    var ts = Math.floor(c.start / 1000);
+    cData.push({ time: ts, open: c.open, high: c.high, low: c.low, close: c.close });
+    vData.push({ time: ts, value: c.volume, color: c.close >= c.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' });
+  });
+  if(!cData.length || !sbgzSeries) return;
+  // show the same ~1000 candles the indicator used (the plain chart loads only 120)
+  currentCandles = d.candles;
+  candleSeries.setData(cData);
+  if(volumeSeries && window.indicatorState.vol) volumeSeries.setData(vData);
+  if(window.indicatorState.ema){
+    if(ema21Series) ema21Series.setData(calcEMA(cData, 21));
+    if(ema50Series) ema50Series.setData(calcEMA(cData, 50));
+  }
+  var times = d.times || [], tr = d.trend || [];
+  // big-trend legs: two series per colour, alternating, with a gap point so separate legs never join up
+  var legs = { upA: [], upB: [], dnA: [], dnB: [] }, lastBar = {}, nUp = 0, nDn = 0;
+  for(var i = 0; i + 1 < tr.length; i++){
+    var a = tr[i], b = tr[i + 1], up = b.kind === 1;
+    var k = up ? ((nUp++ % 2) ? 'upB' : 'upA') : ((nDn++ % 2) ? 'dnB' : 'dnA');
+    if(times[a.bar] == null || times[b.bar] == null) continue;
+    if(lastBar[k] != null && times[lastBar[k] + 1] != null && times[lastBar[k] + 1] < times[a.bar]) legs[k].push({ time: times[lastBar[k] + 1] });
+    legs[k].push({ time: times[a.bar], value: a.price });
+    legs[k].push({ time: times[b.bar], value: b.price });
+    lastBar[k] = b.bar;
+  }
+  for(var key in legs){ try{ sbgzSeries[key].setData(legs[key]); }catch(e){ console.warn('[SBGZ] trend legs', e); } }
+  var lv = d.trend_live, lp = tr.length ? tr[tr.length - 1] : null;
+  if(lv && lp && lv.bar > lp.bar && times[lv.bar] != null && times[lp.bar] != null){
+    sbgzSeries.live.applyOptions({ color: lp.kind === -1 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)' });
+    sbgzSeries.live.setData([{ time: times[lp.bar], value: lp.price }, { time: times[lv.bar], value: lv.price }]);
+  } else {
+    sbgzSeries.live.setData([]);
+  }
+  // trade markers: fill arrow, then a TP / SL circle with the result in R (after fees)
+  var mk = [];
+  (d.trades || []).concat(d.open_trades || []).forEach(function(t){
+    var L = t.side === 'LONG', ft = times[t.fill_bar];
+    if(ft != null) mk.push({ time: ft, position: L ? 'belowBar' : 'aboveBar', color: L ? '#14b8a6' : '#f43f5e',
+                             shape: L ? 'arrowUp' : 'arrowDown', text: (L ? 'SBGZ L ' : 'SBGZ S ') + sbgzFmt(t.entry) });
+    if(t.result && times[t.exit_bar] != null){
+      var win = t.result === 'TP';
+      mk.push({ time: times[t.exit_bar], position: (L === win) ? 'aboveBar' : 'belowBar', color: win ? '#10b981' : '#ef4444',
+                shape: 'circle', text: t.result + ' ' + (t.R >= 0 ? '+' : '') + t.R.toFixed(1) + 'R' });
+    }
+  });
+  window._sbgzMarkers = mk;
+  window.applyChartMarkers();
+  // the waiting zone and any open trade as price lines
+  sbgzPriceLines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} });
+  sbgzPriceLines = [];
+  var LS = LightweightCharts.LineStyle;
+  var addPL = function(price, color, style, width, title){
+    if(price == null || !isFinite(price)) return;
+    sbgzPriceLines.push(candleSeries.createPriceLine({ price: price, color: color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title: title }));
+  };
+  (d.setups || []).forEach(function(s){
+    if(!s.strong) return;
+    var L = s.side === 'LONG', c = L ? '#14b8a6' : '#f43f5e';
+    addPL(s.entry, c, LS.Dashed, 2, 'SBGZ ' + (L ? 'BUY' : 'SELL') + ' 0.5');
+    addPL(L ? s.zone_bottom : s.zone_top, c, LS.Dotted, 1, '0.618');
+    addPL(s.stop, '#ef4444', LS.Dashed, 1, 'SBGZ SL');
+    addPL(s.target, '#10b981', LS.Dashed, 1, 'SBGZ TP');
+  });
+  (d.open_trades || []).forEach(function(t){
+    addPL(t.entry, '#38bdf8', LS.Solid, 2, 'SBGZ ' + t.side);
+    addPL(t.stop, '#ef4444', LS.Solid, 1, 'SBGZ SL');
+    addPL(t.target, '#10b981', LS.Solid, 1, 'SBGZ TP');
+  });
+  if(resetView){
+    var n = cData.length;
+    try{ lwChart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 220), to: n + 4 }); }catch(e){}
+  }
+}
+
+function sbgzPanel(d, cs, tf){
+  var vp = document.getElementById('chartViewport');
+  if(!vp) return;
+  var el = document.getElementById('sbgzPanel');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'sbgzPanel';
+    el.className = 'sbgz-panel';
+    var savedMin = localStorage.getItem('sbgz_min');
+    if(savedMin === '1' || (savedMin === null && window.innerWidth < 640)) el.classList.add('min');   // phones start collapsed
+    el.addEventListener('click', function(e){
+      if(!e.target.closest('.sbgz-h')) return;
+      el.classList.toggle('min');
+      localStorage.setItem('sbgz_min', el.classList.contains('min') ? '1' : '0');
+    });
+    vp.appendChild(el);
+  }
+  el.style.display = 'block';
+  var tfLbl = tf === 'D' ? '1D' : tf === '60' ? '1h' : tf === '240' ? '4h' : tf + 'm';
+  var rows = [];
+  var row = function(label, value, cls){
+    rows.push('<div class="sbgz-r"><span>' + sbgzEsc(label) + '</span><span class="' + (cls || '') + '">' + sbgzEsc(value) + '</span></div>');
+  };
+  var p = d.panel || {};
+  var sub = d.loading ? 'loading…' : d.error ? 'error' : (p.tested ? (tf === '60' ? '1h odds' : '15m odds') : 'untested timeframe');
+  var head = '<div class="sbgz-h"><span>SBGZ · ' + sbgzEsc(cs) + ' ' + sbgzEsc(tfLbl) + '</span><small>' + sbgzEsc(sub) + ' ▾</small></div>';
+  if(d.loading){ el.innerHTML = head + '<div class="sbgz-r"><span>status</span><span class="sbgz-mut">loading ~1000 candles…</span></div>'; return; }
+  if(d.error){ el.innerHTML = head + '<div class="sbgz-r"><span>status</span><span class="sbgz-warn">' + sbgzEsc(d.error) + '</span></div>'; return; }
+  var t = p.trend;
+  if(t){
+    row('Big trend', (t.dir === 'UP' ? '▲ UP ' : '▼ DOWN ') + (t.pct >= 0 ? '+' : '') + t.pct.toFixed(1) + '% from ' + sbgzFmt(t.start), t.dir === 'UP' ? 'sbgz-up' : 'sbgz-dn');
+  } else {
+    row('Big trend', 'forming', 'sbgz-mut');
+  }
+  var pb = p.pullback;
+  if(pb){
+    row('Now', 'pullback ' + Math.round(pb.depth * 100) + '% of the last push');
+    row(t && t.dir === 'DOWN' ? 'New low odds' : 'New high odds', pb.continue_pct.toFixed(1) + '% (normal ' + pb.base_pct + '%)', pb.continue_pct < 45 ? 'sbgz-warn' : '');
+    row('Targets', sbgzFmt(pb.t618) + ' (' + pb.t618_pct + '%) · ' + sbgzFmt(pb.t100) + ' (' + pb.t100_pct + '%)');
+  } else if(t){
+    row('Now', 'push in the trend direction');
+  }
+  var w = p.warnings || { n: 0, items: [] };
+  row('Top warnings', w.n + '/7' + (w.items && w.items.length ? ': ' + w.items.join(', ') : ''), w.n >= 3 ? 'sbgz-warn' : '');
+  var strong = (d.setups || []).filter(function(s){ return s.strong; });
+  if(strong.length){
+    strong.forEach(function(s){
+      var lo = Math.min(s.zone_top, s.zone_bottom), hi = Math.max(s.zone_top, s.zone_bottom);
+      var rr = Math.abs(s.target - s.entry) / Math.abs(s.entry - s.stop);
+      row(s.side === 'LONG' ? 'Setup LONG' : 'Setup SHORT', 'zone ' + sbgzFmt(lo) + '–' + sbgzFmt(hi) + ' · SL ' + sbgzFmt(s.stop) + ' · TP ' + sbgzFmt(s.target) + ' · R:R ' + rr.toFixed(1) + ' · break ' + s.break_vu.toFixed(1) + ' VU', s.side === 'LONG' ? 'sbgz-up' : 'sbgz-dn');
+    });
+  } else {
+    row('Setup', 'waiting for a strong break (13 VU ≈ ' + sbgzFmt(p.min_break_price) + ')', 'sbgz-mut');
+  }
+  var ot = d.open_trades || [];
+  if(ot.length){
+    ot.forEach(function(o){ row('Open trade', o.side + ' @ ' + sbgzFmt(o.entry) + ' · SL ' + sbgzFmt(o.stop) + ' · TP ' + sbgzFmt(o.target), o.side === 'LONG' ? 'sbgz-up' : 'sbgz-dn'); });
+  } else {
+    row('Open trade', 'flat', 'sbgz-mut');
+  }
+  var mins = tf === 'D' ? 1440 : (parseInt(tf, 10) || 15);
+  var days = Math.round((d.bars || 0) * mins / 1440);
+  var st = p.stats;
+  row('Last ' + days + ' days', st ? (st.n + ' trades · ' + st.wins + ' wins · avg ' + (st.avg_r >= 0 ? '+' : '') + st.avg_r.toFixed(2) + 'R · total ' + (st.total_r >= 0 ? '+' : '') + st.total_r.toFixed(1) + 'R') : 'no closed trade yet', st ? (st.total_r >= 0 ? 'sbgz-up' : 'sbgz-dn') : 'sbgz-mut');
+  var foot = '<div class="sbgz-f">Backtest 2023-26 · 43 coins · 15m: +0.21R per trade, 22% wins, ~4.8R winners. Few trades per coin per month: judge it over many trades, paper-test first.</div>';
+  el.innerHTML = head + rows.join('') + foot;
+}
+
 // Chart Indicator States (Persisted in localStorage)
 window.indicatorState = {
   ema: localStorage.getItem('ind_ema') !== '0',
   poc: localStorage.getItem('ind_poc') !== '0',
   fvg: localStorage.getItem('ind_fvg') !== '0',
-  vol: localStorage.getItem('ind_vol') !== '0'
+  vol: localStorage.getItem('ind_vol') !== '0',
+  sbgz: localStorage.getItem('ind_sbgz') === '1'
 };
 
 // Auto Scale Fit & Reset Zoom
@@ -4150,11 +4395,23 @@ window.fitChartScale = function(){
 // Toggle Sub-indicators with zero delay reactive chart update
 window.toggleChartIndicator = function(name){
   if(!window.indicatorState){
-    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true };
+    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false };
   }
   window.indicatorState[name] = !window.indicatorState[name];
   localStorage.setItem('ind_' + name, window.indicatorState[name] ? '1' : '0');
   window.updateIndicatorButtonsUI();
+
+  // SBGZ draws on the Lightweight (Bybit Fast Canvas) chart; the embedded TradingView widget cannot run custom scripts
+  if(name === 'sbgz'){
+    if(window.indicatorState.sbgz){
+      if(chartEngine !== 'bybit'){ window.toggleChartEngine(); }
+      else { window.sbgzLoad(S.replace('BYBIT:','').replace('.P',''), T === 'D' ? 'D' : T, false); }
+    } else {
+      window.sbgzClear();
+    }
+    showToast('SBGZ ' + (window.indicatorState.sbgz ? 'Enabled (Fast Canvas chart)' : 'Disabled'));
+    return;
+  }
 
   var candles = (typeof currentCandles !== 'undefined' && currentCandles && currentCandles.length) ? currentCandles : (window.currentCandles || []);
 
@@ -4220,17 +4477,8 @@ window.toggleChartIndicator = function(name){
     } else if(name === 'fvg'){
       var isFvg = !!window.indicatorState.fvg;
       var fvgMarkers = (isFvg && cData.length) ? calcFVGMarkers(cData, dp) : [];
-      try{
-        if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
-          if(!candleSeries._markersPrimitive){
-            candleSeries._markersPrimitive = LightweightCharts.createSeriesMarkers(candleSeries, fvgMarkers);
-          } else {
-            candleSeries._markersPrimitive.setMarkers(fvgMarkers);
-          }
-        } else if(candleSeries.setMarkers){
-          candleSeries.setMarkers(fvgMarkers);
-        }
-      }catch(e){}
+      window._fvgMarkers = fvgMarkers;
+      window.applyChartMarkers();
       var amdEl = document.getElementById('tickAmd');
       if(amdEl && !isFvg){
         amdEl.textContent = 'FVG: OFF';
@@ -4251,7 +4499,7 @@ window.toggleChartIndicator = function(name){
 
 window.updateIndicatorButtonsUI = function(){
   if(!window.indicatorState) return;
-  ['ema', 'poc', 'fvg', 'vol'].forEach(function(k){
+  ['ema', 'poc', 'fvg', 'vol', 'sbgz'].forEach(function(k){
     var on = !!window.indicatorState[k];
     var mobBtn = document.getElementById('btnInd' + k.toUpperCase());
     if(mobBtn){
@@ -4644,20 +4892,10 @@ function loadLwChartData(cs, tf){
       // 3. AMD FVG (Fair Value Gaps) Markers on Candles - Active Unmitigated Only
       var showFVG = window.indicatorState ? window.indicatorState.fvg : true;
       var fvgMarkers = showFVG ? calcFVGMarkers(cData, dp) : [];
+      window._fvgMarkers = fvgMarkers;
+      window._sbgzMarkers = [];            // new candle set: SBGZ markers are redrawn by sbgzLoad below
+      window.applyChartMarkers();
       if(fvgMarkers.length){
-        try{
-          if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
-            if(!candleSeries._markersPrimitive){
-              candleSeries._markersPrimitive = LightweightCharts.createSeriesMarkers(candleSeries, fvgMarkers);
-            } else {
-              candleSeries._markersPrimitive.setMarkers(fvgMarkers);
-            }
-          } else if(candleSeries.setMarkers){
-            candleSeries.setMarkers(fvgMarkers);
-          }
-        }catch(e){
-          console.warn('[Chart] Marker update notice:', e);
-        }
         var lastM = fvgMarkers[fvgMarkers.length - 1];
         var amdEl = document.getElementById('tickAmd');
         if(amdEl){
@@ -4666,10 +4904,6 @@ function loadLwChartData(cs, tf){
           amdEl.style.background = lastM.text.includes('Bull') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
         }
       } else {
-        try{
-          if(candleSeries._markersPrimitive) candleSeries._markersPrimitive.setMarkers([]);
-          else if(candleSeries.setMarkers) candleSeries.setMarkers([]);
-        }catch(e){}
         var amdEl = document.getElementById('tickAmd');
         if(amdEl && !showFVG){
           amdEl.textContent = 'FVG: OFF';
@@ -4685,6 +4919,10 @@ function loadLwChartData(cs, tf){
         lwChart.timeScale().fitContent();
         hasFittedTimeScale = true;
       }
+
+      // 5. SBGZ (strong-break golden zone + trend map): loads ~1000 bars from /api/sbgz and redraws on top
+      if(window.indicatorState && window.indicatorState.sbgz) window.sbgzLoad(cs, tfVal, false);
+      else if(window.sbgzClear) window.sbgzClear();
     })
     .catch(function(err){ console.warn('[Chart] Error loading candles:', err); });
 }
@@ -4719,6 +4957,7 @@ function loadChart(ns,nt){
     loadLwChartData(cs, T);
   } else {
     if(lwWrap) lwWrap.style.display = 'none';
+    if(window.sbgzClear) window.sbgzClear();       // SBGZ only exists on the Fast Canvas chart
     if(tvWrap){
       tvWrap.style.display = 'block';
       // Prevent resetting widget and losing drawings on tick/refresh when symbol & timeframe haven't changed
@@ -4920,7 +5159,7 @@ function cTick(cs){
 
 document.getElementById('srow').addEventListener('click',function(e){var b=e.target.closest('.csym');if(b&&b.dataset.sym!==S)loadChart(b.dataset.sym,T)});
 document.getElementById('trow').addEventListener('click',function(e){var b=e.target.closest('.ctf');if(b&&b.dataset.tf&&b.dataset.tf!==T)loadChart(S,b.dataset.tf)});
-document.querySelectorAll('.cind').forEach(function(c){c.addEventListener('click',function(){c.classList.toggle('on');loadChart(S,T)})});
+document.querySelectorAll('.cind').forEach(function(c){if(c.id==='iSBGZ')return;c.addEventListener('click',function(){c.classList.toggle('on');loadChart(S,T)})});
 
 function g(id){return document.getElementById(id)}function sv(id,v){var e=g(id);if(e)e.textContent=v}
 
@@ -5983,7 +6222,9 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 
-loadChart(S,T);
+// SBGZ lives on the Fast Canvas chart: open on that engine when the user left SBGZ switched on
+if(window.indicatorState && window.indicatorState.sbgz && chartEngine !== 'bybit') window.toggleChartEngine();
+else loadChart(S,T);
 })();
 </script>
 </body>
