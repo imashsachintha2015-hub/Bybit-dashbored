@@ -13,6 +13,7 @@ Only closed candles are used, so a confirmed swing or trade never changes afterw
 Standard library only: the deployment has no numpy.
 """
 import json
+import os
 import threading
 import time
 import urllib.parse
@@ -123,11 +124,24 @@ class _Setup:
         self.pending = self.armed = self.inTrade = False
         self.L = self.Hp = self.M = self.E = self.S = self.T = self.bvol = NAN
         self.armBar = self.fillBar = None; self.lastExit = -1; self.trades = []; self.armedSince = None
+        # bookkeeping for the radar history (no effect on the trades): the armed setup's prices at the last bar it was a
+        # strong break, i.e. what the radar showed; and the strong setups that ended without a fill
+        self.seen = None; self.missed = []
 
     def _arm(self, i, bos, V, VA):
         """Armed at bar i; bos = the bar whose close broke the previous swing (its volume confirms the break)."""
         self.pending, self.armed, self.armBar = False, True, i
         self.bvol = V[bos] / VA[bos] if VA[bos] > 0 else NAN
+        self.seen = None
+
+    def _unfilled(self, i, why):
+        """The armed setup ends at bar i without a trade (why: a MISSED_WHY code): kept for the radar history if the
+        radar ever showed it as a strong break."""
+        if not self.armed or self.seen is None: return
+        sd, s = self.side, self.seen
+        self.missed.append(dict(side="LONG" if sd == 1 else "SHORT", arm_bar=self.armBar, seen_bar=s["bar"], end_bar=i,
+                                entry=sd * s["E"], stop=sd * s["S"], target=sd * s["T"], break_vu=s["bvu"],
+                                rr=(s["T"] - s["E"]) / (s["E"] - s["S"]), bvol=self.bvol, vol_ok=self.vol_ok(), why=why))
 
     def vol_ok(self):
         return not _isn(self.bvol) and self.bvol >= self.prm["vol_mult"]
@@ -147,6 +161,7 @@ class _Setup:
             if lS <= self.S: self._close(i, min(oS, self.S), False)
             elif hS >= self.T: self._close(i, max(oS, self.T), True)
         if z.isNew and z.k1 == -sd:
+            self._unfilled(i, "swing")
             self.armed = False
             self.pending = not _isn(z.p[1])
             self.L, self.Hp, self.M = sd * z.p[0], sd * z.p[1], sd * z.ext
@@ -170,9 +185,16 @@ class _Setup:
                         self.inTrade, self.fillBar = True, i
                         self.trades.append(dict(side="LONG" if sd == 1 else "SHORT", fill_bar=i, entry=sd * self.E,
                                                 stop=sd * self.S, target=sd * self.T, break_vu=imp / u,
-                                                rr=(self.T - self.E) / (self.E - self.S), bvol=self.bvol, vol_ok=vok))
+                                                rr=(self.T - self.E) / (self.E - self.S), bvol=self.bvol, vol_ok=vok,
+                                                since_bar=self.armBar))
                         if lS <= self.S: self._close(i, self.S, False)
+                    else:                      # reasons: MISSED_WHY
+                        self._unfilled(i, "busy" if self.inTrade or i <= self.lastExit else "weak" if imp < p["min_break"] * u else "vol")
                     self.armed = False
+        if self.armed:                         # what the radar shows after this bar (zone() with this bar's VU)
+            imp = self.M - self.L
+            if imp >= p["min_break"] * u:
+                self.seen = dict(bar=i, E=self.M - p["entry"] * imp, S=self.M - p["stop"] * imp, T=self.M + p["target"] * imp, bvu=imp / u)
 
     def zone(self, u):
         """The waiting setup in real prices (None when nothing is armed)."""
@@ -190,7 +212,7 @@ def compute(candles, interval="15", prm=None):
     bar indices refer to positions in `candles`."""
     p = dict(P, **(prm or {}))
     n = len(candles)
-    out = dict(params=p, bars=n, trend=[], swings=[], trades=[], setups=[], open_trades=[], trades_v=[], open_trades_v=[], panel={})
+    out = dict(params=p, bars=n, trend=[], swings=[], trades=[], setups=[], open_trades=[], trades_v=[], open_trades_v=[], missed=[], panel={})
     if n <= p["warmup"] + 5:
         out["panel"]["note"] = "not enough candles"
         return out
@@ -238,6 +260,8 @@ def compute(candles, interval="15", prm=None):
             (out["trades"] if "result" in t else out["open_trades"]).append(t)
         z = s.zone(u)
         if z: out["setups"].append(z)
+        out["missed"] += s.missed                                         # strong setups that never filled
+    out["missed"].sort(key=lambda m: m["arm_bar"])
     for s in (lgv, shv):
         for t in s.trades:
             (out["trades_v"] if "result" in t else out["open_trades_v"]).append(t)
@@ -339,43 +363,180 @@ def get(symbol, interval="15", bars=1000, ttl=30):
     return res
 
 
-_radar = {}
-_radar_lock = threading.Lock()
+_scan_cache = {}
+_scan_lock = threading.Lock()
+
+
+def _brief(r):
+    """The parts of a get() result the radar and its history use (the candles are not kept)."""
+    if not r or not r.get("ok"): return None
+    return dict(price=r["candles"][-1]["close"], times=r.get("times") or [], panel=r.get("panel") or {},
+                setups=r.get("setups") or [], open_trades=r.get("open_trades") or [], trades=r.get("trades") or [],
+                missed=r.get("missed") or [], warmup=(r.get("params") or P)["warmup"])
+
+
+def _scan(intervals, coins, ttl):
+    """get() for every coin x interval: one scan at a time, cached for ttl seconds, shared by the radar and the radar
+    history. Returns (generated, [((symbol, interval), brief or None), ...])."""
+    from concurrent.futures import ThreadPoolExecutor
+    key = (tuple(intervals), tuple(coins))
+    with _scan_lock:
+        hit = _scan_cache.get(key)
+        if hit and time.time() - hit[0] < ttl: return hit
+        jobs = [(s, iv) for s in coins for iv in intervals]
+        with ThreadPoolExecutor(16) as ex:                      # the time is the Bybit downloads, not the maths
+            results = list(ex.map(lambda j: _brief(get(j[0], j[1], 1000)), jobs))
+        hit = _scan_cache[key] = (int(time.time()), list(zip(jobs, results)))
+        return hit
 
 
 def radar(intervals=("15", "60"), coins=None, ttl=150):
     """Every strong-break setup (waiting) and open SBGZ trade across the coins and intervals, for the dashboard radar.
-    Reuses get() (and its cache), so the chart shows the same numbers. One scan at a time; cached for ttl seconds."""
-    from concurrent.futures import ThreadPoolExecutor
-    coins = list(coins or RADAR_COINS); key = (tuple(intervals), tuple(coins))
-    with _radar_lock:
-        hit = _radar.get(key)
-        if hit and time.time() - hit[0] < ttl: return hit[1]
-        jobs = [(s, iv) for s in coins for iv in intervals]; rows = []; errors = []
-        with ThreadPoolExecutor(16) as ex:                      # the time is the Bybit downloads, not the maths
-            results = list(ex.map(lambda j: get(j[0], j[1], 1000), jobs))
-        for (sym, iv), r in zip(jobs, results):
-            if not r or not r.get("ok"):
-                errors.append(sym + " " + iv); continue
-            pn = r.get("panel") or {}; times = r.get("times") or []
-            price = r["candles"][-1]["close"]; vu_now = pn.get("vu") or 0
-            base = dict(symbol=sym, interval=iv, price=price, trend=pn.get("trend"), warnings=(pn.get("warnings") or {}).get("n", 0))
-            for z in r.get("setups") or []:
-                if not z.get("strong"): continue
-                sd = 1 if z["side"] == "LONG" else -1
-                dist = sd * (price - z["entry"])
-                rows.append(dict(base, kind="setup", side=z["side"], entry=z["entry"], zone_top=z["zone_top"], zone_bottom=z["zone_bottom"],
-                                 stop=z["stop"], target=z["target"], rr=abs(z["target"] - z["entry"]) / abs(z["entry"] - z["stop"]),
-                                 break_vu=z["break_vu"], bvol=z.get("bvol"), vol_ok=bool(z.get("vol_ok")),
-                                 dist_pct=dist / price * 100 if price else None, dist_vu=dist / vu_now if vu_now else None,
-                                 since=times[z["since_bar"]] if z.get("since_bar") is not None and z["since_bar"] < len(times) else None,
-                                 exp_r=EXP_R.get((iv, bool(z.get("vol_ok")))) ))
-            for t in r.get("open_trades") or []:
-                rows.append(dict(base, kind="open", side=t["side"], entry=t["entry"], stop=t["stop"], target=t["target"], rr=t["rr"],
-                                 break_vu=t["break_vu"], bvol=t.get("bvol"), vol_ok=bool(t.get("vol_ok")),
-                                 since=times[t["fill_bar"]] if t["fill_bar"] < len(times) else None,
-                                 exp_r=EXP_R.get((iv, bool(t.get("vol_ok")))) ))
-        res = _clean(dict(ok=True, generated=int(time.time()), scanned=len(jobs), rows=rows, errors=errors))
-        _radar[key] = (time.time(), res)
-        return res
+    Reuses get() (and its cache), so the chart shows the same numbers."""
+    generated, results = _scan(intervals, list(coins or RADAR_COINS), ttl)
+    rows = []; errors = []
+    for (sym, iv), r in results:
+        if not r:
+            errors.append(sym + " " + iv); continue
+        pn = r["panel"]; times = r["times"]; price = r["price"]; vu_now = pn.get("vu") or 0
+        base = dict(symbol=sym, interval=iv, price=price, trend=pn.get("trend"), warnings=(pn.get("warnings") or {}).get("n", 0))
+        for z in r["setups"]:
+            if not z.get("strong"): continue
+            sd = 1 if z["side"] == "LONG" else -1
+            dist = sd * (price - z["entry"])
+            rows.append(dict(base, kind="setup", side=z["side"], entry=z["entry"], zone_top=z["zone_top"], zone_bottom=z["zone_bottom"],
+                             stop=z["stop"], target=z["target"], rr=abs(z["target"] - z["entry"]) / abs(z["entry"] - z["stop"]),
+                             break_vu=z["break_vu"], bvol=z.get("bvol"), vol_ok=bool(z.get("vol_ok")),
+                             dist_pct=dist / price * 100 if price else None, dist_vu=dist / vu_now if vu_now else None,
+                             since=times[z["since_bar"]] if z.get("since_bar") is not None and z["since_bar"] < len(times) else None,
+                             exp_r=EXP_R.get((iv, bool(z.get("vol_ok")))) ))
+        for t in r["open_trades"]:
+            rows.append(dict(base, kind="open", side=t["side"], entry=t["entry"], stop=t["stop"], target=t["target"], rr=t["rr"],
+                             break_vu=t["break_vu"], bvol=t.get("bvol"), vol_ok=bool(t.get("vol_ok")),
+                             since=times[t["fill_bar"]] if t["fill_bar"] < len(times) else None,
+                             exp_r=EXP_R.get((iv, bool(t.get("vol_ok")))) ))
+    return _clean(dict(ok=True, generated=generated, scanned=len(results), rows=rows, errors=errors))
+
+
+# ── Radar history: every setup the radar showed and what happened to it ──────────────────────────────────────────────
+# WIN = take-profit before stop, LOSS = stop before take-profit, OPEN = filled and running, NO FILL = the setup ended
+# before the price came back to the entry (a resting limit order there would just have been cancelled). Worked out
+# from the radar's own candles and rules, and kept in the shared store (Supabase app_state, like the runner's state;
+# SBGZ_HISTORY_BACKEND=file keeps it in a local file instead), so the list keeps growing after the candles leave the
+# 1000-bar window. Only setups armed >= 100 bars after the warm-up are added: by then the swings behind them are the
+# same in every window, so the result is the one the radar showed live.
+HIST_KEY = "sbgz_radar_history"
+HIST_MAX = 1200
+HIST_SETTLE = 100
+MISSED_WHY = {"swing": "a new swing formed before the price came back to the entry",
+              "busy": "the price came back while the last trade on this side was still open",
+              "weak": "the break was under 13 VU when the price came back",
+              "vol": "break volume under 2x (confirmed-only mode)"}
+_hist_lock = threading.Lock()
+_hist_mem = None                       # rows once loaded from the store (this process writes all changes)
+
+
+def _hist_file():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scratch", HIST_KEY + ".json")
+
+
+def _hist_file_backend():
+    return os.environ.get("SBGZ_HISTORY_BACKEND", "").strip().lower() == "file"
+
+
+def _hist_load():
+    """(rows, ok): ok is False when the store could not be read, so nothing is written over it."""
+    if _hist_file_backend():
+        try:
+            with open(_hist_file(), "r", encoding="utf-8") as f:
+                return json.load(f), True
+        except FileNotFoundError:
+            return [], True
+        except Exception:
+            return [], False
+    from .supabase_client import supabase_get
+    got = supabase_get("app_state", {"key": f"eq.{HIST_KEY}", "select": "value"})
+    if got is None: return [], False
+    v = got[0].get("value") if got else []
+    return (v if isinstance(v, list) else []), True
+
+
+def _hist_save(rows):
+    if _hist_file_backend():
+        os.makedirs(os.path.dirname(_hist_file()), exist_ok=True)
+        with open(_hist_file() + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(rows, f)
+        os.replace(_hist_file() + ".tmp", _hist_file())
+        return True
+    from .supabase_client import supabase_kv_set
+    return supabase_kv_set(HIST_KEY, rows) is not None
+
+
+def _num(x, sig=8):
+    return float(f"{x:.{sig}g}") if isinstance(x, (int, float)) and x == x and abs(x) != float("inf") else None
+
+
+def _hist_rows(sym, iv, r, settle=True):
+    """History rows of one chart. settle: only setups armed >= HIST_SETTLE bars after the warm-up."""
+    times = r["times"]; first = r["warmup"] + (HIST_SETTLE if settle else 0)
+    t = lambda b: times[b] if b is not None and 0 <= b < len(times) else None
+    out = []
+    for tr in r["trades"] + r["open_trades"]:
+        if tr.get("since_bar", tr["fill_bar"]) < first: continue
+        st = "OPEN" if "result" not in tr else "WIN" if tr["result"] == "TP" else "LOSS"
+        out.append(dict(k=f"{sym}|{iv}|{tr['side']}|{t(tr['fill_bar'])}", symbol=sym, interval=iv, side=tr["side"], status=st,
+                        t_arm=t(tr.get("since_bar")), t_fill=t(tr["fill_bar"]), t_end=t(tr.get("exit_bar")),
+                        entry=_num(tr["entry"]), stop=_num(tr["stop"]), target=_num(tr["target"]), exit=_num(tr.get("exit")),
+                        R=_num(tr.get("R"), 4), rr=_num(tr["rr"], 3), break_vu=_num(tr["break_vu"], 3), bvol=_num(tr.get("bvol"), 3),
+                        vol_ok=bool(tr.get("vol_ok"))))
+    for m in r["missed"]:
+        if m["arm_bar"] < first: continue
+        out.append(dict(k=f"{sym}|{iv}|{m['side']}|a{t(m['arm_bar'])}", symbol=sym, interval=iv, side=m["side"], status="NO FILL",
+                        t_arm=t(m["arm_bar"]), t_fill=None, t_end=t(m["end_bar"]), entry=_num(m["entry"]), stop=_num(m["stop"]),
+                        target=_num(m["target"]), exit=None, R=None, rr=_num(m["rr"], 3), break_vu=_num(m["break_vu"], 3),
+                        bvol=_num(m.get("bvol"), 3), vol_ok=bool(m.get("vol_ok")), why=m["why"]))
+    return out
+
+
+def _hist_stats(rows):
+    def agg(rs):
+        closed = [x for x in rs if x["status"] in ("WIN", "LOSS")]
+        wins = sum(1 for x in closed if x["status"] == "WIN"); Rs = [x["R"] for x in closed if x.get("R") is not None]
+        return dict(signals=len(rs), filled=sum(1 for x in rs if x["status"] != "NO FILL"), wins=wins, losses=len(closed) - wins,
+                    open=sum(1 for x in rs if x["status"] == "OPEN"), no_fill=sum(1 for x in rs if x["status"] == "NO FILL"),
+                    win_rate=wins / len(closed) * 100 if closed else None, total_r=sum(Rs), avg_r=sum(Rs) / len(Rs) if Rs else None)
+    out = {}
+    for mode, sel in (("all", rows), ("vol", [x for x in rows if x.get("vol_ok")])):
+        out[mode] = dict(total=agg(sel), **{iv: agg([x for x in sel if x["interval"] == iv]) for iv in ("15", "60")})
+    return out
+
+
+def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400):
+    """The radar history: new rows from the current scan are added to the stored list (an OPEN row is updated when its
+    trade closes; a closed or NO FILL row never changes). Rows newest signal first; stats over every stored row."""
+    global _hist_mem
+    generated, results = _scan(intervals, list(coins or RADAR_COINS), ttl)
+    with _hist_lock:
+        if _hist_mem is None:
+            rows, ok = _hist_load()
+            if not ok: return dict(ok=False, error="the radar history store could not be read; try again in a minute")
+            _hist_mem = {x["k"]: x for x in rows if isinstance(x, dict) and x.get("k")}
+        changed = False
+        for (sym, iv), r in results:
+            if not r: continue
+            settled = {x["k"] for x in _hist_rows(sym, iv, r)}
+            for row in _hist_rows(sym, iv, r, settle=False):
+                old = _hist_mem.get(row["k"])
+                if (old is None and row["k"] in settled) or (old is not None and old["status"] == "OPEN" and row["status"] != "OPEN"):
+                    _hist_mem[row["k"]] = row; changed = True
+        if changed:
+            keep = sorted(_hist_mem.values(), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)[:HIST_MAX]
+            if _hist_save(keep): _hist_mem = {x["k"]: x for x in keep}
+            else: print("[sbgz history] could not save to the store (kept in memory, retried on the next change)")
+        rows = sorted(_hist_mem.values(), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)
+    shown = [x for x in rows if x.get("vol_ok")] if vonly else rows
+    stamps = [x.get("t_arm") or x.get("t_fill") for x in rows if x.get("t_arm") or x.get("t_fill")]
+    return _clean(dict(ok=True, generated=generated, since=min(stamps) if stamps else None, total=len(shown),
+                       rows=[dict(x, why_text=MISSED_WHY.get(x.get("why"))) if x.get("why") else x for x in shown[:limit]],
+                       stats=_hist_stats(rows)))
 

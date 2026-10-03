@@ -882,6 +882,13 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-rrow .open{background:rgba(56,189,248,.15);color:#7dd3fc;border-radius:3px;padding:0 4px;font-size:9.5px}
 .sbgz-radar-foot{padding:6px 12px 9px;font-size:10px;color:#64748b}
 .sbgz-rrow .warn{color:#fbbf24}
+/* SBGZ radar history card */
+.sbgz-rrow .hwin,.sbgz-radar-bar .hwin{color:#10b981;font-weight:700}
+.sbgz-rrow .hloss,.sbgz-radar-bar .hloss{color:#f43f5e;font-weight:700}
+.sbgz-radar-bar .mut{color:#64748b}
+.sbgz-hist-chips{gap:6px}
+.sbgz-chip{background:transparent;border:1px solid #333d4b;color:#94a3b8;border-radius:12px;padding:2px 9px;font-size:10.5px;cursor:pointer;font-family:var(--mo)}
+.sbgz-chip.on{background:rgba(20,184,166,.15);border-color:rgba(20,184,166,.5);color:#5eead4}
 /* SBGZ order button + order window (POST /api/sbgz/order) */
 .sbgz-trade-btn{background:rgba(20,184,166,.12);border:1px solid rgba(20,184,166,.45);color:#5eead4;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--mo);white-space:nowrap}
 .sbgz-trade-btn.sell{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.45);color:#fda4af}
@@ -896,6 +903,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-ord label{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:6px 0;color:#94a3b8;font-size:11.5px}
 .sbgz-ord input{background:#05070a;border:1px solid #333d4b;border-radius:4px;color:#e2e8f0;padding:6px 8px;font-family:var(--mo);font-size:12px;width:80px}
 .sbgz-ord input[type=password]{width:190px;max-width:100%}
+.sbgz-ord label[hidden]{display:none}
 .sbgz-ord-tbl{width:100%;table-layout:fixed;border-collapse:collapse;margin:8px 0 4px;font-family:var(--mo);font-size:11px}
 .sbgz-ord-tbl td{padding:4px 4px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;white-space:normal;overflow-wrap:anywhere;font-size:11px}
 .sbgz-ord-tbl td:first-child{color:#64748b;width:38%}
@@ -2485,7 +2493,27 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               </table>
             </div>
           </div>
-          <div class="sbgz-radar-foot">Limit orders at the 0.5 entry, stop-market at the stop. Backtest = average R per trade 2023-26 (43 coins, after fees): volume-confirmed 15m +0.36R, 1h +0.50R; unconfirmed about 0 to +0.2R. Tap a row to open its chart, or "Place order" to send it to Bybit (needs your trade password). Paper-test before real money.</div>
+          <div class="sbgz-radar-foot">Limit orders at the 0.5 entry, stop-market at the stop. Backtest = average R per trade 2023-26 (43 coins, after fees): volume-confirmed 15m +0.36R, 1h +0.50R; unconfirmed about 0 to +0.2R. Tap a row to open its chart, or "Place order" to send it to Bybit. Paper-test before real money.</div>
+        </div>
+        <!-- SBGZ radar history: every setup the radar showed and what happened to it (GET /api/sbgz/history) -->
+        <div class="card" id="sbgzHistCard" style="margin-bottom:12px">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-clock-rotate-left" style="color:#14b8a6"></i> SBGZ Radar history · did each setup win or fail?</span>
+            </div>
+          </div>
+          <div class="sbgz-radar-bar">
+            <span id="sbgzHistInfo">Loading…</span>
+            <button class="sbgz-rbtn" onclick="sbgzHistLoad()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+          </div>
+          <div class="sbgz-radar-bar sbgz-hist-chips" id="sbgzHistChips"></div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Signal</th><th>Coin</th><th>TF</th><th>Side</th><th>Result</th><th>R</th><th>Entry</th><th>Stop</th><th>Target</th><th>Filled</th><th>Closed</th><th>Volume</th></tr></thead>
+              <tbody id="sbgzHistTb"><tr><td colspan="12" class="emp">Loading the radar history…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="sbgz-radar-foot">WIN = take-profit hit before the stop. FAILED = stop-loss hit before the take-profit. OPEN = filled, neither hit yet. NO FILL = the price never came back to the entry, so a limit order there would just have been cancelled. Every radar setup is counted, whether you traded it or not, using the radar's own candles and rules; R is after fees. With the target about 4.8x the risk, about 1 win in 6 trades breaks even (backtest: 22-24% wins).</div>
         </div>
         <div class="card bgo" id="a3">
           <div class="cardh">
@@ -4521,6 +4549,7 @@ window.sbgzRadarLoad = function(force){
     .then(function(){
       window._sbgzRadarTimer = setTimeout(function(){ window.sbgzRadarLoad(false); }, 150000);
       if(window.sbgzOrdersLoad) window.sbgzOrdersLoad();
+      if(window.sbgzHistLoad) window.sbgzHistLoad();             // same scan, so it answers from the server's cache
     });
 };
 
@@ -4568,6 +4597,7 @@ window.sbgzRadarRender = function(){
 window.sbgzRadarToggleMode = function(){
   try{ localStorage.setItem('sbgz_vonly', sbgzVonly() ? '0' : '1'); }catch(e){}
   window.sbgzRadarRender();
+  if(window.sbgzHistLoad) window.sbgzHistLoad();
   var last = window._sbgzLast;
   if(last && last.d && chartEngine === 'bybit'){ sbgzDraw(last.d, false); sbgzPanel(last.d, last.cs, last.tf); }
 };
@@ -4631,7 +4661,7 @@ function sbgzOrdBox(){
     '<div class="sbgz-ord-head"><b id="sbgzOrdTitle">Place SBGZ limit order</b><button type="button" class="sbgz-ord-x" aria-label="Close">×</button></div>' +
     '<div class="sbgz-ord-sub" id="sbgzOrdSub"></div>' +
     '<label>Risk per trade <input id="sbgzOrdRisk" type="number" min="0.1" max="2" step="0.1" inputmode="decimal"> % of equity (max 2%)</label>' +
-    '<label>Trade password <input id="sbgzOrdTok" type="password" autocomplete="off" spellcheck="false"></label>' +
+    '<label id="sbgzOrdTokRow" hidden>Trade password <input id="sbgzOrdTok" type="password" autocomplete="off" spellcheck="false"></label>' +
     '<div id="sbgzOrdBody"></div>' +
     '<div class="sbgz-ord-msg" id="sbgzOrdMsg" role="status"></div>' +
     '<div class="sbgz-ord-btns"><button type="button" id="sbgzOrdCheck">Check</button><button type="button" id="sbgzOrdMove" hidden>Move my order here</button><button type="button" id="sbgzOrdGo" class="go" disabled>Place order</button></div>' +
@@ -4671,6 +4701,7 @@ window.sbgzOrderOpen = function(sym, tf, side){
   try{ var sr = parseFloat(localStorage.getItem('sbgz_risk')); if(sr > 0 && sr <= 2) risk = sr; }catch(e){}
   document.getElementById('sbgzOrdRisk').value = risk;
   document.getElementById('sbgzOrdTok').value = tradeTokenGet();
+  document.getElementById('sbgzOrdTokRow').hidden = true;      // shown only if the server asks for a trade password
   document.getElementById('sbgzOrdSub').textContent = sym + ' · ' + (tf === '60' ? '1h' : tf + 'm') + ' · ' + side + ' · strong-break golden zone';
   document.getElementById('sbgzOrdBody').innerHTML = '';
   document.getElementById('sbgzOrdMove').hidden = true;
@@ -4679,19 +4710,16 @@ window.sbgzOrderOpen = function(sym, tf, side){
   go.textContent = 'Place ' + side + ' order';
   go.className = 'go' + (side === 'SHORT' ? ' sell' : '');
   el.hidden = false;
-  if(tradeTokenGet()) sbgzOrdSend(true);
-  else{
-    sbgzOrdMsg('Enter your trade password (the DASHBOARD_TRADE_TOKEN set on the server), then press Check.', '');
-    document.getElementById('sbgzOrdTok').focus();
-  }
+  sbgzOrdSend(true);
 };
 
 function sbgzOrdSend(preview){
   var o = sbgzOrd;
   if(!o) return;
+  var tokRow = document.getElementById('sbgzOrdTokRow');
   var tok = (document.getElementById('sbgzOrdTok').value || '').trim();
   var risk = parseFloat(document.getElementById('sbgzOrdRisk').value);
-  if(!tok){ sbgzOrdMsg('Enter your trade password first.', 'err'); return; }
+  if(!tokRow.hidden && !tok){ sbgzOrdMsg('Enter the trade password first.', 'err'); return; }
   if(!(risk >= 0.1 && risk <= 2)){ sbgzOrdMsg('Risk per trade must be between 0.1 and 2 %.', 'err'); return; }
   if(!preview && !o.plan){ sbgzOrdMsg('Press Check first.', 'err'); return; }
   try{ localStorage.setItem('sbgz_risk', String(risk)); }catch(e){}
@@ -4707,12 +4735,18 @@ function sbgzOrdSend(preview){
       chk.disabled = false;
       var d = x.d;
       if(x.status !== 200){
-        if(d.need_trade_token) tradeTokenSet('');
         o.plan = null;
+        if(d.need_trade_token){                            // DASHBOARD_TRADE_TOKEN is set on the server
+          tradeTokenSet('');
+          tokRow.hidden = false;
+          document.getElementById('sbgzOrdTok').focus();
+          sbgzOrdMsg((tok ? 'Wrong trade password. ' : 'This server asks for a trade password (DASHBOARD_TRADE_TOKEN). ') + 'Enter it and press Check.', 'err');
+          return;
+        }
         sbgzOrdMsg(d.error || d.retMsg || ('refused (HTTP ' + x.status + ')'), 'err');
         return;
       }
-      tradeTokenSet(tok);                                  // accepted: remember the password in this browser
+      if(tok) tradeTokenSet(tok);                          // accepted: remember the password in this browser
       document.getElementById('sbgzOrdMove').hidden = !d.can_replace;
       if(d.entry != null && d.price_str) sbgzOrdRender(d);
       else document.getElementById('sbgzOrdBody').innerHTML = '';
@@ -4767,7 +4801,7 @@ function sbgzOrdRender(p){
 // ── My SBGZ orders (Radar page): resting orders placed with the button, each with what its setup says now ────────
 window.sbgzOrdersLoad = function(){
   var box = document.getElementById('sbgzMyOrd'), tb = document.getElementById('sbgzMyOrdTb'), info = document.getElementById('sbgzMyOrdInfo');
-  if(!box || !tb || !tradeTokenGet()) return;             // nothing to show before the trade password was used once
+  if(!box || !tb) return;
   box.hidden = false;
   if(info) info.textContent = 'loading…';
   sbgzTradeCall('/api/sbgz/orders', {}, tradeTokenGet())
@@ -4811,6 +4845,81 @@ window.sbgzOrderCancel = function(btn){
     .then(function(x){ if(!x.d.ok) alert('Cancel failed: ' + (x.d.error || x.d.retMsg || ('HTTP ' + x.status))); })
     .catch(function(e){ alert('Cancel failed: ' + e.message); })
     .then(function(){ window.sbgzOrdersLoad(); });
+};
+
+// ── SBGZ radar history (Radar page): every setup the radar showed and what happened to it, traded or not ───────────
+var SBGZ_HIST_FILTERS = [['filled', 'Filled'], ['WIN', 'Wins'], ['LOSS', 'Failed'], ['OPEN', 'Open'], ['NO FILL', 'No fill'], ['all', 'All']];
+var SBGZ_WHY_SHORT = { swing: 'cancelled: new swing first', busy: 'skipped: last trade still open', weak: 'skipped: break under 13 VU', vol: 'skipped: volume under 2x' };
+
+function sbgzHistFilter(){ try{ return localStorage.getItem('sbgz_hist_filter') || 'filled'; }catch(e){ return 'filled'; } }
+
+function sbgzWhen(t){
+  return t ? new Date(t * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '--';
+}
+
+function sbgzDur(a, b){
+  if(!a || !b || b < a) return '';
+  var m = Math.round((b - a) / 60), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+  return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + (m % 60) + 'm' : (m % 60) + 'm';
+}
+
+window.sbgzHistLoad = function(){
+  var tb = document.getElementById('sbgzHistTb'), info = document.getElementById('sbgzHistInfo');
+  if(!tb) return;
+  fetch('/api/sbgz/history?tf=15,60&limit=400&vonly=' + (sbgzVonly() ? '1' : '0'))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.ok){
+        if(info) info.textContent = 'History unavailable: ' + ((d && d.error) || 'no answer from /api/sbgz/history (server not updated yet?)');
+        return;
+      }
+      window._sbgzHist = d;
+      window.sbgzHistRender();
+    })
+    .catch(function(e){ if(info) info.textContent = 'History error: ' + e.message; });
+};
+
+window.sbgzHistSetFilter = function(f){
+  try{ localStorage.setItem('sbgz_hist_filter', f); }catch(e){}
+  window.sbgzHistRender();
+};
+
+window.sbgzHistRender = function(){
+  var d = window._sbgzHist, tb = document.getElementById('sbgzHistTb');
+  var info = document.getElementById('sbgzHistInfo'), chips = document.getElementById('sbgzHistChips');
+  if(!d || !tb) return;
+  var vonly = sbgzVonly(), st = (d.stats || {})[vonly ? 'vol' : 'all'] || {}, tot = st.total || {};
+  var fmtR = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; };
+  var line = function(s){
+    return (s.filled || 0) + ' filled: <b class="hwin">' + (s.wins || 0) + ' WIN</b> · <b class="hloss">' + (s.losses || 0) + ' FAILED</b> · ' + (s.open || 0) + ' open' +
+           (s.win_rate != null ? ' · ' + s.win_rate.toFixed(0) + '% wins' : '') + ' · total ' + fmtR(s.total_r || 0) + (s.avg_r != null ? ' (avg ' + fmtR(s.avg_r) + ')' : '');
+  };
+  if(info) info.innerHTML = (vonly ? 'Volume-confirmed only' : 'All strong breaks') + ' · since ' + sbgzEsc(sbgzWhen(d.since)) + ': ' + (tot.signals || 0) + ' setups → ' +
+    line(tot) + ' · ' + (tot.no_fill || 0) + ' never filled<br><span class="mut">15m: ' + line(st['15'] || {}) + ' &nbsp;|&nbsp; 1h: ' + line(st['60'] || {}) + '</span>';
+  var f = sbgzHistFilter(), rows = d.rows || [];
+  var pick = function(k){ return rows.filter(function(r){ return k === 'all' || (k === 'filled' ? r.status !== 'NO FILL' : r.status === k); }); };
+  if(chips) chips.innerHTML = 'Show: ' + SBGZ_HIST_FILTERS.map(function(x){
+    return '<button type="button" class="sbgz-chip' + (x[0] === f ? ' on' : '') + '" onclick="sbgzHistSetFilter(\'' + x[0] + '\')">' + x[1] + ' ' + pick(x[0]).length + '</button>';
+  }).join('');
+  var sel = pick(f);
+  if(!sel.length){
+    tb.innerHTML = '<tr><td colspan="12" class="emp">' + (rows.length ? 'Nothing in this filter yet.' : 'No radar setups recorded yet. They appear here once they fill, close or end.') + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = sel.map(function(r){
+    var L = r.side === 'LONG', tfl = r.interval === '60' ? '1h' : r.interval + 'm';
+    var res = r.status === 'WIN' ? '<span class="hwin">WIN ✓</span>' : r.status === 'LOSS' ? '<span class="hloss">FAILED ✗</span>'
+            : r.status === 'OPEN' ? '<span class="open">OPEN</span>' : '<span class="mut">NO FILL</span>';
+    var closed = r.status === 'NO FILL' ? '<span class="mut" title="' + sbgzEsc(r.why_text || '') + '">' + sbgzEsc(sbgzWhen(r.t_end)) + ' · ' + sbgzEsc(SBGZ_WHY_SHORT[r.why] || 'ended') + '</span>'
+               : r.t_end ? sbgzEsc(sbgzWhen(r.t_end)) + ' <span class="mut">(' + sbgzDur(r.t_fill, r.t_end) + ')</span>' : '<span class="mut">running</span>';
+    var vol = r.bvol == null ? '<span class="mut">?</span>' : (r.vol_ok ? '<span class="ok">✓ ' : '<span class="mut">✗ ') + r.bvol.toFixed(1) + 'x</span>';
+    return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
+      '<td>' + sbgzEsc(sbgzWhen(r.t_arm)) + '</td><td><b>' + sbgzEsc(r.symbol.replace(/USDT$/, '')) + '</b></td><td>' + tfl + '</td>' +
+      '<td class="' + (L ? 'up' : 'dn') + '">' + r.side + '</td><td>' + res + '</td>' +
+      '<td class="' + (r.R == null ? 'mut' : r.R >= 0 ? 'up' : 'dn') + '">' + (r.R == null ? '--' : fmtR(r.R)) + '</td>' +
+      '<td>' + sbgzFmt(r.entry) + '</td><td>' + sbgzFmt(r.stop) + '</td><td>' + sbgzFmt(r.target) + '</td>' +
+      '<td>' + (r.t_fill ? sbgzEsc(sbgzWhen(r.t_fill)) : '<span class="mut">--</span>') + '</td><td>' + closed + '</td><td>' + vol + '</td></tr>';
+  }).join('') + (d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');
 };
 
 // Chart Indicator States (Persisted in localStorage)

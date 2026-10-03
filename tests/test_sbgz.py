@@ -142,6 +142,77 @@ def test_radar_rows_without_network():
     print(f"  radar: {len(res['rows'])} rows from 48 fake charts, all well-formed")
 
 
+def test_missed_setups_bookkeeping():
+    n_missed = 0
+    for seed in range(12):
+        r = sbgz.compute(walk(4000, 300 + seed), "15")
+        traded = {(t["side"], t["since_bar"]) for t in r["trades"] + r["open_trades"]}
+        for m in r["missed"]:
+            n_missed += 1
+            L = m["side"] == "LONG"
+            assert m["arm_bar"] <= m["seen_bar"] <= m["end_bar"] and m["why"] in sbgz.MISSED_WHY, m
+            assert (m["stop"] < m["entry"] < m["target"]) if L else (m["target"] < m["entry"] < m["stop"]), m
+            assert m["break_vu"] >= sbgz.P["min_break"] - 1e-9 and m["why"] != "vol", m   # the all-breaks run never needs volume
+            assert (m["side"], m["arm_bar"]) not in traded, "a setup ends either as a trade or unfilled"
+    assert n_missed > 0
+    print(f"  {n_missed} strong setups that never filled, each ended once with a reason")
+
+
+def test_history_store_and_updates():
+    coins = [f"C{k}USDT" for k in range(12)]
+    now = {"n": 1601}
+
+    def fake_get(sym, interval="15", bars=1000, ttl=30):     # a sliding 1000-bar window over one long random walk
+        c = walk(2601, sum(map(ord, sym + interval)))[:now["n"]][-(bars + 1):]
+        r = sbgz.compute(c[:-1], interval)
+        r.update(ok=True, symbol=sym, interval=interval, candles=c, times=[x["start"] // 1000 for x in c[:-1]])
+        return sbgz._clean(r)
+
+    store = {"rows": [], "saves": 0}
+
+    def save(rows):
+        store["rows"] = json.loads(json.dumps(rows)); store["saves"] += 1
+        return True
+
+    real = (sbgz.get, sbgz._hist_load, sbgz._hist_save, sbgz._hist_mem)
+    try:
+        sbgz.get, sbgz._hist_save = fake_get, save
+        sbgz._hist_load = lambda: ([], False)                  # store unreadable: refuse, never overwrite it
+        sbgz._hist_mem = None
+        assert not sbgz.history(("15", "60"), coins, ttl=0)["ok"] and store["saves"] == 0
+        sbgz._hist_load = lambda: (json.loads(json.dumps(store["rows"])), True)
+        seen, updated, agreed = {}, 0, 0
+        for n in (1601, 1801, 2001, 2201, 2401, 2601):          # 200 bars later each time, read back as a fresh process
+            now["n"] = n; sbgz._hist_mem = None
+            h = sbgz.history(("15", "60"), coins, ttl=0, limit=100_000)
+            rows = {x["k"]: x for x in store["rows"]}
+            assert h["ok"] and h["total"] == len(rows) and len(h["rows"]) == len(rows)
+            assert set(seen) <= set(rows), "rows are never dropped"
+            for k, old in seen.items():
+                if old["status"] != "OPEN": assert rows[k] == old, "a closed / NO FILL row never changes"
+                elif rows[k]["status"] != "OPEN": updated += 1
+            for sym in coins:                                  # the same setup computed in this later window agrees
+                for iv in ("15", "60"):
+                    for x in sbgz._hist_rows(sym, iv, sbgz._brief(fake_get(sym, iv))):
+                        old = rows.get(x["k"])
+                        if old and old["status"] != "OPEN" and x["status"] != "OPEN":
+                            assert (old["status"], old["entry"], old["R"]) == (x["status"], x["entry"], x["R"]), (old, x)
+                            agreed += 1
+            seen = rows
+        st = sbgz._hist_stats(list(seen.values()))["all"]["total"]
+        assert st["wins"] + st["losses"] + st["open"] + st["no_fill"] == st["signals"] == len(seen)
+        assert all(x["status"] in ("WIN", "LOSS", "OPEN", "NO FILL") for x in seen.values())
+        assert all((x["R"] > 0) == (x["status"] == "WIN") for x in seen.values() if x["status"] in ("WIN", "LOSS"))
+        vo = sbgz.history(("15", "60"), coins, ttl=0, vonly=True, limit=100_000)
+        assert vo["total"] == sum(1 for x in seen.values() if x["vol_ok"]) and all(x["vol_ok"] for x in vo["rows"])
+        assert updated > 0 and agreed > 0
+        json.dumps(vo, allow_nan=False)
+    finally:
+        sbgz.get, sbgz._hist_load, sbgz._hist_save, sbgz._hist_mem = real
+    print(f"  radar history: {len(seen)} rows over 6 sliding windows ({st['wins']} WIN, {st['losses']} LOSS, {st['open']} OPEN, "
+          f"{st['no_fill']} NO FILL); {updated} OPEN rows closed later; {agreed} rows recomputed identically")
+
+
 def test_parity_with_research_twin():
     scratch = os.path.join(ROOT, "scratch")
     if not os.path.exists(os.path.join(scratch, "binance_15m", "BTCUSDT.npz")):

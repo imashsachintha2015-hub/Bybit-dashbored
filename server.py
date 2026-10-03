@@ -1173,7 +1173,8 @@ def get_dashboard_bundle():
 
 
 # Routes that place, close or change orders. They check the trade password (header X-Trade-Token against
-# DASHBOARD_TRADE_TOKEN) once that variable is set; the SBGZ order routes refuse to work until it is set.
+# DASHBOARD_TRADE_TOKEN) once that variable is set. Without it they work as before on the demo account; the SBGZ
+# order routes refuse a real-money account until it is set.
 LEGACY_ORDER_ROUTES = ("/api/cme_x5/execute", "/api/positions/close", "/api/order/place", "/api/order/close", "/api/position/stop")
 SBGZ_ORDER_ROUTES = ("/api/sbgz/order", "/api/sbgz/orders", "/api/sbgz/cancel")
 # Wrong trade passwords from all clients together: 30 within 15 minutes lock dashboard trading until the window
@@ -1188,11 +1189,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def _trade_auth(self, required=False):
         """True when this request may trade. Sends the refusal itself otherwise. required=True (the SBGZ order
-        routes) also refuses while DASHBOARD_TRADE_TOKEN is unset."""
+        routes on a real-money account) also refuses while DASHBOARD_TRADE_TOKEN is unset."""
         token = (os.environ.get("DASHBOARD_TRADE_TOKEN") or "").strip()
         if not token:
             if required:
-                msg = "Dashboard trading is off: set DASHBOARD_TRADE_TOKEN (your trade password) in the server's variables first"
+                msg = "Dashboard orders on a real-money account need a trade password: set DASHBOARD_TRADE_TOKEN in the server's variables"
                 self._send_json(403, {"ok": False, "retCode": -1, "trade_off": True, "error": msg, "retMsg": msg})
             return not required
         now = time.time()
@@ -1537,6 +1538,21 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "error": f"sbgz radar failed: {e}"})
             return
 
+        # 6a-0b. API: SBGZ radar history - every setup the radar showed and what happened to it (WIN / LOSS / OPEN / NO FILL)
+        if self.path.startswith("/api/sbgz/history"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            ivs = [x for x in (q.get("tf") or ["15,60"])[0].split(",") if x in ("15", "60")] or ["15", "60"]
+            try:
+                limit = min(1200, max(10, int((q.get("limit") or ["400"])[0])))
+            except Exception:
+                limit = 400
+            try:
+                from backend_lib import sbgz as _sbgz
+                self._send_json(200, _sbgz.history(tuple(ivs), None, vonly=(q.get("vonly") or ["0"])[0] == "1", limit=limit))
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"sbgz history failed: {e}"})
+            return
+
         # 6a-1. API: Strong-Break Golden Zone indicator + trend map for the Fast Canvas chart (backend_lib/sbgz.py)
         if self.path.startswith("/api/sbgz"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
@@ -1776,9 +1792,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def _route_post(self, body):
         # -2. API: SBGZ order button (backend_lib/sbgz_trade.py): preview / place a post-only limit entry with a limit
-        # take-profit and a stop-market stop, list and cancel its own resting orders. Always needs the trade password.
+        # take-profit and a stop-market stop, list and cancel its own resting orders. On the demo / testnet account it
+        # needs no trade password unless DASHBOARD_TRADE_TOKEN is set; on a real-money account it always needs one.
         if self.path in SBGZ_ORDER_ROUTES:
-            if not self._trade_auth(required=True):
+            paper = any(x in (BYBIT_BASE_URL or "").lower() for x in ("api-demo", "testnet"))
+            if not self._trade_auth(required=not paper):
                 return
             from backend_lib import sbgz_trade
             if self.path == "/api/sbgz/order":
