@@ -904,6 +904,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-rrow.hist-loss td:first-child{box-shadow:inset 3px 0 0 #f43f5e}
 .sbgz-rrow.hist-open td{background:rgba(56,189,248,.06)}.sbgz-rrow.hist-open td:first-child{box-shadow:inset 3px 0 0 #38bdf8}
 .sbgz-rrow .hloss,.sbgz-radar-bar .hloss{color:#f43f5e;font-weight:700}
+.sbgz-rrow .hexit,.sbgz-radar-bar .hexit{color:#fbbf24;font-weight:700}
+.sbgz-rrow .hplan{display:block;font-size:9.5px;color:#64748b;font-weight:400}
 .sbgz-radar-bar .mut{color:#64748b}
 .sbgz-hist-chips{gap:6px}
 .sbgz-chip{background:transparent;border:1px solid #333d4b;color:#94a3b8;border-radius:12px;padding:2px 9px;font-size:10.5px;cursor:pointer;font-family:var(--mo)}
@@ -2529,6 +2531,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <span id="sbgzHistInfo">Loading…</span>
             <button class="sbgz-rbtn" onclick="sbgzHistLoad()"><i class="fa-solid fa-rotate"></i> Refresh</button>
           </div>
+          <div class="sbgz-radar-bar sbgz-hist-chips" id="sbgzHistRule"></div>
           <div class="sbgz-radar-bar sbgz-hist-chips" id="sbgzHistChips"></div>
           <div class="tw">
             <table>
@@ -2536,7 +2539,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <tbody id="sbgzHistTb"><tr><td colspan="12" class="emp">Loading the radar history…</td></tr></tbody>
             </table>
           </div>
-          <div class="sbgz-radar-foot">WIN = take-profit hit before the stop. FAILED = stop-loss hit before the take-profit. OPEN = filled, neither hit yet. NO FILL = the price never came back to the entry, so a limit order there would just have been cancelled. Every radar setup is counted, whether you traded it or not, using the radar's own candles and rules; R is after fees. With the target about 4.8x the risk, about 1 win in 6 trades breaks even (backtest: 22-24% wins).</div>
+          <div class="sbgz-radar-foot">WIN = take-profit hit before the stop. FAILED = stop-loss hit before the take-profit. OPEN = filled, neither hit yet. NO FILL = the price never came back to the entry, so a limit order there would just have been cancelled. Every radar setup is counted, whether you traded it or not, using the radar's own candles and rules; R is after fees. With the target about 4.8x the risk, about 1 win in 6 trades breaks even (backtest: 22-24% wins). BTC EXIT: with "Close when BTC moves 0.5R against" on, a filled trade is closed at the market, at the close of the first candle in which BTC has moved against it by half the trade's risk (in percent) since the fill; R is after fees. In the 2023-26 backtest (4,258 trades) this gave about the same R per trade as stop-or-target (+0.28R vs +0.27R, not a significant difference), cut the share of full -1R stops from 77% to 47%, and closed 28% of the eventual winners early. The live numbers here are a forward test of it.</div>
         </div>
         <div class="card bgo" id="a3">
           <div class="cardh">
@@ -4872,7 +4875,7 @@ window.sbgzOrderCancel = function(btn){
 };
 
 // ── SBGZ radar history (Radar page): every setup the radar showed and what happened to it, traded or not ───────────
-var SBGZ_HIST_FILTERS = [['filled', 'Filled'], ['WIN', 'Wins'], ['LOSS', 'Failed'], ['OPEN', 'Open'], ['NO FILL', 'No fill'], ['all', 'All']];
+var SBGZ_HIST_FILTERS = [['filled', 'Filled'], ['WIN', 'Wins'], ['LOSS', 'Failed'], ['EXIT', 'BTC exit'], ['OPEN', 'Open'], ['NO FILL', 'No fill'], ['all', 'All']];
 var SBGZ_WHY_SHORT = { swing: 'cancelled: new swing first', busy: 'skipped: last trade still open', weak: 'skipped: break under 13 VU', vol: 'skipped: volume under 2x' };
 
 function sbgzHistFilter(){ try{ return localStorage.getItem('sbgz_hist_filter') || 'filled'; }catch(e){ return 'filled'; } }
@@ -4908,40 +4911,67 @@ window.sbgzHistSetFilter = function(f){
   window.sbgzHistRender();
 };
 
+// How a history row reads under the chosen rule. 'btc': a filled trade is closed (market, at the candle close) as soon as BTC has moved
+// 0.5R against it (the server works that out per row: r.bx); 'plan': stop or target only.
+function sbgzHistRule(){ try{ return localStorage.getItem('sbgz_hist_rule') === 'plan' ? 'plan' : 'btc'; }catch(e){ return 'btc'; } }
+
+function sbgzHistView(r, rule){
+  var b = r.bx;
+  if(rule === 'btc' && r.status !== 'NO FILL' && b && b.fired) return { st: 'EXIT', R: b.R, t_end: b.t, plan: r };
+  return { st: r.status, R: r.R, t_end: r.t_end, plan: null };
+}
+
+window.sbgzHistSetRule = function(x){
+  try{ localStorage.setItem('sbgz_hist_rule', x); }catch(e){}
+  window.sbgzHistRender();
+};
+
 window.sbgzHistRender = function(){
   var d = window._sbgzHist, tb = document.getElementById('sbgzHistTb');
-  var info = document.getElementById('sbgzHistInfo'), chips = document.getElementById('sbgzHistChips');
+  var info = document.getElementById('sbgzHistInfo'), chips = document.getElementById('sbgzHistChips'), rl = document.getElementById('sbgzHistRule');
   if(!d || !tb) return;
-  var vonly = sbgzVonly(), st = (d.stats || {})[vonly ? 'vol' : 'all'] || {}, tot = st.total || {};
+  var vonly = sbgzVonly(), mode = vonly ? 'vol' : 'all', rule = d.stats_bx ? sbgzHistRule() : 'plan';      // an older server has no BTC rule
+  var sp = (d.stats || {})[mode] || {}, sb = (d.stats_bx || {})[mode] || {}, st = rule === 'btc' ? sb : sp, tot = st.total || {};
   var fmtR = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; };
   var line = function(s){
-    return (s.filled || 0) + ' filled: <b class="hwin">' + (s.wins || 0) + ' WIN</b> · <b class="hloss">' + (s.losses || 0) + ' FAILED</b> · ' + (s.open || 0) + ' open' +
-           (s.win_rate != null ? ' · ' + s.win_rate.toFixed(0) + '% wins' : '') + ' · total ' + fmtR(s.total_r || 0) + (s.avg_r != null ? ' (avg ' + fmtR(s.avg_r) + ')' : '');
+    return (s.filled || 0) + ' filled: <b class="hwin">' + (s.wins || 0) + ' WIN</b> · <b class="hloss">' + (s.losses || 0) + ' FAILED</b>' +
+           (rule === 'btc' ? ' · <b class="hexit">' + (s.exits || 0) + ' BTC EXIT</b>' + (s.exits ? ' (' + (s.exits_up || 0) + ' in profit)' : '') : '') +
+           ' · ' + (s.open || 0) + ' open' + (rule === 'plan' && s.win_rate != null ? ' · ' + s.win_rate.toFixed(0) + '% wins' : '') +
+           ' · total ' + fmtR(s.total_r || 0) + (s.avg_r != null ? ' (avg ' + fmtR(s.avg_r) + ')' : '');
   };
   if(info) info.innerHTML = (vonly ? 'Volume-confirmed only' : 'All strong breaks') + ' · since ' + sbgzEsc(sbgzWhen(d.since)) + ': ' + (tot.signals || 0) + ' setups → ' +
     line(tot) + ' · ' + (tot.no_fill || 0) + ' never filled<br><span class="mut">15m: ' + line(st['15'] || {}) + ' &nbsp;|&nbsp; 1h: ' + line(st['60'] || {}) + '</span>';
-  var f = sbgzHistFilter(), rows = d.rows || [];
-  var pick = function(k){ return rows.filter(function(r){ return k === 'all' || (k === 'filled' ? r.status !== 'NO FILL' : r.status === k); }); };
-  if(chips) chips.innerHTML = 'Show: ' + SBGZ_HIST_FILTERS.map(function(x){
+  if(rl){
+    rl.innerHTML = d.stats_bx ? 'Score trades: ' + [['btc', 'Close when BTC moves 0.5R against', sb], ['plan', 'As planned (stop or target)', sp]].map(function(x){
+      return '<button type="button" class="sbgz-chip' + (x[0] === rule ? ' on' : '') + '" onclick="sbgzHistSetRule(\'' + x[0] + '\')">' + x[1] + ' ' + fmtR((x[2].total || {}).total_r) + '</button>';
+    }).join('') + (sb.total && sb.total.pending ? ' <span class="mut">(' + sb.total.pending + ' older trades still being checked for it)</span>' : '') : '';
+  }
+  var f = sbgzHistFilter(), views = (d.rows || []).map(function(r){ return { r: r, v: sbgzHistView(r, rule) }; });
+  var filters = SBGZ_HIST_FILTERS.filter(function(x){ return x[0] !== 'EXIT' || rule === 'btc'; });
+  if(!filters.some(function(x){ return x[0] === f; })) f = 'filled';
+  var pick = function(k){ return views.filter(function(x){ return k === 'all' || (k === 'filled' ? x.v.st !== 'NO FILL' : x.v.st === k); }); };
+  if(chips) chips.innerHTML = 'Show: ' + filters.map(function(x){
     return '<button type="button" class="sbgz-chip' + (x[0] === f ? ' on' : '') + '" onclick="sbgzHistSetFilter(\'' + x[0] + '\')">' + x[1] + ' ' + pick(x[0]).length + '</button>';
   }).join('');
-  var sel = pick(f);
+  var sel = pick(f), rows = d.rows || [];
   if(!sel.length){
     tb.innerHTML = '<tr><td colspan="12" class="emp">' + (rows.length ? 'Nothing in this filter yet.' : 'No radar setups recorded yet. They appear here once they fill, close or end.') + '</td></tr>';
     return;
   }
-  tb.innerHTML = sel.map(function(r){
-    var L = r.side === 'LONG', tfl = r.interval === '60' ? '1h' : r.interval + 'm';
-    var res = r.status === 'WIN' ? '<span class="hwin">WIN ✓</span>' : r.status === 'LOSS' ? '<span class="hloss">FAILED ✗</span>'
-            : r.status === 'OPEN' ? '<span class="open">OPEN</span>' : '<span class="mut">NO FILL</span>';
-    var closed = r.status === 'NO FILL' ? '<span class="mut" title="' + sbgzEsc(r.why_text || '') + '">' + sbgzEsc(sbgzWhen(r.t_end)) + ' · ' + sbgzEsc(SBGZ_WHY_SHORT[r.why] || 'ended') + '</span>'
-               : r.t_end ? sbgzEsc(sbgzWhen(r.t_end)) + ' <span class="mut">(' + sbgzDur(r.t_fill, r.t_end) + ')</span>' : '<span class="mut">running</span>';
+  tb.innerHTML = sel.map(function(x){
+    var r = x.r, v = x.v, L = r.side === 'LONG', tfl = r.interval === '60' ? '1h' : r.interval + 'm';
+    var plan = v.plan ? '<span class="hplan">planned: ' + (v.plan.status === 'WIN' ? 'win ' + fmtR(v.plan.R) : v.plan.status === 'LOSS' ? 'failed ' + fmtR(v.plan.R) : 'still open') + '</span>' : '';
+    var res = v.st === 'WIN' ? '<span class="hwin">WIN ✓</span>' : v.st === 'LOSS' ? '<span class="hloss">FAILED ✗</span>'
+            : v.st === 'EXIT' ? '<span class="hexit" title="BTC moved 0.5R against the trade: closed at the close of that candle">BTC EXIT ↩</span>' + plan
+            : v.st === 'OPEN' ? '<span class="open">OPEN</span>' : '<span class="mut">NO FILL</span>';
+    var closed = v.st === 'NO FILL' ? '<span class="mut" title="' + sbgzEsc(r.why_text || '') + '">' + sbgzEsc(sbgzWhen(v.t_end)) + ' · ' + sbgzEsc(SBGZ_WHY_SHORT[r.why] || 'ended') + '</span>'
+               : v.t_end ? sbgzEsc(sbgzWhen(v.t_end)) + ' <span class="mut">(' + sbgzDur(r.t_fill, v.t_end) + ')</span>' : '<span class="mut">running</span>';
     var vol = r.bvol == null ? '<span class="mut">?</span>' : (r.vol_ok ? '<span class="ok">✓ ' : '<span class="mut">✗ ') + r.bvol.toFixed(1) + 'x</span>';
-    var tint = r.status === 'WIN' ? ' hist-win' : r.status === 'LOSS' ? ' hist-loss' : r.status === 'OPEN' ? ' hist-open' : '';   // whole row by result
+    var tint = v.st === 'WIN' ? ' hist-win' : v.st === 'LOSS' ? ' hist-loss' : v.st === 'EXIT' ? (v.R > 0 ? ' hist-win' : ' hist-loss') : v.st === 'OPEN' ? ' hist-open' : '';   // whole row by result
     return '<tr class="sbgz-rrow' + tint + '" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
       '<td>' + sbgzEsc(sbgzWhen(r.t_arm)) + '</td><td><b>' + sbgzEsc(r.symbol.replace(/USDT$/, '')) + '</b></td><td>' + tfl + '</td>' +
       '<td class="' + (L ? 'up' : 'dn') + '">' + r.side + '</td><td>' + res + '</td>' +
-      '<td class="' + (r.R == null ? 'mut' : r.R >= 0 ? 'up' : 'dn') + '">' + (r.R == null ? '--' : fmtR(r.R)) + '</td>' +
+      '<td class="' + (v.R == null ? 'mut' : v.R >= 0 ? 'up' : 'dn') + '">' + (v.R == null ? '--' : fmtR(v.R)) + '</td>' +
       '<td>' + sbgzFmt(r.entry) + '</td><td>' + sbgzFmt(r.stop) + '</td><td>' + sbgzFmt(r.target) + '</td>' +
       '<td>' + (r.t_fill ? sbgzEsc(sbgzWhen(r.t_fill)) : '<span class="mut">--</span>') + '</td><td>' + closed + '</td><td>' + vol + '</td></tr>';
   }).join('') + (d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');

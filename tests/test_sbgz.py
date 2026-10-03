@@ -213,6 +213,165 @@ def test_history_store_and_updates():
           f"{st['no_fill']} NO FILL); {updated} OPEN rows closed later; {agreed} rows recomputed identically")
 
 
+def test_btc_exit_rule():
+    """Close at the market when BTC's close has moved 0.5 risk-units against the trade (hand-built numbers, 15m candles)."""
+    step = 900
+    times = [i * step for i in range(10)]
+    closes = [100, 100, 100.5, 101, 100, 99.8, 100.2, 100.4, 100.1, 100.3]         # the coin
+    btc = {t: 1000.0 for t in times}
+    for k, v in ((4, 1000.0), (5, 998.0), (6, 996.0), (7, 994.9), (8, 990.0), (9, 990.0)): btc[times[k]] = v
+    row = dict(symbol="TESTUSDT", side="LONG", entry=100.0, stop=99.0, t_fill=times[2], t_end=None)     # risk 1% -> 0.5R = BTC -0.5%
+    bx = sbgz.btc_exit(row, times, closes, btc, step)
+    fee = sbgz.P["fee_limit"] + sbgz.P["fee_stop"]
+    assert bx["fired"] and bx["t"] == times[7] + step and bx["px"] == 100.4, bx          # first close with BTC <= 995 vs the candle before the fill
+    assert abs(bx["R"] - ((100.4 - 100.0) / 1.0 - fee * 100.0 / 1.0)) < 1e-3, bx
+    # the candle that ends the trade itself, or any later one, is not eligible: the stop / target came first
+    assert not sbgz.btc_exit(dict(row, t_end=times[7]), times, closes, btc, step)["fired"]
+    assert sbgz.btc_exit(dict(row, t_end=times[8]), times, closes, btc, step)["fired"]
+    assert not sbgz.btc_exit(dict(row, t_end=times[2]), times, closes, btc, step)["fired"], "stopped on its own fill candle"
+    # BTC moving with the trade never fires; BTC itself and missing candles are handled
+    up = {t: 1000.0 + 5 * i for i, t in enumerate(times)}
+    assert not sbgz.btc_exit(row, times, closes, up, step)["fired"]
+    assert sbgz.btc_exit(dict(row, symbol="BTCUSDT"), times, closes, btc, step) == dict(fired=False)
+    assert sbgz.btc_exit(row, times, closes, {t: v for t, v in btc.items() if t != times[1]}, step) is None, "no BTC candle before the fill"
+    assert sbgz.btc_exit(dict(row, t_fill=times[2] + 1), times, closes, btc, step) is None, "fill candle not in the list"
+    # a SHORT mirrors it: BTC rising 0.5R fires, R is measured on the short side
+    sh = dict(symbol="TESTUSDT", side="SHORT", entry=100.0, stop=101.0, t_fill=times[2], t_end=None)
+    ub = {t: 1000.0 for t in times}
+    for k in (5, 6, 7, 8, 9): ub[times[k]] = 1005.1
+    b2 = sbgz.btc_exit(sh, times, closes, ub, step)
+    assert b2["fired"] and b2["t"] == times[5] + step and b2["px"] == 99.8 and abs(b2["R"] - ((100.0 - 99.8) - fee * 100.0)) < 1e-3, b2
+    assert not sbgz.btc_exit(sh, times, closes, btc, step)["fired"], "BTC falling is with a short"
+    print("  BTC rule: first close 0.5R against, exit candle excluded, short mirrored, edge cases handled")
+
+
+def test_history_btc_rule_and_backfill():
+    step = 900
+    coins = ["BTCUSDT"] + [f"C{k}USDT" for k in range(11)]
+    now = {"n": 1601}
+
+    def series(sym):
+        return walk(2601, sum(map(ord, sym + "15")))
+
+    def fake_get(sym, interval="15", bars=1000, ttl=30):
+        c = series(sym)[:now["n"]][-(bars + 1):]
+        r = sbgz.compute(c[:-1], interval)
+        r.update(ok=True, symbol=sym, interval=interval, candles=c, times=[x["start"] // 1000 for x in c[:-1]])
+        return sbgz._clean(r)
+
+    def fake_fetch(sym, interval="15", bars=1000, timeout=6):
+        return series(sym)[:now["n"]][-bars:]
+
+    def expect(x):                                           # the rule again, with plain loops over the same candles
+        if x["symbol"] == "BTCUSDT": return dict(fired=False)
+        cl = {c["start"] // 1000: c["close"] for c in series(x["symbol"])[:now["n"] - 1]}
+        bc = {c["start"] // 1000: c["close"] for c in series("BTCUSDT")[:now["n"] - 1]}
+        sd = 1 if x["side"] == "LONG" else -1; E, S = x["entry"], x["stop"]; risk = abs(E - S)
+        b0 = bc[x["t_fill"] - step]; t = x["t_fill"]
+        while t in cl and (x["t_end"] is None or t < x["t_end"]):
+            if sd * (bc[t] / b0 - 1) / (risk / abs(E)) <= -0.5:
+                return dict(fired=True, t=t + step, R=sd * (cl[t] - E) / risk - 0.001 * abs(E) / risk)
+            t += step
+        return dict(fired=False)
+
+    store = {"rows": [], "saves": 0}
+
+    def save(rows):
+        store["rows"] = json.loads(json.dumps(rows)); store["saves"] += 1
+        return True
+
+    real = (sbgz.get, sbgz._hist_load, sbgz._hist_save, sbgz._hist_mem, sbgz.fetch_candles)
+    try:
+        sbgz.get, sbgz._hist_save, sbgz.fetch_candles = fake_get, save, fake_fetch
+        sbgz._hist_load = lambda: (json.loads(json.dumps(store["rows"])), True)
+        seen = {}; later = 0
+        for n in (1601, 1801, 2001, 2201, 2401, 2601):
+            now["n"] = n; sbgz._hist_mem = None
+            h = sbgz.history(("15",), coins, ttl=0, limit=100_000)
+            rows = {x["k"]: x for x in store["rows"]}
+            filled = {k: x for k, x in rows.items() if x["status"] != "NO FILL"}
+            assert h["ok"] and all("bx" in x for x in filled.values()), "every filled row carries the BTC-rule result"
+            assert all("bx" not in x for x in rows.values() if x["status"] == "NO FILL")
+            for k, old in seen.items():                      # closed rows never change; an OPEN row may gain a bx, or close
+                if old["status"] != "OPEN": assert rows[k] == old, "a closed row (with its bx) never changes"
+                elif rows[k]["status"] == "OPEN" and rows[k]["bx"] != old.get("bx"): later += 1
+            seen = rows
+        fired = [x for x in seen.values() if x.get("bx", {}).get("fired")]
+        calm = [x for x in seen.values() if x["status"] != "NO FILL" and not x["bx"]["fired"]]
+        assert fired and calm, "random walks should show both outcomes"
+        for x in seen.values():                              # against the plain-loop version on the final window
+            if x["status"] == "NO FILL": continue
+            e = expect(x); assert e["fired"] == x["bx"]["fired"], (x, e)
+            if e["fired"]: assert x["bx"]["t"] == e["t"] and abs(x["bx"]["R"] - e["R"]) < 2e-3, (x, e)
+        st = sbgz._hist_stats(list(seen.values()))["all"]["total"]; sx = sbgz._hist_stats_bx(list(seen.values()))["all"]["total"]
+        assert sx["wins"] + sx["losses"] + sx["exits"] + sx["open"] + sx["no_fill"] == sx["signals"] == st["signals"] and sx["pending"] == 0
+        assert sx["exits"] == len(fired) and sx["filled"] == st["filled"]
+        want = sum((x["bx"]["R"] if x.get("bx", {}).get("fired") else x["R"]) for x in seen.values()
+                   if x["status"] in ("WIN", "LOSS") or x.get("bx", {}).get("fired"))
+        assert abs(sx["total_r"] - want) < 1e-6
+        # stored rows without a result (from before the rule) are worked out in a longer download and come out the same
+        store["rows"] = [{k: v for k, v in x.items() if k != "bx"} for x in store["rows"]]; sbgz._hist_mem = None
+        h2 = sbgz.history(("15",), coins, ttl=0, limit=100_000)
+        again = {x["k"]: x for x in store["rows"]}
+        assert all(again[k].get("bx") == x.get("bx") for k, x in seen.items() if x["status"] != "NO FILL"), "backfill disagrees with the scan"
+        assert h2["stats_bx"]["all"]["total"]["pending"] == 0
+        # a download that gets no time leaves the rows for the next call
+        assert sbgz._bx_backfill([x for x in seen.values() if x["status"] != "NO FILL"], budget=-1) == {}
+        json.dumps(h2, allow_nan=False)
+    finally:
+        sbgz.get, sbgz._hist_load, sbgz._hist_save, sbgz._hist_mem, sbgz.fetch_candles = real
+    print(f"  history + BTC rule: {len(seen)} rows, {len(fired)} closed by the rule, {later} OPEN rows changed their BTC result later; backfill identical")
+
+
+def test_open_row_gains_btc_exit_then_closes():
+    """An OPEN stored row: BTC calm -> bx not fired; BTC drops -> the row stays OPEN but now carries the exit; the trade later hits its stop ->
+    status LOSS, the BTC exit (earlier) is kept. A trade that had already ended before BTC dropped never gets one."""
+    step = 900; t0 = 1_700_000_000
+    times = [t0 + step * i for i in range(130)]
+    def brief(n, closes, **kw):
+        return dict(price=closes[n - 1], times=times[:n], closes=closes[:n], panel={}, setups=[], missed=[], warmup=0, trades=kw.get("trades", []),
+                    open_trades=kw.get("open", []))
+    trade = dict(side="LONG", fill_bar=110, entry=100.0, stop=99.0, target=104.8, rr=4.8, break_vu=14.0, bvol=3.0, vol_ok=True, since_bar=105)
+    coin = [100.2] * 130
+    btc_calm = [1000.0] * 130
+    btc_drop = [1000.0] * 119 + [994.0] * 11                  # 0.6% lower from candle 119; the trade's risk is 1% -> 0.5R = 0.5%
+    store = {"rows": []}
+    def save(rows): store["rows"] = json.loads(json.dumps(rows)); return True
+    state = {}
+    def fake_scan(intervals, coins, ttl):
+        return 1, [(("BTCUSDT", "15"), brief(state["n"], state["btc"])), (("C0USDT", "15"), state["coin_brief"])]
+    real = (sbgz._scan, sbgz._hist_load, sbgz._hist_save, sbgz._hist_mem)
+    try:
+        sbgz._scan, sbgz._hist_save = fake_scan, save
+        sbgz._hist_load = lambda: (json.loads(json.dumps(store["rows"])), True)
+        sbgz._hist_mem = None
+        state.update(n=118, btc=btc_calm, coin_brief=brief(118, coin, open=[dict(trade)]))
+        h = sbgz.history(("15",), ["BTCUSDT", "C0USDT"], ttl=0)
+        row = store["rows"][0]
+        assert len(store["rows"]) == 1 and row["status"] == "OPEN" and row["bx"] == dict(fired=False), row
+        assert h["stats_bx"]["all"]["total"]["open"] == 1 and h["stats_bx"]["all"]["total"]["exits"] == 0
+        state.update(n=126, btc=btc_drop, coin_brief=brief(126, coin, open=[dict(trade)]))     # BTC fell at candle 119; still no stop / target
+        sbgz._hist_mem = None; h = sbgz.history(("15",), ["BTCUSDT", "C0USDT"], ttl=0)
+        row = store["rows"][0]
+        assert row["status"] == "OPEN" and row["bx"]["fired"] and row["bx"]["t"] == times[119] + step and row["bx"]["px"] == 100.2, row
+        assert abs(row["bx"]["R"] - (0.2 - 0.001 * 100.0)) < 1e-3, row
+        sx = h["stats_bx"]["all"]["total"]; sp = h["stats"]["all"]["total"]
+        assert sx["open"] == 0 and sx["exits"] == 1 and sx["exits_up"] == 1 and abs(sx["total_r"] - row["bx"]["R"]) < 1e-9 and sp["open"] == 1 and sp["total_r"] == 0
+        closed = dict(trade, exit_bar=127, result="SL", exit=99.0, R=-1.1)                    # the stop is hit at candle 127: later than the BTC exit
+        state.update(n=130, btc=btc_drop, coin_brief=brief(130, coin, trades=[closed]))
+        sbgz._hist_mem = None; sbgz.history(("15",), ["BTCUSDT", "C0USDT"], ttl=0)
+        row = store["rows"][0]
+        assert row["status"] == "LOSS" and row["bx"]["fired"] and row["bx"]["t"] == times[119] + step, row
+        # a trade that ended at candle 118, before BTC dropped, is not touched by the rule
+        store["rows"] = []; early = dict(trade, exit_bar=118, result="SL", exit=99.0, R=-1.1)
+        state.update(n=130, btc=btc_drop, coin_brief=brief(130, coin, trades=[early]))
+        sbgz._hist_mem = None; sbgz.history(("15",), ["BTCUSDT", "C0USDT"], ttl=0)
+        assert store["rows"][0]["status"] == "LOSS" and store["rows"][0]["bx"] == dict(fired=False), store["rows"][0]
+    finally:
+        sbgz._scan, sbgz._hist_load, sbgz._hist_save, sbgz._hist_mem = real
+    print("  open row: gains the BTC exit while still open, keeps it when the stop is hit later; an earlier exit is not overridden")
+
+
 def test_parity_with_research_twin():
     scratch = os.path.join(ROOT, "scratch")
     if not os.path.exists(os.path.join(scratch, "binance_15m", "BTCUSDT.npz")):

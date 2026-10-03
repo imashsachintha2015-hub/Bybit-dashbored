@@ -12,6 +12,7 @@ which reproduced the backtest: +0.23R per trade, 22% winners on 15m, 43 coins, 2
 Only closed candles are used, so a confirmed swing or trade never changes afterwards.
 Standard library only: the deployment has no numpy.
 """
+import bisect
 import json
 import os
 import threading
@@ -370,7 +371,8 @@ _scan_lock = threading.Lock()
 def _brief(r):
     """The parts of a get() result the radar and its history use (the candles are not kept)."""
     if not r or not r.get("ok"): return None
-    return dict(price=r["candles"][-1]["close"], times=r.get("times") or [], panel=r.get("panel") or {},
+    times = r.get("times") or []
+    return dict(price=r["candles"][-1]["close"], times=times, closes=[c["close"] for c in r["candles"][:len(times)]], panel=r.get("panel") or {},
                 setups=r.get("setups") or [], open_trades=r.get("open_trades") or [], trades=r.get("trades") or [],
                 missed=r.get("missed") or [], warmup=(r.get("params") or P)["warmup"])
 
@@ -511,11 +513,105 @@ def _hist_stats(rows):
     return out
 
 
+BX_R = 0.5                             # the BTC rule: close the trade once BTC has moved this many risk-units against it
+
+
+def btc_exit(row, times, closes, btc_close, step):
+    """The BTC rule on one filled history row: the trade is closed at the market, at the close of the first candle in which BTC's close has
+    moved BX_R risk-units (the trade's risk in percent) against it since the candle before the fill. The candle that ends the trade by itself is
+    not eligible (its stop / target came first). times / closes: this coin's closed candles (start in seconds, ascending); btc_close: BTC's
+    close by candle start; step: candle length in seconds. Returns dict(fired=True, t=close time of that candle, px, R after fees like the
+    other rows), dict(fired=False) when it would not have fired (or for BTC itself), None when it cannot be judged (candles missing)."""
+    if row["symbol"] == "BTCUSDT": return dict(fired=False)
+    t0, E, S = row.get("t_fill"), row.get("entry"), row.get("stop")
+    if not t0 or not E or E == S: return None
+    b0 = btc_close.get(t0 - step); j = bisect.bisect_left(times, t0)
+    if not b0 or j >= len(times) or times[j] != t0: return None
+    sd = 1 if row["side"] == "LONG" else -1; risk = abs(E - S); scale = risk / abs(E); end = row.get("t_end")
+    for k in range(j, len(times)):
+        if end is not None and times[k] >= end: break
+        b = btc_close.get(times[k])
+        if b is not None and sd * (b / b0 - 1) / scale <= -BX_R:
+            fee = P["fee_limit"] + P["fee_stop"]
+            return dict(fired=True, t=times[k] + step, px=_num(closes[k]), R=_num(sd * (closes[k] - E) / risk - fee * abs(E) / risk, 4))
+    return dict(fired=False)
+
+
+_bx_tried = {}                         # row key -> when its BTC result was last attempted (rows that cannot be judged are not retried every call)
+
+
+def _bx_backfill(rows, budget=15.0):
+    """BTC-rule results for stored filled rows that have none yet (rows from before the rule existed, or older than the scan window): one
+    longer candle download per coin and interval and one for BTC, extended until it reaches back past the oldest fill (at most 3000 bars =
+    31 days of 15m). No new download starts after `budget` seconds; the rest follows on the next call. Returns {row key: bx}."""
+    from concurrent.futures import ThreadPoolExecutor
+    t_stop = time.time() + budget; by = {}
+    for x in rows: by.setdefault((x["symbol"], x["interval"]), []).append(x)
+    ivs = sorted({iv for _, iv in by}); need = {}; first = {}
+    for (sym, iv), xs in by.items():
+        step = TF_MS.get(iv, 900_000) // 1000
+        need[(sym, iv)] = min(x["t_fill"] for x in xs) - 2 * step                      # the candle before the fill is needed too
+    for iv in ivs: need[("BTCUSDT", iv)] = min(n for (_, i2), n in need.items() if i2 == iv)
+    jobs = [("BTCUSDT", iv) for iv in ivs] + [k for k in by if k[0] != "BTCUSDT"]
+    def dl(key):
+        n = 300
+        while time.time() < t_stop:
+            cs = fetch_candles(key[0], key[1], n)
+            if not cs or cs[0]["start"] // 1000 <= need[key] or n >= 3000 or len(cs) < n: return key, cs
+            n = min(3000, n * 2)
+        return key, None
+    with ThreadPoolExecutor(8) as ex: got = dict(ex.map(dl, jobs))
+    out = {}
+    for iv in ivs:
+        step = TF_MS.get(iv, 900_000) // 1000
+        def closed(cs): return cs[:-1]                                         # the newest candle is the one still forming
+        bc = got.get(("BTCUSDT", iv))
+        if not bc: continue
+        btc = {c["start"] // 1000: c["close"] for c in closed(bc)}
+        for (sym, i2), xs in by.items():
+            if i2 != iv: continue
+            cs = got.get((sym, iv))
+            if sym != "BTCUSDT" and not cs: continue
+            cl = closed(cs or []); times = [c["start"] // 1000 for c in cl]; closes = [c["close"] for c in cl]
+            for x in xs:
+                bx = btc_exit(x, times, closes, btc, step)
+                if bx is not None: out[x["k"]] = bx
+    return out
+
+
+def _eff(x):
+    """(status, R) of a history row under the BTC rule: a filled row the rule closed is 'EXIT' (R after fees); everything else as planned."""
+    b = x.get("bx")
+    if x["status"] != "NO FILL" and b and b.get("fired"): return "EXIT", b.get("R")
+    return x["status"], x.get("R")
+
+
+def _hist_stats_bx(rows):
+    """Like _hist_stats, but every trade the BTC rule would have closed counts as an EXIT with its own R (still-open trades the rule has
+    already closed too). pending = filled rows the rule has not been worked out for yet (counted as planned)."""
+    def agg(rs):
+        e = [(x,) + _eff(x) for x in rs]
+        closed = [t for t in e if t[1] in ("WIN", "LOSS", "EXIT")]; Rs = [t[2] for t in closed if t[2] is not None]
+        ex = [t for t in closed if t[1] == "EXIT"]
+        return dict(signals=len(rs), filled=sum(1 for t in e if t[1] != "NO FILL"), wins=sum(1 for t in closed if t[1] == "WIN"),
+                    losses=sum(1 for t in closed if t[1] == "LOSS"), exits=len(ex), exits_up=sum(1 for t in ex if (t[2] or 0) > 0),
+                    open=sum(1 for t in e if t[1] == "OPEN"), no_fill=sum(1 for t in e if t[1] == "NO FILL"), full_losses=sum(1 for v in Rs if v <= -0.9),
+                    pending=sum(1 for x in rs if x["status"] != "NO FILL" and "bx" not in x),
+                    total_r=sum(Rs), avg_r=sum(Rs) / len(Rs) if Rs else None)
+    out = {}
+    for mode, sel in (("all", rows), ("vol", [x for x in rows if x.get("vol_ok")])):
+        out[mode] = dict(total=agg(sel), **{iv: agg([x for x in sel if x["interval"] == iv]) for iv in ("15", "60")})
+    return out
+
+
 def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400):
     """The radar history: new rows from the current scan are added to the stored list (an OPEN row is updated when its
-    trade closes; a closed or NO FILL row never changes). Rows newest signal first; stats over every stored row."""
+    trade closes, or when the BTC rule closes it; a closed or NO FILL row never changes). Every filled row also carries bx, what the
+    BTC rule would have done with it (btc_exit); stored rows without one are worked out in a longer download (_bx_backfill).
+    Rows newest signal first; stats (as planned) and stats_bx (with the BTC rule) over every stored row."""
     global _hist_mem
     generated, results = _scan(intervals, list(coins or RADAR_COINS), ttl)
+    btc = {iv: dict(zip(r["times"], r["closes"])) for (sym, iv), r in results if sym == "BTCUSDT" and r}   # BTC closes by candle start
     with _hist_lock:
         if _hist_mem is None:
             rows, ok = _hist_load()
@@ -526,9 +622,22 @@ def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400)
             if not r: continue
             settled = {x["k"] for x in _hist_rows(sym, iv, r)}
             for row in _hist_rows(sym, iv, r, settle=False):
+                if row["status"] != "NO FILL" and iv in btc:
+                    bx = btc_exit(row, r["times"], r["closes"], btc[iv], TF_MS[iv] // 1000)
+                    if bx is not None: row["bx"] = bx
                 old = _hist_mem.get(row["k"])
-                if (old is None and row["k"] in settled) or (old is not None and old["status"] == "OPEN" and row["status"] != "OPEN"):
+                if (old is None and row["k"] in settled) or (old is not None and old["status"] == "OPEN" and (row["status"] != "OPEN" or row.get("bx") != old.get("bx"))):
                     _hist_mem[row["k"]] = row; changed = True
+        tnow = time.time()
+        todo = [dict(x) for x in _hist_mem.values() if x["status"] != "NO FILL" and x.get("t_fill") and "bx" not in x
+                and tnow - _bx_tried.get(x["k"], 0) > 1800] if btc else []
+    if todo:                                                            # stored rows the BTC rule has not been worked out for (downloads: outside the lock)
+        got = _bx_backfill(todo)
+        for x in todo: _bx_tried[x["k"]] = time.time()                   # rows still without a result wait 30 min before the next try
+        with _hist_lock:
+            for k, bx in got.items():
+                if k in _hist_mem and "bx" not in _hist_mem[k]: _hist_mem[k] = dict(_hist_mem[k], bx=bx); changed = True
+    with _hist_lock:
         if changed:
             keep = sorted(_hist_mem.values(), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)[:HIST_MAX]
             if _hist_save(keep): _hist_mem = {x["k"]: x for x in keep}
@@ -538,5 +647,4 @@ def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400)
     stamps = [x.get("t_arm") or x.get("t_fill") for x in rows if x.get("t_arm") or x.get("t_fill")]
     return _clean(dict(ok=True, generated=generated, since=min(stamps) if stamps else None, total=len(shown),
                        rows=[dict(x, why_text=MISSED_WHY.get(x.get("why"))) if x.get("why") else x for x in shown[:limit]],
-                       stats=_hist_stats(rows)))
-
+                       stats=_hist_stats(rows), stats_bx=_hist_stats_bx(rows), bx_rule=dict(move_r=BX_R)))
