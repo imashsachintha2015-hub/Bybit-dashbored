@@ -907,6 +907,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-rrow .hexit,.sbgz-radar-bar .hexit{color:#fbbf24;font-weight:700}
 .sbgz-rrow .hplan{display:block;font-size:9.5px;color:#64748b;font-weight:400}
 .sbgz-radar-bar .mut{color:#64748b}
+.sbgz-auto-set{gap:6px 12px}.sbgz-auto-set label{display:inline-flex;align-items:center;gap:5px;color:#94a3b8}
+.sbgz-auto-set select{background:#0f172a;color:#e2e8f0;border:1px solid #333d4b;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:var(--mo)}
 .sbgz-hist-chips{gap:6px}
 .sbgz-chip{background:transparent;border:1px solid #333d4b;color:#94a3b8;border-radius:12px;padding:2px 9px;font-size:10.5px;cursor:pointer;font-family:var(--mo)}
 .sbgz-chip.on{background:rgba(20,184,166,.15);border-color:rgba(20,184,166,.5);color:#5eead4}
@@ -2519,6 +2521,29 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             </div>
           </div>
           <div class="sbgz-radar-foot">Limit orders at the 0.5 entry, stop-market at the stop. Backtest = average R per trade 2023-26 (43 coins, after fees): volume-confirmed 15m +0.36R, 1h +0.50R; unconfirmed about 0 to +0.2R. Tap a row to open its chart, or "Place order" to send it to Bybit. Paper-test before real money.</div>
+        </div>
+        <!-- SBGZ auto-orders: the server places, watches and cancels the SBGZ limit orders (GET /api/sbgz/auto, backend_lib/sbgz_auto.py) -->
+        <div class="card" id="sbgzAutoCard" style="margin-bottom:12px">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-robot" style="color:#14b8a6"></i> SBGZ auto-orders · places, watches and cancels the limit orders for you</span>
+              <span class="cbadge" id="sbgzAutoPill">OFF</span>
+            </div>
+          </div>
+          <div class="sbgz-radar-bar sbgz-hist-chips" id="sbgzAutoMode"></div>
+          <div class="sbgz-radar-bar sbgz-auto-set" id="sbgzAutoSet"></div>
+          <div class="sbgz-radar-bar">
+            <span id="sbgzAutoInfo">Loading…</span>
+            <button class="sbgz-rbtn" onclick="sbgzAutoLoad()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+          </div>
+          <div class="tw" id="sbgzAutoHold"></div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>When</th><th>Coin</th><th>TF</th><th>Side</th><th>What</th><th>Details</th></tr></thead>
+              <tbody id="sbgzAutoTb"><tr><td colspan="6" class="emp">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="sbgz-radar-foot">Every minute, for each volume-confirmed strong-break setup the server places the same order as "Place order" (post-only limit entry, limit take-profit, stop-market stop) within your limits, keeps each waiting order equal to its setup (the impulse extended: moved to the new levels; the setup ended: cancelled, the way the backtest treats it) and, if ticked, closes an open trade at the market (like the stop) or cancels a waiting order once BTC has moved 0.5R against it. It does not cancel an order just because the price is falling or a trend flipped: on 4,258 backtested trades that gained nothing, because the fall is what fills a pullback order. One order per coin; coins where you hold a position or your own order are skipped. Preview shows every decision without sending anything. Demo or testnet accounts only. Every trade has its stop and target on Bybit, so it is protected even if this server stops. Not yet tested on the exchange: the first live orders are the first real test of the order format.</div>
         </div>
         <!-- SBGZ radar history: every setup the radar showed and what happened to it (GET /api/sbgz/history) -->
         <div class="card" id="sbgzHistCard" style="margin-bottom:12px">
@@ -4577,6 +4602,7 @@ window.sbgzRadarLoad = function(force){
       window._sbgzRadarTimer = setTimeout(function(){ window.sbgzRadarLoad(false); }, 150000);
       if(window.sbgzOrdersLoad) window.sbgzOrdersLoad();
       if(window.sbgzHistLoad) window.sbgzHistLoad();             // same scan, so it answers from the server's cache
+      if(window.sbgzAutoLoad) window.sbgzAutoLoad();
     });
 };
 
@@ -4853,9 +4879,10 @@ window.sbgzOrdersLoad = function(){
                : o.setup === 'moved' ? '<span class="warn">moved to ' + sbgzFmt(o.setup_entry) + '</span> <button type="button" class="sbgz-trade-btn plain"' + data + ' onclick="event.stopPropagation();sbgzOrderOpen(this.dataset.sym, this.dataset.tf, this.dataset.side)">Move</button>'
                : o.setup === 'gone' ? '<span class="warn">setup gone: cancel it?</span>'
                : '<span class="mut">unknown</span>';
+        var auto = o.auto ? ' <span class="mut" title="placed by the auto-orders">auto</span>' : '';
         var filled = parseFloat(o.filled || 0) > 0 ? ' <span class="mut">(' + sbgzEsc(o.filled) + ' filled)</span>' : '';
         return '<tr class="sbgz-rrow"' + data + ' onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
-          '<td><b>' + sbgzEsc(String(o.symbol).replace(/USDT$/, '')) + '</b></td><td>' + tfl + '</td><td class="' + (L ? 'up' : 'dn') + '">' + side + '</td>' +
+          '<td><b>' + sbgzEsc(String(o.symbol).replace(/USDT$/, '')) + '</b>' + auto + '</td><td>' + tfl + '</td><td class="' + (L ? 'up' : 'dn') + '">' + side + '</td>' +
           '<td>' + sbgzEsc(o.price) + '</td><td>' + sbgzEsc(o.qty) + filled + '</td><td>' + sbgzEsc(o.stop || '--') + '</td><td>' + sbgzEsc(o.target || '--') + '</td>' +
           '<td>' + st + '</td><td><button type="button" class="sbgz-trade-btn sell"' + data + ' onclick="event.stopPropagation();sbgzOrderCancel(this)">Cancel</button></td></tr>';
       }).join('');
@@ -4873,6 +4900,119 @@ window.sbgzOrderCancel = function(btn){
     .catch(function(e){ alert('Cancel failed: ' + e.message); })
     .then(function(){ window.sbgzOrdersLoad(); });
 };
+
+// ── SBGZ auto-orders (Radar page): the server places, watches and cancels the SBGZ limit orders (backend_lib/sbgz_auto.py) ─────────
+var SBGZ_AUTO_KIND = { place: 'placed', move: 'moved', cancel: 'cancelled', fill: 'filled', close: 'closed', closed: 'result', halt: 'stopped', skip: 'skipped', error: 'error', info: 'note' };
+window._sbgzAuto = null;
+
+window.sbgzAutoLoad = function(){
+  var info = document.getElementById('sbgzAutoInfo');
+  if(!info) return;
+  fetch('/api/sbgz/auto')
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.ok){ info.textContent = 'Auto-orders unavailable: ' + ((d && d.error) || 'no answer from /api/sbgz/auto (server not updated yet?)'); return; }
+      window._sbgzAuto = d;
+      window.sbgzAutoRender();
+    })
+    .catch(function(e){ info.textContent = 'Auto-orders error: ' + e.message; });
+};
+
+// POST to an auto-order route (asks for the trade password when the server wants one); resolves to the JSON answer
+function sbgzAutoPost(path, body){
+  return window.tradePost(path, body || {})
+    .then(function(r){ return r.json().catch(function(){ return { ok: false, error: 'HTTP ' + r.status + ' (server not updated yet?)' }; }); })
+    .catch(function(e){ return { ok: false, error: e.message }; });
+}
+
+function sbgzAutoAfter(d, what){
+  if(!d || !d.ok) alert((what || 'Failed') + ': ' + ((d && (d.error || d.retMsg)) || 'no answer'));
+  else if(d.note && d.note.cancelled) alert('Cancelled ' + d.note.cancelled + ' waiting order(s). Open trades keep their stop and target on Bybit.');
+  window.sbgzAutoLoad();
+}
+
+window.sbgzAutoMode = function(mode){
+  var d = window._sbgzAuto || {}, acct = d.account || 'demo';
+  if((d.settings || {}).mode === mode) return;
+  if(mode === 'live' && !confirm('Go LIVE?\n\nThe server will place limit orders on the ' + acct + ' account by itself, around the clock, using the filters and limits below. ' +
+     'Every trade has its stop and target on Bybit.\n\nLeaving Live cancels the waiting orders; open trades keep their stop and target.\n\nThe order format has not been tested on the exchange yet: the first live orders are that test.')) return;
+  if(mode !== 'live' && (d.settings || {}).mode === 'live' && !confirm('Leave Live? The waiting orders will be cancelled (open trades keep their stop and target).')) return;
+  sbgzAutoPost('/api/sbgz/auto/settings', { mode: mode, confirm: mode === 'live' }).then(function(r){ sbgzAutoAfter(r, 'Could not change the mode'); });
+};
+
+window.sbgzAutoSave = function(){
+  var g = function(id){ return document.getElementById(id); }, ivs = [];
+  if(g('sbgzAuto15').checked) ivs.push('15');
+  if(g('sbgzAuto60').checked) ivs.push('60');
+  if(!ivs.length){ alert('Pick at least one timeframe.'); return; }
+  var patch = { risk_pct: parseFloat(g('sbgzAutoRisk').value), vol_only: g('sbgzAutoVol').checked, intervals: ivs, btc_close: g('sbgzAutoBtcClose').checked,
+                btc_cancel: g('sbgzAutoBtcCancel').checked, max_resting: parseInt(g('sbgzAutoMaxW').value, 10), max_open: parseInt(g('sbgzAutoMaxO').value, 10),
+                max_open_risk_pct: parseFloat(g('sbgzAutoMaxRisk').value) };
+  sbgzAutoPost('/api/sbgz/auto/settings', patch).then(function(r){ if(r && r.ok) window._sbgzAutoSetKey = null; sbgzAutoAfter(r, 'Could not save'); });
+};
+
+window.sbgzAutoKill = function(closeToo){
+  if(!confirm(closeToo ? 'Switch the auto-orders off, cancel all waiting auto orders AND close the open auto trades at the market?' : 'Switch the auto-orders off and cancel all waiting auto orders? (Open trades keep their stop and target.)')) return;
+  sbgzAutoPost('/api/sbgz/auto/kill', { close_positions: !!closeToo }).then(function(r){ sbgzAutoAfter(r, 'Stop failed'); });
+};
+
+window.sbgzAutoRender = function(){
+  var d = window._sbgzAuto;
+  if(!d) return;
+  var s = d.settings || {}, mode = s.mode || 'off', day = d.day || {}, st = d.status || {}, acct = d.account || '';
+  var pill = document.getElementById('sbgzAutoPill'), modes = document.getElementById('sbgzAutoMode'), set = document.getElementById('sbgzAutoSet');
+  var info = document.getElementById('sbgzAutoInfo'), hold = document.getElementById('sbgzAutoHold'), tb = document.getElementById('sbgzAutoTb');
+  var fmtR = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; };
+  if(pill){
+    pill.textContent = d.halted ? 'STOPPED FOR TODAY' : mode === 'live' ? 'LIVE · ' + acct : mode === 'preview' ? 'PREVIEW' : 'OFF';
+    pill.style.cssText = mode === 'live' && !d.halted ? 'background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.35)'
+      : d.halted ? 'background:rgba(244,63,94,.15);color:#fb7185;border:1px solid rgba(244,63,94,.35)'
+      : mode === 'preview' ? 'background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.35)' : 'background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid #333d4b';
+  }
+  if(modes) modes.innerHTML = 'Mode: ' + [['off', 'Off'], ['preview', 'Preview (decides and logs, sends nothing)'], ['live', 'Live (places ' + (acct || 'demo') + ' orders)']].map(function(x){
+    return '<button type="button" class="sbgz-chip' + (x[0] === mode ? ' on' : '') + '" onclick="sbgzAutoMode(\'' + x[0] + '\')">' + x[1] + '</button>';
+  }).join('');
+  var key = JSON.stringify(s);
+  if(set && window._sbgzAutoSetKey !== key){                       // the form is rebuilt only when the saved settings change, never under your hands
+    window._sbgzAutoSetKey = key;
+    var opt = function(vals, cur, unit){ return vals.map(function(v){ return '<option value="' + v + '"' + (Math.abs(v - cur) < 1e-9 ? ' selected' : '') + '>' + v + (unit || '') + '</option>'; }).join(''); };
+    var has = function(i){ return (s.intervals || []).indexOf(i) >= 0 ? ' checked' : ''; };
+    set.className = 'sbgz-radar-bar sbgz-auto-set';
+    set.innerHTML = '<label>Risk per trade <select id="sbgzAutoRisk">' + opt([0.1, 0.25, 0.5, 1], s.risk_pct, '%') + '</select></label>' +
+      '<label><input type="checkbox" id="sbgzAutoVol"' + (s.vol_only ? ' checked' : '') + '> volume-confirmed only</label>' +
+      '<label><input type="checkbox" id="sbgzAuto15"' + has('15') + '> 15m</label><label><input type="checkbox" id="sbgzAuto60"' + has('60') + '> 1h</label>' +
+      '<label><input type="checkbox" id="sbgzAutoBtcClose"' + (s.btc_close ? ' checked' : '') + '> close open trades when BTC moves 0.5R against</label>' +
+      '<label title="Backtest: no gain, off by default"><input type="checkbox" id="sbgzAutoBtcCancel"' + (s.btc_cancel ? ' checked' : '') + '> cancel waiting orders when BTC moves 0.5R against since the signal</label>' +
+      '<label>Max waiting <select id="sbgzAutoMaxW">' + opt([2, 4, 8, 12, 20], s.max_resting) + '</select></label>' +
+      '<label>Max open <select id="sbgzAutoMaxO">' + opt([1, 3, 6, 10, 20], s.max_open) + '</select></label>' +
+      '<label>Max total risk <select id="sbgzAutoMaxRisk">' + opt([1, 2, 3, 5, 8], s.max_open_risk_pct, '%') + '</select></label>' +
+      '<button type="button" class="sbgz-rbtn" onclick="sbgzAutoSave()">Save settings</button>' +
+      '<button type="button" class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="sbgzAutoKill(false)">Stop + cancel waiting orders</button>' +
+      '<button type="button" class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="sbgzAutoKill(true)">Stop + cancel + close open trades</button>';
+  }
+  var rows = d.tracked || [], virt = mode === 'preview';
+  var waiting = rows.filter(function(t){ return t.status === 'resting' && !!t.virtual === virt; }).length, open = rows.filter(function(t){ return (t.status === 'open' || t.status === 'closing') && !t.virtual; }).length;
+  if(info) info.innerHTML = (mode === 'off' ? 'Off: it does nothing. ' : '') + '<b>' + waiting + '</b> ' + (virt ? 'previewed' : 'waiting') + ' order(s) · <b>' + open + '</b> open trade(s) · today: ' + (day.orders || 0) + ' order(s), ' +
+    (day.closed || 0) + ' closed, <b class="' + ((day.r || 0) >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(day.r || 0) + '</b>' +
+    (st.t ? '<br><span class="mut">last check ' + sbgzEsc(sbgzWhen(st.t / 1000)) + ': ' + sbgzEsc(st.msg || '') + (d.running ? '' : ' (background thread not running on this server)') + '</span>' : '');
+  var held = rows.filter(function(t){ return t.status === 'resting' || t.status === 'open' || t.status === 'closing'; });
+  if(hold) hold.innerHTML = held.length ? '<table><thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>State</th><th>Entry</th><th>Stop</th><th>Target</th><th>Risk</th></tr></thead><tbody>' + held.map(function(t){
+    var L = t.side === 'LONG', state = t.virtual ? '<span class="warn">would wait</span>' : t.status === 'resting' ? '<span class="open">WAITING</span>' : t.status === 'open' ? '<span class="hwin">OPEN</span>' : '<span class="mut">closing</span>';
+    return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(t.symbol) + '" data-tf="' + sbgzEsc(t.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)"><td><b>' + sbgzEsc(String(t.symbol).replace(/USDT$/, '')) + '</b></td><td>' +
+      (t.interval === '60' ? '1h' : t.interval + 'm') + '</td><td class="' + (L ? 'up' : 'dn') + '">' + t.side + '</td><td>' + state + '</td><td>' + sbgzFmt(t.entry) + '</td><td>' + sbgzFmt(t.stop) + '</td><td>' + sbgzFmt(t.target) + '</td><td>' + (t.risk_usd != null ? t.risk_usd.toFixed(2) + ' USDT' : '--') + '</td></tr>';
+  }).join('') + '</tbody></table>' : '';
+  var log = d.log || [];
+  if(tb) tb.innerHTML = log.length ? log.slice(0, 40).map(function(e){
+    var cls = e.kind === 'error' || e.kind === 'halt' ? 'dn' : e.kind === 'place' || e.kind === 'fill' ? 'ok' : e.kind === 'skip' ? 'mut' : e.kind === 'closed' || e.kind === 'close' ? '' : 'warn';
+    return '<tr><td>' + sbgzEsc(sbgzWhen(e.t / 1000)) + '</td><td>' + (e.symbol ? '<b>' + sbgzEsc(String(e.symbol).replace(/USDT$/, '')) + '</b>' : '') + '</td><td>' + (e.interval ? (e.interval === '60' ? '1h' : e.interval + 'm') : '') + '</td>' +
+      '<td class="' + (e.side === 'LONG' ? 'up' : e.side === 'SHORT' ? 'dn' : '') + '">' + sbgzEsc(e.side || '') + '</td><td class="' + cls + '">' + sbgzEsc(SBGZ_AUTO_KIND[e.kind] || e.kind) + (e.mode === 'preview' ? ' <span class="mut">(preview)</span>' : '') + '</td><td>' + sbgzEsc(e.text) + '</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="emp">Nothing yet. Pick Preview or Live above and its decisions appear here.</td></tr>';
+};
+
+if(!window._sbgzAutoTimer) window._sbgzAutoTimer = setInterval(function(){
+  var v = document.getElementById('view-signals');
+  if(v && v.offsetParent !== null && window.sbgzAutoLoad) window.sbgzAutoLoad();             // only while the Radar page is showing
+}, 30000);
 
 // ── SBGZ radar history (Radar page): every setup the radar showed and what happened to it, traded or not ───────────
 var SBGZ_HIST_FILTERS = [['filled', 'Filled'], ['WIN', 'Wins'], ['LOSS', 'Failed'], ['EXIT', 'BTC exit'], ['OPEN', 'Open'], ['NO FILL', 'No fill'], ['all', 'All']];

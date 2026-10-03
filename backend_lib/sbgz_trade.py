@@ -29,9 +29,11 @@ DEFAULT_RISK_PCT = 0.5
 DEFAULT_LEVERAGE = 10
 INTERVALS = ("15", "60")            # the tested timeframes
 LINK_PREFIX = "sbgz-"
+AUTO_TAG = "z"                      # orderLinkId 'sbgz-<symbol>-<interval>-<L|S>-z<time>' = placed by the auto-orders
 FEE_MAKER, FEE_TAKER = 0.0002, 0.00055
 _spec = {}
 _order_lock = threading.Lock()      # one order at a time: two quick clicks cannot both pass the duplicate check
+_last_link_s = 0                    # the seconds put in the last orderLinkId (every link gets a later one: Bybit refuses a repeated link)
 
 
 def _decimals(step):
@@ -86,6 +88,14 @@ def size_qty(equity, risk_frac, entry, stop, spec, max_pos_x):
     return qty
 
 
+def round_levels(z, spec):
+    """(entry, stop, target) of a setup on the instrument's tick: the stop rounded away from the entry, the target towards it."""
+    sd, tick = (1 if z["side"] == "LONG" else -1), spec["tick"]
+    return (round_step(z["entry"], tick),
+            floor_step(z["stop"], tick) if sd == 1 else ceil_step(z["stop"], tick),
+            floor_step(z["target"], tick) if sd == 1 else ceil_step(z["target"], tick))
+
+
 def account(client):
     base = (getattr(client, "base_url", "") or "").lower()
     return "DEMO" if "api-demo" in base else "TESTNET" if "testnet" in base else "REAL"
@@ -125,9 +135,7 @@ def plan(client, symbol, interval, side, risk_pct=DEFAULT_RISK_PCT, leverage=DEF
     spec = instrument(symbol)
     if not spec or not spec["tick"] or not spec["qty_step"]: return dict(ok=False, error=f"no instrument info for {symbol} (not a trading USDT perpetual?)")
     sd, tick = (1 if side == "LONG" else -1), spec["tick"]
-    entry = round_step(z["entry"], tick)
-    stop = floor_step(z["stop"], tick) if sd == 1 else ceil_step(z["stop"], tick)          # rounded away from the entry
-    target = floor_step(z["target"], tick) if sd == 1 else ceil_step(z["target"], tick)    # rounded towards the entry
+    entry, stop, target = round_levels(z, spec)
     if sd * (target - entry) <= 0 or sd * (entry - stop) <= 0: return dict(ok=False, error="entry, stop and target collapse at this tick size")
     if sd * (price - entry) <= 0:
         return dict(ok=False, error=f"price {price:g} is already through the entry {entry:g}: a post-only limit there would be cancelled (missed the fill)")
@@ -147,6 +155,7 @@ def plan(client, symbol, interval, side, risk_pct=DEFAULT_RISK_PCT, leverage=DEF
              fees_usd=dict(win=notional * FEE_MAKER + qty * target * FEE_MAKER, loss=notional * FEE_MAKER + qty * stop * FEE_TAKER),
              rr=abs(target - entry) / abs(entry - stop), notional=notional, leverage=leverage, margin=notional / leverage,
              vol_ok=bool(z.get("vol_ok")), bvol=z.get("bvol"), break_vu=z.get("break_vu"),
+             since=(r.get("times") or [None])[z["since_bar"]] if isinstance(z.get("since_bar"), int) and 0 <= z["since_bar"] < len(r.get("times") or []) else None,
              exp_r=sbgz.EXP_R.get((interval, bool(z.get("vol_ok")))), replace=[])
     # one position or resting order per coin, like the rest of the dashboard; fail closed if Bybit cannot tell us
     pos, ords = client.get_positions(symbol), client.get_open_orders(symbol)
@@ -168,15 +177,18 @@ def plan(client, symbol, interval, side, risk_pct=DEFAULT_RISK_PCT, leverage=DEF
     return p
 
 
-def place(client, p):
-    """Send the order described by an ok plan(): cancel this button's resting order on the coin first if asked."""
+def place(client, p, tag=""):
+    """Send the order described by an ok plan(): cancel this button's resting order on the coin first if asked.
+    tag: one letter put in front of the time in the orderLinkId ('z' = placed by the auto-orders, see sbgz_auto.py)."""
     for link in p.get("replace") or []:
         c = cancel(client, p["symbol"], link)
         if not c["ok"]: return dict(p, ok=False, placed=False, error=f"could not cancel the resting order first: {c['error']}")
     lv = client.set_leverage(p["symbol"], p["leverage"])
     if lv.get("retCode") not in (0, 110043):     # 110043 = already at that leverage
         print(f"[sbgz order] leverage {p['symbol']} {p['leverage']}x: {lv.get('retCode')} {lv.get('retMsg')} (placing anyway)")
-    link = f"{LINK_PREFIX}{p['symbol']}-{p['interval']}-{p['side'][0]}-{int(time.time()):x}"[:36]
+    global _last_link_s
+    _last_link_s = max(int(time.time()), _last_link_s + 1)
+    link = f"{LINK_PREFIX}{p['symbol']}-{p['interval']}-{p['side'][0]}-{tag}{_last_link_s:x}"[:36]
     body = dict(category="linear", symbol=p["symbol"], side=p["bybit_side"], orderType="Limit", qty=p["qty_str"],
                 price=p["price_str"]["entry"], timeInForce="PostOnly", orderLinkId=link,
                 takeProfit=p["price_str"]["target"], stopLoss=p["price_str"]["stop"], tpslMode="Partial",
@@ -217,6 +229,7 @@ def open_orders(client):
                    stop=o.get("stopLoss"), target=o.get("takeProfit"), status=o.get("orderStatus"), link=link,
                    created=o.get("createdTime"), setup="unknown", setup_entry=None)
         parts = link.split("-")
+        row["auto"] = len(parts) == 5 and parts[4][:1] == AUTO_TAG
         if len(parts) == 5 and parts[2] in INTERVALS:
             row.update(interval=parts[2], sbgz_side="LONG" if parts[3] == "L" else "SHORT")
             try:

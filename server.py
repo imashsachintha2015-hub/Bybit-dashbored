@@ -1176,7 +1176,7 @@ def get_dashboard_bundle():
 # DASHBOARD_TRADE_TOKEN) once that variable is set. Without it they work as before on the demo account; the SBGZ
 # order routes refuse a real-money account until it is set.
 LEGACY_ORDER_ROUTES = ("/api/cme_x5/execute", "/api/positions/close", "/api/order/place", "/api/order/close", "/api/position/stop")
-SBGZ_ORDER_ROUTES = ("/api/sbgz/order", "/api/sbgz/orders", "/api/sbgz/cancel")
+SBGZ_ORDER_ROUTES = ("/api/sbgz/order", "/api/sbgz/orders", "/api/sbgz/cancel", "/api/sbgz/auto/settings", "/api/sbgz/auto/kill")
 # Wrong trade passwords from all clients together: 30 within 15 minutes lock dashboard trading until the window
 # clears, so the password cannot be guessed through the public dashboard URL.
 _trade_fails = []
@@ -1570,6 +1570,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "error": f"sbgz history failed: {e}"})
             return
 
+        # 6a-0c. API: SBGZ auto-orders (backend_lib/sbgz_auto.py): mode, settings, the waiting orders / open trades it manages, its log
+        if urllib.parse.urlparse(self.path).path == "/api/sbgz/auto":
+            try:
+                from backend_lib import sbgz_auto as _auto
+                self._send_json(200, _auto.status(bybit_client))
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"sbgz auto failed: {e}"})
+            return
+
         # 6a-1. API: Strong-Break Golden Zone indicator + trend map for the Fast Canvas chart (backend_lib/sbgz.py)
         if self.path.startswith("/api/sbgz"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
@@ -1820,6 +1829,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 res = sbgz_trade.order(bybit_client, body)
             elif self.path == "/api/sbgz/orders":
                 res = sbgz_trade.open_orders(bybit_client)
+            elif self.path == "/api/sbgz/auto/settings":        # backend_lib/sbgz_auto.py: mode (off / preview / live), filters, caps
+                from backend_lib import sbgz_auto
+                res = sbgz_auto.update_settings({k: v for k, v in body.items() if k != "confirm"}, bybit_client, confirm=body.get("confirm") is True)
+            elif self.path == "/api/sbgz/auto/kill":            # switch off + cancel the waiting auto orders (+ close the open auto trades)
+                from backend_lib import sbgz_auto
+                res = sbgz_auto.kill(bybit_client, close_positions=body.get("close_positions") is True)
             else:
                 res = sbgz_trade.cancel(bybit_client, re.sub(r"[^A-Z0-9]", "", str(body.get("symbol") or "").upper()), body.get("link"))
             self._send_json(200, res)
@@ -2395,6 +2410,23 @@ class ThreadingDashboardServer(socketserver.ThreadingMixIn, http.server.HTTPServ
     daemon_threads = True
 
 
+def _start_auto_orders():
+    """The SBGZ auto-orders thread (backend_lib/sbgz_auto.py). It starts on Railway, or anywhere SBGZ_AUTO_THREAD=1; SBGZ_AUTO_THREAD=0 keeps it
+    off. The thread does nothing until the dashboard sets the mode to preview or live (default: off), so a local copy of the server never trades
+    with the shared settings by accident."""
+    flag = (os.environ.get("SBGZ_AUTO_THREAD") or "").strip().lower()
+    on_railway = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RAILWAY_PROJECT_ID"))
+    if flag in ("0", "false", "off", "no") or (not flag and not on_railway):
+        return False
+    try:
+        from backend_lib import sbgz_auto
+        sbgz_auto.start_thread(lambda: bybit_client)
+    except Exception as e:                      # never let this keep the dashboard itself from starting
+        print(f"[sbgz auto] thread not started: {e}")
+        return False
+    return True
+
+
 def run_server():
     with ThreadingDashboardServer(("", PORT), DashboardHandler) as httpd:
         print("=" * 64)
@@ -2402,6 +2434,7 @@ def run_server():
         print(f"  Dashboard:        http://localhost:{PORT}")
         print(f"  Bybit endpoint:   {BYBIT_BASE_URL}")
         print(f"  DeepSeek:         {'ON, budget ' + str(DEEPSEEK_DAILY_CALL_BUDGET) + '/day' if DEEPSEEK_API_KEY else ('ON but no DEEPSEEK_API_KEY' if DEEPSEEK_ENABLED else 'OFF (DEEPSEEK_ENABLED not set) — local gates and fallbacks only')}")
+        print(f"  SBGZ auto-orders: {'thread running (mode is set on the dashboard; default off)' if _start_auto_orders() else 'thread not started (SBGZ_AUTO_THREAD=1 starts it)'}")
         print(f"  News sentinel:    {'Benzinga live' if BENZINGA_API_KEY else 'disabled (no BENZINGA_API_KEY)'}")
         print(f"  Macro feed:       {'CoinGecko live' if COINGECKO_API_KEY else 'disabled (no COINGECKO_API_KEY)'}")
         print("=" * 64)
