@@ -57,6 +57,7 @@ _thread = None
 _last_log = {}
 _skipped = {}                          # setup key -> reason it could not be placed (logged once)
 _retry_at = {}                         # setup key -> ms before which it is not tried again
+_marks = {}                            # order link -> where it stands now (price, R now, PnL, distance to the entry): refreshed every pass, not stored
 
 
 # ── settings ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -184,7 +185,7 @@ def reset_for_tests():
     with _lock:
         _state = None; _saved_blob = None
         _status.update(ok=None, msg="not started yet", t=None, counts={})
-        _last_log.clear(); _skipped.clear(); _retry_at.clear()
+        _last_log.clear(); _skipped.clear(); _retry_at.clear(); _marks.clear(); _prices.clear()
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -228,6 +229,9 @@ def _setup_key(sym, iv, side, since):
     return f"{sym}|{iv}|{side}|{since}"
 
 
+_prices = {}                           # (coin, interval) -> the last price of the radar scan
+
+
 def _collect(results):
     """From a radar scan: the strong waiting setup per (coin, interval, side), each chart's closed candles, BTC's closes by candle
     start, and why recently ended setups ended."""
@@ -235,7 +239,7 @@ def _collect(results):
     for (sym, iv), r in results:
         if not r: continue
         times, closes = r["times"], r.get("closes") or []
-        series[(sym, iv)] = (times, closes)
+        series[(sym, iv)] = (times, closes); _prices[(sym, iv)] = r.get("price")
         if sym == "BTCUSDT": btc[iv] = dict(zip(times, closes))
         for z in r["setups"]:
             sb = z.get("since_bar")
@@ -245,6 +249,23 @@ def _collect(results):
         for m in r.get("missed") or []:
             if 0 <= m.get("arm_bar", -1) < len(times): ended[(sym, iv, m["side"], times[m["arm_bar"]])] = m.get("why")
     return setups, series, btc, ended
+
+
+def _mark(st, ex, live):
+    """Where each order / trade of this mode stands now. Open trades: current R (price move / risk, before exit fees) and the position's
+    unrealised PnL; waiting orders: how far the price still is from the entry (% on the far side of it)."""
+    for link, t in st["tracked"].items():
+        if t["status"] not in ("resting", "open", "closing") or bool(t.get("virtual")) == live: continue
+        sd = 1 if t["side"] == "LONG" else -1; pos = ex["positions"].get(t["symbol"]) if t["status"] != "resting" else None
+        price = (_f(pos.get("markPrice")) if pos else 0) or _prices.get((t["symbol"], t["interval"]))
+        if not price: continue
+        m = dict(now=price)
+        if t["status"] == "resting": m["dist_pct"] = sd * (price - t["entry"]) / price * 100
+        else:
+            m["r_now"] = sbgz._r_now(t["side"], (_f(pos.get("avgPrice")) if pos else 0) or t["entry"], t["stop"], price)
+            if pos: m["pnl_usd"] = _f(pos.get("unrealisedPnl"))
+        _marks[link] = m
+    for k in [k for k in _marks if k not in st["tracked"] or st["tracked"][k]["status"] not in ("resting", "open", "closing")]: del _marks[k]
 
 
 def _read_exchange(client):
@@ -562,6 +583,7 @@ def _run_cycle(client, scan, now):
         _manage_waiting(client, st, cfg, now, setups, series, btc, ended, counts, live)
         if live: _manage_open(client, st, cfg, now, ex, series, btc, counts)
         _place_new(client, st, cfg, now, ex, setups, counts, live)
+        _mark(st, ex, live)
         for k in [k for k, t in st["tracked"].items() if t["status"] in ("cancelled", "replaced", "gone", "done") and now - t.get("done", now) > KEEP_DONE_MS]:
             del st["tracked"][k]
         for d in ("keys", "pkeys"):
@@ -581,10 +603,12 @@ def status(client=None):
     if st is None: return dict(ok=False, error="the auto-order store could not be read; try again in a minute")
     with _lock:
         tr = sorted(st["tracked"].values(), key=lambda t: -t.get("placed", 0))
-        rows = [{k: t.get(k) for k in ("link", "symbol", "interval", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "virtual", "placed", "R", "vol_ok")} for t in tr]
+        rows = [dict({k: t.get(k) for k in ("link", "symbol", "interval", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "virtual", "placed", "R", "vol_ok")},
+                     **_marks.get(t.get("link"), {})) for t in tr]
+        open_r = [r["r_now"] for r in rows if r.get("status") in ("open", "closing") and not r.get("virtual") and r.get("r_now") is not None]
         day = dict(st["day"]); cfg = dict(st["settings"])
         return dict(ok=True, account=T.account(client) if client else None, settings=cfg, day=day,
-                    equity=dict(used=_status.get("equity_used"), real=_status.get("equity_real")),
+                    equity=dict(used=_status.get("equity_used"), real=_status.get("equity_real")), open_r=dict(n=len(open_r), r=sum(open_r)),
                     halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:60]),
                     running=bool(_thread and _thread.is_alive()))
 

@@ -2478,7 +2478,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
           <!-- Desktop Table -->
           <div class="tw dt-only">
             <table>
-              <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>Unr.PnL</th><th>ROI (ROE%)</th><th style="text-align:right">Action</th></tr></thead>
+              <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>Unr.PnL</th><th>ROI (ROE%)</th><th title="How far the price has moved in units of the risk (entry to stop), before exit fees. Needs a stop loss on the position.">R now</th><th style="text-align:right">Action</th></tr></thead>
               <tbody id="pTb"><tr><td colspan="8" class="emp">No active positions</td></tr></tbody>
             </table>
           </div>
@@ -4320,6 +4320,8 @@ function sbgzEsc(s){
   return String(s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
 }
 
+function sbgzR(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; }
+
 function sbgzFmt(x){
   if(x == null || !isFinite(x)) return '--';
   var a = Math.abs(x);
@@ -4620,7 +4622,8 @@ window.sbgzRadarRender = function(){
   });
   var when = d.generated ? new Date(d.generated * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
   var nOpen = rows.filter(function(r){ return r.kind === 'open'; }).length;
-  if(info) info.innerHTML = '<b>' + (rows.length - nOpen) + '</b> waiting setups · <b>' + nOpen + '</b> open trades · scanned ' + (d.scanned || 0) + ' charts at ' + sbgzEsc(when) + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' failed' : '');
+  var openR = rows.filter(function(r){ return r.kind === 'open' && r.r_now != null; }).reduce(function(a, r){ return a + r.r_now; }, 0);
+  if(info) info.innerHTML = '<b>' + (rows.length - nOpen) + '</b> waiting setups · <b>' + nOpen + '</b> open trades' + (nOpen ? ' (<b class="' + (openR >= 0 ? 'up' : 'dn') + '">' + sbgzR(openR) + '</b> now)' : '') + ' · scanned ' + (d.scanned || 0) + ' charts at ' + sbgzEsc(when) + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' failed' : '');
   if(!rows.length){
     tb.innerHTML = '<tr><td colspan="13" class="emp">No ' + (vonly ? 'volume-confirmed ' : '') + 'strong-break setups on 42 coins right now (15m / 1h). They appear a few times a day.</td></tr>';
     return;
@@ -4628,7 +4631,7 @@ window.sbgzRadarRender = function(){
   tb.innerHTML = rows.map(function(r){
     var L = r.side === 'LONG', coin = r.symbol.replace('USDT', ''), tfl = r.interval === '60' ? '1h' : r.interval === '240' ? '4h' : r.interval + 'm';
     // the setup uses closed candles only; a negative distance means the still-open candle already traded through the entry
-    var status = r.kind === 'open' ? '<span class="open">OPEN</span> @ ' + sbgzFmt(r.entry)
+    var status = r.kind === 'open' ? '<span class="open">OPEN</span> @ ' + sbgzFmt(r.entry) + (r.r_now != null ? ' · <b class="' + (r.r_now >= 0 ? 'up' : 'dn') + '" title="Where the trade stands now: price move over the entry-to-stop distance, before exit fees">' + sbgzR(r.r_now) + ' now</b>' : '')
                : (r.dist_pct != null && r.dist_pct <= 0) ? '<span class="open" style="background:rgba(245,158,11,.18);color:#fbbf24">AT ENTRY</span> fills at the candle close'
                : 'waiting · ' + (r.dist_pct != null ? r.dist_pct.toFixed(2) + '% away' : '--') + (r.dist_vu != null ? ' (' + r.dist_vu.toFixed(1) + ' VU)' : '');
     var zone = r.kind === 'open' ? sbgzFmt(r.entry) : sbgzFmt(Math.min(r.zone_top, r.zone_bottom)) + '–' + sbgzFmt(Math.max(r.zone_top, r.zone_bottom));
@@ -4967,12 +4970,15 @@ window.sbgzAutoRender = function(){
   var eq = d.equity || {}, size = (s.equity_usd > 0 ? s.equity_usd + ' USDT' : 'the real account') + (eq.real != null ? ' (the account holds ' + eq.real.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ')' : '');
   if(info) info.innerHTML = (mode === 'off' ? 'Off: it does nothing. ' : '') + 'Sized on <b>' + size + '</b> · <b>' + waiting + '</b> ' + (virt ? 'previewed' : 'waiting') + ' order(s) · <b>' + open + '</b> open trade(s) · today: ' + (day.orders || 0) + ' order(s), ' +
     (day.closed || 0) + ' closed, <b class="' + ((day.r || 0) >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(day.r || 0) + '</b>' +
+    (d.open_r && d.open_r.n ? ' · open trades now <b class="' + (d.open_r.r >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(d.open_r.r) + '</b>' : '') +
     (st.t ? '<br><span class="mut">last check ' + sbgzEsc(sbgzWhen(st.t / 1000)) + ': ' + sbgzEsc(st.msg || '') + (d.running ? '' : ' (background thread not running on this server)') + '</span>' : '');
   var held = rows.filter(function(t){ return t.status === 'resting' || t.status === 'open' || t.status === 'closing'; });
-  if(hold) hold.innerHTML = held.length ? '<table><thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>State</th><th>Entry</th><th>Stop</th><th>Target</th><th>Risk</th></tr></thead><tbody>' + held.map(function(t){
+  if(hold) hold.innerHTML = held.length ? '<table><thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>State</th><th>Entry</th><th>Stop</th><th>Target</th><th>Risk</th><th>Now</th></tr></thead><tbody>' + held.map(function(t){
+    var now = t.status === 'resting' ? (t.dist_pct != null ? '<span class="mut">' + t.dist_pct.toFixed(2) + '% from the entry</span>' : '--')
+            : (t.r_now != null ? '<b class="' + (t.r_now >= 0 ? 'up' : 'dn') + '">' + sbgzR(t.r_now) + '</b>' + (t.pnl_usd != null ? ' <span class="mut">(' + (t.pnl_usd >= 0 ? '+' : '') + t.pnl_usd.toFixed(2) + ' USDT)</span>' : '') : '--');
     var L = t.side === 'LONG', state = t.virtual ? '<span class="warn">would wait</span>' : t.status === 'resting' ? '<span class="open">WAITING</span>' : t.status === 'open' ? '<span class="hwin">OPEN</span>' : '<span class="mut">closing</span>';
     return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(t.symbol) + '" data-tf="' + sbgzEsc(t.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)"><td><b>' + sbgzEsc(String(t.symbol).replace(/USDT$/, '')) + '</b></td><td>' +
-      (t.interval === '60' ? '1h' : t.interval + 'm') + '</td><td class="' + (L ? 'up' : 'dn') + '">' + t.side + '</td><td>' + state + '</td><td>' + sbgzFmt(t.entry) + '</td><td>' + sbgzFmt(t.stop) + '</td><td>' + sbgzFmt(t.target) + '</td><td>' + (t.risk_usd != null ? t.risk_usd.toFixed(2) + ' USDT' : '--') + '</td></tr>';
+      (t.interval === '60' ? '1h' : t.interval + 'm') + '</td><td class="' + (L ? 'up' : 'dn') + '">' + t.side + '</td><td>' + state + '</td><td>' + sbgzFmt(t.entry) + '</td><td>' + sbgzFmt(t.stop) + '</td><td>' + sbgzFmt(t.target) + '</td><td>' + (t.risk_usd != null ? t.risk_usd.toFixed(2) + ' USDT' : '--') + '</td><td>' + now + '</td></tr>';
   }).join('') + '</tbody></table>' : '';
   var log = d.log || [];
   if(tb) tb.innerHTML = log.length ? log.slice(0, 40).map(function(e){
@@ -5045,6 +5051,7 @@ window.sbgzHistRender = function(){
   if(!d || !tb) return;
   var vonly = sbgzVonly(), mode = vonly ? 'vol' : 'all', rule = d.stats_bx ? sbgzHistRule() : 'plan';      // an older server has no BTC rule
   var sp = (d.stats || {})[mode] || {}, sb = (d.stats_bx || {})[mode] || {}, st = rule === 'btc' ? sb : sp, tot = st.total || {};
+  var on = ((d.open_now || {})[mode] || {})[rule === 'btc' ? 'bx' : 'plan'];
   var fmtR = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; };
   var line = function(s){
     return (s.filled || 0) + ' filled: <b class="hwin">' + (s.wins || 0) + ' WIN</b> · <b class="hloss">' + (s.losses || 0) + ' FAILED</b>' +
@@ -5053,7 +5060,7 @@ window.sbgzHistRender = function(){
            ' · total ' + fmtR(s.total_r || 0) + (s.avg_r != null ? ' (avg ' + fmtR(s.avg_r) + ')' : '');
   };
   if(info) info.innerHTML = (vonly ? 'Volume-confirmed only' : 'All strong breaks') + ' · since ' + sbgzEsc(sbgzWhen(d.since)) + ': ' + (tot.signals || 0) + ' setups → ' +
-    line(tot) + ' · ' + (tot.no_fill || 0) + ' never filled<br><span class="mut">15m: ' + line(st['15'] || {}) + ' &nbsp;|&nbsp; 1h: ' + line(st['60'] || {}) + '</span>';
+    line(tot) + ' · ' + (tot.no_fill || 0) + ' never filled' + (on && on.total && on.total.n ? '<br><b>Ongoing: ' + on.total.n + ' trade(s) stand at <span class="' + (on.total.r >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(on.total.r) + '</span> now</b> <span class="mut">(price move over risk, not final; closed trades above are final)</span>' : '') + '<br><span class="mut">15m: ' + line(st['15'] || {}) + ' &nbsp;|&nbsp; 1h: ' + line(st['60'] || {}) + '</span>';
   if(rl){
     rl.innerHTML = d.stats_bx ? 'Score trades: ' + [['btc', 'Close when BTC moves 0.5R against', sb], ['plan', 'As planned (stop or target)', sp]].map(function(x){
       return '<button type="button" class="sbgz-chip' + (x[0] === rule ? ' on' : '') + '" onclick="sbgzHistSetRule(\'' + x[0] + '\')">' + x[1] + ' ' + fmtR((x[2].total || {}).total_r) + '</button>';
@@ -5084,7 +5091,9 @@ window.sbgzHistRender = function(){
     return '<tr class="sbgz-rrow' + tint + '" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
       '<td>' + sbgzEsc(sbgzWhen(r.t_arm)) + '</td><td><b>' + sbgzEsc(r.symbol.replace(/USDT$/, '')) + '</b></td><td>' + tfl + '</td>' +
       '<td class="' + (L ? 'up' : 'dn') + '">' + r.side + '</td><td>' + res + '</td>' +
-      '<td class="' + (v.R == null ? 'mut' : v.R >= 0 ? 'up' : 'dn') + '">' + (v.R == null ? '--' : fmtR(v.R)) + '</td>' +
+      (v.st === 'OPEN' && r.r_now != null
+        ? '<td class="' + (r.r_now >= 0 ? 'up' : 'dn') + '" title="Open: where the trade stands now (not final): price move over the entry-to-stop distance, before exit fees"><i>' + fmtR(r.r_now) + '</i> <span class="mut">now</span></td>'
+        : '<td class="' + (v.R == null ? 'mut' : v.R >= 0 ? 'up' : 'dn') + '">' + (v.R == null ? '--' : fmtR(v.R)) + '</td>') +
       '<td>' + sbgzFmt(r.entry) + '</td><td>' + sbgzFmt(r.stop) + '</td><td>' + sbgzFmt(r.target) + '</td>' +
       '<td>' + (r.t_fill ? sbgzEsc(sbgzWhen(r.t_fill)) : '<span class="mut">--</span>') + '</td><td>' + closed + '</td><td>' + vol + '</td></tr>';
   }).join('') + (d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');
@@ -6346,6 +6355,17 @@ function fPerf(){
   api('/api/performance', handlePerf);
 }
 
+// Current R of an open position: how far the price has moved from the entry in units of the distance entry -> stop (before exit fees).
+// null when the position has no stop loss to measure the risk with (or the stop already sits at the entry).
+function posRNow(p){
+  var side = (p.side || 'Buy').toUpperCase(), isL = side === 'BUY' || side === 'LONG';
+  var ep = parseFloat(p.entryPrice || p.avgPrice || 0), sl = parseFloat(p.stopLoss || 0), mp = parseFloat(p.markPrice || 0);
+  var risk = (sl > 0 && ep > 0) ? Math.abs(ep - sl) : 0;
+  if(!(risk > ep * 1e-6) || !(mp > 0)) return null;
+  return (isL ? mp - ep : ep - mp) / risk;
+}
+function fmtRNow(r){ return r == null ? '--' : (r >= 0 ? '+' : '') + r.toFixed(2) + 'R'; }
+
 function handlePos(d){
   if(!d) return;
   var list = (d && d.result && Array.isArray(d.result.list)) ? d.result.list : (Array.isArray(d) ? d : (d.positions || d.list || []));
@@ -6409,7 +6429,7 @@ function handlePos(d){
 
   if (!rows.length){
     if (tb && tb.dataset.lastHtml !== 'empty') {
-      tb.innerHTML = '<tr><td colspan="8" class="emp">No active positions</td></tr>';
+      tb.innerHTML = '<tr><td colspan="9" class="emp">No active positions</td></tr>';
       tb.dataset.lastHtml = 'empty';
     }
     if (pcWrap && pcWrap.dataset.lastHtml !== 'empty') {
@@ -6441,6 +6461,7 @@ function handlePos(d){
         '<td class="fm">' + parseFloat(p.markPrice || 0).toFixed(2) + '</td>' +
         '<td class="fm ' + pc + '">' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '</td>' +
         '<td class="fm ' + pc + '" style="font-weight:700">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</td>' +
+        '<td class="fm ' + (posRNow(p) == null ? '' : posRNow(p) >= 0 ? 'tg' : 'tr') + '" style="font-weight:700">' + fmtRNow(posRNow(p)) + '</td>' +
         '<td style="text-align:right">' +
           '<button class="bpc-action-btn bpc-close-btn-desk" onclick="event.stopPropagation(); closePositionMarket(\'' + sym + '\',\'' + side + '\',' + sz + ')">Close</button>' +
         '</td>' +
@@ -6506,6 +6527,10 @@ function handlePos(d){
             '<div class="bpc-col">' +
               '<span class="bpc-col-lbl">Estimated Liq. Price</span>' +
               '<span class="bpc-col-val liq">' + liqP.toFixed(dec) + '</span>' +
+            '</div>' +
+            '<div class="bpc-col">' +
+              '<span class="bpc-col-lbl">R now (price move / risk)</span>' +
+              '<span class="bpc-col-val ' + (posRNow(p) == null ? '' : posRNow(p) >= 0 ? 'up' : 'dn') + '">' + fmtRNow(posRNow(p)) + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="bpc-tpsl-strip" onclick="event.stopPropagation(); setTpSlDialog(\'' + sym + '\',' + ep + ',' + sp + ',' + tp + ')">' +

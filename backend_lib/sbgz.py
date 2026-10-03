@@ -368,6 +368,17 @@ _scan_cache = {}
 _scan_lock = threading.Lock()
 
 
+def _r_now(side, entry, stop, price):
+    """Where an open trade stands in R right now: the price move since the entry over the distance entry -> stop (before exit fees).
+    None when it cannot be told."""
+    try:
+        risk = abs(entry - stop)
+        if not risk or price is None or price != price: return None
+        return (1 if side == "LONG" else -1) * (price - entry) / risk
+    except (TypeError, ValueError):
+        return None
+
+
 def _brief(r):
     """The parts of a get() result the radar and its history use (the candles are not kept)."""
     if not r or not r.get("ok"): return None
@@ -415,7 +426,7 @@ def radar(intervals=("15", "60"), coins=None, ttl=150):
         for t in r["open_trades"]:
             rows.append(dict(base, kind="open", side=t["side"], entry=t["entry"], stop=t["stop"], target=t["target"], rr=t["rr"],
                              break_vu=t["break_vu"], bvol=t.get("bvol"), vol_ok=bool(t.get("vol_ok")),
-                             since=times[t["fill_bar"]] if t["fill_bar"] < len(times) else None,
+                             since=times[t["fill_bar"]] if t["fill_bar"] < len(times) else None, r_now=_r_now(t["side"], t["entry"], t["stop"], price),
                              exp_r=EXP_R.get((iv, bool(t.get("vol_ok")))) ))
     return _clean(dict(ok=True, generated=generated, scanned=len(results), rows=rows, errors=errors))
 
@@ -604,6 +615,21 @@ def _hist_stats_bx(rows):
     return out
 
 
+def _open_now(rows, prices):
+    """The R the still-open history trades stand at right now (price move over risk, before exit fees), overall and per timeframe, as
+    planned and with the BTC rule (a trade the rule has already closed is not open there). n = open trades, known = those with a price."""
+    def agg(sel):
+        rn = [_r_now(x["side"], x["entry"], x["stop"], prices.get((x["symbol"], x["interval"]))) for x in sel]
+        known = [v for v in rn if v is not None]
+        return dict(n=len(sel), known=len(known), r=sum(known))
+    out = {}
+    for mode, base in (("all", rows), ("vol", [x for x in rows if x.get("vol_ok")])):
+        op = [x for x in base if x["status"] == "OPEN"]
+        bx = [x for x in op if not (x.get("bx") or {}).get("fired")]
+        out[mode] = {rule: dict(total=agg(sel), **{iv: agg([x for x in sel if x["interval"] == iv]) for iv in ("15", "60")}) for rule, sel in (("plan", op), ("bx", bx))}
+    return out
+
+
 def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400):
     """The radar history: new rows from the current scan are added to the stored list (an OPEN row is updated when its
     trade closes, or when the BTC rule closes it; a closed or NO FILL row never changes). Every filled row also carries bx, what the
@@ -645,6 +671,12 @@ def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400)
         rows = sorted(_hist_mem.values(), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)
     shown = [x for x in rows if x.get("vol_ok")] if vonly else rows
     stamps = [x.get("t_arm") or x.get("t_fill") for x in rows if x.get("t_arm") or x.get("t_fill")]
+    prices = {k: r["price"] for k, r in results if r}                    # the last price of each chart: the open rows' current R
+    def live(x):
+        if x["status"] == "OPEN":
+            rn = _r_now(x["side"], x["entry"], x["stop"], prices.get((x["symbol"], x["interval"])))
+            if rn is not None: return dict(x, now=_num(prices[(x["symbol"], x["interval"])]), r_now=_num(rn, 3))
+        return x
     return _clean(dict(ok=True, generated=generated, since=min(stamps) if stamps else None, total=len(shown),
-                       rows=[dict(x, why_text=MISSED_WHY.get(x.get("why"))) if x.get("why") else x for x in shown[:limit]],
-                       stats=_hist_stats(rows), stats_bx=_hist_stats_bx(rows), bx_rule=dict(move_r=BX_R)))
+                       rows=[live(dict(x, why_text=MISSED_WHY.get(x.get("why"))) if x.get("why") else x) for x in shown[:limit]],
+                       stats=_hist_stats(rows), stats_bx=_hist_stats_bx(rows), open_now=_open_now(rows, prices), bx_rule=dict(move_r=BX_R)))

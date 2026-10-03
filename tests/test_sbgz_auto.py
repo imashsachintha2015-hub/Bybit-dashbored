@@ -231,6 +231,7 @@ def test_live_places_the_right_order_once():
         assert (b["tpslMode"], b["tpOrderType"], b["tpLimitPrice"], b["slOrderType"]) == ("Partial", "Limit", "10.900", "Market"), b
         assert b["orderLinkId"].startswith("sbgz-XYZUSDT-60-L-z") and len(b["orderLinkId"]) <= 36, b["orderLinkId"]
         t = e.tracked(symbol="XYZUSDT")[0]; assert t["status"] == "resting" and abs(t["risk_usd"] - 25.0) < 0.01 and not t["virtual"], t
+        assert abs(t["dist_pct"] - (10.5 - 10.0) / 10.5 * 100) < 1e-6 and t["now"] == 10.5, t               # a waiting order: how far the price still is from the entry
         e.cycle(); e.cycle(); assert len(e.ex.posts()) == 1, "one order per setup"
         st = A.status(e.ex); assert st["day"]["orders"] == 1 and st["status"]["ok"] and st["running"] in (True, False)
         assert T.open_orders(e.ex)["orders"][0]["auto"] is True
@@ -349,7 +350,10 @@ def test_fill_is_noticed_and_btc_rule_closes_at_market():
     with Env(w) as e:
         e.mode("live"); e.cycle(); link = e.tracked(symbol="XYZUSDT")[0]["link"]
         e.ex.fill(link); e.ex.positions["XYZUSDT"]["createdTime"] = str((T0 + fill_idx * 3600) * 1000 + 5000)
+        e.ex.positions["XYZUSDT"].update(markPrice="10.4", unrealisedPnl="12.5")
         e.cycle(); t = e.tracked(symbol="XYZUSDT")[0]; assert t["status"] == "open" and any(x[0] == "fill" for x in e.log()), (t, e.log())
+        assert abs(t["r_now"] - 2.0) < 1e-9 and t["pnl_usd"] == 12.5 and t["now"] == 10.4, t                  # (10.4 - 10.0) / 0.2 stop distance
+        o = A.status(e.ex)["open_r"]; assert o["n"] == 1 and abs(o["r"] - 2.0) < 1e-9, o
         assert not e.ex.posts()[1:], "BTC is calm: no close"
         c2 = [1000.0] * N
         for i in range(N - 2, N): c2[i] = 988.0                                                         # BTC -1.2% after the fill = -0.6R

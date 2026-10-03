@@ -213,6 +213,26 @@ def test_history_store_and_updates():
           f"{st['no_fill']} NO FILL); {updated} OPEN rows closed later; {agreed} rows recomputed identically")
 
 
+def test_current_r_of_open_trades():
+    f = sbgz._r_now
+    assert abs(f("LONG", 100, 99, 102.5) - 2.5) < 1e-12 and abs(f("LONG", 100, 99, 99.5) + 0.5) < 1e-12
+    assert abs(f("SHORT", 100, 101, 98) - 2.0) < 1e-12 and abs(f("SHORT", 100, 101, 100.5) + 0.5) < 1e-12
+    assert f("LONG", 100, 100, 101) is None and f("LONG", 100, 99, None) is None and f("LONG", None, 99, 100) is None and f("LONG", 100, 99, float("nan")) is None
+    # the radar's open trade rows carry it
+    step = 900; times = [1_700_000_000 + step * i for i in range(130)]
+    trade = dict(side="SHORT", fill_bar=110, entry=100.0, stop=101.0, target=95.2, rr=4.8, break_vu=14.0, bvol=3.0, vol_ok=True, since_bar=105)
+    brief = dict(price=98.0, times=times, closes=[100.0] * 130, panel={}, setups=[], missed=[], warmup=0, trades=[], open_trades=[trade])
+    real = sbgz._scan
+    try:
+        sbgz._scan = lambda intervals, coins, ttl: (1, [(("ABCUSDT", "15"), brief)])
+        rows = sbgz.radar(("15",), ["ABCUSDT"], ttl=0)["rows"]
+    finally:
+        sbgz._scan = real
+    (o,) = [r for r in rows if r["kind"] == "open"]
+    assert abs(o["r_now"] - 2.0) < 1e-9, o
+    print("  current R: price move over the entry-stop distance (long and short), carried by the radar's open trades")
+
+
 def test_btc_exit_rule():
     """Close at the market when BTC's close has moved 0.5 risk-units against the trade (hand-built numbers, 15m candles)."""
     step = 900
@@ -350,6 +370,9 @@ def test_open_row_gains_btc_exit_then_closes():
         row = store["rows"][0]
         assert len(store["rows"]) == 1 and row["status"] == "OPEN" and row["bx"] == dict(fired=False), row
         assert h["stats_bx"]["all"]["total"]["open"] == 1 and h["stats_bx"]["all"]["total"]["exits"] == 0
+        (orow,) = h["rows"]; assert orow["now"] == 100.2 and abs(orow["r_now"] - 0.2) < 1e-6, orow          # entry 100, stop 99, price 100.2
+        on = h["open_now"]["all"]; assert on["plan"]["total"] == dict(n=1, known=1, r=on["plan"]["total"]["r"]) and abs(on["plan"]["total"]["r"] - 0.2) < 1e-6
+        assert on["bx"]["total"]["n"] == 1 and on["plan"]["15"]["n"] == 1 and on["plan"]["60"]["n"] == 0
         state.update(n=126, btc=btc_drop, coin_brief=brief(126, coin, open=[dict(trade)]))     # BTC fell at candle 119; still no stop / target
         sbgz._hist_mem = None; h = sbgz.history(("15",), ["BTCUSDT", "C0USDT"], ttl=0)
         row = store["rows"][0]
@@ -357,6 +380,7 @@ def test_open_row_gains_btc_exit_then_closes():
         assert abs(row["bx"]["R"] - (0.2 - 0.001 * 100.0)) < 1e-3, row
         sx = h["stats_bx"]["all"]["total"]; sp = h["stats"]["all"]["total"]
         assert sx["open"] == 0 and sx["exits"] == 1 and sx["exits_up"] == 1 and abs(sx["total_r"] - row["bx"]["R"]) < 1e-9 and sp["open"] == 1 and sp["total_r"] == 0
+        assert h["open_now"]["all"]["plan"]["total"]["n"] == 1 and h["open_now"]["all"]["bx"]["total"]["n"] == 0, h["open_now"]   # the BTC rule already closed it
         closed = dict(trade, exit_bar=127, result="SL", exit=99.0, R=-1.1)                    # the stop is hit at candle 127: later than the BTC exit
         state.update(n=130, btc=btc_drop, coin_brief=brief(130, coin, trades=[closed]))
         sbgz._hist_mem = None; sbgz.history(("15",), ["BTCUSDT", "C0USDT"], ttl=0)
