@@ -884,6 +884,11 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-rrow .warn{color:#fbbf24}
 /* SBGZ radar history card */
 .sbgz-rrow .hwin,.sbgz-radar-bar .hwin{color:#10b981;font-weight:700}
+.sbgz-rrow.hist-win td{background:rgba(16,185,129,.12)}.sbgz-rrow.hist-win:hover td{background:rgba(16,185,129,.2)}
+.sbgz-rrow.hist-win td:first-child{box-shadow:inset 3px 0 0 #10b981}
+.sbgz-rrow.hist-loss td{background:rgba(244,63,94,.11)}.sbgz-rrow.hist-loss:hover td{background:rgba(244,63,94,.19)}
+.sbgz-rrow.hist-loss td:first-child{box-shadow:inset 3px 0 0 #f43f5e}
+.sbgz-rrow.hist-open td{background:rgba(56,189,248,.06)}.sbgz-rrow.hist-open td:first-child{box-shadow:inset 3px 0 0 #38bdf8}
 .sbgz-rrow .hloss,.sbgz-radar-bar .hloss{color:#f43f5e;font-weight:700}
 .sbgz-radar-bar .mut{color:#64748b}
 .sbgz-hist-chips{gap:6px}
@@ -4913,7 +4918,8 @@ window.sbgzHistRender = function(){
     var closed = r.status === 'NO FILL' ? '<span class="mut" title="' + sbgzEsc(r.why_text || '') + '">' + sbgzEsc(sbgzWhen(r.t_end)) + ' · ' + sbgzEsc(SBGZ_WHY_SHORT[r.why] || 'ended') + '</span>'
                : r.t_end ? sbgzEsc(sbgzWhen(r.t_end)) + ' <span class="mut">(' + sbgzDur(r.t_fill, r.t_end) + ')</span>' : '<span class="mut">running</span>';
     var vol = r.bvol == null ? '<span class="mut">?</span>' : (r.vol_ok ? '<span class="ok">✓ ' : '<span class="mut">✗ ') + r.bvol.toFixed(1) + 'x</span>';
-    return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
+    var tint = r.status === 'WIN' ? ' hist-win' : r.status === 'LOSS' ? ' hist-loss' : r.status === 'OPEN' ? ' hist-open' : '';   // whole row by result
+    return '<tr class="sbgz-rrow' + tint + '" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
       '<td>' + sbgzEsc(sbgzWhen(r.t_arm)) + '</td><td><b>' + sbgzEsc(r.symbol.replace(/USDT$/, '')) + '</b></td><td>' + tfl + '</td>' +
       '<td class="' + (L ? 'up' : 'dn') + '">' + r.side + '</td><td>' + res + '</td>' +
       '<td class="' + (r.R == null ? 'mut' : r.R >= 0 ? 'up' : 'dn') + '">' + (r.R == null ? '--' : fmtR(r.R)) + '</td>' +
