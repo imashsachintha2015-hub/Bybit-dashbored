@@ -1,11 +1,12 @@
-"""Place an SBGZ setup on Bybit from the dashboard (POST /api/sbgz/order; server.py checks the trade password).
+"""Place an SBGZ setup on Bybit from the dashboard (POST /api/sbgz/order; demo / testnet accounts only, no password).
 
   entry   LIMIT, timeInForce PostOnly: it can only rest in the book and pay the maker fee; Bybit cancels it
           instead of letting it take liquidity
   target  take-profit triggered at the target and executed as a LIMIT at the target (tpslMode Partial)
   stop    stop-loss triggered at the stop and executed at MARKET (a stop-limit can be skipped in a fast move)
-  size    qty that loses `risk_pct` of the account equity between entry and stop, within the exchange's
-          step / minimum / maximum and a notional cap of equity x leverage
+  size    qty that loses `risk_pct` of the ACCOUNT SIZE between entry and stop (the account's equity, or the smaller 'account
+          size' set on the auto-orders card: 20 USDT unless changed), within the exchange's step / minimum / maximum and a
+          notional cap of that size x leverage
 
 The setup is recomputed here from Bybit candles (backend_lib/sbgz.py); prices sent by the browser are never used,
 only compared: the order is sent only if the numbers the user confirmed are still the numbers of the setup.
@@ -14,7 +15,6 @@ its own orders. Rounding / sizing follow daemons/runner/core.py without importin
 """
 import json
 import math
-import os
 import re
 import threading
 import time
@@ -24,8 +24,9 @@ from decimal import Decimal
 
 from . import sbgz
 
-MAX_RISK_PCT = 2.0
+MAX_RISK_PCT = 5.0
 DEFAULT_RISK_PCT = 0.5
+DEFAULT_EQUITY_CAP = 20.0           # USDT the dashboard sizes trades on unless the auto-orders card says otherwise (0 = the real equity)
 DEFAULT_LEVERAGE = 10
 INTERVALS = ("15", "60")            # the tested timeframes
 LINK_PREFIX = "sbgz-"
@@ -101,6 +102,16 @@ def account(client):
     return "DEMO" if "api-demo" in base else "TESTNET" if "testnet" in base else "REAL"
 
 
+def equity_cap():
+    """The account size (USDT) the dashboard sizes trades on: the 'account size' setting of the auto-orders (backend_lib/sbgz_auto.py),
+    0 = the account's real equity. 20 when that setting cannot be read (the safe, smaller size)."""
+    try:
+        from . import sbgz_auto
+        return float(sbgz_auto.equity_cap())
+    except Exception:
+        return DEFAULT_EQUITY_CAP
+
+
 def equity_of(client):
     """(total equity of the unified account, error text)."""
     r = client.get_wallet_balance()
@@ -125,8 +136,8 @@ def plan(client, symbol, interval, side, risk_pct=DEFAULT_RISK_PCT, leverage=DEF
     if not 0 < risk_pct <= MAX_RISK_PCT: return dict(ok=False, error=f"risk per trade must be above 0 and at most {MAX_RISK_PCT}%")
     if not 1 <= leverage <= 50: return dict(ok=False, error="leverage must be 1-50")
     acct = account(client)
-    if acct == "REAL" and os.environ.get("DASHBOARD_ALLOW_REAL_MONEY", "") != "1":
-        return dict(ok=False, account=acct, error="this server trades a REAL-money Bybit account: dashboard orders there need DASHBOARD_ALLOW_REAL_MONEY=1")
+    if acct == "REAL":
+        return dict(ok=False, account=acct, error="the dashboard's orders work on a demo / testnet Bybit account only; this server trades a REAL-money account")
     r = sbgz.get(symbol, interval, 1000)
     if not r.get("ok"): return dict(ok=False, error=r.get("error") or f"no candles for {symbol}")
     price = r["candles"][-1]["close"]
@@ -140,18 +151,19 @@ def plan(client, symbol, interval, side, risk_pct=DEFAULT_RISK_PCT, leverage=DEF
     if sd * (price - entry) <= 0:
         return dict(ok=False, error=f"price {price:g} is already through the entry {entry:g}: a post-only limit there would be cancelled (missed the fill)")
     leverage = max(1, min(leverage, int(spec["max_lev"])))
-    eq, err = equity_of(client)
-    if eq <= 0: return dict(ok=False, account=acct, error=err or "the account equity is 0")
+    real, err = equity_of(client)
+    if real <= 0: return dict(ok=False, account=acct, error=err or "the account equity is 0")
+    cap = equity_cap(); eq = min(real, cap) if cap > 0 else real                      # the size the trade is calculated on
     qty = size_qty(eq, risk_pct / 100, entry, stop, spec, leverage)
     if qty <= 0:
-        return dict(ok=False, account=acct, equity=eq, error=f"too small to size at {risk_pct}% risk of {eq:.2f} USDT "
-                    f"(Bybit minimum {spec['min_qty']:g} {symbol[:-4]} and {spec['min_notional']:g} USDT)")
+        return dict(ok=False, account=acct, equity=eq, equity_real=real, error=f"too small to size at {risk_pct}% risk of {eq:.2f} USDT"
+                    f"{' (the account size setting)' if eq < real else ''}: Bybit's smallest order is {spec['min_qty']:g} {symbol[:-4]} / {spec['min_notional']:g} USDT")
     notional = qty * entry
     p = dict(ok=True, account=acct, symbol=symbol, interval=interval, side=side, bybit_side="Buy" if sd == 1 else "Sell",
              entry=entry, stop=stop, target=target, qty=qty, qty_str=fmt(qty, spec["qty_step"]),
              price_str=dict(entry=fmt(entry, tick), stop=fmt(stop, tick), target=fmt(target, tick)),
              price=price, dist_pct=sd * (price - entry) / price * 100,
-             equity=eq, risk_pct=risk_pct, risk_usd=qty * abs(entry - stop), reward_usd=qty * abs(target - entry),
+             equity=eq, equity_real=real, risk_pct=risk_pct, risk_usd=qty * abs(entry - stop), reward_usd=qty * abs(target - entry),
              fees_usd=dict(win=notional * FEE_MAKER + qty * target * FEE_MAKER, loss=notional * FEE_MAKER + qty * stop * FEE_TAKER),
              rr=abs(target - entry) / abs(entry - stop), notional=notional, leverage=leverage, margin=notional / leverage,
              vol_ok=bool(z.get("vol_ok")), bvol=z.get("bvol"), break_vu=z.get("break_vu"),

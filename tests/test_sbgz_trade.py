@@ -55,8 +55,11 @@ class Stub:
     def __init__(self, setups, price, spec=SPEC):
         self.setups, self.price, self.spec = setups, price, spec
 
+    cap = 0.0                                           # account size used for sizing: 0 = the fake account's equity
+
     def __enter__(self):
-        self.get, self.inst = sbgz.get, T.instrument
+        self.get, self.inst, self.cap_fn = sbgz.get, T.instrument, T.equity_cap
+        T.equity_cap = lambda: type(self).cap
         sbgz.get = lambda sym, interval="15", bars=1000, ttl=30: dict(
             ok=True, symbol=sym, interval=interval, setups=self.setups,
             candles=[dict(start=0, open=self.price, high=self.price, low=self.price, close=self.price, volume=1.0)])
@@ -64,7 +67,7 @@ class Stub:
         return self
 
     def __exit__(self, *a):
-        sbgz.get, T.instrument = self.get, self.inst
+        sbgz.get, T.instrument, T.equity_cap = self.get, self.inst, self.cap_fn
 
 
 def confirm_of(p):
@@ -110,13 +113,15 @@ def test_plan_refusals():
     with Stub([LONG], 10.5):
         assert "no armed" in T.plan(FakeClient(), "BTCUSDT", "15", "SHORT")["error"]
         assert "tested" in T.plan(FakeClient(), "BTCUSDT", "5", "LONG")["error"]
-        assert "at most 2" in T.plan(FakeClient(), "BTCUSDT", "15", "LONG", 2.5)["error"]
-        assert "REAL" in T.plan(FakeClient(base_url="https://api.bybit.com"), "BTCUSDT", "15", "LONG")["error"]
-        os.environ["DASHBOARD_ALLOW_REAL_MONEY"] = "1"
-        try:
-            assert T.plan(FakeClient(base_url="https://api.bybit.com"), "BTCUSDT", "15", "LONG")["account"] == "REAL"
-        finally:
-            os.environ.pop("DASHBOARD_ALLOW_REAL_MONEY")
+        assert "at most 5" in T.plan(FakeClient(), "BTCUSDT", "15", "LONG", 5.5)["error"]
+        assert T.plan(FakeClient(), "BTCUSDT", "15", "LONG", 5.0)["ok"]                          # up to 5 %: a 20 USDT account needs 0.5-2 %
+        for key in ("0", "1"):                                                                      # a real-money account is refused, flag or no flag
+            os.environ["DASHBOARD_ALLOW_REAL_MONEY"] = key
+            try:
+                r = T.plan(FakeClient(base_url="https://api.bybit.com"), "BTCUSDT", "15", "LONG")
+                assert not r["ok"] and r["account"] == "REAL" and "demo / testnet" in r["error"], r
+            finally:
+                os.environ.pop("DASHBOARD_ALLOW_REAL_MONEY")
         assert "too small" in T.plan(FakeClient(equity=10), "BTCUSDT", "15", "LONG")["error"]
         assert "could not check" in T.plan(FakeClient(pos_ret=33004), "BTCUSDT", "15", "LONG")["error"]   # fail closed
         pos = dict(symbol="BTCUSDT", size="0.5", side="Buy")
@@ -126,8 +131,28 @@ def test_plan_refusals():
         assert not r["ok"] and "did not place" in r["error"] and not r.get("can_replace")
     with Stub([LONG], 10.1):                                                     # price already below a LONG entry
         assert "already through the entry" in T.plan(FakeClient(), "BTCUSDT", "15", "LONG")["error"]
-    print("  plan refuses: no setup, untested TF, risk > 2%, real money, too small, unknown positions, "
+    print("  plan refuses: no setup, untested TF, risk > 5%, real money (always), too small, unknown positions, "
           "open position, foreign order, missed entry")
+
+
+def test_account_size_setting():
+    """Orders are calculated on the smaller of the account's equity and the 'account size' setting (0 = the equity)."""
+    with Stub([LONG], 10.5):
+        full = T.plan(FakeClient(equity=1000.0), "BTCUSDT", "15", "LONG", 1.0)
+        Stub.cap = 20.0
+        try:
+            small = T.plan(FakeClient(equity=1000.0), "BTCUSDT", "15", "LONG", 1.0)
+            assert small["ok"] and small["equity"] == 20.0 and small["equity_real"] == 1000.0, small
+            assert small["qty"] == 0.8 and abs(small["risk_usd"] - 0.20) < 0.01 and full["qty"] == 40.48, (small["qty"], full["qty"])   # 0.20 / 0.247 stop distance
+            Stub.cap = 5000.0                                                                      # larger than the account: the account wins
+            big = T.plan(FakeClient(equity=1000.0), "BTCUSDT", "15", "LONG", 1.0)
+            assert big["equity"] == 1000.0 and big["qty"] == full["qty"], big
+            Stub.cap = 20.0
+            tiny = T.plan(FakeClient(equity=1000.0), "BTCUSDT", "15", "LONG", 0.1)                # 0.02 USDT of risk: below Bybit's smallest order
+            assert not tiny["ok"] and "account size setting" in tiny["error"] and "20.00 USDT" in tiny["error"], tiny
+        finally:
+            Stub.cap = 0.0
+    print(f"  account size: sized on min(equity, setting): 20 USDT -> {small['qty_str']} instead of {full['qty_str']}; larger than the account -> the account")
 
 
 def test_order_preview_confirm_place():

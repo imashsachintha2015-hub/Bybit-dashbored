@@ -27,11 +27,14 @@ from . import sbgz, sbgz_trade as T
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STORE_KEY = "sbgz_auto"
 MODES = ("off", "preview", "live")
-DEFAULTS = dict(mode="off", risk_pct=0.25, vol_only=True, intervals=["15", "60"], max_resting=8, max_open=6, max_open_risk_pct=3.0,
+# equity_usd: the account size every trade is calculated on (USDT; 0 = the account's real equity). 20 because that is the account the
+# user wants to trade; at 20 USDT Bybit's smallest order (about 5 USDT) needs a risk of at least ~0.5% per trade (38 of the 42 radar coins
+# fit at 1%), so risk_pct defaults to 1.
+DEFAULTS = dict(mode="off", equity_usd=20.0, risk_pct=1.0, vol_only=True, intervals=["15", "60"], max_resting=8, max_open=6, max_open_risk_pct=5.0,
                 max_new_per_cycle=3, max_orders_per_day=30, daily_stop_r=8.0, btc_close=True, btc_cancel=False, leverage=10)
-LIMITS = dict(risk_pct=(0.05, 1.0), max_resting=(1, 20), max_open=(1, 20), max_open_risk_pct=(0.25, 10.0), max_new_per_cycle=(1, 5),
-              max_orders_per_day=(1, 100), daily_stop_r=(1.0, 50.0), leverage=(1, 25))
-FLOATS = ("risk_pct", "max_open_risk_pct", "daily_stop_r")
+LIMITS = dict(equity_usd=(0.0, 1_000_000.0), risk_pct=(0.05, 5.0), max_resting=(1, 20), max_open=(1, 20), max_open_risk_pct=(0.25, 10.0),
+              max_new_per_cycle=(1, 5), max_orders_per_day=(1, 100), daily_stop_r=(1.0, 50.0), leverage=(1, 25))
+FLOATS = ("equity_usd", "risk_pct", "max_open_risk_pct", "daily_stop_r")
 BOOLS = ("vol_only", "btc_close", "btc_cancel")
 LOG_MAX = 150
 KEEP_DONE_MS = 3 * 86_400_000          # finished orders / trades stay listed for 3 days
@@ -185,6 +188,12 @@ def reset_for_tests():
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+def equity_cap():
+    """The 'account size' setting in USDT (0 = the account's real equity); the default (20) when the state cannot be read."""
+    st = _ensure()
+    return _f(st["settings"].get("equity_usd"), DEFAULTS["equity_usd"]) if st else DEFAULTS["equity_usd"]
+
+
 def _now(client):
     """Bybit's clock (this PC's can be off by hours): local time plus the client's measured offset."""
     return int(time.time() * 1000) + int(getattr(client, "time_offset", 0) or 0)
@@ -402,7 +411,7 @@ def _place_new(client, st, cfg, now, ex, setups, counts, live):
                 continue
             if cfg["vol_only"] and not p.get("vol_ok"): continue
             if (risk + p["risk_usd"]) > equity * cfg["max_open_risk_pct"] / 100 + 1e-9:
-                _log(st, now, "skip", f"not placed: total risk would pass {cfg['max_open_risk_pct']:g}% of the account", s, once=True, mode=mode); continue
+                _log(st, now, "skip", f"not placed: total risk would pass {cfg['max_open_risk_pct']:g}% of the account size ({equity:g} USDT)", s, once=True, mode=mode); continue
             if not live:
                 t = _track(st, now, p, s, True); keys[key] = now
                 _log(st, now, "place", f"WOULD place a post-only limit {p['side']} {p['qty_str']} @ {p['price_str']['entry']}, stop {p['price_str']['stop']}, "
@@ -546,6 +555,8 @@ def _run_cycle(client, scan, now):
         ex, err = _read_exchange(client)
         if err:
             _log(st, now, "error", err, once=True, mode=mode); _save(); return _done(False, err, now=now)
+        ex["equity_real"] = ex["equity"]; ex["equity"] = min(ex["equity"], cfg["equity_usd"]) if cfg["equity_usd"] > 0 else ex["equity"]   # the account size caps are counted on
+        _status.update(equity_real=ex["equity_real"], equity_used=ex["equity"])
         counts = dict(placed=0, cancelled=0, moved=0, filled=0, closed=0)
         if live: _sync(client, st, cfg, now, ex, setups, counts)
         _manage_waiting(client, st, cfg, now, setups, series, btc, ended, counts, live)
@@ -573,6 +584,7 @@ def status(client=None):
         rows = [{k: t.get(k) for k in ("link", "symbol", "interval", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "virtual", "placed", "R", "vol_ok")} for t in tr]
         day = dict(st["day"]); cfg = dict(st["settings"])
         return dict(ok=True, account=T.account(client) if client else None, settings=cfg, day=day,
+                    equity=dict(used=_status.get("equity_used"), real=_status.get("equity_real")),
                     halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:60]),
                     running=bool(_thread and _thread.is_alive()))
 
@@ -609,6 +621,10 @@ def update_settings(patch, client, confirm=False):
         return dict(ok=False, error="auto-orders only run on a demo / testnet account; this server is on a REAL-money account")
     if mode == "live" and old_mode != "live" and confirm is not True:
         return dict(ok=False, need_confirm=True, error="going live places orders on the demo account by itself: confirm it")
+    if mode == old_mode:                                          # filters, limits, account size: nothing to wind down, no need to wait for a pass
+        with _lock: st["settings"] = new
+        _save()
+        return dict(ok=True, settings=new, note=None)
     if not _cycle_lock.acquire(timeout=30): return dict(ok=False, error="a pass is running; try again in a few seconds")
     try:
         now = _now(client); note = None

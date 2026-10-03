@@ -131,8 +131,8 @@ class FakeEx:
 
 class Env:
     """Fresh state in a temp file, stubs in place; restores everything on exit."""
-    def __init__(self, world, ex=None):
-        self.world, self.ex = world, ex or FakeEx()
+    def __init__(self, world, ex=None, cap=0.0):
+        self.world, self.ex, self.cap = world, ex or FakeEx(), cap          # cap: the account size setting (0 = the fake account's own equity)
 
     def __enter__(self):
         self.dir = tempfile.mkdtemp()
@@ -142,6 +142,7 @@ class Env:
         sbgz.get = self.world.get
         T.instrument = lambda sym, timeout=6: SPEC
         A.reset_for_tests()
+        A._ensure()["settings"].update(equity_usd=self.cap, risk_pct=0.25); A._save()          # the older tests' numbers were written for 0.25 % of the equity
         return self
 
     def __exit__(self, *a):
@@ -171,8 +172,10 @@ def one_setup(price=10.5, sym="XYZUSDT", iv="60", **kw):
 def test_settings_validation():
     base = dict(A.DEFAULTS)
     assert A.clean_settings(dict(risk_pct=0.5, intervals=[60, "15"], vol_only=False), base)["intervals"] == ["15", "60"]
-    for bad in (dict(mode="on"), dict(risk_pct=0), dict(risk_pct=2), dict(vol_only="yes"), dict(intervals=[]), dict(intervals=["5"]), dict(max_resting=0),
-                dict(leverage=99), dict(daily_stop_r="x")):
+    assert A.clean_settings(dict(risk_pct=5, equity_usd=0), base)["equity_usd"] == 0.0 and A.clean_settings(dict(equity_usd=20), base)["equity_usd"] == 20.0
+    assert A.DEFAULTS["equity_usd"] == 20.0 and A.DEFAULTS["risk_pct"] == 1.0 and A.DEFAULTS["mode"] == "off"
+    for bad in (dict(mode="on"), dict(risk_pct=0), dict(risk_pct=5.5), dict(equity_usd=-1), dict(equity_usd="x"), dict(vol_only="yes"), dict(intervals=[]),
+                dict(intervals=["5"]), dict(max_resting=0), dict(leverage=99), dict(daily_stop_r="x")):
         try:
             A.clean_settings(bad, base); raise AssertionError(f"accepted {bad}")
         except ValueError:
@@ -512,6 +515,43 @@ def test_only_one_server_trades_at_a_time():
         with open(A._store_file(A.LEASE_KEY), "w") as f: f.write("{broken")
         r = e.cycle(); assert not e.ex.posts() and "waits" in r["msg"], r
     print("  one server at a time: a second server waits, takes over (with the saved state) only after the first goes silent")
+
+
+def test_account_size_20_usdt():
+    w = World()
+    for i in range(7): w.add(f"C{i}USDT", "60", 10.5, setups=[zone(since_bar=ARM + i)])
+    with Env(w, cap=20.0) as e:                                                           # the account holds 10,000 but trades are sized on 20
+        assert A.equity_cap() == 20.0 and T.equity_cap() == 20.0
+        e.mode("live", risk_pct=1.0, max_new_per_cycle=5, max_resting=20, max_open_risk_pct=1.0)       # 1 % of 20 = 0.20 USDT; total risk 1 % of 20 = 0.20
+        e.cycle(); b = e.ex.posts()
+        assert len(b) == 1 and b[0]["qty"] == "1.00" and b[0]["price"] == "10.000", b                  # 0.20 USDT over a 0.2 stop distance
+        assert any("account size (20 USDT)" in x[2] for x in e.log(kinds=("skip",))), e.log()           # a second order would pass the 1 % total-risk cap of 20
+        st = A.status(e.ex); assert st["equity"] == dict(used=20.0, real=10_000.0) and st["settings"]["equity_usd"] == 20.0, st
+        A.update_settings(dict(equity_usd=0, max_open_risk_pct=5.0), e.ex)                              # 0 = the account's real equity; takes effect at once
+        assert A.equity_cap() == 0.0
+        e.cycle(); new = e.ex.posts()[1:]
+        assert new and all(x["qty"] == "500.00" for x in new), new                                      # 1 % of 10,000 = 100 USDT over 0.2
+    print("  account size 20: orders and the total-risk cap are calculated on 20 USDT, not on the account's 10,000; 0 = the real equity")
+
+
+def test_settings_without_a_mode_change_do_not_wait_for_a_pass():
+    with Env(one_setup()) as e:
+        e.mode("preview")
+        assert A._cycle_lock.acquire(blocking=False)                                                    # pretend a pass is running
+        try:
+            t0 = time.time(); r = A.update_settings(dict(risk_pct=0.5, equity_usd=50), e.ex)
+            assert r["ok"] and time.time() - t0 < 5 and A.status(e.ex)["settings"]["equity_usd"] == 50.0, r
+        finally:
+            A._cycle_lock.release()
+    print("  filters / limits / account size are saved at once; only a mode change waits for a running pass")
+
+
+def test_unreadable_store_still_sizes_on_20():
+    with Env(one_setup()) as e:
+        with open(A._store_file(), "w") as f: f.write("{broken")
+        A.reset_for_tests()
+        assert A.equity_cap() == 20.0 and T.equity_cap() == 20.0
+    print("  an unreadable store means the account size is 20 (the smaller size), never the full account")
 
 
 def test_trade_module_unchanged_behaviour():
