@@ -1172,9 +1172,44 @@ def get_dashboard_bundle():
     }
 
 
+# Routes that place, close or change orders. They check the trade password (header X-Trade-Token against
+# DASHBOARD_TRADE_TOKEN) once that variable is set; the SBGZ order routes refuse to work until it is set.
+LEGACY_ORDER_ROUTES = ("/api/cme_x5/execute", "/api/positions/close", "/api/order/place", "/api/order/close", "/api/position/stop")
+SBGZ_ORDER_ROUTES = ("/api/sbgz/order", "/api/sbgz/orders", "/api/sbgz/cancel")
+# Wrong trade passwords from all clients together: 30 within 15 minutes lock dashboard trading until the window
+# clears, so the password cannot be guessed through the public dashboard URL.
+_trade_fails = []
+_trade_fails_lock = threading.Lock()
+
+
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
+
+    def _trade_auth(self, required=False):
+        """True when this request may trade. Sends the refusal itself otherwise. required=True (the SBGZ order
+        routes) also refuses while DASHBOARD_TRADE_TOKEN is unset."""
+        token = (os.environ.get("DASHBOARD_TRADE_TOKEN") or "").strip()
+        if not token:
+            if required:
+                msg = "Dashboard trading is off: set DASHBOARD_TRADE_TOKEN (your trade password) in the server's variables first"
+                self._send_json(403, {"ok": False, "retCode": -1, "trade_off": True, "error": msg, "retMsg": msg})
+            return not required
+        now = time.time()
+        with _trade_fails_lock:
+            _trade_fails[:] = [t for t in _trade_fails if now - t < 900]
+            locked = len(_trade_fails) >= 30
+        if locked:
+            msg = "Too many wrong trade passwords: dashboard trading is locked for up to 15 minutes"
+            self._send_json(429, {"ok": False, "retCode": -1, "error": msg, "retMsg": msg})
+            return False
+        if hmac.compare_digest(self.headers.get("X-Trade-Token", "").strip().encode("utf-8"), token.encode("utf-8")):
+            return True
+        with _trade_fails_lock:
+            _trade_fails.append(now)
+        msg = "Trade password missing or wrong"
+        self._send_json(403, {"ok": False, "retCode": -1, "need_trade_token": True, "error": msg, "retMsg": msg})
+        return False
 
     def _send_json(self, status, payload, cache_seconds=0):
         # json.dumps allows Python's NaN/Infinity by default, which are not
@@ -1187,7 +1222,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Trade-Token")
         if cache_seconds > 0:
             self.send_header("Cache-Control", f"public, max-age={cache_seconds}, s-maxage={cache_seconds}")
         else:
@@ -1199,7 +1234,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Trade-Token")
         self.end_headers()
 
     def do_GET(self):
@@ -1740,6 +1775,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
 
     def _route_post(self, body):
+        # -2. API: SBGZ order button (backend_lib/sbgz_trade.py): preview / place a post-only limit entry with a limit
+        # take-profit and a stop-market stop, list and cancel its own resting orders. Always needs the trade password.
+        if self.path in SBGZ_ORDER_ROUTES:
+            if not self._trade_auth(required=True):
+                return
+            from backend_lib import sbgz_trade
+            if self.path == "/api/sbgz/order":
+                res = sbgz_trade.order(bybit_client, body)
+            elif self.path == "/api/sbgz/orders":
+                res = sbgz_trade.open_orders(bybit_client)
+            else:
+                res = sbgz_trade.cancel(bybit_client, re.sub(r"[^A-Z0-9]", "", str(body.get("symbol") or "").upper()), body.get("link"))
+            self._send_json(200, res)
+            return
+        if self.path in LEGACY_ORDER_ROUTES and not self._trade_auth():
+            return
+
         # -1. API: strategy runner control.  Can only halt / pause / resume the runner's own strategies;
         # set RUNNER_CONTROL_TOKEN to require a matching X-Runner-Token header.
         if self.path == "/api/runner/control":

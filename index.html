@@ -881,6 +881,34 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-rrow .up{color:#10b981}.sbgz-rrow .dn{color:#ef4444}.sbgz-rrow .mut{color:#64748b}.sbgz-rrow .ok{color:#14b8a6;font-weight:700}
 .sbgz-rrow .open{background:rgba(56,189,248,.15);color:#7dd3fc;border-radius:3px;padding:0 4px;font-size:9.5px}
 .sbgz-radar-foot{padding:6px 12px 9px;font-size:10px;color:#64748b}
+.sbgz-rrow .warn{color:#fbbf24}
+/* SBGZ order button + order window (POST /api/sbgz/order) */
+.sbgz-trade-btn{background:rgba(20,184,166,.12);border:1px solid rgba(20,184,166,.45);color:#5eead4;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--mo);white-space:nowrap}
+.sbgz-trade-btn.sell{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.45);color:#fda4af}
+.sbgz-trade-btn.plain{background:transparent;border-color:#333d4b;color:#cbd5e1}
+.sbgz-trade-btn:disabled{opacity:.5;cursor:default}
+.sbgz-ord{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.62)}
+.sbgz-ord[hidden]{display:none}
+.sbgz-ord-box{width:min(460px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#0d1117;border:1px solid rgba(20,184,166,.35);border-radius:8px;padding:12px 14px;font-size:12px;color:#cbd5e1;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.sbgz-ord-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;color:#e2e8f0}
+.sbgz-ord-x{background:none;border:0;color:#94a3b8;font-size:22px;line-height:1;cursor:pointer;padding:0 2px}
+.sbgz-ord-sub{color:#64748b;font-size:11px;margin:2px 0 8px;font-family:var(--mo)}
+.sbgz-ord label{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:6px 0;color:#94a3b8;font-size:11.5px}
+.sbgz-ord input{background:#05070a;border:1px solid #333d4b;border-radius:4px;color:#e2e8f0;padding:6px 8px;font-family:var(--mo);font-size:12px;width:80px}
+.sbgz-ord input[type=password]{width:190px;max-width:100%}
+.sbgz-ord-tbl{width:100%;table-layout:fixed;border-collapse:collapse;margin:8px 0 4px;font-family:var(--mo);font-size:11px}
+.sbgz-ord-tbl td{padding:4px 4px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;white-space:normal;overflow-wrap:anywhere;font-size:11px}
+.sbgz-ord-tbl td:first-child{color:#64748b;width:38%}
+.sbgz-ord-tbl td.warn{color:#fbbf24}
+.sbgz-ord-msg{min-height:16px;margin:6px 0;font-size:11.5px;line-height:1.45}
+.sbgz-ord-msg.err{color:#fbbf24}.sbgz-ord-msg.ok{color:#5eead4}
+.sbgz-ord-btns{display:flex;flex-wrap:wrap;gap:8px}
+.sbgz-ord-btns button{flex:1 1 120px;border-radius:5px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #333d4b;background:#161b22;color:#e2e8f0}
+.sbgz-ord-btns button[hidden]{display:none}
+.sbgz-ord-btns .go{background:#0f766e;border-color:#14b8a6;color:#fff}
+.sbgz-ord-btns .go.sell{background:#9f1239;border-color:#f43f5e}
+.sbgz-ord-btns button:disabled{opacity:.4;cursor:not-allowed}
+.sbgz-ord-note{margin-top:9px;color:#64748b;font-size:10.5px;line-height:1.45}
 .sbgz-panel.min .sbgz-r,.sbgz-panel.min .sbgz-f{display:none}
 @media (max-width:640px){.sbgz-panel{font-size:9.5px;max-width:70%}.sbgz-panel .sbgz-r span:first-child{flex-basis:72px}}
 .bsi-btn.fit-btn{margin-left:auto;background:transparent;border:1px dashed #333d4b;color:#a0aec0}
@@ -2439,11 +2467,25 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
           </div>
           <div class="tw">
             <table>
-              <thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>Status</th><th>Entry zone</th><th>Stop</th><th>Target</th><th>R:R</th><th>Break</th><th>Volume</th><th>Trend</th><th>Backtest</th></tr></thead>
-              <tbody id="sbgzRadarTb"><tr><td colspan="12" class="emp">Scanning 42 coins on 15m and 1h…</td></tr></tbody>
+              <thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>Status</th><th>Entry zone</th><th>Stop</th><th>Target</th><th>R:R</th><th>Break</th><th>Volume</th><th>Trend</th><th>Backtest</th><th>Order</th></tr></thead>
+              <tbody id="sbgzRadarTb"><tr><td colspan="13" class="emp">Scanning 42 coins on 15m and 1h…</td></tr></tbody>
             </table>
           </div>
-          <div class="sbgz-radar-foot">Limit orders at the 0.5 entry, stop-market at the stop. Backtest = average R per trade 2023-26 (43 coins, after fees): volume-confirmed 15m +0.36R, 1h +0.50R; unconfirmed about 0 to +0.2R. Tap a row to open its chart. Paper-test before real money.</div>
+          <!-- orders placed with the SBGZ "Place order" button (POST /api/sbgz/orders, needs the trade password) -->
+          <div id="sbgzMyOrd" hidden>
+            <div class="sbgz-radar-bar">
+              <b>My SBGZ orders</b>
+              <span id="sbgzMyOrdInfo"></span>
+              <button class="sbgz-rbtn" onclick="sbgzOrdersLoad()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            </div>
+            <div class="tw">
+              <table>
+                <thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>Entry</th><th>Qty</th><th>Stop</th><th>Target</th><th>Setup now</th><th></th></tr></thead>
+                <tbody id="sbgzMyOrdTb"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="sbgz-radar-foot">Limit orders at the 0.5 entry, stop-market at the stop. Backtest = average R per trade 2023-26 (43 coins, after fees): volume-confirmed 15m +0.36R, 1h +0.50R; unconfirmed about 0 to +0.2R. Tap a row to open its chart, or "Place order" to send it to Bybit (needs your trade password). Paper-test before real money.</div>
         </div>
         <div class="card bgo" id="a3">
           <div class="cardh">
@@ -4364,6 +4406,8 @@ function sbgzPanel(d, cs, tf){
     var savedMin = localStorage.getItem('sbgz_min');
     if(savedMin === '1' || (savedMin === null && window.innerWidth < 640)) el.classList.add('min');   // phones start collapsed
     el.addEventListener('click', function(e){
+      var ob = e.target.closest('.sbgz-trade-btn');
+      if(ob){ window.sbgzOrderOpen(ob.dataset.sym, ob.dataset.tf, ob.dataset.side); return; }
       if(e.target.closest('.sbgz-mode') || e.target.closest('.sbgz-pmapt')){
         try{
           if(e.target.closest('.sbgz-mode')) localStorage.setItem('sbgz_vonly', sbgzVonly() ? '0' : '1');
@@ -4423,6 +4467,7 @@ function sbgzPanel(d, cs, tf){
   var vonly = sbgzVonly();
   rows.push('<div class="sbgz-r sbgz-mode"><span>Mode</span><span class="sbgz-link">' + (vonly ? 'volume-confirmed only' : 'all strong breaks') + ' (tap to switch)</span></div>');
   var strong = (d.setups || []).filter(function(s){ return s.strong; });
+  var lastPx = (d.candles && d.candles.length) ? d.candles[d.candles.length - 1].close : null;
   if(strong.length){
     strong.forEach(function(s){
       var lo = Math.min(s.zone_top, s.zone_bottom), hi = Math.max(s.zone_top, s.zone_bottom);
@@ -4430,6 +4475,10 @@ function sbgzPanel(d, cs, tf){
       var vtxt = s.bvol == null ? 'vol ?' : (s.vol_ok ? 'vol ✓ ' : 'vol ✗ ') + s.bvol.toFixed(1) + 'x';
       var cls = !s.vol_ok ? 'sbgz-mut' : (s.side === 'LONG' ? 'sbgz-up' : 'sbgz-dn');
       row(s.side === 'LONG' ? 'Setup LONG' : 'Setup SHORT', 'zone ' + sbgzFmt(lo) + '–' + sbgzFmt(hi) + ' · SL ' + sbgzFmt(s.stop) + ' · TP ' + sbgzFmt(s.target) + ' · R:R ' + rr.toFixed(1) + ' · break ' + s.break_vu.toFixed(1) + ' VU · ' + vtxt + (!s.vol_ok && vonly ? ' (not traded in this mode)' : ''), cls);
+      // order button on the tested timeframes while the price is still on the far side of the entry
+      if((tf === '15' || tf === '60') && lastPx != null && (s.side === 'LONG' ? lastPx > s.entry : lastPx < s.entry)){
+        rows.push('<div class="sbgz-r"><span></span><span><button type="button" class="sbgz-trade-btn' + (s.side === 'LONG' ? '' : ' sell') + '" data-sym="' + sbgzEsc(cs) + '" data-tf="' + sbgzEsc(tf) + '" data-side="' + sbgzEsc(s.side) + '">Place ' + s.side + ' limit order</button></span></div>');
+      }
     });
   } else {
     row('Setup', 'waiting for a strong break (13 VU ≈ ' + sbgzFmt(p.min_break_price) + ')', 'sbgz-mut');
@@ -4459,7 +4508,7 @@ window.sbgzRadarLoad = function(force){
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){
       if(!d || !d.ok){
-        tb.innerHTML = '<tr><td colspan="12" class="emp">Radar unavailable: ' + sbgzEsc((d && d.error) || 'no answer from /api/sbgz/radar (server not updated yet?)') + '</td></tr>';
+        tb.innerHTML = '<tr><td colspan="13" class="emp">Radar unavailable: ' + sbgzEsc((d && d.error) || 'no answer from /api/sbgz/radar (server not updated yet?)') + '</td></tr>';
         if(info) info.textContent = 'Radar unavailable';
         return;
       }
@@ -4467,9 +4516,12 @@ window.sbgzRadarLoad = function(force){
       window.sbgzRadarRender();
     })
     .catch(function(e){
-      tb.innerHTML = '<tr><td colspan="12" class="emp">Radar error: ' + sbgzEsc(String(e)) + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="13" class="emp">Radar error: ' + sbgzEsc(String(e)) + '</td></tr>';
     })
-    .then(function(){ window._sbgzRadarTimer = setTimeout(function(){ window.sbgzRadarLoad(false); }, 150000); });
+    .then(function(){
+      window._sbgzRadarTimer = setTimeout(function(){ window.sbgzRadarLoad(false); }, 150000);
+      if(window.sbgzOrdersLoad) window.sbgzOrdersLoad();
+    });
 };
 
 window.sbgzRadarRender = function(){
@@ -4488,7 +4540,7 @@ window.sbgzRadarRender = function(){
   var nOpen = rows.filter(function(r){ return r.kind === 'open'; }).length;
   if(info) info.innerHTML = '<b>' + (rows.length - nOpen) + '</b> waiting setups · <b>' + nOpen + '</b> open trades · scanned ' + (d.scanned || 0) + ' charts at ' + sbgzEsc(when) + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' failed' : '');
   if(!rows.length){
-    tb.innerHTML = '<tr><td colspan="12" class="emp">No ' + (vonly ? 'volume-confirmed ' : '') + 'strong-break setups on 42 coins right now (15m / 1h). They appear a few times a day.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="13" class="emp">No ' + (vonly ? 'volume-confirmed ' : '') + 'strong-break setups on 42 coins right now (15m / 1h). They appear a few times a day.</td></tr>';
     return;
   }
   tb.innerHTML = rows.map(function(r){
@@ -4501,10 +4553,15 @@ window.sbgzRadarRender = function(){
     var vol = r.bvol == null ? '<span class="mut">?</span>' : (r.vol_ok ? '<span class="ok">✓ ' : '<span class="mut">✗ ') + r.bvol.toFixed(1) + 'x</span>';
     var tr = r.trend ? '<span class="' + (r.trend.dir === 'UP' ? 'up' : 'dn') + '">' + (r.trend.dir === 'UP' ? '▲ ' : '▼ ') + (r.trend.pct >= 0 ? '+' : '') + r.trend.pct.toFixed(1) + '%</span>' : '<span class="mut">--</span>';
     var exp = r.exp_r != null ? (r.exp_r >= 0 ? '+' : '') + r.exp_r.toFixed(2) + 'R' : '--';
+    // a post-only limit can only wait on the far side of the price: no button once the price is through the entry
+    var ord = (r.kind === 'setup' && r.dist_pct != null && r.dist_pct > 0)
+      ? '<button type="button" class="sbgz-trade-btn' + (L ? '' : ' sell') + '" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" data-side="' + sbgzEsc(r.side) + '" onclick="event.stopPropagation();sbgzOrderOpen(this.dataset.sym, this.dataset.tf, this.dataset.side)">Place order</button>'
+      : '<span class="mut">--</span>';
     return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(r.symbol) + '" data-tf="' + sbgzEsc(r.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
       '<td><b>' + sbgzEsc(coin) + '</b></td><td>' + tfl + '</td><td class="' + (L ? 'up' : 'dn') + '">' + r.side + '</td><td>' + status + '</td>' +
       '<td>' + zone + '</td><td>' + sbgzFmt(r.stop) + '</td><td>' + sbgzFmt(r.target) + '</td><td>' + (r.rr != null ? r.rr.toFixed(1) : '--') + '</td>' +
-      '<td>' + (r.break_vu != null ? r.break_vu.toFixed(1) + ' VU' : '--') + '</td><td>' + vol + '</td><td>' + tr + '</td><td class="' + (r.vol_ok ? 'ok' : 'mut') + '">' + exp + '</td></tr>';
+      '<td>' + (r.break_vu != null ? r.break_vu.toFixed(1) + ' VU' : '--') + '</td><td>' + vol + '</td><td>' + tr + '</td><td class="' + (r.vol_ok ? 'ok' : 'mut') + '">' + exp + '</td>' +
+      '<td>' + ord + '</td></tr>';
   }).join('');
 };
 
@@ -4524,6 +4581,236 @@ window.sbgzRadarOpen = function(sym, tf){
   if(window.switchView) window.switchView('chart', 0);
   if(chartEngine !== 'bybit') window.toggleChartEngine();
   loadChart('BYBIT:' + sym + '.P', tf);
+};
+
+// ── Trade password. Every order route checks it once DASHBOARD_TRADE_TOKEN is set on the server (the SBGZ order
+// button always does). Asked for once, kept in this browser, sent as the X-Trade-Token header. ───────────────────
+function tradeTokenGet(){ try{ return localStorage.getItem('trade_token') || ''; }catch(e){ return ''; } }
+function tradeTokenSet(t){ try{ if(t) localStorage.setItem('trade_token', t); else localStorage.removeItem('trade_token'); }catch(e){} }
+
+// POST to an order route with the trade password; asks for it when the server says it is missing or wrong.
+// Resolves to the fetch Response, like fetch() itself.
+window.tradePost = function(url, body){
+  var send = function(){
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Trade-Token': tradeTokenGet() }, body: JSON.stringify(body) });
+  };
+  return send().then(function(r){
+    if(r.status !== 403) return r;
+    return r.clone().json().catch(function(){ return {}; }).then(function(d){
+      if(!d || !d.need_trade_token) return r;
+      var t = prompt('Trade password (DASHBOARD_TRADE_TOKEN on the server):');
+      if(!t || !t.trim()) return r;
+      tradeTokenSet(t.trim());
+      return send();
+    });
+  });
+};
+
+// POST to an SBGZ order route; resolves to { status, d } with d the JSON answer (never rejects on HTTP errors)
+function sbgzTradeCall(path, body, token){
+  return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Trade-Token': token }, body: JSON.stringify(body || {}) })
+    .then(function(r){
+      return r.json().catch(function(){ return { error: 'HTTP ' + r.status + ' (server not updated yet?)' }; })
+        .then(function(d){ return { status: r.status, d: d || {} }; });
+    });
+}
+
+// ── SBGZ order window: Check (preview) first, then a post-only limit entry with a limit take-profit and a stop-market
+// stop. The server works the setup out again from Bybit candles, sizes it by risk and checks the account; it sends
+// the order only if the numbers you confirmed are still the setup's numbers. ──────────────────────────────────────
+var sbgzOrd = null;   // the open window: { sym, tf, side, replace, plan }
+
+function sbgzOrdBox(){
+  var el = document.getElementById('sbgzOrd');
+  if(el) return el;
+  el = document.createElement('div');
+  el.id = 'sbgzOrd';
+  el.className = 'sbgz-ord';
+  el.hidden = true;
+  el.innerHTML = '<div class="sbgz-ord-box" role="dialog" aria-modal="true" aria-labelledby="sbgzOrdTitle">' +
+    '<div class="sbgz-ord-head"><b id="sbgzOrdTitle">Place SBGZ limit order</b><button type="button" class="sbgz-ord-x" aria-label="Close">×</button></div>' +
+    '<div class="sbgz-ord-sub" id="sbgzOrdSub"></div>' +
+    '<label>Risk per trade <input id="sbgzOrdRisk" type="number" min="0.1" max="2" step="0.1" inputmode="decimal"> % of equity (max 2%)</label>' +
+    '<label>Trade password <input id="sbgzOrdTok" type="password" autocomplete="off" spellcheck="false"></label>' +
+    '<div id="sbgzOrdBody"></div>' +
+    '<div class="sbgz-ord-msg" id="sbgzOrdMsg" role="status"></div>' +
+    '<div class="sbgz-ord-btns"><button type="button" id="sbgzOrdCheck">Check</button><button type="button" id="sbgzOrdMove" hidden>Move my order here</button><button type="button" id="sbgzOrdGo" class="go" disabled>Place order</button></div>' +
+    '<div class="sbgz-ord-note">Entry: post-only limit (maker fee, it never fills at market). Take-profit: limit order. Stop-loss: stop-market. ' +
+    'The server works out every price again from Bybit candles and checks your positions and orders. If the price makes a new high ' +
+    '(a new low for a SHORT) before your order fills, the zone moves up with it: open this window again to move the order.</div>' +
+    '</div>';
+  document.body.appendChild(el);
+  el.addEventListener('click', function(e){ if(e.target === el || e.target.closest('.sbgz-ord-x')) sbgzOrdClose(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !el.hidden) sbgzOrdClose(); });
+  document.getElementById('sbgzOrdCheck').addEventListener('click', function(){ sbgzOrdSend(true); });
+  document.getElementById('sbgzOrdGo').addEventListener('click', function(){ sbgzOrdSend(false); });
+  document.getElementById('sbgzOrdMove').addEventListener('click', function(){ if(sbgzOrd){ sbgzOrd.replace = true; sbgzOrdSend(true); } });
+  document.getElementById('sbgzOrdRisk').addEventListener('input', function(){
+    if(sbgzOrd) sbgzOrd.plan = null;
+    document.getElementById('sbgzOrdGo').disabled = true;
+    sbgzOrdMsg('Risk changed: press Check to see the new size.', '');
+  });
+  return el;
+}
+
+function sbgzOrdClose(){
+  var el = document.getElementById('sbgzOrd');
+  if(el) el.hidden = true;
+  sbgzOrd = null;
+}
+
+function sbgzOrdMsg(text, cls){
+  var m = document.getElementById('sbgzOrdMsg');
+  if(m){ m.textContent = text || ''; m.className = 'sbgz-ord-msg' + (cls ? ' ' + cls : ''); }
+}
+
+window.sbgzOrderOpen = function(sym, tf, side){
+  var el = sbgzOrdBox();
+  sbgzOrd = { sym: sym, tf: tf, side: side, replace: false, plan: null };
+  var risk = 0.5;
+  try{ var sr = parseFloat(localStorage.getItem('sbgz_risk')); if(sr > 0 && sr <= 2) risk = sr; }catch(e){}
+  document.getElementById('sbgzOrdRisk').value = risk;
+  document.getElementById('sbgzOrdTok').value = tradeTokenGet();
+  document.getElementById('sbgzOrdSub').textContent = sym + ' · ' + (tf === '60' ? '1h' : tf + 'm') + ' · ' + side + ' · strong-break golden zone';
+  document.getElementById('sbgzOrdBody').innerHTML = '';
+  document.getElementById('sbgzOrdMove').hidden = true;
+  var go = document.getElementById('sbgzOrdGo');
+  go.disabled = true;
+  go.textContent = 'Place ' + side + ' order';
+  go.className = 'go' + (side === 'SHORT' ? ' sell' : '');
+  el.hidden = false;
+  if(tradeTokenGet()) sbgzOrdSend(true);
+  else{
+    sbgzOrdMsg('Enter your trade password (the DASHBOARD_TRADE_TOKEN set on the server), then press Check.', '');
+    document.getElementById('sbgzOrdTok').focus();
+  }
+};
+
+function sbgzOrdSend(preview){
+  var o = sbgzOrd;
+  if(!o) return;
+  var tok = (document.getElementById('sbgzOrdTok').value || '').trim();
+  var risk = parseFloat(document.getElementById('sbgzOrdRisk').value);
+  if(!tok){ sbgzOrdMsg('Enter your trade password first.', 'err'); return; }
+  if(!(risk >= 0.1 && risk <= 2)){ sbgzOrdMsg('Risk per trade must be between 0.1 and 2 %.', 'err'); return; }
+  if(!preview && !o.plan){ sbgzOrdMsg('Press Check first.', 'err'); return; }
+  try{ localStorage.setItem('sbgz_risk', String(risk)); }catch(e){}
+  var req = { symbol: o.sym, interval: o.tf, side: o.side, risk_pct: risk, replace: o.replace, preview: preview };
+  if(!preview) req.confirm = { qty: o.plan.qty_str, entry: o.plan.price_str.entry, stop: o.plan.price_str.stop, target: o.plan.price_str.target };
+  var go = document.getElementById('sbgzOrdGo'), chk = document.getElementById('sbgzOrdCheck');
+  go.disabled = true;
+  chk.disabled = true;
+  sbgzOrdMsg(preview ? 'Checking the setup and your account…' : 'Sending the order to Bybit…', '');
+  sbgzTradeCall('/api/sbgz/order', req, tok)
+    .then(function(x){
+      if(sbgzOrd !== o) return;                            // closed, or another setup opened meanwhile
+      chk.disabled = false;
+      var d = x.d;
+      if(x.status !== 200){
+        if(d.need_trade_token) tradeTokenSet('');
+        o.plan = null;
+        sbgzOrdMsg(d.error || d.retMsg || ('refused (HTTP ' + x.status + ')'), 'err');
+        return;
+      }
+      tradeTokenSet(tok);                                  // accepted: remember the password in this browser
+      document.getElementById('sbgzOrdMove').hidden = !d.can_replace;
+      if(d.entry != null && d.price_str) sbgzOrdRender(d);
+      else document.getElementById('sbgzOrdBody').innerHTML = '';
+      if(d.placed){
+        o.plan = null;
+        sbgzOrdMsg('✓ Order placed on Bybit ' + (d.account || '') + ': ' + d.side + ' ' + d.qty_str + ' at ' + d.price_str.entry +
+                   '. It waits there; once it fills, the take-profit and stop-loss are live. See "My SBGZ orders" on the Radar page.', 'ok');
+        window.sbgzOrdersLoad();
+        return;
+      }
+      if(!d.ok){
+        o.plan = null;
+        sbgzOrdMsg(d.error || 'refused', 'err');
+        return;
+      }
+      o.plan = d;
+      go.disabled = false;
+      if(d.changed) sbgzOrdMsg('⚠ ' + d.notice, 'err');
+      else sbgzOrdMsg((d.replace && d.replace.length ? 'Your resting order on this coin will be cancelled first. ' : '') + 'Check the numbers, then press Place order.', '');
+    })
+    .catch(function(e){
+      if(sbgzOrd !== o) return;
+      chk.disabled = false;
+      sbgzOrdMsg('Network error: ' + e.message, 'err');
+    });
+}
+
+function sbgzOrdRender(p){
+  var coin = p.symbol.replace(/USDT$/, '');
+  var usd = function(x){ return (x == null || !isFinite(x)) ? '--' : x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USDT'; };
+  var exp = p.exp_r != null ? (p.exp_r >= 0 ? '+' : '') + p.exp_r.toFixed(2) + 'R per trade' : '--';
+  var vol = p.bvol == null ? 'unknown'
+          : p.vol_ok ? '✓ confirmed (' + p.bvol.toFixed(1) + 'x its average) · backtest ' + exp
+          : '✗ NOT confirmed (' + p.bvol.toFixed(1) + 'x, needs 2x) · backtest ' + exp + ', about break-even';
+  var fees = p.fees_usd || {};
+  var rows = [
+    ['Account', (p.account || '--') + ' · equity ' + usd(p.equity)],
+    ['Entry · limit, post-only', p.price_str.entry + ' · price now ' + sbgzFmt(p.price) + (p.dist_pct != null ? ' (' + p.dist_pct.toFixed(2) + '% away)' : '')],
+    ['Take profit · limit', p.price_str.target + ' · +' + usd(p.reward_usd)],
+    ['Stop loss · stop-market', p.price_str.stop + ' · −' + usd(p.risk_usd) + ' (' + p.risk_pct + '% of equity)'],
+    ['Fees (about)', usd(fees.win) + ' if TP · ' + usd(fees.loss) + ' if SL'],
+    ['Size', p.qty_str + ' ' + coin + ' ≈ ' + usd(p.notional) + ' · ' + p.leverage + 'x → margin ' + usd(p.margin)],
+    ['Reward : risk', p.rr.toFixed(2) + ' : 1'],
+    ['Break volume', vol]
+  ];
+  if(p.resting && p.resting.length) rows.push(['Resting now', p.resting.map(function(r){ return r.side + ' ' + r.qty + ' @ ' + r.price; }).join(' · ')]);
+  document.getElementById('sbgzOrdBody').innerHTML = '<table class="sbgz-ord-tbl">' + rows.map(function(r){
+    return '<tr><td>' + sbgzEsc(r[0]) + '</td><td' + (r[0] === 'Break volume' && !p.vol_ok ? ' class="warn"' : '') + '>' + sbgzEsc(r[1]) + '</td></tr>';
+  }).join('') + '</table>';
+}
+
+// ── My SBGZ orders (Radar page): resting orders placed with the button, each with what its setup says now ────────
+window.sbgzOrdersLoad = function(){
+  var box = document.getElementById('sbgzMyOrd'), tb = document.getElementById('sbgzMyOrdTb'), info = document.getElementById('sbgzMyOrdInfo');
+  if(!box || !tb || !tradeTokenGet()) return;             // nothing to show before the trade password was used once
+  box.hidden = false;
+  if(info) info.textContent = 'loading…';
+  sbgzTradeCall('/api/sbgz/orders', {}, tradeTokenGet())
+    .then(function(x){
+      var d = x.d;
+      if(x.status !== 200 || !d.ok){
+        if(d.need_trade_token) tradeTokenSet('');
+        if(info) info.textContent = d.error || d.retMsg || ('HTTP ' + x.status);
+        tb.innerHTML = '';
+        return;
+      }
+      var list = d.orders || [];
+      if(info) info.textContent = list.length + ' resting · ' + (d.account || '');
+      if(!list.length){
+        tb.innerHTML = '<tr><td colspan="9" class="emp">No resting SBGZ orders. Filled ones show under Positions.</td></tr>';
+        return;
+      }
+      tb.innerHTML = list.map(function(o){
+        var L = o.side === 'Buy', side = o.sbgz_side || (L ? 'LONG' : 'SHORT'), tfl = o.interval === '60' ? '1h' : o.interval ? o.interval + 'm' : '--';
+        var data = ' data-sym="' + sbgzEsc(o.symbol) + '" data-tf="' + sbgzEsc(o.interval || '15') + '" data-side="' + sbgzEsc(side) + '" data-link="' + sbgzEsc(o.link) + '"';
+        var st = o.setup === 'same' ? '<span class="ok">same entry</span>'
+               : o.setup === 'moved' ? '<span class="warn">moved to ' + sbgzFmt(o.setup_entry) + '</span> <button type="button" class="sbgz-trade-btn plain"' + data + ' onclick="event.stopPropagation();sbgzOrderOpen(this.dataset.sym, this.dataset.tf, this.dataset.side)">Move</button>'
+               : o.setup === 'gone' ? '<span class="warn">setup gone: cancel it?</span>'
+               : '<span class="mut">unknown</span>';
+        var filled = parseFloat(o.filled || 0) > 0 ? ' <span class="mut">(' + sbgzEsc(o.filled) + ' filled)</span>' : '';
+        return '<tr class="sbgz-rrow"' + data + ' onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)">' +
+          '<td><b>' + sbgzEsc(String(o.symbol).replace(/USDT$/, '')) + '</b></td><td>' + tfl + '</td><td class="' + (L ? 'up' : 'dn') + '">' + side + '</td>' +
+          '<td>' + sbgzEsc(o.price) + '</td><td>' + sbgzEsc(o.qty) + filled + '</td><td>' + sbgzEsc(o.stop || '--') + '</td><td>' + sbgzEsc(o.target || '--') + '</td>' +
+          '<td>' + st + '</td><td><button type="button" class="sbgz-trade-btn sell"' + data + ' onclick="event.stopPropagation();sbgzOrderCancel(this)">Cancel</button></td></tr>';
+      }).join('');
+    })
+    .catch(function(e){ if(info) info.textContent = 'error: ' + e.message; });
+};
+
+window.sbgzOrderCancel = function(btn){
+  var sym = btn.dataset.sym, link = btn.dataset.link;
+  if(!confirm('Cancel your resting SBGZ order on ' + sym + '?')) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  sbgzTradeCall('/api/sbgz/cancel', { symbol: sym, link: link }, tradeTokenGet())
+    .then(function(x){ if(!x.d.ok) alert('Cancel failed: ' + (x.d.error || x.d.retMsg || ('HTTP ' + x.status))); })
+    .catch(function(e){ alert('Cancel failed: ' + e.message); })
+    .then(function(){ window.sbgzOrdersLoad(); });
 };
 
 // Chart Indicator States (Persisted in localStorage)
@@ -5923,17 +6210,13 @@ window.executeRadarTrade = function(sym, dir, ep, sp, tp, sit){
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Executing...';
   }
-  fetch('/api/cme_x5/execute', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      symbol: sym,
-      direction: dir,
-      entry_p: ep,
-      stop_p: sp,
-      target_p: tp,
-      situation: sit
-    })
+  window.tradePost('/api/cme_x5/execute', {
+    symbol: sym,
+    direction: dir,
+    entry_p: ep,
+    stop_p: sp,
+    target_p: tp,
+    situation: sit
   })
   .then(function(r){ return r.json(); })
   .then(function(res){
@@ -6136,16 +6419,12 @@ window.quickBybitOrder = function(dir){
     return;
   }
   if(!confirm('Submit ' + dir.toUpperCase() + ' Market Order for ' + qty + ' ' + cs + '?')) return;
-  fetch(apiUrl('/api/order/place'), {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      category: 'linear',
-      symbol: cs,
-      side: dir,
-      orderType: 'Market',
-      qty: qty
-    })
+  window.tradePost(apiUrl('/api/order/place'), {
+    category: 'linear',
+    symbol: cs,
+    side: dir,
+    orderType: 'Market',
+    qty: qty
   })
   .then(function(r){ return r.json(); })
   .then(function(d){
@@ -6165,17 +6444,13 @@ window.closePositionMarket = function(symbol, side, qty){
   if(!confirm('Close ' + symbol + ' position (' + qty + ' ' + dirText + ') at Market Price?')) return;
   var closeSide = isLong ? 'Sell' : 'Buy';
   var posSide = isLong ? 'Buy' : 'Sell';
-  fetch(apiUrl('/api/positions/close'), {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      symbol: symbol,
-      positionSide: posSide,
-      closeSide: closeSide,
-      side: posSide,
-      qty: qty,
-      category: 'linear'
-    })
+  window.tradePost(apiUrl('/api/positions/close'), {
+    symbol: symbol,
+    positionSide: posSide,
+    closeSide: closeSide,
+    side: posSide,
+    qty: qty,
+    category: 'linear'
   })
   .then(function(r){ return r.json(); })
   .then(function(d){
@@ -6203,17 +6478,13 @@ window.closeAllPositions = function(){
       }
       var promises = live.map(function(p){
         var isLong = (String(p.side).toUpperCase() === 'BUY' || String(p.side).toUpperCase() === 'LONG');
-        return fetch(apiUrl('/api/positions/close'), {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            symbol: p.symbol,
-            positionSide: isLong ? 'Buy' : 'Sell',
-            closeSide: isLong ? 'Sell' : 'Buy',
-            side: isLong ? 'Buy' : 'Sell',
-            qty: p.size || p.qty,
-            category: 'linear'
-          })
+        return window.tradePost(apiUrl('/api/positions/close'), {
+          symbol: p.symbol,
+          positionSide: isLong ? 'Buy' : 'Sell',
+          closeSide: isLong ? 'Sell' : 'Buy',
+          side: isLong ? 'Buy' : 'Sell',
+          qty: p.size || p.qty,
+          category: 'linear'
         });
       });
       Promise.all(promises).then(function(){
@@ -6225,14 +6496,10 @@ window.closeAllPositions = function(){
 window.setLeveragePrompt = function(sym){
   var lev = prompt('Adjust Leverage for ' + sym + ' (e.g. 10, 20, 50):', '10');
   if(!lev) return;
-  fetch('/api/order/place', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      category: 'linear',
-      symbol: sym,
-      leverage: parseFloat(lev)
-    })
+  window.tradePost('/api/order/place', {
+    category: 'linear',
+    symbol: sym,
+    leverage: parseFloat(lev)
   }).then(function(){ fPos(); });
 };
 
