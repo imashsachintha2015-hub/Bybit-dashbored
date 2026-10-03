@@ -863,6 +863,20 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .bsi-btn.active .bsi-dot.fvg{background:#38bdf8;box-shadow:0 0 6px #38bdf8}
 .bsi-btn.active .bsi-dot.vol{background:#a855f7;box-shadow:0 0 6px #a855f7}
 .bsi-btn.active .bsi-dot.sbgz{background:#14b8a6;box-shadow:0 0 6px #14b8a6}
+.bsi-btn.active .bsi-dot.cmex5{background:#38bdf8;box-shadow:0 0 6px #38bdf8}
+.bsi-btn.active .bsi-dot.champ{background:#fbbf24;box-shadow:0 0 6px #fbbf24}
+/* CME-X5 / Championship chart indicators: stack of info panels on the Fast Canvas chart */
+.xm-stack{position:absolute;top:8px;right:64px;z-index:6;display:flex;flex-direction:column;gap:6px;max-width:min(390px,52%)}
+.xm-panel{background:rgba(8,9,15,.9);border:1px solid rgba(255,255,255,.09);border-radius:6px;padding:7px 9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.45;color:#cbd5e1;box-shadow:0 4px 18px rgba(0,0,0,.45)}
+.xm-panel .xm-h{display:flex;justify-content:space-between;gap:8px;cursor:pointer;font-weight:700;color:#e2e8f0;margin-bottom:3px}
+.xm-panel .xm-h small{font-weight:600;text-align:right}
+.xm-panel .xm-r{display:flex;gap:6px;margin-top:1px}
+.xm-panel .xm-r span:first-child{color:#64748b;flex:0 0 92px}
+.xm-panel .up{color:#10b981}.xm-panel .dn{color:#ef4444}.xm-panel .warn{color:#f59e0b}.xm-panel .mut{color:#64748b}
+.xm-panel .xm-tog{cursor:pointer}.xm-panel .xm-link{color:#7dd3fc;text-decoration:underline dotted}
+.xm-panel .xm-f{margin-top:5px;color:#64748b;font-size:9.5px}
+.xm-panel.min .xm-r,.xm-panel.min .xm-f{display:none}
+@media (max-width:640px){.xm-stack{left:8px;right:auto;top:46px;max-width:74%}.xm-panel{font-size:9.5px}.xm-panel .xm-r span:first-child{flex-basis:70px}}
 /* SBGZ (strong-break golden zone + trend map) info panel on the Fast Canvas chart */
 .sbgz-panel{position:absolute;top:8px;left:8px;z-index:6;max-width:min(360px,78%);background:rgba(8,9,15,.88);border:1px solid rgba(255,255,255,.09);border-radius:6px;padding:7px 9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.45;color:#cbd5e1;box-shadow:0 4px 18px rgba(0,0,0,.45)}
 .sbgz-panel .sbgz-h{display:flex;justify-content:space-between;gap:8px;cursor:pointer;font-weight:700;color:#e2e8f0;margin-bottom:3px}
@@ -2288,6 +2302,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="cind on" id="iFVG" onclick="toggleChartIndicator('fvg')">FVG</button>
               <button class="cind on" id="iVOL" onclick="toggleChartIndicator('vol')">VOL</button>
               <button class="cind" id="iSBGZ" onclick="toggleChartIndicator('sbgz')" title="Strong-Break Golden Zone + trend map (draws on the Bybit Fast Canvas chart)">SBGZ</button>
+              <button class="cind" id="iCMEX5" onclick="toggleChartIndicator('cmex5')" title="CME-X5 Model B: S2 POC reclaim + S7 EMA continuation, with the agent verdicts (15m, Bybit Fast Canvas chart)">CME-X5</button>
+              <button class="cind" id="iCHAMP" onclick="toggleChartIndicator('champ')" title="Championship Dual-Regime: bull 21-EMA springboard / bear exhaustion setups by the BTC regime (15m, Bybit Fast Canvas chart)">CHAMP</button>
               <button class="cind" onclick="fitChartScale()" title="Auto Scale Fit"><i class="fa-solid fa-arrows-to-eye"></i> Fit</button>
             </div>
             <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
@@ -2368,6 +2384,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <button class="bsi-btn active" id="btnIndFVG" onclick="toggleChartIndicator('fvg')"><span class="bsi-dot fvg"></span> FVG</button>
             <button class="bsi-btn active" id="btnIndVOL" onclick="toggleChartIndicator('vol')"><span class="bsi-dot vol"></span> VOL</button>
             <button class="bsi-btn" id="btnIndSBGZ" onclick="toggleChartIndicator('sbgz')"><span class="bsi-dot sbgz"></span> SBGZ</button>
+            <button class="bsi-btn" id="btnIndCMEX5" onclick="toggleChartIndicator('cmex5')"><span class="bsi-dot cmex5"></span> CME-X5</button>
+            <button class="bsi-btn" id="btnIndCHAMP" onclick="toggleChartIndicator('champ')"><span class="bsi-dot champ"></span> CHAMP</button>
             <button class="bsi-btn fit-btn" onclick="fitChartScale()"><i class="fa-solid fa-arrows-to-eye"></i> Fit Scale</button>
           </div>
 
@@ -4253,11 +4271,12 @@ window.showToast = function(msg){
 var sbgzSeries = null, sbgzPriceLines = [], sbgzKey = null;
 window._fvgMarkers = window._fvgMarkers || [];
 window._sbgzMarkers = window._sbgzMarkers || [];
+window._xmMarkers = window._xmMarkers || { cmex5: [], champ: [] };
 
-// FVG and SBGZ markers share the candle series' single marker set, so both always go through here
+// FVG, SBGZ, CME-X5 and Championship markers share the candle series' single marker set, so all go through here
 window.applyChartMarkers = function(){
   if(!candleSeries) return;
-  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || []);
+  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || [], window._xmMarkers.cmex5 || [], window._xmMarkers.champ || []);
   m.sort(function(a, b){ return a.time - b.time; });
   try{
     if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
@@ -4928,13 +4947,176 @@ window.sbgzHistRender = function(){
   }).join('') + (d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');
 };
 
+// ── CME-X5 (Model B) and Championship Dual-Regime chart indicators ────────────────────────────────────────────────
+// The engines' own signals on the 15m candles (/api/ind/cmex5, /api/ind/champ -> backend_lib/xmodes.py), each with the
+// outcome the engine's position manager would have had (stop, target, break-even / +0.5R locks, 12 h timeout, 14 bps
+// fees). Arrows = signal, circles = exit with R after fees, grey dots = CME-X5 setups its agents rejected.
+var XM = {
+  cmex5: { name: 'CME-X5', tag: 'X5', long: '#38bdf8', short: '#fb923c', lines: [], key: null },
+  champ: { name: 'Championship', tag: 'CH', long: '#fbbf24', short: '#c084fc', lines: [], key: null }
+};
+window._xmState = XM;     // read-only view for tests / the console
+
+function xmShowRej(){ try{ return localStorage.getItem('xm_rej') !== '0'; }catch(e){ return true; } }
+
+window.xmClear = function(mode, keepPanel){
+  var X = XM[mode];
+  clearTimeout(X.timer);
+  X.lines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} });
+  X.lines = [];
+  X.key = null; X.last = null;
+  if(window._xmMarkers[mode] && window._xmMarkers[mode].length){ window._xmMarkers[mode] = []; window.applyChartMarkers(); }
+  var p = document.getElementById('xmPanel_' + mode);
+  if(p && !keepPanel) p.style.display = 'none';
+};
+
+window.xmLoad = function(mode, cs, tf, refresh){
+  var X = XM[mode];
+  if(!window.indicatorState || !window.indicatorState[mode] || chartEngine !== 'bybit') return;
+  initLwChart();
+  if(!lwChart || !candleSeries) return;
+  clearTimeout(X.timer);
+  if(String(tf) !== '15'){                                   // both engines trade the 15m chart only
+    window.xmClear(mode, true);
+    xmPanel(mode, { wrongTf: true }, cs, tf);
+    return;
+  }
+  var key = cs + '|' + tf;
+  if(!refresh) xmPanel(mode, { loading: true }, cs, tf);
+  var again = function(){ X.timer = setTimeout(function(){ window.xmLoad(mode, cs, tf, true); }, 60000); };
+  fetch('/api/ind/' + mode + '?symbol=' + encodeURIComponent(cs) + '&bars=1000')
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      var nowCs = S.replace('BYBIT:','').replace('.P','');
+      if(!window.indicatorState[mode] || chartEngine !== 'bybit' || nowCs !== cs || String(T) !== String(tf)) return;   // user moved on
+      if(!d || !d.ok){
+        xmPanel(mode, { error: (d && d.error) || 'no answer from /api/ind/' + mode + ' (server not updated yet?)' }, cs, tf);
+      } else {
+        X.last = d;
+        xmDraw(mode, d, key !== X.key);
+        X.key = key;
+        xmPanel(mode, d, cs, tf);
+      }
+      again();
+    })
+    .catch(function(e){ xmPanel(mode, { error: String(e) }, cs, tf); again(); });
+};
+
+function xmDraw(mode, d, resetView){
+  var X = XM[mode], cData = [], vData = [];
+  (d.candles || []).forEach(function(c){
+    var ts = Math.floor(c.start / 1000);
+    cData.push({ time: ts, open: c.open, high: c.high, low: c.low, close: c.close });
+    vData.push({ time: ts, value: c.volume, color: c.close >= c.open ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' });
+  });
+  if(!cData.length) return;
+  // show the same ~1000 candles the engine replay used (the plain chart loads only 120)
+  currentCandles = d.candles;
+  candleSeries.setData(cData);
+  if(volumeSeries && window.indicatorState.vol) volumeSeries.setData(vData);
+  if(window.indicatorState.ema){
+    if(ema21Series) ema21Series.setData(calcEMA(cData, 21));
+    if(ema50Series) ema50Series.setData(calcEMA(cData, 50));
+  }
+  var rej = xmShowRej(), mk = [], sigs = d.signals || [];
+  var fmtR = function(r){ return (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(1) + 'R'; };
+  sigs.forEach(function(s){
+    var L = s.side === 'LONG';
+    if(s.status === 'REJECTED'){
+      if(rej) mk.push({ time: s.t, position: L ? 'belowBar' : 'aboveBar', color: '#64748b', shape: 'circle', size: 0.5, text: '' });
+      return;
+    }
+    mk.push({ time: s.t, position: L ? 'belowBar' : 'aboveBar', color: L ? X.long : X.short, shape: L ? 'arrowUp' : 'arrowDown',
+              text: X.tag + ' ' + s.kind + ' ' + (L ? 'L' : 'S') + (s.live ? ' LIVE' : '') });
+    if(s.t_exit != null && s.R != null){
+      var win = s.R > 0.02, flat = Math.abs(s.R) <= 0.02;
+      mk.push({ time: s.t_exit, position: (L === win) ? 'aboveBar' : 'belowBar', color: flat ? '#94a3b8' : win ? '#10b981' : '#ef4444',
+                shape: 'circle', text: s.status + ' ' + fmtR(s.R) });
+    }
+  });
+  window._xmMarkers[mode] = mk;
+  window.applyChartMarkers();
+  // price lines: the setup forming now and any trade still running
+  X.lines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} });
+  X.lines = [];
+  var LS = LightweightCharts.LineStyle;
+  var addPL = function(price, color, style, width, title){
+    if(price == null || !isFinite(price)) return;
+    X.lines.push(candleSeries.createPriceLine({ price: price, color: color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title: title + ' ' + sbgzFmt(price) }));
+  };
+  sigs.forEach(function(s){
+    if(s.status !== 'LIVE' && s.status !== 'OPEN' && !(s.status === 'REJECTED' && s.live)) return;
+    var L = s.side === 'LONG', grey = s.status === 'REJECTED', t = X.tag + ' ' + s.kind + ' ' + (L ? 'L' : 'S') + (grey ? ' (rejected)' : '');
+    var solid = s.status === 'OPEN' ? LS.Solid : LS.Dashed;
+    addPL(s.entry, grey ? '#64748b' : (L ? X.long : X.short), solid, 2, t);
+    addPL(s.stop, grey ? '#64748b' : '#ef4444', LS.Dashed, 1, X.tag + ' SL');
+    addPL(s.target, grey ? '#64748b' : '#10b981', LS.Dashed, 1, X.tag + ' TP');
+    if(s.tp1 != null && !grey) addPL(s.tp1, '#10b981', LS.Dotted, 1, X.tag + ' TP1');
+  });
+  if(resetView){
+    var n = cData.length;
+    try{ lwChart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 220), to: n + 4 }); }catch(e){}
+  }
+}
+
+function xmPanel(mode, d, cs, tf){
+  var vp = document.getElementById('chartViewport');
+  if(!vp) return;
+  var X = XM[mode], stack = document.getElementById('xmStack');
+  if(!stack){
+    stack = document.createElement('div');
+    stack.id = 'xmStack';
+    stack.className = 'xm-stack';
+    vp.appendChild(stack);
+  }
+  var el = document.getElementById('xmPanel_' + mode);
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'xmPanel_' + mode;
+    el.className = 'xm-panel';
+    el.style.order = mode === 'cmex5' ? '1' : '2';
+    var savedMin = null;
+    try{ savedMin = localStorage.getItem('xm_min_' + mode); }catch(e){}
+    if(savedMin !== '0') el.classList.add('min');     // collapsed to a one-line status until the user opens it
+    el.addEventListener('click', function(e){
+      if(e.target.closest('.xm-tog')){
+        try{ localStorage.setItem('xm_rej', xmShowRej() ? '0' : '1'); }catch(err){}
+        var last = XM[mode].last;
+        if(last){ xmDraw(mode, last, false); xmPanel(mode, last, cs2(), tf2()); }
+        return;
+      }
+      if(!e.target.closest('.xm-h')) return;
+      el.classList.toggle('min');
+      try{ localStorage.setItem('xm_min_' + mode, el.classList.contains('min') ? '1' : '0'); }catch(err){}
+    });
+    stack.appendChild(el);
+  }
+  el.style.display = 'block';
+  var tfLbl = tf === 'D' ? '1D' : tf === '60' ? '1h' : tf === '240' ? '4h' : tf + 'm';
+  var sub = d.loading ? 'loading…' : d.error ? 'error' : d.wrongTf ? '15m only' : ((d.panel && d.panel.headline) || (mode === 'cmex5' ? 'Model B' : 'Dual-Regime'));
+  var subCls = (!d.loading && !d.error && !d.wrongTf && d.panel && d.panel.headline_c) || 'mut';
+  var head = '<div class="xm-h"><span>' + sbgzEsc(X.name) + ' · ' + sbgzEsc(cs) + ' ' + sbgzEsc(tfLbl) + '</span><small class="' + subCls + '">' + sbgzEsc(sub) + ' ▾</small></div>';
+  var row = function(l, v, c){ return '<div class="xm-r"><span>' + sbgzEsc(l) + '</span><span class="' + (c || '') + '">' + sbgzEsc(v) + '</span></div>'; };
+  if(d.loading){ el.innerHTML = head + row('status', 'replaying ~10 days of the engine on 1000 candles…', 'mut'); return; }
+  if(d.error){ el.innerHTML = head + row('status', d.error, 'warn'); return; }
+  if(d.wrongTf){ el.innerHTML = head + row('Timeframe', X.name + ' trades the 15m chart: switch the chart to 15m to see its signals.', 'warn'); return; }
+  var html = head + (d.panel.rows || []).map(function(r){ return row(r.l, r.v, r.c); }).join('');
+  if(mode === 'cmex5') html += '<div class="xm-r xm-tog"><span>Grey dots</span><span class="xm-link">setups the agents rejected: ' + (xmShowRej() ? 'shown' : 'hidden') + ' (tap)</span></div>';
+  html += '<div class="xm-f">▲▼ signal · ● exit with R after 14 bps fees · stops, targets and locks as the engine\'s position manager. ' + sbgzEsc(d.panel.reference || '') + '</div>';
+  el.innerHTML = html;
+}
+function cs2(){ return S.replace('BYBIT:','').replace('.P',''); }
+function tf2(){ return String(T); }
+
 // Chart Indicator States (Persisted in localStorage)
 window.indicatorState = {
   ema: localStorage.getItem('ind_ema') !== '0',
   poc: localStorage.getItem('ind_poc') !== '0',
   fvg: localStorage.getItem('ind_fvg') !== '0',
   vol: localStorage.getItem('ind_vol') !== '0',
-  sbgz: localStorage.getItem('ind_sbgz') === '1'
+  sbgz: localStorage.getItem('ind_sbgz') === '1',
+  cmex5: localStorage.getItem('ind_cmex5') === '1',
+  champ: localStorage.getItem('ind_champ') === '1'
 };
 
 // Auto Scale Fit & Reset Zoom
@@ -4951,11 +5133,23 @@ window.fitChartScale = function(){
 // Toggle Sub-indicators with zero delay reactive chart update
 window.toggleChartIndicator = function(name){
   if(!window.indicatorState){
-    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false };
+    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false, cmex5: false, champ: false };
   }
   window.indicatorState[name] = !window.indicatorState[name];
   localStorage.setItem('ind_' + name, window.indicatorState[name] ? '1' : '0');
   window.updateIndicatorButtonsUI();
+
+  // CME-X5 and Championship draw on the Lightweight (Bybit Fast Canvas) chart, like SBGZ
+  if(name === 'cmex5' || name === 'champ'){
+    if(window.indicatorState[name]){
+      if(chartEngine !== 'bybit'){ window.toggleChartEngine(); }
+      else { window.xmLoad(name, S.replace('BYBIT:','').replace('.P',''), T, false); }
+    } else {
+      window.xmClear(name);
+    }
+    showToast(XM[name].name + (window.indicatorState[name] ? ' Enabled (Fast Canvas chart, 15m)' : ' Disabled'));
+    return;
+  }
 
   // SBGZ draws on the Lightweight (Bybit Fast Canvas) chart; the embedded TradingView widget cannot run custom scripts
   if(name === 'sbgz'){
@@ -5055,7 +5249,7 @@ window.toggleChartIndicator = function(name){
 
 window.updateIndicatorButtonsUI = function(){
   if(!window.indicatorState) return;
-  ['ema', 'poc', 'fvg', 'vol', 'sbgz'].forEach(function(k){
+  ['ema', 'poc', 'fvg', 'vol', 'sbgz', 'cmex5', 'champ'].forEach(function(k){
     var on = !!window.indicatorState[k];
     var mobBtn = document.getElementById('btnInd' + k.toUpperCase());
     if(mobBtn){
@@ -5450,6 +5644,7 @@ function loadLwChartData(cs, tf){
       var fvgMarkers = showFVG ? calcFVGMarkers(cData, dp) : [];
       window._fvgMarkers = fvgMarkers;
       window._sbgzMarkers = [];            // new candle set: SBGZ markers are redrawn by sbgzLoad below
+      window._xmMarkers = { cmex5: [], champ: [] };    // ... and CME-X5 / Championship ones by xmLoad
       window.applyChartMarkers();
       if(fvgMarkers.length){
         var lastM = fvgMarkers[fvgMarkers.length - 1];
@@ -5479,6 +5674,12 @@ function loadLwChartData(cs, tf){
       // 5. SBGZ (strong-break golden zone + trend map): loads ~1000 bars from /api/sbgz and redraws on top
       if(window.indicatorState && window.indicatorState.sbgz) window.sbgzLoad(cs, tfVal, false);
       else if(window.sbgzClear) window.sbgzClear();
+
+      // 6. CME-X5 and Championship: the engines' signals and replayed outcomes on the 15m chart (/api/ind/*)
+      ['cmex5', 'champ'].forEach(function(m){
+        if(window.indicatorState && window.indicatorState[m]) window.xmLoad(m, cs, tfVal, false);
+        else if(window.xmClear) window.xmClear(m);
+      });
     })
     .catch(function(err){ console.warn('[Chart] Error loading candles:', err); });
 }
@@ -5514,6 +5715,7 @@ function loadChart(ns,nt){
   } else {
     if(lwWrap) lwWrap.style.display = 'none';
     if(window.sbgzClear) window.sbgzClear();       // SBGZ only exists on the Fast Canvas chart
+    if(window.xmClear){ window.xmClear('cmex5'); window.xmClear('champ'); }     // ... and so do CME-X5 / Championship
     if(tvWrap){
       tvWrap.style.display = 'block';
       // Prevent resetting widget and losing drawings on tick/refresh when symbol & timeframe haven't changed
@@ -5715,7 +5917,7 @@ function cTick(cs){
 
 document.getElementById('srow').addEventListener('click',function(e){var b=e.target.closest('.csym');if(b&&b.dataset.sym!==S)loadChart(b.dataset.sym,T)});
 document.getElementById('trow').addEventListener('click',function(e){var b=e.target.closest('.ctf');if(b&&b.dataset.tf&&b.dataset.tf!==T)loadChart(S,b.dataset.tf)});
-document.querySelectorAll('.cind').forEach(function(c){if(c.id==='iSBGZ')return;c.addEventListener('click',function(){c.classList.toggle('on');loadChart(S,T)})});
+document.querySelectorAll('.cind').forEach(function(c){if(c.id==='iSBGZ'||c.id==='iCMEX5'||c.id==='iCHAMP')return;c.addEventListener('click',function(){c.classList.toggle('on');loadChart(S,T)})});
 
 function g(id){return document.getElementById(id)}function sv(id,v){var e=g(id);if(e)e.textContent=v}
 
@@ -6759,7 +6961,7 @@ document.addEventListener('visibilitychange', function(){
 });
 
 // SBGZ lives on the Fast Canvas chart: open on that engine when the user left SBGZ switched on
-if(window.indicatorState && window.indicatorState.sbgz && chartEngine !== 'bybit') window.toggleChartEngine();
+if(window.indicatorState && (window.indicatorState.sbgz || window.indicatorState.cmex5 || window.indicatorState.champ) && chartEngine !== 'bybit') window.toggleChartEngine();
 else loadChart(S,T);
 setTimeout(function(){ if(window.sbgzRadarLoad) window.sbgzRadarLoad(false); }, 2500);   // SBGZ radar card (Radar view)
 })();

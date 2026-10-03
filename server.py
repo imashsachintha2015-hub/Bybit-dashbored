@@ -1538,6 +1538,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "error": f"sbgz radar failed: {e}"})
             return
 
+        # 6a-0a. API: CME-X5 (Model B) and Championship Dual-Regime as chart indicators (backend_lib/xmodes.py):
+        # the engines' own signals on the 15m candles with the executor's replayed outcomes
+        _ind = urllib.parse.urlparse(self.path).path
+        if _ind in ("/api/ind/cmex5", "/api/ind/champ"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            symbol = re.sub(r"[^A-Z0-9]", "", (q.get("symbol") or ["BTCUSDT"])[0].upper()) or "BTCUSDT"
+            try:
+                bars = int((q.get("bars") or ["1000"])[0])
+            except Exception:
+                bars = 1000
+            try:
+                from backend_lib import xmodes as _xm
+                self._send_json(200, _xm.get("cmex5" if _ind.endswith("cmex5") else "champ", symbol, bars))
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"indicator failed: {e}"})
+            return
+
         # 6a-0b. API: SBGZ radar history - every setup the radar showed and what happened to it (WIN / LOSS / OPEN / NO FILL)
         if self.path.startswith("/api/sbgz/history"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
