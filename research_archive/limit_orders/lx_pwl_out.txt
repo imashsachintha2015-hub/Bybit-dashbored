@@ -1,0 +1,22 @@
+[d4] parity with scen2 PWL events: 3397 vs 3361, same set False; gross R checked 6574, mismatches 0
+[d5] parity with scen2 PWL events: 2774 vs 2774, same set True; gross R checked 5476, mismatches 0
+
+=== previous-week-low sweep + reclaim, 36 configs ===
+  MKT    fill 100.0% | 2024-26 avg over 12 configs: before fees +0.115R, after -0.016R | 2021-24: before +0.093R, after -0.014R
+  RETEST fill  68.5% | 2024-26 avg over 12 configs: before fees -0.004R, after -0.138R | 2021-24: before -0.088R, after -0.200R
+  LMT25  fill  82.2% | 2024-26 avg over 12 configs: before fees +0.020R, after -0.089R | 2021-24: before +0.014R, after -0.073R
+chance check: DEV t>=2: 0 (luck ~0.8)
+
+frozen on DEV (best per mode)            DEV            | VAL            | FINAL                | UNSEEN coins         | 2021-24 (d5)
+  MKT|with1D|btcAligned|PWH              +0.363 t=+1.2 | -0.291 t=-1.0 | -0.171 t=-0.6 n= 97 | +0.451 t=+1.3 n= 264 | -0.086 t=-0.6 n=554 | fail
+      win 19% PF 1.30 | $10 final+unseen at 1% -> $15.23 (296 trades, DD -30%) | 2021-24 at 1% -> $5.97 (430 trades, DD -54%), at 2% -> $2.42 (430 trades, DD -83%)
+  RETEST|with1D|btcAligned|PWH           +0.360 t=+0.8 | -0.121 t=-0.3 | +0.106 t=+0.3 n= 63 | +0.707 t=+1.0 n= 175 | -0.356 t=-2.2 n=356 | fail
+      win 11% PF 1.53 | $10 final+unseen at 1% -> $20.87 (216 trades, DD -59%) | 2021-24 at 1% -> $2.96 (327 trades, DD -74%), at 2% -> $0.95 (199 trades, DD -91%)
+  LMT25|with1D|btcAligned|PWH            +0.038 t=+0.1 | +0.082 t=+0.1 | +0.117 t=+0.3 n= 79 | +0.413 t=+1.1 n= 216 | -0.129 t=-0.8 n=463 | fail
+      win 15% PF 1.35 | $10 final+unseen at 1% -> $14.66 (258 trades, DD -42%) | 2021-24 at 1% -> $4.32 (392 trades, DD -69%), at 2% -> $1.31 (392 trades, DD -92%)
+
+=== AMD-FVG (corrected fill), limit entry: take-profit as taker (old model, 8 bps total) vs as maker limit (2 bps, needs trade-through) ===
+  AMD_NO_GATE  TP taker: n=4162 +0.028R t=+0.8 | win 38% PF 1.04 | $10 at 1% -> $7.37 (2287 trades, DD -71%) | 2021:+0.09 2022:+0.11 2023:-0.14 2024:-0.09 2025:+0.23 2026:-0.00
+  AMD_NO_GATE  TP maker: n=4162 +0.029R t=+0.8 | win 38% PF 1.05 | $10 at 1% -> $7.91 (2285 trades, DD -70%) | 2021:+0.09 2022:+0.11 2023:-0.13 2024:-0.08 2025:+0.23 2026:-0.00
+  AMD_PRIMARY  TP taker: n=2926 +0.057R t=+1.3 | win 39% PF 1.09 | $10 at 1% -> $12.31 (1857 trades, DD -69%) | 2021:+0.06 2022:+0.17 2023:-0.13 2024:-0.15 2025:+0.31 2026:+0.12
+  AMD_PRIMARY  TP maker: n=2926 +0.058R t=+1.3 | win 39% PF 1.09 | $10 at 1% -> $13.03 (1856 trades, DD -69%) | 2021:+0.06 2022:+0.17 2023:-0.13 2024:-0.15 2025:+0.31 2026:+0.12

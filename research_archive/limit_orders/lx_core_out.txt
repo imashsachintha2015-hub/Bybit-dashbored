@@ -1,0 +1,5 @@
+parity market mode vs res.py: 7200 trades, 0 mismatches
+S1 market, TP touched at 101.51 >= 101.5: (1.5, 0.0014)
+S1 maker, 101.51 < 101.52 -> not filled, time-out mark: (np.float64(0.05000000000001137), 0.0014)
+limit entry, fill bar hits stop -> -1R, fee maker+taker: (-1.0, 0.0009, 0)
+limit_fill: bar1 low 99.96 (needs <= 99.95) no fill, bar2 low 99.9 fill -> 2
