@@ -1,0 +1,23 @@
+=== TRUTH 3 (Nirodha) on DEV: does removing the cause stop the loss? (15m, design coins, first half) ===
+parity: baseline DEV stats identical to resonance_test/res_an.py for all 6 frozen configs: True
+  choch agree>=5 adx>=25 ladder entr base -0.003R (n=525) | F1 limit +0.005R (n=499) | F3 confirm -0.008R (n=304)   [= video-like]
+  choch agree>=5 adx>=25 1.5R   entr base +0.003R (n=557) | F1 limit +0.016R (n=528) | F3 confirm +0.003R (n=316)
+  choch agree>=5 adx>=25 2.25R  entr base +0.023R (n=507) | F1 limit +0.039R (n=487) | F3 confirm -0.007R (n=292)
+  ema   agree>=5 adx>=25 ladder entr base -0.201R (n=646) | F1 limit -0.214R (n=532) | F3 confirm -0.130R (n=339) | F2 skip BTC flat -0.193R (n=639)
+  ema   agree>=5 adx>=25 1.5R   entr base -0.176R (n=639) | F1 limit -0.214R (n=533) | F3 confirm -0.102R (n=332) | F2 skip BTC flat -0.169R (n=633)
+  ema   agree>=5 adx>= 0 2.25R  entr base -0.085R (n=1173) | F1 limit -0.115R (n=1125) | F3 confirm -0.027R (n=731) | F2 skip BTC flat -0.078R (n=1161)
+fix helped on DEV in: F1 3/6, F2 3/3, F3 4/6 -> kept ['F2', 'F3']  (mean change F1 -0.007R, F2 +0.007R, F3 +0.028R)
+
+=== TRUTH 4 (Magga) on 15m: frozen configs with the kept fixes (entry=conf, skip-BTC-flat for EMA=True) -> VAL, then ONE LOOK ===
+  choch agree>=5 adx>=25 ladder entry=conf                   VAL -0.084R (n=184) | FINAL -0.034R t=-0.3 (n=175) | UNSEEN -0.093R t=-1.6 (n=688) qtrs -0.27 +0.06 -0.13 -0.15 | win 49% PF 0.84 | fail
+      $10 at 1% -> $5.71 (582 trades, max DD -46%) | at 2% -> $2.99 (582 trades, max DD -73%)
+  choch agree>=5 adx>=25 1.5R   entry=conf                   VAL -0.063R (n=194) | FINAL -0.060R t=-0.5 (n=189) | UNSEEN -0.091R t=-1.4 (n=708) qtrs -0.30 +0.08 -0.12 -0.17 | win 42% PF 0.85 | fail
+      $10 at 1% -> $4.44 (613 trades, max DD -58%) | at 2% -> $1.77 (613 trades, max DD -84%)
+  choch agree>=5 adx>=25 2.25R  entry=conf                   VAL -0.076R (n=181) | FINAL +0.013R t=+0.1 (n=174) | UNSEEN -0.073R t=-0.9 (n=675) qtrs -0.27 +0.08 -0.11 -0.13 | win 37% PF 0.91 | fail
+      $10 at 1% -> $5.43 (563 trades, max DD -51%) | at 2% -> $2.58 (563 trades, max DD -78%)
+  ema   agree>=5 adx>=25 ladder entry=conf skipBTCflat       VAL +0.029R (n=170) | FINAL -0.063R t=-0.6 (n=149) | UNSEEN +0.007R t=+0.1 (n=665) qtrs -0.07 +0.12 +0.00 -0.10 | win 54% PF 0.99 | fail
+      $10 at 1% -> $7.70 (662 trades, max DD -45%) | at 2% -> $5.26 (662 trades, max DD -72%)
+  ema   agree>=5 adx>=25 1.5R   entry=conf skipBTCflat       VAL +0.060R (n=168) | FINAL -0.012R t=-0.1 (n=149) | UNSEEN +0.005R t=+0.1 (n=671) qtrs -0.07 +0.14 +0.02 -0.15 | win 47% PF 1.00 | fail
+      $10 at 1% -> $7.74 (672 trades, max DD -47%) | at 2% -> $5.15 (672 trades, max DD -74%)
+  ema   agree>=5 adx>= 0 2.25R  entry=conf skipBTCflat       VAL +0.019R (n=354) | FINAL -0.115R t=-1.2 (n=371) | UNSEEN -0.086R t=-1.4 (n=1574) qtrs -0.22 +0.06 -0.11 -0.16 | win 35% PF 0.88 | fail
+      $10 at 1% -> $3.36 (1204 trades, max DD -77%) | at 2% -> $0.97 (878 trades, max DD -92%)

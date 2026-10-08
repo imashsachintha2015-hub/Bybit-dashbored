@@ -1,0 +1,62 @@
+
+######## AMD_NO_GATE (2021-06 .. 2026-09, all coins, corrected fill rule) ########
+TRUTH 1 - DUKKHA (the loss, measured):
+  gross +0.065R - fees 0.031R - funding 0.006R = net +0.028R  (n=4162, median stop 2.97%)
+  stopped 59%: straight to stop (MFE<0.3R) 45% | 0.3-1R first 37% | were +1R or more first 18%
+TRUTH 2 - SAMUDAYA (the cause): the gap is run through on the first touch
+  touch bar closed back above the gap bottom (held)    n= 2896 avg +0.146R, stopped 54%, straight-to-stop 17%
+  touch bar closed below the gap bottom (failed)       n= 1266 avg -0.243R, stopped 70%, straight-to-stop 48%
+TRUTH 3/4 path A - wait for the touch bar to close, enter only if the gap held (market, 14 bps):
+  baseline: resting limit (corrected)          n= 4162 avg +0.028R t=+0.8 win  38% | $10 at 1% -> $   7.37 (2287 trades, DD -71%) | at 2% -> $   3.12 (2287 trades, DD -93%)
+  confirm-at-close entry                       n= 2946 avg +0.006R t=+0.2 win  39% | $10 at 1% -> $   9.17 (1792 trades, DD -58%) | at 2% -> $   5.47 (1792 trades, DD -85%)
+  by year (avg net R, n):  limit | confirm
+    2021: +0.086 (365) | +0.115 (237)
+    2022: +0.114 (594) | +0.166 (433)
+    2023: -0.137 (727) | -0.203 (547)
+    2024: -0.085 (940) | -0.063 (653)
+    2025: +0.227 (870) | +0.219 (579)
+    2026: -0.004 (666) | -0.110 (497)
+TRUTH 3/4 path B - walk-forward cause filter (learned only from trades closed before each test year):
+    limit   test 2023: causes learned before 2023: none | unfiltered -0.137R (n=727) -> filtered -0.137R (n=727)
+    limit   test 2024: causes learned before 2024: [('btc_24h', 2, -0.192), ('relvol', 2, -0.218)] | unfiltered -0.085R (n=940) -> filtered -0.179R (n=456)
+    limit   test 2025: causes learned before 2025: none | unfiltered +0.227R (n=870) -> filtered +0.227R (n=870)
+    limit   test 2026: causes learned before 2026: [('weekday', 2, -0.253)] | unfiltered -0.004R (n=666) -> filtered -0.028R (n=575)
+  limit: walk-forward 2023-26, unfiltered      n= 3203 avg +0.005R t=+0.1 win  37% | $10 at 1% -> $   5.62 (1682 trades, DD -71%) | at 2% -> $   0.96 (825 trades, DD -91%)
+  limit: walk-forward 2023-26, filtered        n= 2628 avg +0.000R t=+0.0 win  37% | $10 at 1% -> $   3.50 (1483 trades, DD -76%) | at 2% -> $   0.98 (595 trades, DD -91%)
+    confirm test 2023: causes learned before 2023: [('vol_regime', 1, -0.313)] | unfiltered -0.203R (n=547) -> filtered -0.135R (n=399)
+    confirm test 2024: causes learned before 2024: none | unfiltered -0.063R (n=653) -> filtered -0.063R (n=653)
+    confirm test 2025: causes learned before 2025: [('vol_regime', 1, -0.22), ('relvol', 0, -0.17)] | unfiltered +0.219R (n=579) -> filtered +0.222R (n=237)
+    confirm test 2026: causes learned before 2026: [('vol_regime', 1, -0.174)] | unfiltered -0.110R (n=497) -> filtered -0.133R (n=277)
+  confirm: walk-forward 2023-26, unfiltered    n= 2276 avg -0.035R t=-0.8 win  38% | $10 at 1% -> $   5.55 (1328 trades, DD -58%) | at 2% -> $   2.25 (1328 trades, DD -85%)
+  confirm: walk-forward 2023-26, filtered      n= 1566 avg -0.051R t=-1.1 win  37% | $10 at 1% -> $   6.73 (1018 trades, DD -49%) | at 2% -> $   3.50 (1018 trades, DD -76%)
+
+######## AMD_PRIMARY (2021-06 .. 2026-09, all coins, corrected fill rule) ########
+TRUTH 1 - DUKKHA (the loss, measured):
+  gross +0.093R - fees 0.031R - funding 0.006R = net +0.057R  (n=2926, median stop 2.96%)
+  stopped 59%: straight to stop (MFE<0.3R) 46% | 0.3-1R first 36% | were +1R or more first 18%
+TRUTH 2 - SAMUDAYA (the cause): the gap is run through on the first touch
+  touch bar closed back above the gap bottom (held)    n= 2008 avg +0.193R, stopped 53%, straight-to-stop 17%
+  touch bar closed below the gap bottom (failed)       n=  918 avg -0.242R, stopped 71%, straight-to-stop 48%
+TRUTH 3/4 path A - wait for the touch bar to close, enter only if the gap held (market, 14 bps):
+  baseline: resting limit (corrected)          n= 2926 avg +0.057R t=+1.3 win  39% | $10 at 1% -> $  12.31 (1857 trades, DD -69%) | at 2% -> $   9.16 (1857 trades, DD -91%)
+  confirm-at-close entry                       n= 2044 avg +0.053R t=+1.1 win  40% | $10 at 1% -> $  10.47 (1447 trades, DD -62%) | at 2% -> $   7.50 (1447 trades, DD -87%)
+  by year (avg net R, n):  limit | confirm
+    2021: +0.057 (265) | +0.095 (172)
+    2022: +0.174 (427) | +0.179 (316)
+    2023: -0.131 (462) | -0.219 (328)
+    2024: -0.151 (691) | -0.095 (481)
+    2025: +0.306 (611) | +0.338 (408)
+    2026: +0.115 (470) | +0.042 (339)
+TRUTH 3/4 path B - walk-forward cause filter (learned only from trades closed before each test year):
+    limit   test 2023: causes learned before 2023: [('weekday', 1, -0.414)] | unfiltered -0.131R (n=462) -> filtered -0.176R (n=414)
+    limit   test 2024: causes learned before 2024: none | unfiltered -0.151R (n=691) -> filtered -0.151R (n=691)
+    limit   test 2025: causes learned before 2025: none | unfiltered +0.306R (n=611) -> filtered +0.306R (n=611)
+    limit   test 2026: causes learned before 2026: none | unfiltered +0.115R (n=470) -> filtered +0.115R (n=470)
+  limit: walk-forward 2023-26, unfiltered      n= 2234 avg +0.034R t=+0.7 win  38% | $10 at 1% -> $   8.68 (1363 trades, DD -69%) | at 2% -> $   5.25 (1363 trades, DD -91%)
+  limit: walk-forward 2023-26, filtered        n= 2186 avg +0.029R t=+0.6 win  38% | $10 at 1% -> $   7.61 (1329 trades, DD -68%) | at 2% -> $   4.09 (1329 trades, DD -91%)
+    confirm test 2023: causes learned before 2023: [('session', 0, -0.389)] | unfiltered -0.219R (n=328) -> filtered -0.285R (n=256)
+    confirm test 2024: causes learned before 2024: none | unfiltered -0.095R (n=481) -> filtered -0.095R (n=481)
+    confirm test 2025: causes learned before 2025: [('btc_24h', 1, -0.228), ('relvol', 0, -0.217)] | unfiltered +0.338R (n=408) -> filtered +0.541R (n=183)
+    confirm test 2026: causes learned before 2026: [('btc_24h', 1, -0.247)] | unfiltered +0.042R (n=339) -> filtered -0.024R (n=204)
+  confirm: walk-forward 2023-26, unfiltered    n= 1556 avg +0.022R t=+0.4 win  40% | $10 at 1% -> $   8.52 (1062 trades, DD -61%) | at 2% -> $   5.52 (1062 trades, DD -86%)
+  confirm: walk-forward 2023-26, filtered      n= 1124 avg -0.022R t=-0.3 win  39% | $10 at 1% -> $   6.95 (803 trades, DD -65%) | at 2% -> $   3.91 (803 trades, DD -89%)

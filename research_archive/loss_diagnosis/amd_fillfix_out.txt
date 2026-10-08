@@ -1,0 +1,25 @@
+parity of the 'fixed' re-implementation with backend_lib/amd_fvg.scan (fixed 2026-10-08): 0 mismatches
+
+=== AMD_NO_GATE: backtest fill rule as coded (cancel checked first) vs corrected (a touched limit is a fill) ===
+  2021-24 (never used for design)  orig : n= 1375 avg +0.120R t=+2.3 win  41% | $10 at 1% -> $   27.39 (904 trades, DD -35%) | at 2% -> $    59.31 (904 trades, DD -59%)
+  2021-24 (never used for design)  fixed: n= 1922 avg -0.020R t=-0.5 win  36% | $10 at 1% -> $    5.14 (1156 trades, DD -63%) | at 2% -> $     2.04 (1156 trades, DD -88%)
+      trades the coded rule drops (touch bar closed below the gap): n=565 avg -0.372R, stopped 75%
+  2024-26 (design period)          orig : n= 1559 avg +0.158R t=+2.6 win  43% | $10 at 1% -> $   34.03 (899 trades, DD -28%) | at 2% -> $    89.84 (899 trades, DD -49%)
+  2024-26 (design period)          fixed: n= 2226 avg +0.069R t=+1.3 win  40% | $10 at 1% -> $   14.19 (1121 trades, DD -33%) | at 2% -> $    15.00 (1121 trades, DD -58%)
+      trades the coded rule drops (touch bar closed below the gap): n=696 avg -0.137R, stopped 66%
+  2021-26 all                      orig : n= 2934 avg +0.140R t=+3.4 win  42% | $10 at 1% -> $   93.22 (1803 trades, DD -41%) | at 2% -> $   532.82 (1803 trades, DD -68%)
+  2021-26 all                      fixed: n= 4148 avg +0.028R t=+0.8 win  38% | $10 at 1% -> $    7.29 (2277 trades, DD -71%) | at 2% -> $     3.06 (2277 trades, DD -93%)
+      trades the coded rule drops (touch bar closed below the gap): n=1261 avg -0.242R, stopped 70%
+  corrected rule by year: 2021: +0.086 (365)  2022: +0.114 (594)  2023: -0.137 (727)  2024: -0.086 (926)  2025: +0.227 (870)  2026: -0.004 (666)
+
+=== AMD_PRIMARY: backtest fill rule as coded (cancel checked first) vs corrected (a touched limit is a fill) ===
+  2021-24 (never used for design)  orig : n=  930 avg +0.137R t=+2.1 win  42% | $10 at 1% -> $   18.94 (715 trades, DD -34%) | at 2% -> $    29.63 (715 trades, DD -58%)
+  2021-24 (never used for design)  fixed: n= 1323 avg -0.004R t=-0.1 win  37% | $10 at 1% -> $    7.95 (922 trades, DD -56%) | at 2% -> $     4.99 (922 trades, DD -82%)
+      trades the coded rule drops (touch bar closed below the gap): n=404 avg -0.336R, stopped 74%
+  2024-26 (design period)          orig : n= 1103 avg +0.232R t=+3.0 win  46% | $10 at 1% -> $   35.52 (717 trades, DD -30%) | at 2% -> $   101.48 (717 trades, DD -52%)
+  2024-26 (design period)          fixed: n= 1591 avg +0.106R t=+1.6 win  41% | $10 at 1% -> $   14.89 (925 trades, DD -37%) | at 2% -> $    17.05 (925 trades, DD -62%)
+      trades the coded rule drops (touch bar closed below the gap): n=510 avg -0.168R, stopped 68%
+  2021-26 all                      orig : n= 2033 avg +0.188R t=+3.7 win  44% | $10 at 1% -> $   67.28 (1432 trades, DD -51%) | at 2% -> $   300.72 (1432 trades, DD -78%)
+  2021-26 all                      fixed: n= 2914 avg +0.056R t=+1.3 win  39% | $10 at 1% -> $   11.84 (1847 trades, DD -70%) | at 2% -> $     8.50 (1847 trades, DD -92%)
+      trades the coded rule drops (touch bar closed below the gap): n=914 avg -0.242R, stopped 71%
+  corrected rule by year: 2021: +0.057 (265)  2022: +0.174 (427)  2023: -0.131 (462)  2024: -0.157 (679)  2025: +0.306 (611)  2026: +0.115 (470)

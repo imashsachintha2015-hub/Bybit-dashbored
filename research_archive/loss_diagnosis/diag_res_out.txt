@@ -1,0 +1,51 @@
+parity with res_ev.pkl: 172425 vs 172425 trigger events, identical keys True, identical outcomes True
+excursion sanity (target => MFE>=2.25R, stop => MAE>=1R, same exit as the simulator): 0 violations
+
+================ TRUTH 1 - DUKKHA: what the losses are made of (DEV, design coins, first half of the year) ================
+
+[choch trigger, >=3 timeframes agree, exit all at 2.25R] n=2408  gross +0.021R  - fees 0.127R  - funding 0.004R  = net -0.110R   (median stop 1.30%, median fee 0.11R)
+   exits: target 25%  stop 58%  timeout 17%
+   how the stopped trades died: straight to stop (MFE<0.3R) 42% | moved 0.3-1R first 38% | were +1R or more, then stopped 20%
+   winners that first came within 0.2R of the stop (MAE>=0.8R): 10% | MFE reached by stopped trades: median 0.40R
+
+[ema trigger, >=3 timeframes agree, exit all at 2.25R] n=3280  gross -0.030R  - fees 0.193R  - funding 0.004R  = net -0.227R   (median stop 0.85%, median fee 0.16R)
+   exits: target 27%  stop 67%  timeout 6%
+   how the stopped trades died: straight to stop (MFE<0.3R) 38% | moved 0.3-1R first 38% | were +1R or more, then stopped 24%
+   winners that first came within 0.2R of the stop (MAE>=0.8R): 14% | MFE reached by stopped trades: median 0.45R
+
+[video-like: CHoCH, all 5 agree, ADX>=25, TP1/TP2/TP3 ladder] n=525  gross +0.103R  - fees 0.102R  - funding 0.003R  = net -0.003R   (median stop 1.66%, median fee 0.08R)
+
+[video-like entries, exit all at 2.25R] n=507  gross +0.129R  - fees 0.103R  - funding 0.004R  = net +0.023R   (median stop 1.65%, median fee 0.08R)
+   exits: target 27%  stop 52%  timeout 20%
+   how the stopped trades died: straight to stop (MFE<0.3R) 42% | moved 0.3-1R first 35% | were +1R or more, then stopped 22%
+   winners that first came within 0.2R of the stop (MAE>=0.8R): 9% | MFE reached by stopped trades: median 0.40R
+
+================ TRUTH 2 - SAMUDAYA: which condition known BEFORE entry goes with the losses (DEV; confirmed on VAL) ================
+
+-- choch trigger (>=3 agree, 2.25R exit): DEV n=2408 avg net -0.110R | VAL n=1643
+  stop_pct   cuts 1.02/1.72    low: -0.15R (gross +0.08, fee 0.22, n=802) | mid: -0.11R (gross -0.00, fee 0.11, n=803) | high: -0.07R (gross -0.01, fee 0.05, n=803)  -> worst 'low' vs rest -0.06R t=-0.5, VAL -0.09R 
+  vol_regime cuts 0.744/1.04   low: -0.08R (gross +0.12, fee 0.19, n=802) | mid: -0.10R (gross +0.02, fee 0.12, n=803) | high: -0.15R (gross -0.07, fee 0.07, n=803)  -> worst 'high' vs rest -0.06R t=-0.5, VAL +0.19R 
+  coin_1d                      -1: -0.15R (gross -0.02, fee 0.13, n=767) | 0: -0.21R (gross -0.07, fee 0.14, n=131) | 1: -0.08R (gross +0.05, fee 0.12, n=1510)  -> worst '0' vs rest -0.11R t=-0.7, VAL +0.04R 
+  btc_1d                       -1: -0.13R (gross +0.01, fee 0.13, n=830) | 0: -0.20R (gross -0.05, fee 0.14, n=103) | 1: -0.09R (gross +0.03, fee 0.12, n=1475)  -> worst '0' vs rest -0.09R t=-0.5, VAL -0.08R 
+  agree                        3: -0.12R (gross +0.02, fee 0.13, n=1212) | 4: -0.17R (gross -0.04, fee 0.13, n=631) | 5: -0.02R (gross +0.09, fee 0.11, n=565)  -> worst '4' vs rest -0.09R t=-0.8, VAL -0.12R 
+  overext    cuts 0.325/2.24   low: -0.15R (gross -0.01, fee 0.14, n=802) | mid: -0.10R (gross +0.05, fee 0.14, n=803) | high: -0.08R (gross +0.03, fee 0.10, n=803)  -> worst 'low' vs rest -0.06R t=-0.5, VAL -0.20R 
+  relvol     cuts 0.868/2.02   low: -0.17R (gross +0.00, fee 0.17, n=802) | mid: -0.12R (gross +0.01, fee 0.12, n=803) | high: -0.04R (gross +0.06, fee 0.09, n=803)  -> worst 'low' vs rest -0.09R t=-0.9, VAL +0.01R 
+  session                      Asia 00-07: -0.10R (gross +0.04, fee 0.14, n=681) | London 07-13: -0.22R (gross -0.07, fee 0.15, n=550) | NY 13-21: -0.11R (gross -0.00, fee 0.10, n=905) | late 21-24: +0.09R (gross +0.24, fee 0.14, n=272)  -> worst 'London 07-13' vs rest -0.15R t=-1.3, VAL -0.09R 
+  weekday                      0: -0.26R (gross -0.15, fee 0.10, n=361) | 1: -0.24R (gross -0.13, fee 0.11, n=345) | 2: -0.14R (gross -0.03, fee 0.10, n=327) | 3: +0.08R (gross +0.21, fee 0.12, n=310) | 4: -0.13R (gross -0.01, fee 0.12, n=372) | 5: +0.09R (gross +0.28, fee 0.17, n=329) | 6: -0.14R (gross +0.02, fee 0.16, n=364)  -> worst '0' vs rest -0.18R t=-1.1, VAL -0.17R 
+  btc_24h    cuts 0.00383/0.0195 low: -0.10R (gross +0.06, fee 0.15, n=802) | mid: -0.22R (gross -0.09, fee 0.13, n=803) | high: -0.01R (gross +0.09, fee 0.10, n=803)  -> worst 'mid' vs rest -0.17R t=-1.5, VAL -0.06R 
+  adx        cuts 18.7/28.4    low: -0.09R (gross +0.07, fee 0.16, n=802) | mid: -0.16R (gross -0.04, fee 0.12, n=803) | high: -0.07R (gross +0.03, fee 0.10, n=803)  -> worst 'mid' vs rest -0.08R t=-0.8, VAL -0.05R 
+
+-- ema trigger (>=3 agree, 2.25R exit): DEV n=3280 avg net -0.227R | VAL n=2299
+  stop_pct   cuts 0.644/1.11   low: -0.29R (gross +0.04, fee 0.33, n=1093) | mid: -0.18R (gross -0.01, fee 0.17, n=1093) | high: -0.21R (gross -0.12, fee 0.09, n=1094)  -> worst 'low' vs rest -0.09R t=-1.0, VAL -0.22R 
+  vol_regime cuts 0.752/1.03   low: -0.13R (gross +0.14, fee 0.27, n=1093) | mid: -0.29R (gross -0.10, fee 0.19, n=1093) | high: -0.26R (gross -0.13, fee 0.13, n=1094)  -> worst 'mid' vs rest -0.10R t=-1.0, VAL -0.22R 
+  coin_1d                      -1: -0.29R (gross -0.09, fee 0.20, n=986) | 0: -0.38R (gross -0.18, fee 0.20, n=242) | 1: -0.18R (gross +0.01, fee 0.19, n=2052)  -> worst '0' vs rest -0.17R t=-1.3, VAL -0.01R 
+  btc_1d                       -1: -0.24R (gross -0.03, fee 0.20, n=1068) | 0: -0.61R (gross -0.40, fee 0.20, n=195) | 1: -0.19R (gross +0.01, fee 0.19, n=2017)  -> worst '0' vs rest -0.41R t=-3.7, VAL -0.12R ACCEPTED
+  agree                        3: -0.30R (gross -0.10, fee 0.20, n=1452) | 4: -0.24R (gross -0.04, fee 0.20, n=949) | 5: -0.10R (gross +0.09, fee 0.18, n=879)  -> worst '3' vs rest -0.12R t=-1.3, VAL -0.08R 
+  overext    cuts 0.314/2.25   low: -0.29R (gross -0.09, fee 0.20, n=1093) | mid: -0.22R (gross -0.00, fee 0.21, n=1093) | high: -0.17R (gross -0.00, fee 0.16, n=1094)  -> worst 'low' vs rest -0.10R t=-0.9, VAL -0.20R 
+  relvol     cuts 0.54/1       low: -0.30R (gross -0.06, fee 0.24, n=1093) | mid: -0.18R (gross +0.02, fee 0.20, n=1093) | high: -0.20R (gross -0.05, fee 0.14, n=1094)  -> worst 'low' vs rest -0.11R t=-1.2, VAL +0.01R 
+  session                      Asia 00-07: -0.30R (gross -0.09, fee 0.21, n=963) | London 07-13: -0.16R (gross +0.06, fee 0.22, n=703) | NY 13-21: -0.22R (gross -0.05, fee 0.16, n=1172) | late 21-24: -0.19R (gross +0.02, fee 0.21, n=442)  -> worst 'Asia 00-07' vs rest -0.11R t=-1.0, VAL +0.01R 
+  weekday                      0: -0.27R (gross -0.11, fee 0.16, n=485) | 1: -0.27R (gross -0.10, fee 0.17, n=496) | 2: -0.37R (gross -0.18, fee 0.18, n=424) | 3: -0.18R (gross +0.01, fee 0.18, n=422) | 4: -0.19R (gross -0.00, fee 0.19, n=487) | 5: -0.17R (gross +0.09, fee 0.25, n=426) | 6: -0.14R (gross +0.08, fee 0.22, n=540)  -> worst '2' vs rest -0.16R t=-1.3, VAL -0.04R 
+  btc_24h    cuts 0.00451/0.0211 low: -0.31R (gross -0.09, fee 0.21, n=1092) | mid: -0.26R (gross -0.06, fee 0.20, n=1093) | high: -0.12R (gross +0.05, fee 0.17, n=1095)  -> worst 'low' vs rest -0.12R t=-1.2, VAL +0.02R 
+  adx        cuts 20.1/27.2    low: -0.27R (gross -0.06, fee 0.20, n=1093) | mid: -0.25R (gross -0.06, fee 0.18, n=1093) | high: -0.17R (gross +0.04, fee 0.20, n=1094)  -> worst 'low' vs rest -0.06R t=-0.7, VAL -0.02R 
+
+accepted causes (DEV t<=-2 and still worse on VAL): [('ema', 'btc_1d', 0)]

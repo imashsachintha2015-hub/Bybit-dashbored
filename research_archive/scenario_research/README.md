@@ -47,3 +47,9 @@ Every CME trade variant is negative on 2021-24 (-0.07 .. -0.25R, cme_d5_out.txt)
 staying losers (bottom 20 by 2024-26 t: -0.18R -> -0.17R, 0 of 20 positive). Winners do not repeat: top 20 by 2024-26 t: +0.18R -> -0.06R,
 5 of 20 positive. The best family on 2021-24 averages +0.02R. Lesson: a grid search over chart patterns reliably finds what loses
 (costs on tight stops, counter-trend sweeps) and finds winners mostly by luck; only AMD-FVG held up on a third period.
+
+## Correction 2026-10-08 (found by ../loss_diagnosis)
+Tests 4 and 6 (AMD-FVG) "passed" only because backend_lib/amd_fvg.scan checked the cancel condition before the fill on the same bar
+(look-ahead that dropped real fills, mostly losers). With the corrected rule on 2021-24: AMD_NO_GATE -0.020R (t=-0.5), AMD_PRIMARY
+-0.004R (t=-0.1): both FAIL. The limit-entry scenario families (fib, POC/VAL, AVWAP, LFIB, VFIB, VU ladder, harmonics) used the same
+fill order in scen.py / scen2.py, so their results are an upper bound; they failed anyway.

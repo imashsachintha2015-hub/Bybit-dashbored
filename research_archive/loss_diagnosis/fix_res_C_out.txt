@@ -1,0 +1,37 @@
+=== 1H base timeframe (1H/2H/4H/12H/1D), the fee fix one level up: 135 configs; entry variants [('base', False), ('conf', False), ('base', True)] ===
+2024-26 all coins: positive before fees 128/135, after fees 40/135; median stop 2.55% -> fee 0.055R per trade
+chance check: DEV t>=3: 0 (luck ~0.18), t>=2: 1 (luck ~3.1)
+
+frozen on DEV (best agree/adx per trigger x exit x entry)  DEV            | VAL            | FINAL (design coins)      | UNSEEN coins              | verdict
+  choch agree>=3 adx>=25 ladder entry=base                 +0.062 t=+1.4 | +0.034 t=+0.6 | -0.078 t=-1.4 n=1039 | +0.014 t=+0.4 n=2764 | fail
+  choch agree>=3 adx>=25 ladder entry=conf                 +0.109 t=+1.9 | -0.024 t=-0.3 | -0.017 t=-0.2 n= 601 | +0.017 t=+0.4 n=1654 | fail
+  choch agree>=3 adx>=25 1.5R   entry=base                 +0.073 t=+1.5 | +0.013 t=+0.2 | -0.084 t=-1.3 n=1109 | +0.015 t=+0.4 n=2936 | fail
+  choch agree>=3 adx>=25 1.5R   entry=conf                 +0.107 t=+1.8 | +0.001 t=+0.0 | -0.015 t=-0.2 n= 631 | +0.013 t=+0.3 n=1724 | fail
+  choch agree>=3 adx>=25 2.25R  entry=base                 +0.097 t=+1.5 | +0.032 t=+0.4 | -0.077 t=-1.0 n=1004 | +0.028 t=+0.6 n=2623 | fail
+  choch agree>=3 adx>=25 2.25R  entry=conf                 +0.157 t=+2.0 | +0.031 t=+0.3 | +0.012 t=+0.1 n= 589 | +0.043 t=+0.8 n=1617 | fail
+  ema   agree>=4 adx>=25 ladder entry=base                 -0.108 t=-2.2 | -0.033 t=-0.5 | -0.116 t=-2.0 n= 724 | -0.067 t=-1.7 n=2124 | fail
+  ema   agree>=3 adx>= 0 ladder entry=conf                 -0.023 t=-0.7 | -0.009 t=-0.2 | -0.101 t=-2.5 n=1574 | -0.050 t=-1.9 n=4122 | fail
+  ema   agree>=4 adx>=25 ladder entry=base skipBTCflat     -0.093 t=-1.7 | -0.045 t=-0.6 | -0.101 t=-1.6 n= 658 | -0.046 t=-1.1 n=1794 | fail
+  ema   agree>=4 adx>=25 1.5R   entry=base                 -0.087 t=-1.6 | -0.014 t=-0.2 | -0.112 t=-1.7 n= 729 | -0.054 t=-1.3 n=2123 | fail
+  ema   agree>=3 adx>=25 1.5R   entry=conf                 -0.032 t=-0.6 | -0.016 t=-0.2 | -0.162 t=-2.4 n= 602 | -0.027 t=-0.7 n=1663 | fail
+  ema   agree>=4 adx>=25 1.5R   entry=base skipBTCflat     -0.075 t=-1.2 | -0.017 t=-0.2 | -0.098 t=-1.4 n= 662 | -0.031 t=-0.7 n=1790 | fail
+  ema   agree>=3 adx>=25 2.25R  entry=base                 -0.075 t=-1.4 | -0.010 t=-0.1 | -0.179 t=-2.7 n=1024 | -0.078 t=-1.8 n=2894 | fail
+  ema   agree>=3 adx>= 0 2.25R  entry=conf                 -0.007 t=-0.2 | +0.017 t=+0.3 | -0.133 t=-2.3 n=1400 | -0.039 t=-1.0 n=3666 | fail
+  ema   agree>=4 adx>=25 2.25R  entry=base skipBTCflat     -0.070 t=-1.0 | -0.007 t=-0.1 | -0.121 t=-1.4 n= 620 | -0.041 t=-0.8 n=1655 | fail
+
+=== second holdout: the same frozen configs on 2021-24 (d5, never used for resonance), all coins; pass = avg > 0 and t >= 2 ===
+  choch agree>=3 adx>=25 ladder entry=base                 2021-24: -0.029R t=-1.2 n=5850 (gross +0.016) | win 50% PF 0.94 | fail | $10 at 1% -> $6.27 (1628 trades, max DD -56%) | at 2% -> $3.11 (1628 trades, max DD -83%)
+  choch agree>=3 adx>=25 ladder entry=conf                 2021-24: -0.005R t=-0.2 n=3354 (gross +0.032) | win 52% PF 0.99 | fail | $10 at 1% -> $8.22 (1191 trades, max DD -43%) | at 2% -> $5.61 (1191 trades, max DD -70%)
+  choch agree>=3 adx>=25 1.5R   entry=base                 2021-24: -0.023R t=-0.8 n=6163 (gross +0.022) | win 42% PF 0.96 | fail | $10 at 1% -> $9.82 (1693 trades, max DD -55%) | at 2% -> $6.97 (1693 trades, max DD -82%)
+  choch agree>=3 adx>=25 1.5R   entry=conf                 2021-24: +0.001R t=+0.0 n=3525 (gross +0.037) | win 44% PF 1.00 | fail | $10 at 1% -> $12.71 (1242 trades, max DD -39%) | at 2% -> $12.71 (1242 trades, max DD -65%)
+  choch agree>=3 adx>=25 2.25R  entry=base                 2021-24: -0.008R t=-0.2 n=5573 (gross +0.037) | win 36% PF 0.99 | fail | $10 at 1% -> $13.39 (1421 trades, max DD -59%) | at 2% -> $12.42 (1421 trades, max DD -84%)
+  choch agree>=3 adx>=25 2.25R  entry=conf                 2021-24: +0.009R t=+0.2 n=3258 (gross +0.046) | win 39% PF 1.02 | fail | $10 at 1% -> $13.44 (1076 trades, max DD -42%) | at 2% -> $13.87 (1076 trades, max DD -67%)
+  ema   agree>=4 adx>=25 ladder entry=base                 2021-24: -0.119R t=-4.3 n=4641 (gross -0.031) | win 48% PF 0.79 | fail | $10 at 1% -> $0.99 (1709 trades, max DD -91%) | at 2% -> $0.99 (862 trades, max DD -91%)
+  ema   agree>=3 adx>= 0 ladder entry=conf                 2021-24: -0.034R t=-1.7 n=8750 (gross +0.033) | win 51% PF 0.93 | fail | $10 at 1% -> $5.22 (2233 trades, max DD -55%) | at 2% -> $1.90 (2233 trades, max DD -85%)
+  ema   agree>=4 adx>=25 ladder entry=base skipBTCflat     2021-24: -0.114R t=-3.7 n=3910 (gross -0.029) | win 48% PF 0.79 | fail | $10 at 1% -> $0.99 (1623 trades, max DD -91%) | at 2% -> $0.99 (812 trades, max DD -91%)
+  ema   agree>=4 adx>=25 1.5R   entry=base                 2021-24: -0.124R t=-4.0 n=4618 (gross -0.037) | win 39% PF 0.81 | fail | $10 at 1% -> $1.00 (1804 trades, max DD -90%) | at 2% -> $0.98 (830 trades, max DD -91%)
+  ema   agree>=3 adx>=25 1.5R   entry=conf                 2021-24: -0.058R t=-1.9 n=3867 (gross +0.008) | win 41% PF 0.90 | fail | $10 at 1% -> $2.96 (1841 trades, max DD -75%) | at 2% -> $1.00 (1559 trades, max DD -92%)
+  ema   agree>=4 adx>=25 1.5R   entry=base skipBTCflat     2021-24: -0.116R t=-3.4 n=3890 (gross -0.031) | win 39% PF 0.82 | fail | $10 at 1% -> $0.99 (1747 trades, max DD -91%) | at 2% -> $0.95 (796 trades, max DD -91%)
+  ema   agree>=3 adx>=25 2.25R  entry=base                 2021-24: -0.069R t=-2.1 n=6555 (gross +0.017) | win 33% PF 0.90 | fail | $10 at 1% -> $1.93 (2322 trades, max DD -85%) | at 2% -> $0.99 (1799 trades, max DD -93%)
+  ema   agree>=3 adx>= 0 2.25R  entry=conf                 2021-24: -0.024R t=-0.8 n=7829 (gross +0.043) | win 35% PF 0.96 | fail | $10 at 1% -> $4.61 (1886 trades, max DD -65%) | at 2% -> $1.21 (1886 trades, max DD -93%)
+  ema   agree>=4 adx>=25 2.25R  entry=base skipBTCflat     2021-24: -0.079R t=-1.9 n=3674 (gross +0.005) | win 32% PF 0.89 | fail | $10 at 1% -> $1.84 (1720 trades, max DD -82%) | at 2% -> $0.99 (1018 trades, max DD -91%)

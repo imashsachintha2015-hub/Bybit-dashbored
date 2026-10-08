@@ -11,8 +11,14 @@ REPO = os.environ.get("REPO", "/home/user/Bybit-dashbored")
 sys.path.insert(0, f"{REPO}/research_archive/strategy_library")
 from lib import ema, rma
 
-FOLDER = os.environ.get("RES_DATA", "s15"); BAR = 900000; HR = 3600000; DAY = 86400000
-TFS = (("15m", BAR), ("30m", 2 * BAR), ("1H", HR), ("4H", 4 * HR), ("1D", DAY))
+HR = 3600000; DAY = 86400000
+BASE = os.environ.get("RES_BASE", "15m")            # base timeframe: 15m (default) or 1H (same rules one level up)
+if BASE == "1H":
+    BAR = HR; SUFFIX = "1H"; FOLDER = os.environ.get("RES_DATA", "d4")
+    TFS = (("1H", HR), ("2H", 2 * HR), ("4H", 4 * HR), ("12H", 12 * HR), ("1D", DAY))
+else:
+    BAR = 900000; SUFFIX = "15m"; FOLDER = os.environ.get("RES_DATA", "s15")
+    TFS = (("15m", BAR), ("30m", 2 * BAR), ("1H", HR), ("4H", 4 * HR), ("1D", DAY))
 WARM = 50                      # bars of a timeframe needed before its trend counts
 HOLD = 96; MINSTOP = 0.003; BUF = 0.1
 LADDER = ((1.0, 1 / 3), (1.5, 1 / 3), (2.25, 1 / 3))   # TP1 / TP2 / TP3 in R, share of the position
@@ -20,7 +26,7 @@ EXITS = ("L", "S1", "S2")      # ladder + breakeven after TP1 | all at 1.5R | al
 RAND_P = 1 / 16                # share of bars sampled for the random-entry control
 
 def load(sym, inv):
-    d = np.array(json.load(open(f"{FOLDER}/{sym}_15m.json")), dtype=float)
+    d = np.array(json.load(open(f"{FOLDER}/{sym}_{SUFFIX}.json")), dtype=float)
     t = d[:, 0].astype(np.int64); o, h, l, c, v = [d[:, k].copy() for k in range(1, 6)]
     if inv: o, h, l, c = -o, -l, -h, -c
     return t, o, h, l, c, v
@@ -35,7 +41,7 @@ def tf_trend(t, c, P):
         ub, st, cnt = np.unique(bid, return_index=True, return_counts=True)
         keep = cnt == k; ub = ub[keep]; st = st[keep]          # complete periods only
         C = c[st + k - 1]; ends = (ub + 1) * P
-        idx = np.searchsorted(ends, t + BAR, side="right") - 1  # last period closed by the close of 15m bar i
+        idx = np.searchsorted(ends, t + BAR, side="right") - 1  # last period closed by the close of base bar i
         days = ub
     if len(C) == 0: return np.zeros(n, int), np.zeros(n, bool), None, None
     e20 = ema(C, 20); e50 = ema(C, 50)
@@ -80,17 +86,19 @@ def features(t, o, h, l, c, v):
     F["stop_base"] = base - BUF * F["atr"]
     return F
 
-def sim_fixed(h, l, c, e, ep, stop, risk, k):
+def sim_fixed(h, l, c, e, ep, stop, risk, k, limit=False):
     n = len(c); tp = ep + k * risk
-    for j in range(e, min(n, e + HOLD)):
+    if limit and l[e] <= stop: return -1.0, e          # limit fill: the fill bar can only stop us out
+    for j in range(e + 1 if limit else e, min(n, e + HOLD)):
         if l[j] <= stop: return -1.0, j
         if h[j] >= tp: return k, j
     j = min(n - 1, e + HOLD - 1); return (c[j] - ep) / risk, j
 
-def sim_ladder(h, l, c, e, ep, stop, risk):
+def sim_ladder(h, l, c, e, ep, stop, risk, limit=False):
     """TP1/TP2/TP3 thirds; stop to breakeven from the bar after TP1; stop counts first inside a bar."""
     n = len(c); R = 0.0; rem = 1.0; st = stop; hit = 0
-    for j in range(e, min(n, e + HOLD)):
+    if limit and l[e] <= stop: return -1.0, e
+    for j in range(e + 1 if limit else e, min(n, e + HOLD)):
         if l[j] <= st: return R + rem * (st - ep) / risk, j
         while hit < 3 and h[j] >= ep + LADDER[hit][0] * risk:
             R += LADDER[hit][1] * LADDER[hit][0]; rem -= LADDER[hit][1]; hit += 1
@@ -98,11 +106,11 @@ def sim_ladder(h, l, c, e, ep, stop, risk):
         if hit >= 1: st = max(st, ep)
     j = min(n - 1, e + HOLD - 1); return R + rem * (c[j] - ep) / risk, j
 
-def outcomes(t, h, l, c, e, ep, stop, risk):
+def outcomes(t, h, l, c, e, ep, stop, risk, limit=False):
     out = []
     for x in EXITS:
-        R, j = sim_ladder(h, l, c, e, ep, stop, risk) if x == "L" else sim_fixed(h, l, c, e, ep, stop, risk, 1.5 if x == "S1" else 2.25)
-        out.append((R, (j - e + 1) * 0.25, int(t[e]), int(t[j]) + BAR))
+        R, j = sim_ladder(h, l, c, e, ep, stop, risk, limit) if x == "L" else sim_fixed(h, l, c, e, ep, stop, risk, 1.5 if x == "S1" else 2.25, limit)
+        out.append((R, (j - e + 1) * BAR / HR, int(t[e]), int(t[j]) + BAR))
     return tuple(out)
 
 def worker(args):
@@ -138,7 +146,7 @@ def check():
     import scen
     ok = True
     # 1) no-repaint: features computed on data cut at bar i must equal the full-run features at bar i
-    rnd = random.Random(3); syms = sorted(f.split("_")[0] for f in os.listdir(FOLDER) if f.endswith("_15m.json")); bad = 0; done = 0
+    rnd = random.Random(3); syms = sorted(f.split("_")[0] for f in os.listdir(FOLDER) if f.endswith(f"_{SUFFIX}.json")); bad = 0; done = 0
     full = {}
     for _ in range(300):
         sym = rnd.choice(syms); inv = rnd.random() < 0.5
@@ -178,7 +186,7 @@ def check():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "check":
         sys.exit(0 if check() else 1)
-    syms = sorted(f.split("_")[0] for f in os.listdir(FOLDER) if f.endswith("_15m.json"))
+    syms = sorted(f.split("_")[0] for f in os.listdir(FOLDER) if f.endswith(f"_{SUFFIX}.json"))
     with Pool(4) as p: parts = p.map(worker, [(s, inv) for s in syms for inv in (False, True)])
     ev = [e for P_ in parts for e in P_]
     pickle.dump(dict(ev=ev, syms=syms), open(os.environ.get("RES_OUT", "res_ev.pkl"), "wb"))
