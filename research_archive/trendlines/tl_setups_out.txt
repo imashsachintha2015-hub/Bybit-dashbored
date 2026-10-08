@@ -1,0 +1,67 @@
+trades simulated: 120455; configurations: 43
+
+=== every configuration on DEV (design coins, 2021-06 .. 2023-12): avg R after fees, before fees, t, trades ===
+  CHOCH    2      any     net +0.078R (gross +0.099) t=+1.7 n= 1112 | win 46% PF 1.20 | med stop 13.5%
+  CHOCH    2      with1D  net +0.095R (gross +0.116) t=+1.6 n=  568 | win 46% PF 1.24 | med stop 13.3%
+  CHOCH    3      any     net +0.102R (gross +0.124) t=+2.0 n= 1085 | win 45% PF 1.26 | med stop 13.5%
+  CHOCH    3      with1D  net +0.133R (gross +0.155) t=+2.0 n=  550 | win 46% PF 1.34 | med stop 13.2%
+  CHOCH    trail  any     net +0.042R (gross +0.058) t=+1.5 n= 1404 | win 38% PF 1.18 | med stop 13.5%
+  CHOCH    trail  with1D  net +0.057R (gross +0.073) t=+1.6 n=  730 | win 38% PF 1.25 | med stop 13.4%
+  STRONG   2      any     net +0.175R (gross +0.217) t=+1.4 n=  141 | win 43% PF 1.30 | med stop 5.3%
+  STRONG   2      with1D  net +0.491R (gross +0.536) t=+1.9 n=   35 | win 54% PF 2.06 | med stop 4.9%
+  STRONG   3      any     net +0.201R (gross +0.247) t=+1.4 n=  141 | win 38% PF 1.32 | med stop 5.3%
+  STRONG   3      with1D  net +0.433R (gross +0.482) t=+1.4 n=   35 | win 46% PF 1.80 | med stop 4.9%
+  STRONG   trail  any     net +0.134R (gross +0.178) t=+1.1 n=  141 | win 40% PF 1.27 | med stop 5.3%
+  STRONG   trail  with1D  net +0.234R (gross +0.278) t=+0.9 n=   35 | win 49% PF 1.57 | med stop 4.9%
+  OPTBRK   2      any     net +0.009R (gross +0.048) t=+0.2 n= 2688 | win 37% PF 1.01 | med stop 5.7%
+  OPTBRK   2      with1D  net +0.027R (gross +0.066) t=+0.4 n= 1101 | win 38% PF 1.04 | med stop 5.6%
+  OPTBRK   3      any     net -0.000R (gross +0.041) t=-0.0 n= 2445 | win 32% PF 1.00 | med stop 5.7%
+  OPTBRK   3      with1D  net +0.049R (gross +0.090) t=+0.7 n= 1011 | win 33% PF 1.07 | med stop 5.7%
+  OPTBRK   trail  any     net +0.001R (gross +0.041) t=+0.0 n= 2348 | win 34% PF 1.00 | med stop 5.6%
+  OPTBRK   trail  with1D  net +0.029R (gross +0.068) t=+0.4 n=  969 | win 34% PF 1.06 | med stop 5.5%
+  RETEST   2      any     net +0.026R (gross +0.080) t=+0.5 n=  771 | win 37% PF 1.04 | med stop 3.6%
+  RETEST   2      with1D  net +0.104R (gross +0.159) t=+1.1 n=  272 | win 39% PF 1.16 | med stop 3.5%
+  RETEST   3      any     net +0.063R (gross +0.119) t=+0.9 n=  766 | win 30% PF 1.09 | med stop 3.6%
+  RETEST   3      with1D  net +0.085R (gross +0.143) t=+0.7 n=  270 | win 30% PF 1.12 | med stop 3.5%
+  RETEST   trail  any     net +0.060R (gross +0.117) t=+0.8 n=  769 | win 30% PF 1.09 | med stop 3.6%
+  RETEST   trail  with1D  net +0.134R (gross +0.192) t=+1.0 n=  272 | win 32% PF 1.22 | med stop 3.5%
+  SPRING   2      any     net -0.004R (gross +0.043) t=-0.0 n=  296 | win 36% PF 0.99 | med stop 4.4%
+  SPRING   2      with1D  net -0.020R (gross +0.028) t=-0.1 n=  132 | win 36% PF 0.97 | med stop 4.3%
+  SPRING   3      any     net +0.075R (gross +0.124) t=+0.7 n=  296 | win 32% PF 1.11 | med stop 4.4%
+  SPRING   3      with1D  net -0.024R (gross +0.025) t=-0.2 n=  132 | win 29% PF 0.97 | med stop 4.3%
+  SPRING   trail  any     net +0.131R (gross +0.180) t=+1.1 n=  303 | win 32% PF 1.22 | med stop 4.4%
+  SPRING   trail  with1D  net +0.167R (gross +0.216) t=+0.8 n=  136 | win 30% PF 1.27 | med stop 4.3%
+  BOUNCE   2      any     net +0.011R (gross +0.070) t=+0.1 n=  269 | win 36% PF 1.02 | med stop 3.3%
+  BOUNCE   2      with1D  net -0.060R (gross +0.000) t=-0.5 n=  165 | win 33% PF 0.91 | med stop 3.3%
+  BOUNCE   2      btc     net +0.030R (gross +0.085) t=+0.2 n=  145 | win 37% PF 1.05 | med stop 3.7%
+  BOUNCE   3      any     net -0.069R (gross -0.007) t=-0.6 n=  265 | win 26% PF 0.91 | med stop 3.3%
+  BOUNCE   3      with1D  net -0.197R (gross -0.134) t=-1.5 n=  162 | win 23% PF 0.76 | med stop 3.4%
+  BOUNCE   3      btc     net -0.137R (gross -0.081) t=-1.0 n=  141 | win 25% PF 0.82 | med stop 3.9%
+  BOUNCE   trail  any     net +0.328R (gross +0.391) t=+1.8 n=  263 | win 28% PF 1.48 | med stop 3.3%
+  BOUNCE   trail  with1D  net +0.302R (gross +0.365) t=+1.2 n=  162 | win 25% PF 1.43 | med stop 3.3%
+  BOUNCE   trail  btc     net +0.305R (gross +0.361) t=+1.1 n=  141 | win 28% PF 1.45 | med stop 3.8%
+  KALMAN0  kal    any     net +0.125R (gross +0.157) t=+2.3 n= 2333 | win 31% PF 1.30 | med stop 7.9%
+  KALMAN0  kal    with1D  net +0.129R (gross +0.163) t=+1.9 n=  944 | win 33% PF 1.31 | med stop 7.6%
+  KALMAN1  kal    any     net +0.131R (gross +0.164) t=+2.0 n= 1932 | win 34% PF 1.29 | med stop 8.0%
+  KALMAN1  kal    with1D  net +0.117R (gross +0.151) t=+1.5 n=  828 | win 35% PF 1.26 | med stop 7.6%
+chance check: DEV t>=3: 0 (luck ~0.06); t>=2: 2 (luck ~1.0)
+
+=== frozen DEV-best per setup -> VAL 2024 -> ONE LOOK at FINAL 2025-26 and UNSEEN coins (pass: FINAL n>=100, avg>=+0.10R, UNSEEN>0, 3/4 qtrs>0) ===
+  CHOCH    3      any     DEV +0.102 t=+2.0 | VAL +0.062 t=+1.1 n=564 | FINAL +0.010 t=+0.2 n=1064 | UNSEEN +0.020 t=+0.5 n=1817 qtrs +0.11 +0.05 -0.06 +0.03 | fail
+        win 45% PF 1.04 | $10 FINAL+UNSEEN at 1% -> $8.66 (619 trades, DD -30%) | at 2% -> $6.87 (619 trades, DD -54%)
+  STRONG   2      any     DEV +0.175 t=+1.4 | VAL +0.424 t=+1.7 n=38 | FINAL +0.061 t=+0.5 n=116 | UNSEEN +0.087 t=+0.9 n=203 qtrs +0.11 -0.17 +0.41 +0.06 | fail
+        win 40% PF 1.13 | $10 FINAL+UNSEEN at 1% -> $12.90 (294 trades, DD -26%) | at 2% -> $15.65 (294 trades, DD -46%)
+  OPTBRK   3      with1D  DEV +0.049 t=+0.7 | VAL +0.076 t=+0.8 n=585 | FINAL +0.059 t=+0.6 n=1012 | UNSEEN +0.059 t=+0.9 n=1672 qtrs +0.21 -0.07 +0.01 +0.11 | fail
+        win 32% PF 1.09 | $10 FINAL+UNSEEN at 1% -> $10.82 (885 trades, DD -44%) | at 2% -> $8.12 (885 trades, DD -73%)
+  RETEST   2      with1D  DEV +0.104 t=+1.1 | VAL +0.223 t=+1.6 n=121 | FINAL +0.122 t=+1.2 n=263 | UNSEEN -0.012 t=-0.2 n=409 qtrs +0.44 -0.28 +0.06 -0.08 | fail
+        win 37% PF 1.06 | $10 FINAL+UNSEEN at 1% -> $11.78 (541 trades, DD -41%) | at 2% -> $11.77 (541 trades, DD -66%)
+  SPRING   trail  any     DEV +0.131 t=+1.1 | VAL -0.092 t=-0.6 n=158 | FINAL -0.053 t=-0.4 n=291 | UNSEEN -0.118 t=-1.5 n=521 qtrs -0.24 +0.08 -0.06 -0.22 | fail
+        win 28% PF 0.85 | $10 FINAL+UNSEEN at 1% -> $4.90 (597 trades, DD -62%) | at 2% -> $1.98 (597 trades, DD -87%)
+  BOUNCE   trail  any     DEV +0.328 t=+1.8 | VAL +0.142 t=+0.7 n=138 | FINAL -0.185 t=-1.5 n=290 | UNSEEN +0.102 t=+0.9 n=452 qtrs +0.13 +0.34 -0.08 +0.07 | fail
+        win 29% PF 0.99 | $10 FINAL+UNSEEN at 1% -> $9.82 (588 trades, DD -44%) | at 2% -> $6.87 (588 trades, DD -75%)
+  KALMAN0  kal    any     DEV +0.125 t=+2.3 | VAL +0.255 t=+2.3 n=1150 | FINAL +0.016 t=+0.3 n=2324 | UNSEEN +0.059 t=+1.5 n=3898 qtrs +0.04 +0.12 +0.08 -0.00 | fail
+        win 31% PF 1.10 | $10 FINAL+UNSEEN at 1% -> $8.52 (1019 trades, DD -45%) | at 2% -> $5.73 (1019 trades, DD -73%)
+  KALMAN1  kal    any     DEV +0.131 t=+2.0 | VAL +0.304 t=+2.4 n=968 | FINAL +0.006 t=+0.1 n=1936 | UNSEEN +0.060 t=+1.4 n=3283 qtrs +0.04 +0.14 +0.08 -0.00 | fail
+        win 34% PF 1.09 | $10 FINAL+UNSEEN at 1% -> $21.07 (937 trades, DD -36%) | at 2% -> $30.17 (937 trades, DD -60%)
+
+PASSED: none
