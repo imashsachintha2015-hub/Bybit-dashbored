@@ -1,0 +1,51 @@
+design coins 19: ['AAVE', 'AVAX', 'BNB', 'BTC', 'CRV', 'DOGE', 'FIL', 'HBAR', 'ICP', 'NEAR', 'OP', 'POL', 'SOL', 'STX', 'SUI', 'TRX', 'UNI', 'WLD', 'XRP']
+unseen coins 13: ['ADA', 'APT', 'ARB', 'ATOM', 'BCH', 'DOT', 'ETC', 'ETH', 'INJ', 'LINK', 'LTC', 'ONDO', 'TIA']
+dev < 2025-07-11 <= val < 2026-02-19 <= final
+
+=== PHASE A: what price does after each scenario event (DEV, design coins; gross, long-orientation, next-open entry) ===
+scenario event           per coin/mo |   fwd 4h bps (t)   fwd 24h bps (t)   fwd 72h bps (t) | 24h with-1D-trend / against
+ACCUM_SPRING                     1.7 |      +2.8 (+0.3)      +18.2 (+0.7)      -21.5 (-0.4) |  +42.1 (+1.1) /   -5.9 (-0.1)
+AVWAP_FROM_LOW                  10.8 |      +1.0 (+0.2)      +22.9 (+1.3)       +7.0 (+0.3) |  +28.0 (+0.9) /  +15.3 (+0.6)
+FAKEOUT_BODY                    13.1 |      -0.2 (-0.0)       -1.1 (-0.1)      -11.7 (-0.7) |  +18.4 (+1.0) /  -31.1 (-1.3)
+FIB0.382                         9.9 |      -0.3 (-0.1)      +24.3 (+1.3)      +10.8 (+0.4) |  +30.0 (+1.0) /  +16.3 (+0.6)
+FIB0.5                          11.5 |      -0.8 (-0.1)      +20.8 (+1.2)       +1.9 (+0.1) |  +25.4 (+0.8) /  +13.3 (+0.5)
+FIB0.635                        12.4 |      -1.0 (-0.2)      +18.6 (+1.1)       -1.5 (-0.1) |  +29.3 (+1.0) /   +7.6 (+0.3)
+FIB0.705                        12.6 |      -0.7 (-0.1)      +17.1 (+1.0)       -1.3 (-0.0) |  +27.6 (+0.9) /   +6.9 (+0.3)
+FIB0.786                        12.8 |      -0.1 (-0.0)      +17.0 (+1.0)       -2.3 (-0.1) |  +28.6 (+0.9) /   +7.7 (+0.3)
+POC_IMPULSE                      8.4 |      +0.1 (+0.0)      +30.9 (+1.6)      +29.9 (+1.1) |  +35.9 (+1.1) /  +24.2 (+0.8)
+RANGE_BREAK_VOL                  7.4 |      +0.8 (+0.1)      +11.0 (+0.5)       -2.2 (-0.1) |  +17.7 (+0.5) /  +20.8 (+0.6)
+RANGE_FADE_LOW                  28.5 |      -5.4 (-1.6)      -24.6 (-1.9)      -25.1 (-1.1) |  -10.2 (-0.5) /  -52.4 (-2.3)
+RANGE_SWEEP_RECLAIM              5.9 |     -11.1 (-1.8)      -42.2 (-2.0)      -44.5 (-1.1) |   -7.9 (-0.3) / -101.6 (-2.7)
+REVERSAL_CHOCH_MKT               7.6 |      -2.1 (-0.4)      -11.7 (-0.7)      +27.8 (+0.9) |  +24.3 (+0.8) /  -26.4 (-1.1)
+REVERSAL_CHOCH_RETEST            7.6 |      -2.1 (-0.4)      -11.7 (-0.7)      +27.8 (+0.9) |  +24.3 (+0.8) /  -26.4 (-1.1)
+RSI_DIVERGENCE                   3.3 |      +6.8 (+0.9)      -20.0 (-0.9)      +14.7 (+0.4) |  -12.4 (-0.4) /  -27.7 (-0.7)
+STATE_SAMPLE                    29.8 |      +0.0 (+0.0)       +0.0 (+0.0)       +0.0 (+0.0) |  +10.1 (+0.6) /  -10.1 (-0.6)
+STOPHUNT_EQUAL_LOWS             29.6 |      -3.8 (-2.1)       -7.7 (-1.3)      -11.8 (-1.0) |   +3.3 (+0.2) /  -21.0 (-1.3)
+VAL_IMPULSE                     12.1 |      -0.3 (-0.0)      +18.7 (+1.1)       -0.8 (-0.0) |  +27.7 (+0.9) /   +8.1 (+0.3)
+  trend state 1D UPTREND (with-trend side)     n=  6386 fwd 24h  +10.1 bps (t=+0.6)
+  trend state 1D DOWNTREND (counter side)      n=  6386 fwd 24h  -10.1 bps (t=-0.6)
+  trend state 1D NO TREND                      n=  3840 fwd 24h   +0.0 bps (t=+0.0)
+
+=== PHASE B: 252 configurations (19 setups x bias x BTC x target), net of costs ===
+chance check: configs with DEV t>=3 and n>=60: 0 (expected by luck ~0.3)
+
+setup (best variant on DEV)                                 DEV n   avgR     t |  VAL n   avgR     t
+AMD_NO_GATE | any | any | tgt 2R                              457 +0.175  +2.0 |    201 +0.242  +1.4
+RANGE_BREAK_VOL | against1D | any | tgt 2R                   1435 +0.112  +1.4 |    755 -0.025  -0.3
+POC_IMPULSE | with1D | any | tgt ext                          414 +0.137  +1.3 |    288 +0.077  +0.6
+AMD_PRIMARY | any | btcAligned | tgt 2R                       115 +0.184  +1.0 |     32 -0.260  -1.2
+RSI_DIVERGENCE | against1D | any | tgt 2R                     765 +0.076  +1.0 |    480 -0.118  -1.0
+FIB0.786 | against1D | btcAligned | tgt 2R                    167 +0.070  +0.4 |     35 -0.042  -0.1
+REVERSAL_CHOCH_RETEST | with1D | btcAligned | tgt struct      177 +0.035  +0.3 |    135 -0.048  -0.2
+AVWAP_FROM_LOW | against1D | any | tgt struct                 106 +0.017  +0.1 |     68 -0.040  -0.2
+VAL_IMPULSE | against1D | btcAligned | tgt 2R                 160 +0.021  +0.1 |     43 -0.100  -0.4
+FIB0.382 | with1D | any | tgt 2R                             1097 -0.009  -0.1 |    664 +0.079  +0.8
+REVERSAL_CHOCH_MKT | against1D | any | tgt 2R                2037 -0.011  -0.2 |   1021 -0.057  -0.7
+FIB0.705 | with1D | any | tgt ext                             963 -0.044  -0.6 |    558 +0.333  +2.1
+FIB0.5 | against1D | btcAligned | tgt ext                     201 -0.074  -0.6 |     52 +0.151  +0.7
+ACCUM_SPRING | any | btcAligned | tgt struct                  354 -0.118  -0.6 |    139 -0.197  -0.6
+FIB0.635 | with1D | any | tgt 2R                             1046 -0.050  -0.8 |    622 +0.243  +2.1
+FAKEOUT_BODY | with1D | btcAligned | tgt 2R                  1858 -0.073  -1.4 |   1056 +0.073  +0.9
+RANGE_SWEEP_RECLAIM | with1D | btcAligned | tgt struct        858 -0.277  -2.1 |    506 -0.308  -1.8
+RANGE_FADE_LOW | against1D | btcAligned | tgt struct         1413 -0.242  -2.2 |    264 -0.220  -1.1
+STOPHUNT_EQUAL_LOWS | against1D | btcAligned | tgt struct    1002 -0.228  -2.6 |    179 -0.068  -0.4
