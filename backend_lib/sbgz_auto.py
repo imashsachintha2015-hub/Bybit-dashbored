@@ -3,7 +3,11 @@
 A thread of the dashboard server (start_thread, once a minute) looks at the radar's strong-break setups and
   * places the same order as the "Place order" button (sbgz_trade.plan / place: post-only limit entry, limit take-profit, stop-market
     stop) for every setup that passes your filters (volume-confirmed only by default), within caps on waiting orders, open trades,
-    total risk, orders per day, and a daily loss stop;
+    the risk of the open trades, orders per day, and a daily loss stop;
+  * counts only OPEN (filled) trades against the risk limit, not the waiting orders: about 7 in 10 radar setups never fill, so counting
+    them used the whole budget on orders that mostly come to nothing and abandoned good signals. The number of waiting orders has its
+    own cap (max_resting). When the open trades use the limit up, the waiting orders that could not be taken if they filled are
+    cancelled, and placed again as soon as there is room;
   * keeps each waiting order equal to its setup, the way the backtest treats the setup: the impulse extended -> the order is moved to
     the new levels; the setup ended (a new swing formed before the fill, the break is no longer 13 VU, ...) -> the order is cancelled;
   * optionally cancels a waiting order, or closes an open trade at the market, once BTC has moved 0.5R against it
@@ -290,6 +294,11 @@ def _used(st, virtual):
     return len(waiting), len(opened), sum(_f(t.get("risk_usd")) for t in waiting + opened)
 
 
+def _open_risk(st, virtual):
+    """Risk in USDT of the trades that are really open (filled, or closing). Waiting orders are not counted: most of them never fill."""
+    return sum(_f(t.get("risk_usd")) for t in st["tracked"].values() if bool(t.get("virtual")) == virtual and t["status"] in ("open", "closing"))
+
+
 def _day(st, now):
     d = time.strftime("%Y-%m-%d", time.gmtime(now / 1000))
     if st["day"].get("d") != d: st["day"] = dict(d=d, orders=0, r=0.0, closed=0)
@@ -403,13 +412,26 @@ def _track(st, now, p, setup, virtual):
     return t
 
 
+def _trim_waiting(client, st, cfg, now, ex, counts, live):
+    """The open trades have used the risk limit up: a waiting order that would take the open risk over it if it filled now is cancelled. It is
+    not blocked, so the same setup is placed again once a trade closes and there is room. While there is room for one more trade, the waiting
+    orders stay however many there are (up to max_resting), because most of them never fill."""
+    room = ex["equity"] * cfg["max_open_risk_pct"] / 100 - _open_risk(st, not live)
+    for link, t in list(st["tracked"].items()):
+        if t["status"] != "resting" or bool(t.get("virtual")) == live: continue
+        if _f(t.get("risk_usd")) > room + 1e-9:
+            used = (ex["equity"] * cfg["max_open_risk_pct"] / 100 - room) / ex["equity"] * 100 if ex["equity"] else 0
+            if _cancel_order(client, st, now, t, link, f"the open trades use {used:.1f}% of the {cfg['max_open_risk_pct']:g}% risk limit, so this order could not be taken if it filled "
+                                                      "(it is placed again when there is room)"): counts["cancelled"] += 1
+
+
 def _place_new(client, st, cfg, now, ex, setups, counts, live):
     """New orders for the setups that pass the filters, best first, inside the caps."""
     day = _day(st, now); mode = "live" if live else "preview"
     if day["r"] <= -cfg["daily_stop_r"]:
         _log(st, now, "halt", f"daily loss stop reached ({day['r']:+.1f}R today, limit -{cfg['daily_stop_r']:g}R): no new orders until tomorrow (UTC)", once=True, mode=mode)
         return
-    n_wait, n_open, risk = _used(st, not live)
+    n_wait, n_open, _ = _used(st, not live); open_risk = _open_risk(st, not live)      # waiting orders do not use the risk limit (see the module docstring)
     equity = ex["equity"]; keys = st["keys"] if live else st["pkeys"]
     busy = set(ex["positions"]) | {o.get("symbol") for o in ex["orders"]}       # a coin with a position or any order is left alone
     held = {t["symbol"] for t in st["tracked"].values() if t["status"] in ("resting", "open", "closing") and bool(t.get("virtual")) == (not live)}
@@ -431,8 +453,9 @@ def _place_new(client, st, cfg, now, ex, setups, counts, live):
                     _skipped[key] = p.get("error"); _log(st, now, "skip", f"not placed: {p.get('error')}", s, mode=mode)
                 continue
             if cfg["vol_only"] and not p.get("vol_ok"): continue
-            if (risk + p["risk_usd"]) > equity * cfg["max_open_risk_pct"] / 100 + 1e-9:
-                _log(st, now, "skip", f"not placed: total risk would pass {cfg['max_open_risk_pct']:g}% of the account size ({equity:g} USDT)", s, once=True, mode=mode); continue
+            if open_risk + p["risk_usd"] > equity * cfg["max_open_risk_pct"] / 100 + 1e-9:
+                _log(st, now, "skip", f"not placed: the open trades already use {open_risk / equity * 100 if equity else 0:.1f}% of the {cfg['max_open_risk_pct']:g}% risk limit "
+                     f"(account size {equity:g} USDT); it is placed when there is room", s, once=True, mode=mode); continue
             if not live:
                 t = _track(st, now, p, s, True); keys[key] = now
                 _log(st, now, "place", f"WOULD place a post-only limit {p['side']} {p['qty_str']} @ {p['price_str']['entry']}, stop {p['price_str']['stop']}, "
@@ -445,7 +468,7 @@ def _place_new(client, st, cfg, now, ex, setups, counts, live):
                 t = _track(st, now, res, s, False); keys[key] = now; day["orders"] += 1
                 _log(st, now, "place", f"placed a post-only limit {p['side']} {p['qty_str']} @ {p['price_str']['entry']}, stop {p['price_str']['stop']}, "
                      f"target {p['price_str']['target']} (risk {p['risk_usd']:.2f} USDT = {p['risk_pct']:g}%{', volume-confirmed' if p['vol_ok'] else ''})", t)
-        new += 1; counts["placed"] += 1; n_wait += 1; risk += p["risk_usd"]; held.add(sym)
+        new += 1; counts["placed"] += 1; n_wait += 1; held.add(sym)
 
 
 # ── live bookkeeping: fills, open trades, closed trades ──────────────────────────────────────────────────────────────
@@ -582,6 +605,7 @@ def _run_cycle(client, scan, now):
         if live: _sync(client, st, cfg, now, ex, setups, counts)
         _manage_waiting(client, st, cfg, now, setups, series, btc, ended, counts, live)
         if live: _manage_open(client, st, cfg, now, ex, series, btc, counts)
+        _trim_waiting(client, st, cfg, now, ex, counts, live)
         _place_new(client, st, cfg, now, ex, setups, counts, live)
         _mark(st, ex, live)
         for k in [k for k, t in st["tracked"].items() if t["status"] in ("cancelled", "replaced", "gone", "done") and now - t.get("done", now) > KEEP_DONE_MS]:
@@ -597,6 +621,16 @@ def _run_cycle(client, scan, now):
 
 
 # ── API ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+def _risk_summary(st, cfg):
+    """What is at risk now as a share of the account size the orders are calculated on: the open trades (the part the limit applies to),
+    the waiting orders if every one of them filled, and the worst case of both together."""
+    virt = cfg["mode"] == "preview"
+    eq = _status.get("equity_used") or (cfg["equity_usd"] if cfg["equity_usd"] > 0 else None)
+    _, _, tot = _used(st, virt); op = _open_risk(st, virt); wt = max(0.0, tot - op)
+    pct = (lambda x: round(x / eq * 100, 2)) if eq else (lambda x: None)
+    return dict(open_usd=round(op, 4), waiting_usd=round(wt, 4), open_pct=pct(op), waiting_pct=pct(wt), worst_pct=pct(op + wt), limit_pct=cfg["max_open_risk_pct"], equity=eq)
+
+
 def status(client=None):
     """GET /api/sbgz/auto."""
     st = _ensure()
@@ -609,8 +643,8 @@ def status(client=None):
         day = dict(st["day"]); cfg = dict(st["settings"])
         return dict(ok=True, account=T.account(client) if client else None, settings=cfg, day=day,
                     equity=dict(used=_status.get("equity_used"), real=_status.get("equity_real")), open_r=dict(n=len(open_r), r=sum(open_r)),
-                    halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:60]),
-                    running=bool(_thread and _thread.is_alive()))
+                    halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:LOG_MAX]),
+                    risk=_risk_summary(st, cfg), running=bool(_thread and _thread.is_alive()))
 
 
 def _leave_live(client, st, now, close_positions=False):

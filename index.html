@@ -912,6 +912,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .sbgz-hist-chips{gap:6px}
 .sbgz-chip{background:transparent;border:1px solid #333d4b;color:#94a3b8;border-radius:12px;padding:2px 9px;font-size:10.5px;cursor:pointer;font-family:var(--mo)}
 .sbgz-chip.on{background:rgba(20,184,166,.15);border-color:rgba(20,184,166,.5);color:#5eead4}
+.sbgz-radar-bar input[type=date]{background:#0f172a;color:#e2e8f0;border:1px solid #333d4b;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:var(--mo);color-scheme:dark}
 /* SBGZ order button + order window (POST /api/sbgz/order) */
 .sbgz-trade-btn{background:rgba(20,184,166,.12);border:1px solid rgba(20,184,166,.45);color:#5eead4;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--mo);white-space:nowrap}
 .sbgz-trade-btn.sell{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.45);color:#fda4af}
@@ -2487,6 +2488,10 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 
       <!-- View 3: Radar & Signals -->
       <section class="app-view" id="view-signals">
+        <!-- Day filter: one day's radar setups, orders, trades and history (applies to the cards below; built by sbgzDayRender) -->
+        <div class="card" id="sbgzDayCard" style="margin-bottom:12px">
+          <div class="sbgz-radar-bar sbgz-hist-chips" id="sbgzDayBar"><span class="mut">Day filter…</span></div>
+        </div>
         <!-- SBGZ Radar: every strong-break golden-zone setup across the runner's 42 coins, 15m + 1h (/api/sbgz/radar) -->
         <div class="card" id="sbgzRadarCard" style="margin-bottom:12px">
           <div class="cardh">
@@ -2543,7 +2548,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <tbody id="sbgzAutoTb"><tr><td colspan="6" class="emp">Loading…</td></tr></tbody>
             </table>
           </div>
-          <div class="sbgz-radar-foot">Every minute, for each volume-confirmed strong-break setup the server places the same order as "Place order" (post-only limit entry, limit take-profit, stop-market stop) within your limits, keeps each waiting order equal to its setup (the impulse extended: moved to the new levels; the setup ended: cancelled, the way the backtest treats it) and, if ticked, closes an open trade at the market (like the stop) or cancels a waiting order once BTC has moved 0.5R against it. It does not cancel an order just because the price is falling or a trend flipped: on 4,258 backtested trades that gained nothing, because the fall is what fills a pullback order. One order per coin; coins where you hold a position or your own order are skipped. Orders are calculated on the account size above (20 USDT), not on the account's balance: Bybit's smallest order is about 5 USDT, so at 20 USDT a trade needs about 0.5-1% risk and a few coins (BTC, ETH, SOL, SUI) are skipped as too small. Preview shows every decision without sending anything. Demo or testnet accounts only, no password. Every trade has its stop and target on Bybit, so it is protected even if this server stops. Not yet tested on the exchange: the first live orders are the first real test of the order format.</div>
+          <div class="sbgz-radar-foot">Every minute, for each volume-confirmed strong-break setup the server places the same order as "Place order" (post-only limit entry, limit take-profit, stop-market stop) within your limits, keeps each waiting order equal to its setup (the impulse extended: moved to the new levels; the setup ended: cancelled, the way the backtest treats it) and, if ticked, closes an open trade at the market (like the stop) or cancels a waiting order once BTC has moved 0.5R against it. The risk limit counts only OPEN trades: waiting orders do not use it, because most of them never fill (about 7 in 10 radar setups end unfilled); how many may wait has its own limit, and when fills use the risk limit up, the waiting orders that could not be taken are cancelled and placed again once there is room. It does not cancel an order just because the price is falling or a trend flipped: on 4,258 backtested trades that gained nothing, because the fall is what fills a pullback order. One order per coin; coins where you hold a position or your own order are skipped. Orders are calculated on the account size above (20 USDT), not on the account's balance: Bybit's smallest order is about 5 USDT, so at 20 USDT a trade needs about 0.5-1% risk and a few coins (BTC, ETH, SOL, SUI) are skipped as too small. Preview shows every decision without sending anything. Demo or testnet accounts only, no password. Every trade has its stop and target on Bybit, so it is protected even if this server stops. Not yet tested on the exchange: the first live orders are the first real test of the order format.</div>
         </div>
         <!-- SBGZ radar history: every setup the radar showed and what happened to it (GET /api/sbgz/history) -->
         <div class="card" id="sbgzHistCard" style="margin-bottom:12px">
@@ -4384,6 +4389,49 @@ window.sbgzLoad = function(cs, tf, refresh){
 
 // 'volume-confirmed only' mode: break candle volume >= 2x its average (research: +0.33R vs ~0R for the rest, 15m)
 function sbgzVonly(){ try{ return localStorage.getItem('sbgz_vonly') === '1'; }catch(e){ return false; } }
+
+// ── Day filter (Radar page): one day's radar setups, orders, trades and history ───────────────────────────────────
+// A day is a calendar day in this browser's time zone (the zone the times in the tables use). "Today" comes from the server's clock, so a wrong
+// PC clock cannot move it. Empty = all days. Radar: setups armed that day (open trades: filled that day); orders and trades: placed that day;
+// history: setups armed that day. The choice is remembered in this browser.
+function sbgzDayGet(){ try{ return localStorage.getItem('sbgz_day') || ''; }catch(e){ return ''; } }
+function sbgzSrvSync(ms){ if(ms && isFinite(ms)) window._sbgzSrvOff = ms - Date.now(); }
+function sbgzDayKey(ms){ var d = new Date(ms), p = function(n){ return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function sbgzToday(){ return sbgzDayKey(Date.now() + (window._sbgzSrvOff || 0)); }
+function sbgzDayShift(key, n){ var q = key.split('-'); return sbgzDayKey(new Date(+q[0], +q[1] - 1, +q[2] + n, 12).getTime()); }      // noon: no daylight-saving edge
+function sbgzInDay(sec){ var day = sbgzDayGet(); return !day || (!!sec && sbgzDayKey(sec * 1000) === day); }
+function sbgzDayName(day){ if(!day) return 'all days'; var t = sbgzToday(); return day === t ? 'today' : day === sbgzDayShift(t, -1) ? 'yesterday' : day; }
+function sbgzDayTitle(day){ var n = sbgzDayName(day); return sbgzEsc(n) + (n !== day && day ? ' (' + day + ')' : ''); }
+
+window.sbgzDayRender = function(force){
+  var bar = document.getElementById('sbgzDayBar'), inp = document.getElementById('sbgzDayInput');
+  if(!bar || (!force && inp && document.activeElement === inp)) return;                // never rebuild the date box under the user's hands
+  var day = sbgzDayGet(), today = sbgzToday(), yest = sbgzDayShift(today, -1);
+  var chip = function(label, val){ return '<button type="button" class="sbgz-chip' + (val === day ? ' on' : '') + '" onclick="sbgzDaySet(\'' + val + '\')">' + label + '</button>'; };
+  bar.innerHTML = '<b>Day</b>' + chip('All days', '') + chip('Today', today) + chip('Yesterday', yest) +
+    '<button type="button" class="sbgz-rbtn" title="Previous day" onclick="sbgzDayStep(-1)">◀</button>' +
+    '<input type="date" id="sbgzDayInput" value="' + day + '" max="' + today + '" onchange="sbgzDaySet(this.value)">' +
+    '<button type="button" class="sbgz-rbtn" title="Next day" onclick="sbgzDayStep(1)">▶</button>' +
+    '<span class="mut" style="flex:1 1 240px">' + (day ? 'Showing <b>' + sbgzDayTitle(day) + '</b>: radar setups armed that day, orders and trades placed that day, history rows armed that day. Times are in this browser\'s time zone.'
+                                                        : 'Showing everything. Pick a day to see only that day\'s radar, orders, trades and history.') + '</span>';
+};
+
+window.sbgzDaySet = function(day){
+  if(day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) day = '';
+  if(day && day > sbgzToday()) day = sbgzToday();                                       // no future days
+  try{ localStorage.setItem('sbgz_day', day || ''); }catch(e){}
+  window.sbgzDayRender(true);
+  if(window.sbgzRadarRender) window.sbgzRadarRender();
+  if(window.sbgzOrdersRender) window.sbgzOrdersRender();
+  if(window.sbgzAutoRender) window.sbgzAutoRender();
+  if(window.sbgzHistLoad) window.sbgzHistLoad();                                        // a past day needs more rows than the default 400
+};
+
+window.sbgzDayStep = function(n){
+  var today = sbgzToday(), nx = sbgzDayShift(sbgzDayGet() || today, n);
+  window.sbgzDaySet(nx > today ? today : nx);
+};
+setTimeout(function(){ if(window.sbgzDayRender) window.sbgzDayRender(true); }, 0);
 // pullback map lines on the chart (default on)
 function sbgzPmapOn(){ try{ return localStorage.getItem('sbgz_pmap') !== '0'; }catch(e){ return true; } }
 
@@ -4595,6 +4643,7 @@ window.sbgzRadarLoad = function(force){
         return;
       }
       window._sbgzRadarData = d;
+      sbgzSrvSync((d.generated || 0) * 1000); window.sbgzDayRender();
       window.sbgzRadarRender();
     })
     .catch(function(e){
@@ -4614,7 +4663,7 @@ window.sbgzRadarRender = function(){
   var vonly = sbgzVonly();
   if(btn) btn.textContent = vonly ? 'showing: volume-confirmed only (tap for all)' : 'showing: all strong breaks (tap for confirmed only)';
   if(!d || !tb) return;
-  var rows = (d.rows || []).filter(function(r){ return !vonly || r.vol_ok; });
+  var rows = (d.rows || []).filter(function(r){ return (!vonly || r.vol_ok) && sbgzInDay(r.since); });      // day filter: armed (open trades: filled) that day
   rows.sort(function(a, b){
     if(a.kind !== b.kind) return a.kind === 'open' ? -1 : 1;          // open trades first
     if(a.vol_ok !== b.vol_ok) return a.vol_ok ? -1 : 1;               // then volume-confirmed
@@ -4623,9 +4672,11 @@ window.sbgzRadarRender = function(){
   var when = d.generated ? new Date(d.generated * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
   var nOpen = rows.filter(function(r){ return r.kind === 'open'; }).length;
   var openR = rows.filter(function(r){ return r.kind === 'open' && r.r_now != null; }).reduce(function(a, r){ return a + r.r_now; }, 0);
-  if(info) info.innerHTML = '<b>' + (rows.length - nOpen) + '</b> waiting setups · <b>' + nOpen + '</b> open trades' + (nOpen ? ' (<b class="' + (openR >= 0 ? 'up' : 'dn') + '">' + sbgzR(openR) + '</b> now)' : '') + ' · scanned ' + (d.scanned || 0) + ' charts at ' + sbgzEsc(when) + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' failed' : '');
+  if(info) info.innerHTML = '<b>' + (rows.length - nOpen) + '</b> waiting setups · <b>' + nOpen + '</b> open trades' + (nOpen ? ' (<b class="' + (openR >= 0 ? 'up' : 'dn') + '">' + sbgzR(openR) + '</b> now)' : '') + ' · scanned ' + (d.scanned || 0) + ' charts at ' + sbgzEsc(when) + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' failed' : '') + (sbgzDayGet() ? ' · <b>' + sbgzDayTitle(sbgzDayGet()) + '</b> only' : '');
   if(!rows.length){
-    tb.innerHTML = '<tr><td colspan="13" class="emp">No ' + (vonly ? 'volume-confirmed ' : '') + 'strong-break setups on 42 coins right now (15m / 1h). They appear a few times a day.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="13" class="emp">' + (sbgzDayGet()
+      ? 'No ' + (vonly ? 'volume-confirmed ' : '') + 'live setups were armed ' + sbgzDayTitle(sbgzDayGet()) + '. This list is what the radar shows now; that day\'s setups, with how they ended, are in the history below.'
+      : 'No ' + (vonly ? 'volume-confirmed ' : '') + 'strong-break setups on 42 coins right now (15m / 1h). They appear a few times a day.') + '</td></tr>';
     return;
   }
   tb.innerHTML = rows.map(function(r){
@@ -4837,13 +4888,23 @@ window.sbgzOrdersLoad = function(){
         tb.innerHTML = '';
         return;
       }
-      var list = d.orders || [];
-      if(info) info.textContent = list.length + ' resting · ' + (d.account || '');
-      if(!list.length){
-        tb.innerHTML = '<tr><td colspan="9" class="emp">No resting SBGZ orders. Filled ones show under Positions.</td></tr>';
-        return;
-      }
-      tb.innerHTML = list.map(function(o){
+      window._sbgzOrd = d;
+      window.sbgzOrdersRender();
+    })
+    .catch(function(e){ if(info) info.textContent = 'error: ' + e.message; });
+};
+
+// the resting-orders table from the last answer (drawn again when the day filter changes)
+window.sbgzOrdersRender = function(){
+  var d = window._sbgzOrd, tb = document.getElementById('sbgzMyOrdTb'), info = document.getElementById('sbgzMyOrdInfo');
+  if(!d || !tb) return;
+  var all = d.orders || [], dayKey = sbgzDayGet(), list = all.filter(function(o){ return sbgzInDay((parseFloat(o.created) || 0) / 1000); });
+  if(info) info.textContent = (dayKey ? list.length + ' of ' + all.length + ' resting, placed ' + sbgzDayName(dayKey) : list.length + ' resting') + ' · ' + (d.account || '');
+  if(!list.length){
+    tb.innerHTML = '<tr><td colspan="9" class="emp">' + (dayKey ? 'No resting SBGZ orders were placed ' + sbgzEsc(sbgzDayName(dayKey)) + '.' : 'No resting SBGZ orders. Filled ones show under Positions.') + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(function(o){
         var L = o.side === 'Buy', side = o.sbgz_side || (L ? 'LONG' : 'SHORT'), tfl = o.interval === '60' ? '1h' : o.interval ? o.interval + 'm' : '--';
         var data = ' data-sym="' + sbgzEsc(o.symbol) + '" data-tf="' + sbgzEsc(o.interval || '15') + '" data-side="' + sbgzEsc(side) + '" data-link="' + sbgzEsc(o.link) + '"';
         var st = o.setup === 'same' ? '<span class="ok">same entry</span>'
@@ -4857,8 +4918,6 @@ window.sbgzOrdersLoad = function(){
           '<td>' + sbgzEsc(o.price) + '</td><td>' + sbgzEsc(o.qty) + filled + '</td><td>' + sbgzEsc(o.stop || '--') + '</td><td>' + sbgzEsc(o.target || '--') + '</td>' +
           '<td>' + st + '</td><td><button type="button" class="sbgz-trade-btn sell"' + data + ' onclick="event.stopPropagation();sbgzOrderCancel(this)">Cancel</button></td></tr>';
       }).join('');
-    })
-    .catch(function(e){ if(info) info.textContent = 'error: ' + e.message; });
 };
 
 window.sbgzOrderCancel = function(btn){
@@ -4884,6 +4943,7 @@ window.sbgzAutoLoad = function(){
     .then(function(d){
       if(!d || !d.ok){ info.textContent = 'Auto-orders unavailable: ' + ((d && d.error) || 'no answer from /api/sbgz/auto (server not updated yet?)'); return; }
       window._sbgzAuto = d;
+      sbgzSrvSync((d.status && d.status.t) || 0); window.sbgzDayRender();
       window.sbgzAutoRender();
     })
     .catch(function(e){ info.textContent = 'Auto-orders error: ' + e.message; });
@@ -4960,7 +5020,7 @@ window.sbgzAutoRender = function(){
       '<label title="Backtest: no gain, off by default"><input type="checkbox" id="sbgzAutoBtcCancel"' + (s.btc_cancel ? ' checked' : '') + '> cancel waiting orders when BTC moves 0.5R against since the signal</label>' +
       '<label>Max waiting <select id="sbgzAutoMaxW">' + opt([2, 4, 8, 12, 20], s.max_resting) + '</select></label>' +
       '<label>Max open <select id="sbgzAutoMaxO">' + opt([1, 3, 6, 10, 20], s.max_open) + '</select></label>' +
-      '<label>Max total risk <select id="sbgzAutoMaxRisk">' + opt([1, 2, 3, 5, 8], s.max_open_risk_pct, '%') + '</select></label>' +
+      '<label title="Counts the trades that are OPEN. Waiting orders do not use it (most never fill). If fills use it up, the waiting orders that could not be taken are cancelled and placed again when there is room.">Max open risk <select id="sbgzAutoMaxRisk">' + opt([1, 2, 3, 5, 8, 10], s.max_open_risk_pct, '%') + '</select></label>' +
       '<button type="button" class="sbgz-rbtn" onclick="sbgzAutoSave()">Save settings</button>' +
       '<button type="button" class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="sbgzAutoKill(false)">Stop + cancel waiting orders</button>' +
       '<button type="button" class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="sbgzAutoKill(true)">Stop + cancel + close open trades</button>';
@@ -4971,21 +5031,33 @@ window.sbgzAutoRender = function(){
   if(info) info.innerHTML = (mode === 'off' ? 'Off: it does nothing. ' : '') + 'Sized on <b>' + size + '</b> · <b>' + waiting + '</b> ' + (virt ? 'previewed' : 'waiting') + ' order(s) · <b>' + open + '</b> open trade(s) · today: ' + (day.orders || 0) + ' order(s), ' +
     (day.closed || 0) + ' closed, <b class="' + ((day.r || 0) >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(day.r || 0) + '</b>' +
     (d.open_r && d.open_r.n ? ' · open trades now <b class="' + (d.open_r.r >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(d.open_r.r) + '</b>' : '') +
+    (d.risk && d.risk.open_pct != null ? '<br>Risk: open trades <b>' + d.risk.open_pct.toFixed(1) + '%</b> of the <b>' + d.risk.limit_pct + '%</b> limit' +
+      (d.risk.waiting_pct ? ' · another <b>' + d.risk.waiting_pct.toFixed(1) + '%</b> if every waiting order filled <span class="mut">(waiting orders do not use the limit; most never fill)</span>' : '') : '') +
+    (sbgzDayGet() ? '<br><span class="mut">Day filter: showing <b>' + sbgzDayTitle(sbgzDayGet()) + '</b> in the two tables below. The server keeps the last 3 days of orders and ' + (d.log || []).length + ' log lines; older days: see the history.</span>' : '') +
     (st.t ? '<br><span class="mut">last check ' + sbgzEsc(sbgzWhen(st.t / 1000)) + ': ' + sbgzEsc(st.msg || '') + (d.running ? '' : ' (background thread not running on this server)') + '</span>' : '');
-  var held = rows.filter(function(t){ return t.status === 'resting' || t.status === 'open' || t.status === 'closing'; });
+  var dayKey = sbgzDayGet();
+  // no day chosen: what is waiting or open now. A day chosen: every order placed that day (replaced ones left out), with how it ended
+  var held = dayKey ? rows.filter(function(t){ return t.status !== 'replaced' && sbgzInDay((t.placed || 0) / 1000); })
+                    : rows.filter(function(t){ return t.status === 'resting' || t.status === 'open' || t.status === 'closing'; });
   if(hold) hold.innerHTML = held.length ? '<table><thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>State</th><th>Entry</th><th>Stop</th><th>Target</th><th>Risk</th><th>Now</th></tr></thead><tbody>' + held.map(function(t){
     var now = t.status === 'resting' ? (t.dist_pct != null ? '<span class="mut">' + t.dist_pct.toFixed(2) + '% from the entry</span>' : '--')
+            : t.status === 'done' ? (t.R != null ? '<b class="' + (t.R >= 0 ? 'up' : 'dn') + '">' + sbgzR(t.R) + '</b> <span class="mut">final</span>' : '<span class="mut">closed</span>')
+            : (t.status === 'cancelled' || t.status === 'gone') ? '<span class="mut">--</span>'
             : (t.r_now != null ? '<b class="' + (t.r_now >= 0 ? 'up' : 'dn') + '">' + sbgzR(t.r_now) + '</b>' + (t.pnl_usd != null ? ' <span class="mut">(' + (t.pnl_usd >= 0 ? '+' : '') + t.pnl_usd.toFixed(2) + ' USDT)</span>' : '') : '--');
-    var L = t.side === 'LONG', state = t.virtual ? '<span class="warn">would wait</span>' : t.status === 'resting' ? '<span class="open">WAITING</span>' : t.status === 'open' ? '<span class="hwin">OPEN</span>' : '<span class="mut">closing</span>';
-    return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(t.symbol) + '" data-tf="' + sbgzEsc(t.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)"><td><b>' + sbgzEsc(String(t.symbol).replace(/USDT$/, '')) + '</b></td><td>' +
+    var L = t.side === 'LONG', state = t.virtual ? '<span class="warn">would wait</span>' : t.status === 'resting' ? '<span class="open">WAITING</span>' : t.status === 'open' ? '<span class="hwin">OPEN</span>' : t.status === 'closing' ? '<span class="mut">closing</span>'
+            : t.status === 'done' ? (t.R == null ? '<span class="mut">CLOSED</span>' : t.R > 0 ? '<span class="hwin">WIN</span>' : '<span class="hloss">LOSS</span>')
+            : '<span class="mut">' + sbgzEsc(String(t.status).toUpperCase()) + '</span>';
+    var placedAt = dayKey && t.placed ? ' <span class="mut">' + sbgzEsc(new Date(t.placed).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) + '</span>' : '';
+    return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(t.symbol) + '" data-tf="' + sbgzEsc(t.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)"><td><b>' + sbgzEsc(String(t.symbol).replace(/USDT$/, '')) + '</b>' + placedAt + '</td><td>' +
       (t.interval === '60' ? '1h' : t.interval + 'm') + '</td><td class="' + (L ? 'up' : 'dn') + '">' + t.side + '</td><td>' + state + '</td><td>' + sbgzFmt(t.entry) + '</td><td>' + sbgzFmt(t.stop) + '</td><td>' + sbgzFmt(t.target) + '</td><td>' + (t.risk_usd != null ? t.risk_usd.toFixed(2) + ' USDT' : '--') + '</td><td>' + now + '</td></tr>';
   }).join('') + '</tbody></table>' : '';
-  var log = d.log || [];
-  if(tb) tb.innerHTML = log.length ? log.slice(0, 40).map(function(e){
+  var log = (d.log || []).filter(function(e){ return sbgzInDay((e.t || 0) / 1000); });
+  if(tb) tb.innerHTML = log.length ? log.slice(0, dayKey ? 150 : 40).map(function(e){
     var cls = e.kind === 'error' || e.kind === 'halt' ? 'dn' : e.kind === 'place' || e.kind === 'fill' ? 'ok' : e.kind === 'skip' ? 'mut' : e.kind === 'closed' || e.kind === 'close' ? '' : 'warn';
     return '<tr><td>' + sbgzEsc(sbgzWhen(e.t / 1000)) + '</td><td>' + (e.symbol ? '<b>' + sbgzEsc(String(e.symbol).replace(/USDT$/, '')) + '</b>' : '') + '</td><td>' + (e.interval ? (e.interval === '60' ? '1h' : e.interval + 'm') : '') + '</td>' +
       '<td class="' + (e.side === 'LONG' ? 'up' : e.side === 'SHORT' ? 'dn' : '') + '">' + sbgzEsc(e.side || '') + '</td><td class="' + cls + '">' + sbgzEsc(SBGZ_AUTO_KIND[e.kind] || e.kind) + (e.mode === 'preview' ? ' <span class="mut">(preview)</span>' : '') + '</td><td>' + sbgzEsc(e.text) + '</td></tr>';
-  }).join('') : '<tr><td colspan="6" class="emp">Nothing yet. Pick Preview or Live above and its decisions appear here.</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="emp">' + (dayKey ? 'No auto-order activity was logged ' + sbgzDayTitle(dayKey) + ' (the server keeps only the latest ' + (d.log || []).length + ' log lines).'
+                                                         : 'Nothing yet. Pick Preview or Live above and its decisions appear here.') + '</td></tr>';
 };
 
 if(!window._sbgzAutoTimer) window._sbgzAutoTimer = setInterval(function(){
@@ -5012,7 +5084,8 @@ function sbgzDur(a, b){
 window.sbgzHistLoad = function(){
   var tb = document.getElementById('sbgzHistTb'), info = document.getElementById('sbgzHistInfo');
   if(!tb) return;
-  fetch('/api/sbgz/history?tf=15,60&limit=400&vonly=' + (sbgzVonly() ? '1' : '0'))
+  var lim = sbgzDayGet() && sbgzDayGet() !== sbgzToday() ? 1200 : 400;                // an older day needs more of the stored rows than the latest 400
+  fetch('/api/sbgz/history?tf=15,60&limit=' + lim + '&vonly=' + (sbgzVonly() ? '1' : '0'))
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){
       if(!d || !d.ok){
@@ -5020,6 +5093,7 @@ window.sbgzHistLoad = function(){
         return;
       }
       window._sbgzHist = d;
+      sbgzSrvSync((d.generated || 0) * 1000); window.sbgzDayRender();
       window.sbgzHistRender();
     })
     .catch(function(e){ if(info) info.textContent = 'History error: ' + e.message; });
@@ -5045,6 +5119,23 @@ window.sbgzHistSetRule = function(x){
   window.sbgzHistRender();
 };
 
+// The scoreboard of one day, worked out from that day's rows (setups armed that day) under the chosen scoring rule.
+function sbgzHistDayInfo(views, day, vonly, rule){
+  var c = { filled: 0, wins: 0, losses: 0, exits: 0, open: 0, nofill: 0, r: 0, openR: 0, openN: 0 };
+  views.forEach(function(x){
+    var s = x.v.st;
+    if(s === 'NO FILL'){ c.nofill++; return; }
+    c.filled++;
+    if(s === 'WIN') c.wins++; else if(s === 'LOSS') c.losses++; else if(s === 'EXIT') c.exits++;
+    else if(s === 'OPEN'){ c.open++; if(x.r.r_now != null){ c.openR += x.r.r_now; c.openN++; } }
+    if(s !== 'OPEN' && x.v.R != null) c.r += x.v.R;
+  });
+  var fmtR = function(x){ return (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; };
+  return '<b>' + sbgzDayTitle(day) + '</b> · ' + (vonly ? 'volume-confirmed only' : 'all strong breaks') + ': ' + views.length + ' setups armed → ' + c.filled + ' filled: <b class="hwin">' + c.wins + ' WIN</b> · <b class="hloss">' + c.losses + ' FAILED</b>' +
+    (rule === 'btc' ? ' · <b class="hexit">' + c.exits + ' BTC EXIT</b>' : '') + ' · ' + c.open + ' open · finished trades total <b class="' + (c.r >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(c.r) + '</b>' +
+    (c.openN ? ' · open trades stand at <b class="' + (c.openR >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(c.openR) + '</b> now' : '') + ' · ' + c.nofill + ' never filled';
+}
+
 window.sbgzHistRender = function(){
   var d = window._sbgzHist, tb = document.getElementById('sbgzHistTb');
   var info = document.getElementById('sbgzHistInfo'), chips = document.getElementById('sbgzHistChips'), rl = document.getElementById('sbgzHistRule');
@@ -5059,14 +5150,16 @@ window.sbgzHistRender = function(){
            ' · ' + (s.open || 0) + ' open' + (rule === 'plan' && s.win_rate != null ? ' · ' + s.win_rate.toFixed(0) + '% wins' : '') +
            ' · total ' + fmtR(s.total_r || 0) + (s.avg_r != null ? ' (avg ' + fmtR(s.avg_r) + ')' : '');
   };
-  if(info) info.innerHTML = (vonly ? 'Volume-confirmed only' : 'All strong breaks') + ' · since ' + sbgzEsc(sbgzWhen(d.since)) + ': ' + (tot.signals || 0) + ' setups → ' +
+  var dayKey = sbgzDayGet();
+  var views = (d.rows || []).filter(function(r){ return sbgzInDay(r.t_arm || r.t_fill); }).map(function(r){ return { r: r, v: sbgzHistView(r, rule) }; });      // day filter: setups armed that day
+  if(info) info.innerHTML = dayKey ? sbgzHistDayInfo(views, dayKey, vonly, rule) : (vonly ? 'Volume-confirmed only' : 'All strong breaks') + ' · since ' + sbgzEsc(sbgzWhen(d.since)) + ': ' + (tot.signals || 0) + ' setups → ' +
     line(tot) + ' · ' + (tot.no_fill || 0) + ' never filled' + (on && on.total && on.total.n ? '<br><b>Ongoing: ' + on.total.n + ' trade(s) stand at <span class="' + (on.total.r >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(on.total.r) + '</span> now</b> <span class="mut">(price move over risk, not final; closed trades above are final)</span>' : '') + '<br><span class="mut">15m: ' + line(st['15'] || {}) + ' &nbsp;|&nbsp; 1h: ' + line(st['60'] || {}) + '</span>';
   if(rl){
     rl.innerHTML = d.stats_bx ? 'Score trades: ' + [['btc', 'Close when BTC moves 0.5R against', sb], ['plan', 'As planned (stop or target)', sp]].map(function(x){
       return '<button type="button" class="sbgz-chip' + (x[0] === rule ? ' on' : '') + '" onclick="sbgzHistSetRule(\'' + x[0] + '\')">' + x[1] + ' ' + fmtR((x[2].total || {}).total_r) + '</button>';
     }).join('') + (sb.total && sb.total.pending ? ' <span class="mut">(' + sb.total.pending + ' older trades still being checked for it)</span>' : '') : '';
   }
-  var f = sbgzHistFilter(), views = (d.rows || []).map(function(r){ return { r: r, v: sbgzHistView(r, rule) }; });
+  var f = sbgzHistFilter();
   var filters = SBGZ_HIST_FILTERS.filter(function(x){ return x[0] !== 'EXIT' || rule === 'btc'; });
   if(!filters.some(function(x){ return x[0] === f; })) f = 'filled';
   var pick = function(k){ return views.filter(function(x){ return k === 'all' || (k === 'filled' ? x.v.st !== 'NO FILL' : x.v.st === k); }); };
@@ -5075,7 +5168,8 @@ window.sbgzHistRender = function(){
   }).join('');
   var sel = pick(f), rows = d.rows || [];
   if(!sel.length){
-    tb.innerHTML = '<tr><td colspan="12" class="emp">' + (rows.length ? 'Nothing in this filter yet.' : 'No radar setups recorded yet. They appear here once they fill, close or end.') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="12" class="emp">' + (dayKey ? (views.length ? 'Nothing in this filter ' + sbgzDayTitle(dayKey) + '. Try "All".' : 'No radar setups were armed ' + sbgzDayTitle(dayKey) + (d.total > rows.length ? ' in the latest ' + rows.length + ' stored rows' : '') + '.')
+                                                  : (rows.length ? 'Nothing in this filter yet.' : 'No radar setups recorded yet. They appear here once they fill, close or end.')) + '</td></tr>';
     return;
   }
   tb.innerHTML = sel.map(function(x){
@@ -5096,7 +5190,7 @@ window.sbgzHistRender = function(){
         : '<td class="' + (v.R == null ? 'mut' : v.R >= 0 ? 'up' : 'dn') + '">' + (v.R == null ? '--' : fmtR(v.R)) + '</td>') +
       '<td>' + sbgzFmt(r.entry) + '</td><td>' + sbgzFmt(r.stop) + '</td><td>' + sbgzFmt(r.target) + '</td>' +
       '<td>' + (r.t_fill ? sbgzEsc(sbgzWhen(r.t_fill)) : '<span class="mut">--</span>') + '</td><td>' + closed + '</td><td>' + vol + '</td></tr>';
-  }).join('') + (d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');
+  }).join('') + (!dayKey && d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');
 };
 
 // ── CME-X5 (Model B) and Championship Dual-Regime chart indicators ────────────────────────────────────────────────

@@ -260,9 +260,14 @@ def test_caps():
     with Env(w) as e:
         e.mode("live", max_resting=3, max_new_per_cycle=5); e.cycle(); e.cycle()
         assert len(e.tracked()) == 3, "waiting orders are capped"
-    with Env(w) as e:
-        e.mode("live", max_open_risk_pct=0.6, max_new_per_cycle=5)                    # 0.25% each: two fit, the third would be 0.75%
-        e.cycle(); assert len(e.tracked()) == 2 and any("total risk" in x[2] for x in e.log(kinds=("skip",))), e.log()
+    with Env(w) as e:                                                                 # the risk limit counts OPEN trades: waiting orders do not use it
+        e.mode("live", max_open_risk_pct=0.6, max_new_per_cycle=5, max_resting=20)    # 0.25% each: two open trades fit, a third would make 0.75%
+        e.cycle(); assert len(e.tracked(status="resting")) == 5 and not e.log(kinds=("skip",)), e.log()
+        e.cycle(); assert len(e.tracked(status="resting")) == 8, "all eight wait: unfilled orders do not use the risk limit"
+        for t in e.tracked(status="resting")[:3]: e.ex.fill(t["link"])                # three fill at once: 0.75% open, over the 0.6% limit
+        e.cycle(); assert not e.tracked(status="resting") and len(e.tracked(status="open")) == 3, e.tracked()
+        assert any("risk limit" in x[2] for x in e.log(kinds=("cancel",))), e.log()      # (not re-placed in the same pass: the cancelled coins are still on the exchange's list)
+        e.cycle(); assert not e.tracked(status="resting") and any("risk limit" in x[2] for x in e.log(kinds=("skip",))), e.log()
     with Env(w) as e:
         e.mode("live", max_orders_per_day=2, max_new_per_cycle=5, max_resting=20); e.cycle()
         assert len(e.tracked()) == 2 and any(x[0] == "halt" for x in e.log()), e.log()
@@ -270,6 +275,31 @@ def test_caps():
         e.mode("live", max_open=1, max_resting=20, max_new_per_cycle=1); e.cycle(); e.ex.fill(e.tracked()[0]["link"]); e.cycle()
         n = len(e.ex.posts()); e.cycle(); assert len(e.ex.posts()) == n, "no new order while the open-trade cap is reached"
     print("  caps: waiting orders, total risk, orders per day, open trades")
+
+
+def test_waiting_orders_do_not_use_the_risk_limit():
+    """Most waiting orders never fill, so only open trades count: signals are no longer dropped because other orders are merely waiting;
+    when fills use the limit up the orders that could not be taken are cancelled, and they come back once a trade closes."""
+    w = World()
+    for i in range(6): w.add(f"C{i}USDT", "60", 10.5, setups=[zone(since_bar=ARM + i)])
+    with Env(w) as e:                                                                  # 0.25% (25 USDT) per order on 10,000; limit 0.6% = 60 USDT = two open trades
+        e.mode("live", max_open_risk_pct=0.6, max_new_per_cycle=3, max_resting=20)
+        e.cycle(); e.cycle()
+        assert len(e.tracked(status="resting")) == 6, e.log()                          # all six wait; the old rule would have stopped at two
+        assert not e.log(kinds=("skip",)) and not e.log(kinds=("cancel",)), e.log()
+        rk = A.status(e.ex)["risk"]; assert rk["open_usd"] == 0 and abs(rk["waiting_usd"] - 150.0) < 1e-6 and abs(rk["worst_pct"] - 1.5) < 1e-6 and rk["limit_pct"] == 0.6, rk
+        first = e.tracked(status="resting")
+        links = [t["link"] for t in first[:2]]; fills = {t["symbol"] for t in first if t["link"] in links}
+        for l in links: e.ex.fill(l)                                                  # two fill: 50 of 60 USDT used, room for 10 (< 25)
+        e.cycle()
+        assert len(e.tracked(status="open")) == 2 and not e.tracked(status="resting"), e.tracked()      # the four others could not be taken: cancelled
+        assert len([x for x in e.log(kinds=("cancel",)) if "risk limit" in x[2]]) == 4, e.log()
+        rk = A.status(e.ex)["risk"]; assert abs(rk["open_pct"] - 0.5) < 1e-6 and rk["waiting_usd"] == 0, rk
+        n = len(e.ex.posts()); e.cycle(); assert len(e.ex.posts()) == n, "nothing is placed while the open trades use the limit up"
+        sym = sorted(fills)[0]; e.ex.hit(sym, 9.8); e.cycle()                           # one trade stops out: 25 USDT used, room for one more
+        assert len(e.tracked(status="resting")) == 3, e.tracked()                      # the cancelled setups are placed again (not blocked)
+        e.cycle(); assert len(e.tracked(status="resting")) == 4 and len(e.ex.posts()) > n, e.tracked()
+    print("  risk limit counts open trades only: waiting orders pile up, fills use the limit, the rest are cancelled and come back when a trade closes")
 
 
 def test_busy_coins_and_manual_orders_are_left_alone():
@@ -526,10 +556,11 @@ def test_account_size_20_usdt():
     for i in range(7): w.add(f"C{i}USDT", "60", 10.5, setups=[zone(since_bar=ARM + i)])
     with Env(w, cap=20.0) as e:                                                           # the account holds 10,000 but trades are sized on 20
         assert A.equity_cap() == 20.0 and T.equity_cap() == 20.0
-        e.mode("live", risk_pct=1.0, max_new_per_cycle=5, max_resting=20, max_open_risk_pct=1.0)       # 1 % of 20 = 0.20 USDT; total risk 1 % of 20 = 0.20
+        e.mode("live", risk_pct=1.0, max_new_per_cycle=1, max_resting=20, max_open_risk_pct=1.0)       # 1 % of 20 = 0.20 USDT; open-risk limit 1 % of 20 = 0.20
         e.cycle(); b = e.ex.posts()
         assert len(b) == 1 and b[0]["qty"] == "1.00" and b[0]["price"] == "10.000", b                  # 0.20 USDT over a 0.2 stop distance
-        assert any("account size (20 USDT)" in x[2] for x in e.log(kinds=("skip",))), e.log()           # a second order would pass the 1 % total-risk cap of 20
+        e.ex.fill(e.tracked()[0]["link"]); e.cycle()                                                   # it fills: the open trade uses the whole limit of 20
+        assert len(e.ex.posts()) == 1 and any("account size 20 USDT" in x[2] for x in e.log(kinds=("skip",))), e.log()   # a second one would pass 1 % of 20
         st = A.status(e.ex); assert st["equity"] == dict(used=20.0, real=10_000.0) and st["settings"]["equity_usd"] == 20.0, st
         A.update_settings(dict(equity_usd=0, max_open_risk_pct=5.0), e.ex)                              # 0 = the account's real equity; takes effect at once
         assert A.equity_cap() == 0.0
