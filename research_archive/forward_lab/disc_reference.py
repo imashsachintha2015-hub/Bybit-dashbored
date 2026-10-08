@@ -112,8 +112,8 @@ def scan(A,P):
             for w in range(1,P["w"]+1):
                 q=i+w
                 if q>=n-1: break
-                if c[q]<zb: break
-                if l[q]<=ce-P.get("pf",0.05)*atr[i]: filled=q; break
+                if l[q]<=ce-P.get("pf",0.05)*atr[i]: filled=q; break   # fill first: a touched limit is filled
+                if c[q]<zb: break                                       # (2026-10-08 fix; was checked before the fill)
             if filled is None: continue
             risk=ce-sl
             if risk<=0 or risk/abs(ce)<P["mr"]: continue
