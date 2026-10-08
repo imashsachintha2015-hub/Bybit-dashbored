@@ -1,0 +1,98 @@
+events: {'ema': 103622, 'choch': 68803, 'rand': 89874, 'resx': 66302}
+design coins ['ADA', 'AVAX', 'BNB', 'BTC', 'DOGE', 'DOT', 'ETH', 'LINK', 'LTC', 'NEAR', 'SOL', 'XRP']; dev < 2026-03-31 <= val < 2026-07-01 <= final; 54 configurations
+
+=== ALL 54 CONFIGS, all 24 coins, full year: avg R per trade before fees -> after 14 bps (trades) ===
+  choch res>=3 adx>= 0 ladder 1/1.5/2.25R+BE : gross +0.001R -> net -0.128R (t= -5.7, n=12676, 34.7/day)
+  choch res>=3 adx>= 0 all at 1.5R           : gross +0.008R -> net -0.119R (t= -4.7, n=13203, 36.2/day)
+  choch res>=3 adx>= 0 all at 2.25R          : gross +0.009R -> net -0.120R (t= -3.7, n=11525, 31.6/day)
+  choch res>=3 adx>=20 ladder 1/1.5/2.25R+BE : gross +0.001R -> net -0.120R (t= -4.4, n=8936, 24.5/day)
+  choch res>=3 adx>=20 all at 1.5R           : gross +0.007R -> net -0.112R (t= -3.7, n=9429, 25.8/day)
+  choch res>=3 adx>=20 all at 2.25R          : gross +0.008R -> net -0.112R (t= -2.9, n=8412, 23.0/day)
+  choch res>=3 adx>=25 ladder 1/1.5/2.25R+BE : gross +0.006R -> net -0.112R (t= -3.7, n=6604, 18.1/day)
+  choch res>=3 adx>=25 all at 1.5R           : gross +0.013R -> net -0.104R (t= -3.1, n=6981, 19.1/day)
+  choch res>=3 adx>=25 all at 2.25R          : gross +0.019R -> net -0.099R (t= -2.3, n=6316, 17.3/day)
+  choch res>=4 adx>= 0 ladder 1/1.5/2.25R+BE : gross -0.002R -> net -0.130R (t= -4.6, n=8449, 23.1/day)
+  choch res>=4 adx>= 0 all at 1.5R           : gross +0.008R -> net -0.118R (t= -3.7, n=8743, 24.0/day)
+  choch res>=4 adx>= 0 all at 2.25R          : gross +0.015R -> net -0.113R (t= -2.8, n=7723, 21.2/day)
+  choch res>=4 adx>=20 ladder 1/1.5/2.25R+BE : gross +0.002R -> net -0.117R (t= -3.5, n=5935, 16.3/day)
+  choch res>=4 adx>=20 all at 1.5R           : gross +0.010R -> net -0.107R (t= -2.9, n=6247, 17.1/day)
+  choch res>=4 adx>=20 all at 2.25R          : gross +0.017R -> net -0.102R (t= -2.2, n=5595, 15.3/day)
+  choch res>=4 adx>=25 ladder 1/1.5/2.25R+BE : gross +0.012R -> net -0.105R (t= -2.8, n=4437, 12.2/day)
+  choch res>=4 adx>=25 all at 1.5R           : gross +0.021R -> net -0.094R (t= -2.3, n=4676, 12.8/day)
+  choch res>=4 adx>=25 all at 2.25R          : gross +0.028R -> net -0.088R (t= -1.7, n=4244, 11.6/day)
+  choch res>=5 adx>= 0 ladder 1/1.5/2.25R+BE : gross +0.019R -> net -0.102R (t= -2.6, n=4307, 11.8/day)
+  choch res>=5 adx>= 0 all at 1.5R           : gross +0.035R -> net -0.085R (t= -1.9, n=4424, 12.1/day)
+  choch res>=5 adx>= 0 all at 2.25R          : gross +0.040R -> net -0.081R (t= -1.5, n=3945, 10.8/day)
+  choch res>=5 adx>=20 ladder 1/1.5/2.25R+BE : gross +0.037R -> net -0.074R (t= -1.5, n=3031, 8.3/day)
+  choch res>=5 adx>=20 all at 1.5R           : gross +0.047R -> net -0.062R (t= -1.2, n=3159, 8.7/day)
+  choch res>=5 adx>=20 all at 2.25R          : gross +0.056R -> net -0.054R (t= -0.8, n=2849, 7.8/day)
+  choch res>=5 adx>=25 ladder 1/1.5/2.25R+BE : gross +0.043R -> net -0.065R (t= -1.2, n=2300, 6.3/day)
+  choch res>=5 adx>=25 all at 1.5R           : gross +0.040R -> net -0.066R (t= -1.1, n=2424, 6.6/day)
+  choch res>=5 adx>=25 all at 2.25R          : gross +0.065R -> net -0.043R (t= -0.6, n=2201, 6.0/day)
+  ema   res>=3 adx>= 0 ladder 1/1.5/2.25R+BE : gross +0.007R -> net -0.191R (t=-10.2, n=18758, 51.4/day)
+  ema   res>=3 adx>= 0 all at 1.5R           : gross +0.012R -> net -0.187R (t= -8.7, n=18188, 49.8/day)
+  ema   res>=3 adx>= 0 all at 2.25R          : gross +0.018R -> net -0.179R (t= -6.2, n=15798, 43.3/day)
+  ema   res>=3 adx>=20 ladder 1/1.5/2.25R+BE : gross +0.018R -> net -0.182R (t= -8.5, n=12164, 33.3/day)
+  ema   res>=3 adx>=20 all at 1.5R           : gross +0.022R -> net -0.179R (t= -7.4, n=12188, 33.4/day)
+  ema   res>=3 adx>=20 all at 2.25R          : gross +0.038R -> net -0.162R (t= -5.0, n=11022, 30.2/day)
+  ema   res>=3 adx>=25 ladder 1/1.5/2.25R+BE : gross +0.020R -> net -0.189R (t= -7.5, n=7696, 21.1/day)
+  ema   res>=3 adx>=25 all at 1.5R           : gross +0.035R -> net -0.174R (t= -6.1, n=7708, 21.1/day)
+  ema   res>=3 adx>=25 all at 2.25R          : gross +0.056R -> net -0.152R (t= -4.0, n=7204, 19.7/day)
+  ema   res>=4 adx>= 0 ladder 1/1.5/2.25R+BE : gross +0.014R -> net -0.185R (t= -8.0, n=12239, 33.5/day)
+  ema   res>=4 adx>= 0 all at 1.5R           : gross +0.023R -> net -0.177R (t= -6.4, n=11801, 32.3/day)
+  ema   res>=4 adx>= 0 all at 2.25R          : gross +0.037R -> net -0.162R (t= -4.5, n=10281, 28.2/day)
+  ema   res>=4 adx>=20 ladder 1/1.5/2.25R+BE : gross +0.032R -> net -0.170R (t= -6.3, n=7860, 21.5/day)
+  ema   res>=4 adx>=20 all at 1.5R           : gross +0.040R -> net -0.162R (t= -5.2, n=7824, 21.4/day)
+  ema   res>=4 adx>=20 all at 2.25R          : gross +0.062R -> net -0.139R (t= -3.4, n=7113, 19.5/day)
+  ema   res>=4 adx>=25 ladder 1/1.5/2.25R+BE : gross +0.049R -> net -0.159R (t= -5.1, n=5021, 13.8/day)
+  ema   res>=4 adx>=25 all at 1.5R           : gross +0.063R -> net -0.146R (t= -4.1, n=5007, 13.7/day)
+  ema   res>=4 adx>=25 all at 2.25R          : gross +0.092R -> net -0.116R (t= -2.4, n=4688, 12.8/day)
+  ema   res>=5 adx>= 0 ladder 1/1.5/2.25R+BE : gross +0.025R -> net -0.169R (t= -5.2, n=6200, 17.0/day)
+  ema   res>=5 adx>= 0 all at 1.5R           : gross +0.043R -> net -0.152R (t= -3.9, n=5967, 16.3/day)
+  ema   res>=5 adx>= 0 all at 2.25R          : gross +0.073R -> net -0.120R (t= -2.3, n=5219, 14.3/day)
+  ema   res>=5 adx>=20 ladder 1/1.5/2.25R+BE : gross +0.062R -> net -0.134R (t= -3.4, n=3997, 11.0/day)
+  ema   res>=5 adx>=20 all at 1.5R           : gross +0.076R -> net -0.120R (t= -2.7, n=3961, 10.9/day)
+  ema   res>=5 adx>=20 all at 2.25R          : gross +0.118R -> net -0.076R (t= -1.3, n=3599, 9.9/day)
+  ema   res>=5 adx>=25 ladder 1/1.5/2.25R+BE : gross +0.082R -> net -0.118R (t= -2.6, n=2609, 7.1/day)
+  ema   res>=5 adx>=25 all at 1.5R           : gross +0.103R -> net -0.097R (t= -1.9, n=2575, 7.1/day)
+  ema   res>=5 adx>=25 all at 2.25R          : gross +0.155R -> net -0.043R (t= -0.6, n=2411, 6.6/day)
+positive after fees: 0 of 54; positive before fees: 53
+median fee cost per trade in R (14 bps / stop%): 0.14R  (median stop 1.24%)
+
+=== SELECTION ON DEV (design coins, first half of the year) ===
+chance check: configs with DEV t>=3: 0 (luck ~0.07); t>=2: 0 (luck ~1.2)
+  frozen choch ladder 1/1.5/2.25R+BE  -> res>=5 adx>=25 | DEV n=  525 -0.003R t=-0.0 | VAL n=  318 -0.090R t=-0.9
+  frozen choch all at 1.5R            -> res>=5 adx>=25 | DEV n=  557 +0.003R t=+0.0 | VAL n=  338 -0.098R t=-0.8
+  frozen choch all at 2.25R           -> res>=5 adx>=25 | DEV n=  507 +0.023R t=+0.2 | VAL n=  311 -0.146R t=-1.0
+  frozen ema   ladder 1/1.5/2.25R+BE  -> res>=5 adx>=25 | DEV n=  646 -0.201R t=-2.3 | VAL n=  364 -0.091R t=-0.8
+  frozen ema   all at 1.5R            -> res>=5 adx>=25 | DEV n=  639 -0.176R t=-1.7 | VAL n=  352 -0.012R t=-0.1
+  frozen ema   all at 2.25R           -> res>=5 adx>= 0 | DEV n= 1173 -0.085R t=-0.9 | VAL n=  697 -0.108R t=-0.8
+
+=== ONE LOOK: FINAL (design coins, last quarter) + UNSEEN coins (full year) ===
+pass = FINAL n>=100, FINAL avg >= +0.10R, UNSEEN avg > 0, UNSEEN positive in >= 3 of 4 quarters
+  choch res>=5 adx>=25 ladder 1/1.5/2.25R+BE  | FINAL n= 294 -0.029R t=-0.3 | UNSEEN n= 1163 -0.095R t=-1.8 qtrs -0.24 +0.05 -0.15 -0.14 | win  49% PF 0.84 | fail
+        $10 at 1% risk -> $  4.01 (891 trades, max DD -61%) | at 2% risk -> $  1.38 (891 trades, max DD -87%)
+  choch res>=5 adx>=25 all at 1.5R            | FINAL n= 308 -0.055R t=-0.6 | UNSEEN n= 1221 -0.091R t=-1.6 qtrs -0.27 +0.06 -0.15 -0.12 | win  42% PF 0.86 | fail
+        $10 at 1% risk -> $  3.26 (938 trades, max DD -70%) | at 2% risk -> $  0.96 (751 trades, max DD -91%)
+  choch res>=5 adx>=25 all at 2.25R           | FINAL n= 280 +0.040R t=+0.3 | UNSEEN n= 1103 -0.065R t=-0.9 qtrs -0.25 +0.09 -0.09 -0.12 | win  37% PF 0.93 | fail
+        $10 at 1% risk -> $  5.08 (817 trades, max DD -58%) | at 2% risk -> $  2.03 (817 trades, max DD -85%)
+  ema   res>=5 adx>=25 ladder 1/1.5/2.25R+BE  | FINAL n= 330 -0.136R t=-1.8 | UNSEEN n= 1269 -0.079R t=-1.7 qtrs -0.15 -0.06 -0.03 -0.12 | win  51% PF 0.83 | fail
+        $10 at 1% risk -> $  3.20 (1259 trades, max DD -75%) | at 2% risk -> $  0.98 (973 trades, max DD -92%)
+  ema   res>=5 adx>=25 all at 1.5R            | FINAL n= 322 -0.166R t=-1.9 | UNSEEN n= 1262 -0.063R t=-1.2 qtrs -0.14 -0.02 +0.00 -0.15 | win  45% PF 0.87 | fail
+        $10 at 1% risk -> $  3.40 (1261 trades, max DD -74%) | at 2% risk -> $  0.96 (1000 trades, max DD -93%)
+  ema   res>=5 adx>= 0 all at 2.25R           | FINAL n= 687 -0.247R t=-3.0 | UNSEEN n= 2663 -0.107R t=-2.2 qtrs -0.23 -0.00 -0.12 -0.14 | win  34% PF 0.83 | fail
+        $10 at 1% risk -> $  0.99 (1342 trades, max DD -91%) | at 2% risk -> $  1.00 (716 trades, max DD -92%)
+
+=== CONTROLS (FINAL + UNSEEN): does the trigger beat resonance alone, random entries with the same filter, and the opposite direction? ===
+  choch res>=5 adx>=25 ladder 1/1.5/2.25R+BE : setup -0.082R (n=1457) | resonance alone -0.188R (n=1198) | random+filter -0.142R (n=1701) | flipped -0.140R | cost 4/8/14/20 bps: -0.005 -0.035 -0.082 -0.128
+  choch res>=5 adx>=25 all at 1.5R           : setup -0.084R (n=1529) | resonance alone -0.180R (n=1199) | random+filter -0.103R (n=1758) | flipped -0.136R | cost 4/8/14/20 bps: -0.008 -0.038 -0.084 -0.129
+  choch res>=5 adx>=25 all at 2.25R          : setup -0.044R (n=1383) | resonance alone -0.153R (n=1172) | random+filter -0.108R (n=1615) | flipped -0.160R | cost 4/8/14/20 bps: +0.033 +0.002 -0.044 -0.090
+  ema   res>=5 adx>=25 ladder 1/1.5/2.25R+BE : setup -0.091R (n=1599) | resonance alone -0.188R (n=1198) | random+filter -0.142R (n=1701) | flipped -0.298R | cost 4/8/14/20 bps: +0.050 -0.006 -0.091 -0.176
+  ema   res>=5 adx>=25 all at 1.5R           : setup -0.084R (n=1584) | resonance alone -0.180R (n=1199) | random+filter -0.103R (n=1758) | flipped -0.304R | cost 4/8/14/20 bps: +0.057 +0.001 -0.084 -0.169
+  ema   res>=5 adx>= 0 all at 2.25R          : setup -0.136R (n=3350) | resonance alone -0.168R (n=3146) | random+filter -0.168R (n=2785) | flipped -0.255R | cost 4/8/14/20 bps: +0.000 -0.054 -0.136 -0.217
+
+video-like setup (CHoCH, all 5 timeframes agree, ADX>=25, TP1/TP2/TP3 ladder), all coins, full year: n=2300 -0.065R t=-1.2 | win  50% PF 0.87 | $10 at 1% -> $  3.36 (1026 trades, max DD -68%) | at 2% -> $  0.98 (1018 trades, max DD -91%) | 6.3 trades/day
+
+video-like setup (CHoCH, all 5 timeframes agree, ADX>=25, TP1/TP2/TP3 ladder), final + unseen: n=1457 -0.082R t=-1.7 | win  49% PF 0.84 | $10 at 1% -> $  4.01 (891 trades, max DD -61%) | at 2% -> $  1.38 (891 trades, max DD -87%) | 4.0 trades/day
+
+PASSED: none
