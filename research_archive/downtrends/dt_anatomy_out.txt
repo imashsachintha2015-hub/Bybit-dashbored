@@ -1,0 +1,34 @@
+=== A. up-legs vs down-legs (moves of at least 6 ATR, DEV) ===
+                 n  size ATR   size %   bars  ATR/bar  deepest counter-move ATR  rel. volume
+  up-legs      513       8.7    33.7%     58    0.175                      4.06         1.22
+  down-legs    514       8.7    25.4%     58    0.141                      3.49         1.10
+  (medians; deepest counter-move = biggest bounce inside a down-leg / biggest dip inside an up-leg)
+
+=== B. trend lines by direction (DEV): uptrend lines (rising support) vs downtrend lines (falling resistance) ===
+  UPTREND lines (long side)      tests n= 936: held 6 bars  46%, trend continues +0.28 ATR/24 bars, with rejection candle +0.31 | breaks n= 697: follow-through +0.04 ATR, false 23%, 3+ touch breaks +1.17 ATR (n=49)
+  DOWNTREND lines (short side)   tests n= 803: held 6 bars  38%, trend continues +0.18 ATR/24 bars, with rejection candle +0.59 | breaks n= 726: follow-through -0.12 ATR, false 23%, 3+ touch breaks +0.36 ATR (n=34)
+  ('trend continues' = move in the line's own trend direction after a test; a downtrend line test is a rally up into falling resistance)
+
+=== C. how early the start of a DOWNTREND (a top) is detected vs the start of an UPTREND (a bottom) ===
+  tops -> downtrend starts (514 events, following move median 9.3 ATR):
+    trend line break       caught  74% | lag  23 bars | gave up 4.41 ATR | left 5.83 ATR | capture  51%
+    CHoCH                  caught  77% | lag  35 bars | gave up 5.87 ATR | left 5.37 ATR | capture  41%
+    Kalman flip            caught  95% | lag  16 bars | gave up 3.93 ATR | left 6.17 ATR | capture  54%
+    optimized line break   caught  96% | lag  14 bars | gave up 3.97 ATR | left 6.24 ATR | capture  55%
+  bottoms -> uptrend starts (508 events, following move median 9.1 ATR):
+    trend line break       caught  76% | lag  22 bars | gave up 5.02 ATR | left 9.92 ATR | capture  55%
+    CHoCH                  caught  78% | lag  34 bars | gave up 5.97 ATR | left 10.69 ATR | capture  45%
+    Kalman flip            caught  94% | lag  17 bars | gave up 3.95 ATR | left 10.70 ATR | capture  56%
+    optimized line break   caught  94% | lag  13 bars | gave up 3.76 ATR | left 11.06 ATR | capture  60%
+
+=== D. altcoin moves during BTC's big legs (DEV): % move of the alt / % move of BTC ===
+  BTC up-legs    legs  39 | BTC median  +18.8% | alts median  +10.8% | alt/BTC ratio median 0.62 | alts moved MORE than BTC in 31% of cases
+  BTC down-legs  legs  39 | BTC median  -14.3% | alts median  -14.0% | alt/BTC ratio median 0.95 | alts moved MORE than BTC in 48% of cases
+
+=== E. bear rallies: 3-ATR swing highs INSIDE down-legs (lower highs) and what follows their confirmation ===
+  622 bear rallies: median size 3.8 ATR over 12 bars; after the lower high is confirmed, price moves -0.46 ATR in 6 bars and -1.37 ATR in 24 bars (negative = the downtrend resumes); resumes down in 24 bars 68% of the time
+
+=== F. capitulation: the bar of the bottom vs the bar of the top vs ordinary bars ===
+  bottoms (end of down-legs)   n=  514 rel. volume 3.14x | lower wick  49% of range | upper wick  13% | volume >= 2x on  53% of them
+  tops (end of up-legs)        n=  513 rel. volume 3.01x | lower wick  15% of range | upper wick  45% | volume >= 2x on  48% of them
+  ordinary bars                n=22976 rel. volume 1.04x | lower wick  30% of range | upper wick  28% | volume >= 2x on   8% of them

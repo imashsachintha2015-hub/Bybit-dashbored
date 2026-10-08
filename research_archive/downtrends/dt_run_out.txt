@@ -1,0 +1,36 @@
+short series 33; trades simulated 27164
+
+=== DEV (design coins, 2021-06 .. 2023-12, includes the 2022 bear market): shorts, avg net R per trade (t, n) ===
+  KAL_S        no filter +0.036R (t=+0.6, n= 1006) | BTC down only +0.132R (t=+1.4, n=  469)
+  REJECT_LINE  no filter +0.036R (t=+0.2, n=  137) | BTC down only -0.020R (t=-0.1, n=   74)
+  LOWER_HIGH   no filter -0.016R (t=-0.2, n=  300) | BTC down only -0.033R (t=-0.2, n=  159)
+  BLOWOFF      no filter -0.112R (t=-0.8, n=  126) | BTC down only -0.200R (t=-0.8, n=   30)
+  BULL_TRAP    no filter +0.095R (t=+0.7, n=  154) | BTC down only +0.325R (t=+1.5, n=   68)
+  NEWTON_S     no filter +0.054R (t=+1.0, n= 1221) | BTC down only +0.143R (t=+1.6, n=  517)
+  PATH_S       no filter +0.080R (t=+1.2, n=  814) | BTC down only +0.176R (t=+1.7, n=  408)
+  WEAK_ALT     no filter +0.127R (t=+1.8, n=  565) | BTC down only +0.281R (t=+2.7, n=  280)
+  FUNDING      no filter +0.057R (t=+0.9, n=  808) | BTC down only +0.250R (t=+2.3, n=  325)
+frozen BTC-down filter (by DEV t; KAL_S fixed on): KAL_S=on, REJECT_LINE=off, LOWER_HIGH=off, BLOWOFF=off, BULL_TRAP=on, NEWTON_S=on, PATH_S=on, WEAK_ALT=on, FUNDING=on
+
+=== HOLDOUTS, one look (benchmark = KAL_S, the short half of the improved Kalman system) ===
+  invention    filter  |        VAL 2024 |   FINAL 2025-26 |    UNSEEN coins |     OLD 2020-21 | beats | pooled holdouts
+  KAL_S        BTCdown |   -0.183 (  94) |   -0.083 ( 491) |   +0.041 ( 716) |   -0.248 (  69) | 0/4 -      | -0.033R t=-0.5 n=1370 fail
+  REJECT_LINE  none    |   +0.297 (  67) |   -0.118 ( 170) |   +0.134 ( 249) |   +0.052 (  72) | 3/4 partly | +0.068R t=+0.8 n=557 fail
+  LOWER_HIGH   none    |   -0.166 ( 173) |   -0.045 ( 296) |   -0.067 ( 527) |   -0.258 ( 148) | 2/4 no     | -0.101R t=-2.1 n=1144 fail
+  BLOWOFF      none    |   -0.216 (  60) |   -0.359 ( 141) |   -0.250 ( 200) |   -0.245 (  92) | 1/4 no     | -0.276R t=-3.2 n=493 fail
+  BULL_TRAP    BTCdown |   -0.665 (  18) |   +0.178 (  77) |   -0.285 ( 137) |   +0.134 (   8) | 2/4 no     | -0.151R t=-1.2 n=240 fail
+  NEWTON_S     BTCdown |   -0.056 (  96) |   -0.013 ( 546) |   +0.081 ( 765) |   -0.213 (  74) | 4/4 YES    | +0.022R t=+0.3 n=1481 fail
+  PATH_S       BTCdown |   -0.212 (  80) |   -0.076 ( 441) |   +0.058 ( 632) |   -0.309 (  52) | 2/4 no     | -0.025R t=-0.3 n=1205 fail
+  WEAK_ALT     BTCdown |   -0.110 (  63) |   -0.138 ( 330) |   +0.051 ( 525) |   -0.572 (  36) | 2/4 no     | -0.048R t=-0.6 n=954 fail
+  FUNDING      BTCdown |   -0.091 (  77) |   -0.052 ( 296) |   +0.132 ( 444) |   -0.225 (  55) | 4/4 YES    | +0.027R t=+0.3 n=872 fail
+
+=== $10 short-only portfolios (0.5% risk, max 8 open, one per coin) ===
+  KAL_S        2020-21: $9.30 (53 trades, DD -9%) | 2021-23 (DEV, design coins): $12.16 (347 trades, DD -22%) | 2024-26 all coins: $9.04 (367 trades, DD -18%)
+  REJECT_LINE  2020-21: $10.15 (72 trades, DD -7%) | 2021-23 (DEV, design coins): $10.17 (137 trades, DD -10%) | 2024-26 all coins: $9.49 (387 trades, DD -24%)
+  LOWER_HIGH   2020-21: $8.55 (129 trades, DD -21%) | 2021-23 (DEV, design coins): $9.51 (281 trades, DD -10%) | 2024-26 all coins: $9.88 (480 trades, DD -14%)
+  BLOWOFF      2020-21: $8.89 (92 trades, DD -17%) | 2021-23 (DEV, design coins): $9.28 (126 trades, DD -11%) | 2024-26 all coins: $7.14 (304 trades, DD -32%)
+  BULL_TRAP    2020-21: $10.05 (8 trades, DD -2%) | 2021-23 (DEV, design coins): $11.12 (68 trades, DD -8%) | 2024-26 all coins: $9.18 (186 trades, DD -18%)
+  NEWTON_S     2020-21: $9.51 (58 trades, DD -8%) | 2021-23 (DEV, design coins): $12.36 (388 trades, DD -18%) | 2024-26 all coins: $9.69 (431 trades, DD -15%)
+  PATH_S       2020-21: $9.47 (42 trades, DD -6%) | 2021-23 (DEV, design coins): $12.69 (328 trades, DD -19%) | 2024-26 all coins: $8.37 (371 trades, DD -23%)
+  WEAK_ALT     2020-21: $9.07 (33 trades, DD -9%) | 2021-23 (DEV, design coins): $14.13 (253 trades, DD -10%) | 2024-26 all coins: $8.51 (336 trades, DD -17%)
+  FUNDING      2020-21: $9.47 (45 trades, DD -7%) | 2021-23 (DEV, design coins): $14.20 (283 trades, DD -11%) | 2024-26 all coins: $9.83 (338 trades, DD -13%)
