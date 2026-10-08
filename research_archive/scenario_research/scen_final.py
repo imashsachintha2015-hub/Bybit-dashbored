@@ -1,7 +1,7 @@
 import io, contextlib, random, collections, pickle, math, bisect
 with contextlib.redirect_stdout(io.StringIO()):
     exec(open("scen_an.py").read())
-SEL = pickle.load(open("scen_sel.pkl", "rb")); best = SEL["best"]
+SEL = pickle.load(open(os.environ.get("SCEN_SEL", "scen_sel.pkl"), "rb")); best = SEL["best"]
 tidx = {k: {t: j for j, t in enumerate(a["t"])} for k, a in ARR.items()}
 
 def sim_mkt(arr, i, rp, Rt, side_stop=True):
@@ -48,7 +48,15 @@ def evaluate(cfg, label):
     return passed, allx
 
 print(f"=== FINAL + UNSEEN, one look, per scenario's frozen DEV-best variant ({len(best)} frozen configs; total configs tried {SEL['configs']}) ===")
-SCEN = {"Trend pullback (fib/golden pocket/OTE)": ["FIB0.382", "FIB0.5", "FIB0.635", "FIB0.705", "FIB0.786"],
+import re
+if os.environ.get("ROUND") == "2":
+    groups = [("Volume-Fibonacci (new tool)", r"^VFIB"), ("Time-Fibonacci (new tool)", r"^TFIB"), ("Data-learned retracement grid (new tool)", r"^LFIB"),
+              ("SBGZ volatility ladder", r"^VULADDER"), ("Harmonic patterns (Gartley/Bat/AB=CD)", r"^HARM_"), ("CME weekend gap fill", r"^CMEGAP"),
+              ("Dalton 80% value-area rule", r"^VA80"), ("Previous day/week high-low", r"^(PDH|PDL|PWH|PWL)"), ("Weekend range on Monday", r"^WEEKEND"),
+              ("Round-number stop hunt", r"^ROUND")]
+    SCEN = {g: sorted(f for f in best if re.match(rx, f)) for g, rx in groups}
+else:
+    SCEN = {"Trend pullback (fib/golden pocket/OTE)": ["FIB0.382", "FIB0.5", "FIB0.635", "FIB0.705", "FIB0.786"],
         "Trend pullback (volume profile / VWAP)": ["POC_IMPULSE", "VAL_IMPULSE", "AVWAP_FROM_LOW"],
         "Range / accumulation / distribution": ["RANGE_FADE_LOW", "RANGE_BREAK_VOL", "ACCUM_SPRING", "RANGE_SWEEP_RECLAIM"],
         "Trend reversal": ["REVERSAL_CHOCH_MKT", "REVERSAL_CHOCH_RETEST", "RSI_DIVERGENCE"],
@@ -61,36 +69,37 @@ for sc, fl in SCEN.items():
             cfg = best[f][0]; ok, allx = evaluate(cfg, f"{f}|{cfg[1]}|{cfg[2]}|{cfg[3]}")
             if ok: passed[f] = (cfg, allx)
 
-# ---------- diagnosis round: Phase A showed sweeps of lows in a 1D downtrend CONTINUE down -> trade the flip (new tests) ----------
-print("\n=== ROUND 2 (new hypothesis from Phase A): sell the failed sweep/fade in a 1D downtrend (flipped direction), 2R / 1.5R targets ===")
-def flip_trades(f, bias, Rt, which):
-    out = []
-    for e in by_fam[f]:
-        if not seg(e, which) or not BIAS[bias](e) or "2R" not in e["res"]: continue
-        rp = e["res"]["2R"][1]; other = (e["sym"], e["side"] == "L")      # opposite side arrays
-        arr = ARR.get(other); j = tidx[other].get(e["t"]) if arr else None
-        if j is None: continue
-        r = sim_mkt(arr, j, rp, Rt)
-        if r: out.append((e["t"], net(r[0], rp, r[1]), e, r))
-    return out
-round2 = []
-for f in ("RANGE_SWEEP_RECLAIM", "RANGE_FADE_LOW", "STOPHUNT_EQUAL_LOWS", "FAKEOUT_BODY"):
-    for bias in ("against1D", "any"):
-        for Rt in (1.5, 2.0):
-            d = flip_trades(f, bias, Rt, "dev"); n, m, t = tstat([(x[0], x[1]) for x in d])
-            v = flip_trades(f, bias, Rt, "val"); vn, vm, vt = tstat([(x[0], x[1]) for x in v])
-            round2.append(((f, bias, Rt), n, m, t, vn, vm, vt))
-for k, n, m, t, vn, vm, vt in sorted(round2, key=lambda r: -r[3]):
-    print(f"  FLIP {k[0]:22s} {k[1]:10s} {k[2]}R  DEV n={n:5d} R={m:+.3f} t={t:+.1f} | VAL n={vn:5d} R={vm:+.3f} t={vt:+.1f}")
-r2best = max(round2, key=lambda r: r[3])
-if r2best[2] > 0 and r2best[5] > 0:
-    f, bias, Rt = r2best[0]
-    fin = flip_trades(f, bias, Rt, "final"); uns = flip_trades(f, bias, Rt, "unseen")
-    nf, mf, tf = tstat([(x[0], x[1]) for x in fin]); nu, mu, tu = tstat([(x[0], x[1]) for x in uns])
-    eq, taken, dd = equity([(x[3][2], x[2]["sym"], x[1], x[3][3]) for x in fin + uns])
-    print(f"  frozen {r2best[0]}: FINAL n={nf} R={mf:+.3f} t={tf:+.1f} | UNSEEN n={nu} R={mu:+.3f} t={tu:+.1f} | $10->${eq:.2f} ({taken} taken, DD {dd:.0f}%)")
-else:
-    print("  no flipped variant positive on both DEV and VAL -> not taken to the final test")
+if os.environ.get("ROUND") != "2":
+    # ---------- diagnosis round: Phase A showed sweeps of lows in a 1D downtrend CONTINUE down -> trade the flip (new tests) ----------
+    print("\n=== ROUND 2 (new hypothesis from Phase A): sell the failed sweep/fade in a 1D downtrend (flipped direction), 2R / 1.5R targets ===")
+    def flip_trades(f, bias, Rt, which):
+        out = []
+        for e in by_fam[f]:
+            if not seg(e, which) or not BIAS[bias](e) or "2R" not in e["res"]: continue
+            rp = e["res"]["2R"][1]; other = (e["sym"], e["side"] == "L")      # opposite side arrays
+            arr = ARR.get(other); j = tidx[other].get(e["t"]) if arr else None
+            if j is None: continue
+            r = sim_mkt(arr, j, rp, Rt)
+            if r: out.append((e["t"], net(r[0], rp, r[1]), e, r))
+        return out
+    round2 = []
+    for f in ("RANGE_SWEEP_RECLAIM", "RANGE_FADE_LOW", "STOPHUNT_EQUAL_LOWS", "FAKEOUT_BODY"):
+        for bias in ("against1D", "any"):
+            for Rt in (1.5, 2.0):
+                d = flip_trades(f, bias, Rt, "dev"); n, m, t = tstat([(x[0], x[1]) for x in d])
+                v = flip_trades(f, bias, Rt, "val"); vn, vm, vt = tstat([(x[0], x[1]) for x in v])
+                round2.append(((f, bias, Rt), n, m, t, vn, vm, vt))
+    for k, n, m, t, vn, vm, vt in sorted(round2, key=lambda r: -r[3]):
+        print(f"  FLIP {k[0]:22s} {k[1]:10s} {k[2]}R  DEV n={n:5d} R={m:+.3f} t={t:+.1f} | VAL n={vn:5d} R={vm:+.3f} t={vt:+.1f}")
+    r2best = max(round2, key=lambda r: r[3])
+    if r2best[2] > 0 and r2best[5] > 0:
+        f, bias, Rt = r2best[0]
+        fin = flip_trades(f, bias, Rt, "final"); uns = flip_trades(f, bias, Rt, "unseen")
+        nf, mf, tf = tstat([(x[0], x[1]) for x in fin]); nu, mu, tu = tstat([(x[0], x[1]) for x in uns])
+        eq, taken, dd = equity([(x[3][2], x[2]["sym"], x[1], x[3][3]) for x in fin + uns])
+        print(f"  frozen {r2best[0]}: FINAL n={nf} R={mf:+.3f} t={tf:+.1f} | UNSEEN n={nu} R={mu:+.3f} t={tu:+.1f} | $10->${eq:.2f} ({taken} taken, DD {dd:.0f}%)")
+    else:
+        print("  no flipped variant positive on both DEV and VAL -> not taken to the final test")
 
 # ---------- controls + cost sensitivity for the strongest frozen setups ----------
 print("\n=== CONTROLS and COST SENSITIVITY (final + unseen) for the top frozen setups by DEV t ===")

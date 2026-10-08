@@ -1,0 +1,113 @@
+design coins 19: ['AAVE', 'AVAX', 'BNB', 'BTC', 'CRV', 'DOGE', 'FIL', 'HBAR', 'ICP', 'NEAR', 'OP', 'POL', 'SOL', 'STX', 'SUI', 'TRX', 'UNI', 'WLD', 'XRP']
+unseen coins 13: ['ADA', 'APT', 'ARB', 'ATOM', 'BCH', 'DOT', 'ETC', 'ETH', 'INJ', 'LINK', 'LTC', 'ONDO', 'TIA']
+dev < 2025-07-11 <= val < 2026-02-19 <= final
+
+=== PHASE A: what price does after each scenario event (DEV, design coins; gross, long-orientation, next-open entry) ===
+scenario event           per coin/mo |   fwd 4h bps (t)   fwd 24h bps (t)   fwd 72h bps (t) | 24h with-1D-trend / against
+CMEGAP_fill_g0.005_s0.5          1.9 |     -52.6 (-1.4)      +19.2 (+0.4)      +47.4 (+0.7) |  +40.1 (+0.4) /  -32.1 (-0.4)
+CMEGAP_fill_g0.005_s1.0          1.9 |     -52.6 (-1.4)      +19.2 (+0.4)      +47.4 (+0.7) |  +40.1 (+0.4) /  -32.1 (-0.4)
+CMEGAP_fill_g0.005_s2.0          1.9 |     -52.6 (-1.4)      +19.2 (+0.4)      +47.4 (+0.7) |  +40.1 (+0.4) /  -32.1 (-0.4)
+CMEGAP_fill_g0.01_s0.5           1.7 |     -59.2 (-1.4)      +19.6 (+0.3)      +52.4 (+0.7) |  +48.9 (+0.4) /  -40.7 (-0.5)
+CMEGAP_fill_g0.01_s1.0           1.7 |     -59.2 (-1.4)      +19.6 (+0.3)      +52.4 (+0.7) |  +48.9 (+0.4) /  -40.7 (-0.5)
+CMEGAP_fill_g0.01_s2.0           1.7 |     -59.2 (-1.4)      +19.6 (+0.3)      +52.4 (+0.7) |  +48.9 (+0.4) /  -40.7 (-0.5)
+CMEGAP_fill_g0.02_s0.5           1.3 |     -68.3 (-1.3)      +34.4 (+0.5)      +61.0 (+0.7) |  +86.8 (+0.7) /  -44.3 (-0.5)
+CMEGAP_fill_g0.02_s1.0           1.3 |     -68.3 (-1.3)      +34.4 (+0.5)      +61.0 (+0.7) |  +86.8 (+0.7) /  -44.3 (-0.5)
+CMEGAP_fill_g0.02_s2.0           1.3 |     -68.3 (-1.3)      +34.4 (+0.5)      +61.0 (+0.7) |  +86.8 (+0.7) /  -44.3 (-0.5)
+HARM_ABCD1.0                     7.4 |      +2.3 (+0.5)       +3.9 (+0.4)      +11.5 (+0.7) |  +39.6 (+1.8) /  -38.3 (-1.6)
+HARM_ABCD1.272                   7.6 |      +2.0 (+0.4)       +3.5 (+0.4)      +13.3 (+0.8) |  +39.0 (+1.9) /  -37.1 (-1.5)
+HARM_BAT                         1.3 |     +11.5 (+1.3)      +27.4 (+1.1)      -93.9 (-2.3) |  +18.6 (+0.4) /  +23.5 (+0.7)
+HARM_GARTLEY                     1.5 |      +0.3 (+0.0)       -3.3 (-0.2)      -39.1 (-1.0) |  +20.1 (+0.6) /   -5.2 (-0.1)
+LFIB0.30_stopL                   8.0 |      +0.7 (+0.1)      +32.4 (+1.5)      +13.0 (+0.4) |  +33.6 (+1.0) /  +27.7 (+0.9)
+LFIB0.30_stopT                   8.0 |      +0.7 (+0.1)      +32.4 (+1.5)      +13.0 (+0.4) |  +33.6 (+1.0) /  +27.7 (+0.9)
+LFIB0.40_stopL                  10.2 |      +0.2 (+0.0)      +23.7 (+1.3)       +7.0 (+0.3) |  +31.7 (+1.0) /  +14.4 (+0.5)
+LFIB0.40_stopT                  10.2 |      +0.2 (+0.0)      +23.7 (+1.3)       +7.0 (+0.3) |  +31.7 (+1.0) /  +14.4 (+0.5)
+LFIB0.45_stopL                  10.9 |      -0.8 (-0.1)      +20.8 (+1.2)       +1.2 (+0.0) |  +25.8 (+0.8) /  +14.0 (+0.5)
+LFIB0.45_stopT                  10.9 |      -0.8 (-0.1)      +20.8 (+1.2)       +1.2 (+0.0) |  +25.8 (+0.8) /  +14.0 (+0.5)
+LFIB0.55_stopL                  12.0 |      -0.8 (-0.1)      +18.7 (+1.1)       -3.8 (-0.1) |  +26.2 (+0.9) /   +9.8 (+0.4)
+LFIB0.55_stopT                  12.0 |      -0.8 (-0.1)      +18.7 (+1.1)       -3.8 (-0.1) |  +26.2 (+0.9) /   +9.8 (+0.4)
+LFIB0.60_stopL                  12.3 |      -0.8 (-0.1)      +17.9 (+1.1)       -2.7 (-0.1) |  +26.4 (+0.9) /   +7.2 (+0.3)
+LFIB0.60_stopT                  12.3 |      -0.8 (-0.1)      +17.9 (+1.1)       -2.7 (-0.1) |  +26.4 (+0.9) /   +7.2 (+0.3)
+LFIB0.65_stopL                  12.5 |      -0.9 (-0.2)      +18.0 (+1.1)       -1.7 (-0.1) |  +29.3 (+1.0) /   +6.3 (+0.2)
+LFIB0.65_stopT                  12.5 |      -0.9 (-0.2)      +18.0 (+1.1)       -1.7 (-0.1) |  +29.3 (+1.0) /   +6.3 (+0.2)
+LFIB0.70_stopL                  12.6 |      -0.7 (-0.1)      +17.1 (+1.0)       -1.4 (-0.1) |  +28.0 (+0.9) /   +6.3 (+0.2)
+LFIB0.70_stopT                  12.6 |      -0.7 (-0.1)      +17.1 (+1.0)       -1.4 (-0.1) |  +28.0 (+0.9) /   +6.3 (+0.2)
+LFIB0.75_stopL                  12.7 |      +0.3 (+0.0)      +17.9 (+1.1)       -1.9 (-0.1) |  +28.3 (+0.9) /   +8.1 (+0.3)
+LFIB0.75_stopT                  12.7 |      +0.3 (+0.0)      +17.9 (+1.1)       -1.9 (-0.1) |  +28.3 (+0.9) /   +8.1 (+0.3)
+LFIB0.80_stopL                  12.8 |      -0.3 (-0.0)      +17.0 (+1.0)       -2.7 (-0.1) |  +29.2 (+1.0) /   +6.8 (+0.3)
+LFIB0.80_stopT                  12.8 |      -0.3 (-0.0)      +17.0 (+1.0)       -2.7 (-0.1) |  +29.2 (+1.0) /   +6.8 (+0.3)
+LFIB0.85_stopL                  12.8 |      -0.0 (-0.0)      +17.0 (+1.0)       -2.9 (-0.1) |  +28.6 (+1.0) /   +7.1 (+0.3)
+LFIB0.90_stopL                  12.8 |      +0.1 (+0.0)      +17.4 (+1.1)       -2.1 (-0.1) |  +29.0 (+1.0) /   +7.7 (+0.3)
+PDH_BREAKOUT_VOL                 7.7 |      +1.5 (+0.2)       -6.2 (-0.3)      -10.2 (-0.3) |   +5.2 (+0.1) /  -11.0 (-0.4)
+PDL_SWEEP_RECLAIM               11.1 |      -2.2 (-0.5)       -8.7 (-0.6)       -8.5 (-0.3) |   -2.2 (-0.1) /  -21.6 (-0.8)
+PWH_BREAKOUT                     1.8 |      +9.7 (+0.6)      -16.7 (-0.3)      -96.5 (-1.4) |  -47.3 (-0.6) /  +28.5 (+0.5)
+PWL_SWEEP_RECLAIM                1.8 |     -36.2 (-2.6)       -8.7 (-0.3)      +70.7 (+1.2) |   +3.1 (+0.1) /  -19.0 (-0.4)
+ROUND_SWEEP_RECLAIM             60.4 |      -2.5 (-1.5)       -2.2 (-0.9)       -3.4 (-1.0) |  +15.9 (+0.9) /  -20.6 (-1.2)
+TFIB0.382                       10.6 |      -1.7 (-0.3)       +6.5 (+0.4)      -31.0 (-1.3) |   +1.4 (+0.0) /  +17.4 (+0.8)
+TFIB0.618                        8.7 |      +1.7 (+0.3)       +7.0 (+0.4)      -34.5 (-1.4) |   +4.4 (+0.1) /  +10.9 (+0.5)
+TFIB1.0                          6.9 |      +8.8 (+1.2)      +18.5 (+1.0)      -35.0 (-1.4) |  +15.9 (+0.5) /  +16.3 (+0.6)
+VA80_REENTRY                     4.8 |     -14.7 (-2.5)      -33.0 (-1.5)      -34.8 (-0.9) |  -25.2 (-0.6) /  -45.4 (-1.6)
+VFIB0.382                        8.9 |      +2.7 (+0.4)      +29.2 (+1.5)      +15.6 (+0.5) |  +39.2 (+1.2) /  +17.1 (+0.6)
+VFIB0.5                         10.5 |      +1.4 (+0.2)      +26.7 (+1.5)      +13.3 (+0.5) |  +33.3 (+1.1) /  +16.3 (+0.6)
+VFIB0.618                       11.5 |      -0.9 (-0.1)      +21.5 (+1.2)       +1.0 (+0.0) |  +28.3 (+0.9) /  +13.0 (+0.5)
+VFIB0.786                       12.4 |      +0.0 (+0.0)      +17.2 (+1.0)       -4.2 (-0.2) |  +27.2 (+0.9) /   +6.6 (+0.3)
+VULADDER4.0                     12.5 |      -0.5 (-0.1)      +17.3 (+1.0)       -0.2 (-0.0) |  +28.9 (+1.0) /   +5.3 (+0.2)
+VULADDER4.7                     12.7 |      +0.2 (+0.0)      +17.5 (+1.1)       +0.9 (+0.0) |  +30.6 (+1.0) /   +5.0 (+0.2)
+VULADDER5.7                     12.8 |      +0.1 (+0.0)      +17.6 (+1.1)       -0.9 (-0.0) |  +30.6 (+1.0) /   +5.8 (+0.2)
+WEEKEND_BREAKOUT                 1.6 |      +0.2 (+0.0)      -50.7 (-0.8)     -170.4 (-2.3) |  -66.4 (-0.6) /  +10.4 (+0.1)
+WEEKEND_FAILED_BREAK             1.5 |      -3.1 (-0.2)      +29.6 (+0.7)     +129.2 (+2.1) |  +18.4 (+0.2) /   -8.1 (-0.1)
+  trend state 1D UPTREND (with-trend side)     n=     0 fwd 24h   +0.0 bps (t=+0.0)
+  trend state 1D DOWNTREND (counter side)      n=     0 fwd 24h   +0.0 bps (t=+0.0)
+  trend state 1D NO TREND                      n=     0 fwd 24h   +0.0 bps (t=+0.0)
+
+=== PHASE B: 702 configurations (51 setups x bias x BTC x target), net of costs ===
+chance check: configs with DEV t>=3 and n>=60: 0 (expected by luck ~0.9)
+
+setup (best variant on DEV)                                 DEV n   avgR     t |  VAL n   avgR     t
+PWH_BREAKOUT | against1D | btcAligned | tgt 2R                 66 +0.749  +2.8 |     14 -0.467  -1.7
+PWL_SWEEP_RECLAIM | with1D | btcAligned | tgt struct          186 +0.393  +1.3 |     99 -0.231  -0.8
+LFIB0.30_stopL | against1D | any | tgt 2R                     886 +0.067  +1.0 |    555 -0.179  -2.1
+PDH_BREAKOUT_VOL | against1D | btcAligned | tgt struct        271 +0.151  +0.9 |     59 -0.319  -1.8
+VFIB0.382 | any | btcAligned | tgt struct                      93 +0.114  +0.8 |     60 -0.060  -0.3
+LFIB0.70_stopT | with1D | any | tgt ext                       905 +0.084  +0.8 |    532 +0.308  +1.8
+CMEGAP_fill_g0.005_s1.0 | against1D | btcAligned | tgt struct    115 +0.145  +0.8 |     27 -0.041  -0.1
+CMEGAP_fill_g0.01_s0.5 | against1D | btcAligned | tgt struct    102 +0.237  +0.8 |     26 +0.420  +0.7
+CMEGAP_fill_g0.01_s1.0 | against1D | btcAligned | tgt struct    100 +0.146  +0.8 |     25 +0.054  +0.1
+CMEGAP_fill_g0.005_s0.5 | against1D | btcAligned | tgt struct    114 +0.175  +0.6 |     27 +0.352  +0.6
+HARM_GARTLEY | with1D | btcAligned | tgt struct                93 +0.083  +0.6 |     64 -0.010  -0.1
+LFIB0.45_stopT | against1D | btcAligned | tgt ext             175 +0.123  +0.6 |     47 -0.085  -0.3
+LFIB0.90_stopL | against1D | btcAligned | tgt 2R              127 +0.122  +0.6 |     26 -0.081  -0.3
+CMEGAP_fill_g0.02_s0.5 | with1D | btcAligned | tgt struct     173 +0.160  +0.6 |     99 -0.432  -2.3
+LFIB0.40_stopT | against1D | btcAligned | tgt ext             163 +0.117  +0.5 |     40 -0.100  -0.3
+WEEKEND_BREAKOUT | against1D | any | tgt 2R                   302 +0.088  +0.5 |    229 -0.213  -1.2
+LFIB0.75_stopT | with1D | any | tgt struct                    828 +0.046  +0.5 |    488 +0.314  +1.9
+LFIB0.30_stopT | against1D | any | tgt ext                    838 +0.037  +0.4 |    520 -0.296  -2.4
+CMEGAP_fill_g0.02_s1.0 | against1D | btcAligned | tgt struct     77 +0.076  +0.4 |     18 +0.282  +0.7
+LFIB0.65_stopT | with1D | any | tgt ext                       957 +0.031  +0.3 |    575 +0.214  +1.3
+WEEKEND_FAILED_BREAK | any | any | tgt struct                 827 +0.040  +0.3 |    381 -0.175  -0.8
+VULADDER5.7 | against1D | any | tgt ext                       518 +0.038  +0.3 |    275 -0.140  -0.7
+HARM_BAT | against1D | any | tgt struct                        70 +0.065  +0.2 |     46 +0.105  +0.4
+HARM_ABCD1.272 | against1D | btcAligned | tgt struct          116 +0.037  +0.2 |     21 +0.441  +1.1
+LFIB0.80_stopL | against1D | btcAligned | tgt 2R              164 +0.023  +0.1 |     35 -0.046  -0.2
+LFIB0.85_stopL | against1D | btcAligned | tgt 2R              145 +0.011  +0.1 |     31 -0.125  -0.4
+HARM_ABCD1.0 | with1D | btcAligned | tgt struct               359 +0.002  +0.0 |    204 -0.117  -1.0
+VFIB0.618 | against1D | btcAligned | tgt ext                  154 -0.010  -0.1 |     45 -0.058  -0.2
+VFIB0.786 | against1D | btcAligned | tgt ext                  163 -0.016  -0.1 |     42 -0.010  -0.0
+LFIB0.80_stopT | with1D | any | tgt struct                    761 -0.012  -0.1 |    461 +0.564  +2.7
+VA80_REENTRY | against1D | btcAligned | tgt 2R                228 -0.031  -0.2 |     40 -0.454  -2.5
+LFIB0.45_stopL | against1D | any | tgt 2R                     998 -0.015  -0.2 |    663 -0.101  -1.1
+LFIB0.40_stopL | against1D | any | tgt 2R                     990 -0.020  -0.3 |    651 -0.111  -1.3
+VFIB0.5 | against1D | btcAligned | tgt 2R                     182 -0.054  -0.4 |     42 +0.138  +0.5
+TFIB0.618 | with1D | any | tgt 2R                            2000 -0.021  -0.4 |   1148 -0.133  -1.8
+LFIB0.75_stopL | against1D | btcAligned | tgt 2R              170 -0.069  -0.5 |     38 +0.043  +0.1
+TFIB1.0 | against1D | any | tgt 2R                           1334 -0.031  -0.5 |    776 -0.211  -2.5
+LFIB0.70_stopL | with1D | any | tgt ext                       968 -0.042  -0.5 |    563 +0.327  +2.2
+LFIB0.65_stopL | with1D | any | tgt ext                      1036 -0.042  -0.6 |    612 +0.307  +2.3
+LFIB0.55_stopT | against1D | any | tgt ext                    912 -0.062  -0.6 |    574 -0.145  -1.0
+LFIB0.60_stopT | with1D | any | tgt ext                      1000 -0.068  -0.7 |    593 +0.150  +1.0
+TFIB0.382 | with1D | any | tgt struct                        1604 -0.055  -0.8 |    896 -0.225  -2.8
+VULADDER4.0 | with1D | any | tgt 2R                           931 -0.059  -0.9 |    530 +0.182  +1.4
+VULADDER4.7 | against1D | any | tgt ext                       671 -0.081  -0.9 |    416 -0.054  -0.4
+LFIB0.60_stopL | with1D | any | tgt 2R                       1083 -0.060  -1.0 |    645 +0.220  +2.0
+LFIB0.55_stopL | with1D | any | tgt ext                      1114 -0.075  -1.3 |    670 +0.169  +1.6
+PDL_SWEEP_RECLAIM | against1D | btcAligned | tgt struct       494 -0.316  -2.2 |     99 -0.379  -1.9
+ROUND_SWEEP_RECLAIM | against1D | btcAligned | tgt struct    1891 -0.198  -2.4 |    375 -0.342  -3.5

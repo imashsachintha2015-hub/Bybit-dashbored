@@ -1,7 +1,8 @@
 import pickle, random, math, json, sys, itertools, collections, time
 sys.path.insert(0, "/home/user/Bybit-dashbored")
 from backend_lib import amd_fvg
-P = pickle.load(open("scen_ev.pkl", "rb")); EV = P["ev"]; COINS = P["coins"]
+import os
+P = pickle.load(open(os.environ.get("SCEN_EV", "scen_ev.pkl"), "rb")); EV = P["ev"]; COINS = P["coins"]
 ARR = pickle.load(open("scen_arr.pkl", "rb"))
 DAY = 86400000; HR = 3600000
 FEE = {"mkt": 14e-4, "lmt": 8e-4}; FUND_8H = 0.5e-4
@@ -37,7 +38,7 @@ def add_amd():
                         e["res"] = {"2R": (Rg, rp, (r["exit_t"] - r["fill_t"]) / HR + 1, r["fill_t"], r["exit_t"] + HR)}
                     out.append(e)
     return out
-EV += add_amd()
+if os.environ.get("NO_AMD") != "1": EV += add_amd()
 
 def netR(e, tg, fee_scale=1.0):
     Rg, rp, hours, te, tx = e["res"][tg]
@@ -106,4 +107,4 @@ order = sorted(best.values(), key=lambda r: -r[3])
 for cfg, n, m, t in order:
     v = trades(cfg, "val"); vn, vm, vt = tstat([(x[0], x[1]) for x in v])
     print(f"{cfg[0]+' | '+cfg[1]+' | '+cfg[2]+' | tgt '+cfg[3]:58s} {n:6d} {m:+6.3f} {t:+5.1f} | {vn:6d} {vm:+6.3f} {vt:+5.1f}")
-pickle.dump(dict(best=best, design=DESIGN, unseen=UNSEEN, T=(tmin, T1, T2, tmax), configs=len(configs)), open("scen_sel.pkl", "wb"))
+pickle.dump(dict(best=best, design=DESIGN, unseen=UNSEEN, T=(tmin, T1, T2, tmax), configs=len(configs)), open(os.environ.get("SCEN_SEL", "scen_sel.pkl"), "wb"))
