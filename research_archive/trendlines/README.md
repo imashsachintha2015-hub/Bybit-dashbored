@@ -105,3 +105,41 @@ The edge is regime-dependent trend following: it pays in trending markets and is
 - **Stop:** 3 ATR from the signal close.
 - **Exit:** at the next open after the first close where z has crossed back through 0, or after at most 120 bars.
 - **Costs and sizing:** market orders. Size by risk (1% recommended), max 3 open positions, one per coin.
+
+## Improving the Kalman trend (`kal_improve.py`, `kal_follow.py`; data d6 + d5 + d4, 2020-2026, all coins)
+
+**Parity with the pre-registered run.** Same 943 trades. One DOGE trade (April 2021) had hit the old code's 99R placeholder target (+98.9R). The new code has no target, and that trade exits on the z flip at +77.7R. This changes the 2020-21 average from +0.462R to +0.439R.
+
+**Truth 1 (baseline, 9,158 trades).**
+- Average +0.129R per trade. Positive in 6 of 7 years: 2020 +0.30, 2021 +0.31, 2022 +0.05, 2023 +0.18, 2024 +0.25, 2025 −0.04, 2026 +0.03.
+- Longs +0.253R, shorts +0.007R; shorts made money only in the 2022 bear market (+0.21R).
+- Trades with BTC's 1D trend +0.239R, against it +0.006R.
+- 35% winners (average +1.64R) against losers at −0.67R. The median trade is −0.39R.
+- **The whole profit sits in the top 1% of trades;** without them the average is −0.009R.
+
+**72 pre-declared variants, honest walk-forward (2022-2026).** Each year used the variant with the best t over the earlier years only:
+- result: +0.052R (t=1.1);
+- keeping the baseline: +0.092R (t=2.2).
+
+Optimizing parameters does not help. The best past variant (long-only, after the 2020-21 bull market) lost in 2022.
+
+**BTC-trend filter** (exploratory, chosen after seeing the slice table):
+- **Rule:** trade only in the direction of BTC's 1D trend.
+- **Year by year:** better than the baseline in 7 of 7 years (2020 to 2026).
+- **Factor walk-forward:** adopting the filter in a year only if it was better in all earlier years adopts it from 2021 on. Result 2021-2026: +0.225R (t=3.1) against +0.118R (t=2.9).
+- **Without the top 1% of trades:** +0.063R. It depends less on outliers than the baseline.
+
+**Portfolio limits.** Same trades, more slots at less risk each:
+
+| Version | Risk per trade | Max open | $10 becomes | Trades | Max drawdown |
+|---|---|---|---|---|---|
+| Baseline | 1% | 3 | $39.00 | — | −41% |
+| Baseline | 0.5% | 8 | $53.97 | — | −41% |
+| BTC-filtered | 1% | 3 | $75.92 | 779 | −29% |
+| BTC-filtered | 0.5% | 8 | $87.56 | 1,797 | −33% |
+
+BTC-filtered, 0.5% risk, max 8 open, in sub-periods:
+- 2022-2026 only: $25.44.
+- 2025-2026 only: $11.34 (the baseline gives $9.11).
+
+**Recommendation.** Forward-test, record-only, both the baseline and the BTC-filtered version at 0.5% risk with max 8 open. The BTC filter was found in-sample. Its 7/7-year consistency and the market-factor logic (alts follow BTC) make it credible, but it is not proven.
