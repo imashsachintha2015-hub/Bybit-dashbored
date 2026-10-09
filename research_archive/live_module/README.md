@@ -29,7 +29,7 @@ Run on the research data: OKX 4H bars 2020-2026 for 36 coins, and Binance fundin
 
 **Net R.** 205 trades are identical; the rest differ by at most 0.007R. The research charged funding until the end of the bar in which a trend-flip exit happened. The engine stops at the exit itself, which is the realistic version.
 
-## 3. Unit tests (`tests/test_kalman_trend.py`, 13 tests, no network)
+## 3. Unit tests (`tests/test_kalman_trend.py`, no network)
 - **Rules:** crossings, BTC and funding filters, stops and the 0.5% minimum, the funding window, sizing with exchange minimums, settings clamping.
 - **Inputs:** the BTC daily trend uses only completed days; open-interest and correlation helpers.
 - **Engine, paper mode on a synthetic market:** trades, at most 8 open, equity equals the start plus booked P&L, files written.
@@ -39,6 +39,13 @@ Run on the research data: OKX 4H bars 2020-2026 for 36 coins, and Binance fundin
   - stop-outs detected at about −1R, trend-flip closes;
   - R taken from the realized P&L;
   - the engine's book matches the exchange.
+- **An account shared with other strategies** (the strategy runner, the SBGZ auto-orders, manual trades):
+  - a real-money endpoint stays on paper without `MASIS_ALLOW_REAL_MONEY=1`;
+  - a coin with a resting order is skipped;
+  - after a stop-out, another strategy's new position on the coin is left alone, and its closed trade is not booked as Kalman's;
+  - a position changed outside Kalman is no longer managed;
+  - when another order fills together with Kalman's, Kalman closes only its own part;
+  - a position whose stop cannot be set is closed.
 
 ## 4. Dashboard in a browser (`ui_mock_server.py`, `ui_test.js`, `screenshots/`)
 The page runs in Chromium (Playwright) against a mock API that serves the replay's engine files and historical candles.
@@ -56,10 +63,13 @@ The page runs in Chromium (Playwright) against a mock API that serves the replay
   - settings save through `/api/kalman/settings`;
   - the LIVE switch stays disabled while the server lacks `KALMAN_LIVE=1`.
 - **Mobile:** the "Kalman" tab opens the panel.
-- **Errors:** none on the page with an en-US browser locale, the same as before the change. The headless default locale "en-US@posix" makes the canvas chart's date formatting throw in this test browser only.
+- **Errors:** none on the page with an en-US browser locale, the same as `main`'s page without the Kalman mode (checked again after rebasing onto the strategy-runner version of `main`, whose SBGZ, CME-X5 and CHAMP chart markers share the marker set with the Kalman ones). The headless default locale "en-US@posix" makes the canvas chart's date formatting throw in this test browser only.
 
 **The real server** (`server.py`) was also checked:
 - `/api/kalman/status` and `/api/kalman/indicator` serve the engine files.
 - A path-traversal symbol is rejected (400) and an unknown coin returns 404.
 - `/api/kalman/settings` clamps values; for example a 5% risk becomes the 2% maximum.
+- The status reports why live orders are or are not allowed (`live_why`).
 - Switching the mode to `kalman` and back persists.
+
+**Run the server check with `SUPABASE_URL` pointing at an unreachable address** (and a non-empty `SUPABASE_ANON_KEY`). Otherwise `backend_lib/supabase_client.py` falls back to the built-in project, and the test writes into the production store.

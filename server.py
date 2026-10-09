@@ -1239,7 +1239,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         data = json.load(f)
                 data["engine_running"] = bool(data) and (time.time() * 1000 - float(data.get("updated_at") or 0)) < 5 * 3600 * 1000
                 data["settings"] = KT.clean_settings(kv_get_json(KT.SETTINGS_KEY, {}) or {})
-                data["live_env"] = os.environ.get("KALMAN_LIVE", "").strip().lower() in ("1", "true", "yes")
+                data["live_env"], data["live_why"] = KT.live_permission()
                 data["mode_selected"] = auto_trade_state.load().get("strategyMode") == "kalman"
                 self._send_json(200, data, cache_seconds=5)
             except Exception as e:
@@ -2339,7 +2339,7 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
             return
 
         # Kalman Trend settings (risk, positions, optional risk rules, live switch). Validated and clamped;
-        # live orders additionally need KALMAN_LIVE=1 on the server.
+        # live orders additionally need KALMAN_LIVE=1 on the server, and MASIS_ALLOW_REAL_MONEY=1 on a real-money endpoint.
         if self.path == "/api/kalman/settings":
             from backend_lib import kalman_trend as KT
             from backend_lib.kv import kv_get_json, kv_set_json
@@ -2349,8 +2349,8 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
             cur.update({k: v for k, v in body.items() if k in KT.DEFAULT_SETTINGS})
             new = KT.clean_settings(cur)
             kv_set_json(KT.SETTINGS_KEY, new)
-            self._send_json(200, {"settings": new,
-                                  "live_env": os.environ.get("KALMAN_LIVE", "").strip().lower() in ("1", "true", "yes")})
+            live_env, live_why = KT.live_permission()
+            self._send_json(200, {"settings": new, "live_env": live_env, "live_why": live_why})
             return
 
         # 5. API: Autonomous execution settings & arm state

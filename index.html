@@ -7418,7 +7418,7 @@ function ktRender(d){
   var nextIn = d.next_bar_close ? Math.max(0, d.next_bar_close - Date.now()) : null;
   var tiles = '';
   tiles += ktTile('Mode', d.mode_selected ? 'Selected' : 'Not selected', d.mode_selected ? 'trades at each 4H close' : 'records signals only', d.mode_selected ? '#22c55e' : null);
-  tiles += ktTile('Execution', exec, d.live_env ? 'live allowed on the server' : 'live needs KALMAN_LIVE=1', bc[1]);
+  tiles += ktTile('Execution', exec, d.live_env ? 'live allowed on the server' : 'live not allowed on the server', bc[1]);
   tiles += ktTile(live ? 'Live equity' : 'Paper equity', ktUsd(eq), live ? 'Bybit wallet' : ('start ' + ktUsd(acc.paper_start) + ' &middot; closed trades'));
   tiles += ktTile('Positions', (acc.open_count || 0) + ' / ' + (acc.max_open || st.maxOpen || 8), 'risk ' + (st.riskPct || 0.5) + '% each');
   tiles += ktTile('Closed trades', String(acc.closed_trades || 0),
@@ -7476,7 +7476,8 @@ function ktFillSettings(d){
   if(g('ktCorr')) g('ktCorr').checked = !!st.corrCap;
   if(g('ktLive')){ g('ktLive').checked = !!st.live; g('ktLive').disabled = !(d && d.live_env) && !st.live; }
   var n = g('ktLiveNote');
-  if(n) n.textContent = (d && d.live_env) ? '(real orders on the Bybit account in BYBIT_BASE_URL)' : '(disabled: set KALMAN_LIVE=1 on the Railway server first)';
+  if(n) n.textContent = (d && d.live_env) ? '(' + (d.live_why || 'orders on the Bybit account of BYBIT_BASE_URL') + ')'
+                                           : '(disabled: ' + ((d && d.live_why) || 'set KALMAN_LIVE=1 on the Railway server first') + ')';
 }
 
 window.ktToggleSettings = function(){

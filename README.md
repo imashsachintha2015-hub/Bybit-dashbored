@@ -556,15 +556,21 @@ The one setup that survived every honest test in `research_archive/` is now a da
   - Studies: `research_archive/longshort/`, `openinterest/` and `situations/`.
 
 **How it runs.**
-- `daemons/kalman_trend_engine.py` is started by `launcher.py` and wakes at every 4H close (00, 04, 08, 12, 16, 20 UTC).
+- `daemons/kalman_trend_engine.py` is started by `launcher.py` (`MASIS_KALMAN=0` keeps it off) and wakes at every 4H close (00, 04, 08, 12, 16, 20 UTC).
 - It reads Bybit public 4H bars and funding, computes the signals with `backend_lib/kalman_trend.py`, and keeps a forward-test record of every system signal in `$DATA_DIR/kalman_trend.db`.
 - It writes `scratch/kalman_trend_live.json` and `scratch/kalman/<SYMBOL>.json` for the dashboard.
 - **Mode not selected:** it only records signals.
 - **Mode selected:** it trades:
   - **PAPER (default):** a virtual account, default $10, with the research accounting (next-open fills, stop first, 14 bps fees plus real funding).
-  - **LIVE:** market orders with an exchange-side stop on the Bybit account of `BYBIT_BASE_URL`. This needs `KALMAN_LIVE=1` on the server **and** the dashboard switch (Kalman panel → Settings → LIVE orders).
+  - **LIVE:** market orders with an exchange-side stop on the Bybit account of `BYBIT_BASE_URL`. This needs `KALMAN_LIVE=1` on the server **and** the dashboard switch (Kalman panel → Settings → LIVE orders). Like the strategy runner, it refuses a real-money endpoint unless `MASIS_ALLOW_REAL_MONEY=1`.
   - When the exchange minimum would force a position bigger than the 0.5% risk, the trade is skipped unless the larger risk stays within "max risk if the exchange minimum is bigger" (default 2%).
-- Open positions are always managed to their exit, even after another mode is selected. The CME-X5 / Championship engine stands down while Kalman is selected.
+- Open positions are always managed to their exit, even after another mode is selected. The legacy CME-X5 / Championship engine (off unless `MASIS_LEGACY_ENGINE=1`) stands down while Kalman is selected.
+- **Sharing the account with the strategy runner and the SBGZ auto-orders.** All of them can trade the same Bybit account:
+  - Kalman never enters a coin that already has a position or a resting order; the runner does the same.
+  - It manages and books only the position it opened itself: the same side, size and entry price on the exchange. If the coin's position is not its own any more (another strategy's, or changed by hand), Kalman leaves it alone and says so in its events.
+  - Its result comes only from closed-P&L records at its own entry price, so another strategy's trade on the same coin is never counted.
+  - Every order carries a deterministic id, so a retry cannot open the same trade twice. A position whose stop cannot be set is closed.
+  - Open risk adds up across the strategies: the runner's caps (up to 7.5% of equity) count only its own trades, and Kalman's 8 positions at 0.5% add up to 4%.
 
 **Dashboard.**
 - **Mode button:** opens a three-way chooser.
@@ -585,7 +591,7 @@ The one setup that survived every honest test in `research_archive/` is now a da
 - `POST /api/kalman/settings`: risk %, max open, optional open-interest and correlation rules, leverage, live switch, paper restart. Values are validated and clamped.
 
 **Checks.**
-- `tests/test_kalman_trend.py` covers the rules, sizing and settings, plus paper, standby and live runs against a fake exchange.
+- `tests/test_kalman_trend.py` covers the rules, sizing and settings, plus paper, standby and live runs against a fake exchange, including an account shared with other strategies.
 - `research_archive/live_module/`:
   - the live code reproduces all 3,080 research trades;
   - a 15-month bar-by-bar replay of the engine takes the same 363 portfolio trades as the backtest;

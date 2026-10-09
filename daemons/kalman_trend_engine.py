@@ -9,8 +9,12 @@ Every 4H close (UTC 00/04/08/12/16/20 + a short delay) it
 When the dashboard mode is 'kalman' it also trades the portfolio (0.5% risk, max 8 open, one per coin):
   - PAPER (default): virtual equity, research accounting (fills at the next 4H open, stop-first, fees + real funding);
   - LIVE: orders on the Bybit account of BYBIT_BASE_URL -- only if KALMAN_LIVE=1 is set on the server AND live is
-    switched on in the dashboard. Market entry with a broker-side stop; trend-flip and 20-day exits by reduce-only
-    market orders. Positions are always managed to their exit, also after the mode is switched away.
+    switched on in the dashboard; like the strategy runner, a real-money endpoint also needs MASIS_ALLOW_REAL_MONEY=1.
+    Market entry with a broker-side stop; trend-flip and 20-day exits by reduce-only market orders. Positions are
+    always managed to their exit, also after the mode is switched away.
+    The account may be shared with the strategy runner (daemons/masis_runner.py) and the SBGZ auto-orders: the engine
+    never enters a coin that already has a position or a resting order, and it only manages and books the position it
+    opened itself (same side, size and entry price on the exchange).
 The trade logic is backend_lib/kalman_trend.py (parity with the research: research_archive/live_module/)."""
 import os, sys, json, math, time, sqlite3, uuid, traceback
 import urllib.request, urllib.parse
@@ -198,6 +202,12 @@ class LiveBroker:
         if (r or {}).get("retCode") != 0: return None
         return any(float(p.get("size") or 0) > 0 for p in r["result"]["list"])
 
+    def has_orders(self, sym):
+        """a resting order on the coin (another strategy's limit entry, say); None when it cannot be checked"""
+        r = self.c.get_open_orders(sym)
+        if (r or {}).get("retCode") != 0: return None
+        return any(o.get("symbol") == sym for o in (r.get("result") or {}).get("list") or [])
+
     def position(self, sym):
         r = self.c.get_positions(sym)
         if (r or {}).get("retCode") != 0: return None
@@ -205,19 +215,19 @@ class LiveBroker:
             if float(p.get("size") or 0) > 0: return p
         return {}
 
-    def open(self, sym, side, qty, stop, leverage):
+    def open(self, sym, side, qty, stop, leverage, link=None):
         r = self.c.set_leverage(sym, leverage)
         if (r or {}).get("retCode") not in (0, 110043): log(f"set leverage {sym}: {r}", "WARN")
-        return self.c.place_order("linear", sym, "Buy" if side == "L" else "Sell", "Market", qty, sl=stop)
+        return self.c.place_order("linear", sym, "Buy" if side == "L" else "Sell", "Market", qty, sl=stop, order_link_id=link)
 
     def set_stop(self, sym, stop): return self.c.set_trading_stop("linear", sym, stop_loss=stop)
 
     def close(self, sym, side, qty): return self.c.close_position("linear", sym, "Buy" if side == "L" else "Sell", qty)
 
     def closed_pnl(self, sym, since_ms):
-        r = self.c.get_closed_pnl(limit=50)
-        rows = [x for x in (r or {}).get("result", {}).get("list", []) if x.get("symbol") == sym and int(x.get("updatedTime") or 0) >= since_ms]
-        return rows
+        """closed-P&L rows of the coin newer than since_ms (all strategies; the engine picks out its own)"""
+        r = self.c.signed_request("GET", "/v5/position/closed-pnl", {"category": "linear", "symbol": sym, "limit": "50"})
+        return [x for x in (r or {}).get("result", {}).get("list", []) if x.get("symbol") == sym and int(x.get("updatedTime") or 0) >= since_ms]
 
 
 def round_step(x, step, mode="down"):
@@ -239,7 +249,7 @@ class KalmanTrendEngine:
         self.symbols = symbols or DEFAULT_SYMBOLS
         self.instr = {}; self.bars = {}; self.fund = {}; self.state = {}; self.events = []
         self.oi_source = oi_source
-        self.live_env = os.environ.get("KALMAN_LIVE", "").strip().lower() in ("1", "true", "yes")
+        self.live_env, self.live_why = K.live_permission()
         self.last_light = 0; self.prices = {}
 
     # ------------------------------------------------ shared dashboard state
@@ -416,31 +426,63 @@ class KalmanTrendEngine:
             return
         live_pos = broker.position(p["sym"])
         if live_pos is None: return                                       # API problem: try again next bar
-        if not live_pos:                                                  # gone on the exchange: the stop (or a manual close)
-            rows = broker.closed_pnl(p["sym"], p["entry_t"] - 60000)
-            pnl = sum(float(x.get("closedPnl") or 0) for x in rows)
-            px = float(rows[0].get("avgExitPrice") or p["stop"]) if rows else p["stop"]
-            self._close(p, now, px, "STOP" if rows else "CLOSED_ON_EXCHANGE", pnl / p["risk_usd"] if p["risk_usd"] else None, pnl)
+        if not live_pos or not self._is_ours(p, live_pos):
+            # ours is gone (its stop, or closed by hand), or the coin's position is not the one we opened: never touch it
+            rows = self._own_closed(broker, p)
+            if rows:
+                pnl = sum(float(x.get("closedPnl") or 0) for x in rows)
+                last = max(rows, key=lambda x: int(x.get("updatedTime") or 0))
+                px = float(last.get("avgExitPrice") or p["stop"])
+                at_stop = abs(px - p["stop"]) <= 0.15 * abs(p["entry_p"] - p["stop"])
+                self._close(p, min(now, int(last.get("updatedTime") or now)), px, "STOP" if at_stop else "CLOSED_ON_EXCHANGE",
+                            pnl / p["risk_usd"] if p["risk_usd"] else None, pnl)
+                if live_pos: self.event(f"{p['sym']}: the position now open on this coin is not Kalman's (another strategy or a manual trade); left alone")
+            elif live_pos:
+                self._close(p, now, None, "EXTERNAL_CHANGE", None)
+                self.event(f"{p['sym']}: the exchange position was changed outside Kalman (expected {'long' if p['side'] == 'L' else 'short'} "
+                           f"{p['qty']} at {p['entry_p']:.6g}, found {live_pos.get('side')} {live_pos.get('size')} at {live_pos.get('avgPrice')}); "
+                           f"Kalman stopped managing it and its exchange stop stays", "ERROR")
+            else:
+                self._close(p, now, None, "CLOSED_ON_EXCHANGE", None)
+                self.event(f"{p['sym']}: closed on the exchange, but no closed-P&L record of it was found; result unknown", "WARN")
             return
         held = (bar_t - (p["signal_t"] + H4)) // H4 + 1                     # closed bars since the entry bar opened
         reason = "TREND_FLIP" if K.exit_now(p["side"], st["z"][-1]) else "TIME" if held >= K.HOLD else None
         if reason:
-            r = broker.close(p["sym"], p["side"], live_pos.get("size"))
+            r = broker.close(p["sym"], p["side"], p["qty"])
             if (r or {}).get("retCode") == 0:
-                time.sleep(1.0)
-                rows = broker.closed_pnl(p["sym"], p["entry_t"] - 60000)
-                pnl = sum(float(x.get("closedPnl") or 0) for x in rows)
-                px = float(rows[0].get("avgExitPrice") or st["next_open"] or st["c"][-1]) if rows else (st["next_open"] or st["c"][-1])
-                self._close(p, now, px, reason, pnl / p["risk_usd"] if p["risk_usd"] else None, pnl)
+                rows = self._own_closed(broker, p)
+                pnl = sum(float(x.get("closedPnl") or 0) for x in rows) if rows else None
+                px = float(max(rows, key=lambda x: int(x.get("updatedTime") or 0)).get("avgExitPrice") or 0) if rows else None
+                self._close(p, now, px or st["next_open"] or st["c"][-1], reason,
+                            pnl / p["risk_usd"] if (pnl is not None and p["risk_usd"]) else None, pnl)
             else:
                 self.event(f"LIVE close {p['sym']} failed: {r}", "ERROR")
+
+    def _is_ours(self, p, lp):
+        """the exchange position lp is still the one this engine opened: same side, same size, same average entry"""
+        try: size, avg = float(lp.get("size") or 0), float(lp.get("avgPrice") or 0)
+        except (TypeError, ValueError): return False
+        step = (self.instr.get(p["sym"]) or {}).get("qty_step") or 0
+        return (lp.get("side") == ("Buy" if p["side"] == "L" else "Sell") and abs(size - (p["qty"] or 0)) <= max(step / 2, 1e-9 * size)
+                and abs(avg - p["entry_p"]) <= 1e-6 * p["entry_p"])
+
+    def _own_closed(self, broker, p, tries=3):
+        """closed-P&L rows of our position: after its entry and at its entry price, so another strategy's trade on the
+        same coin is never booked as ours. The record can lag the fill by a few seconds."""
+        for k in range(tries):
+            rows = broker.closed_pnl(p["sym"], p["entry_t"] - 60000) or []
+            mine = [x for x in rows if abs(float(x.get("avgEntryPrice") or 0) - p["entry_p"]) <= 1e-6 * p["entry_p"]]
+            if mine: return mine
+            if k + 1 < tries: time.sleep(2.0)
+        return []
 
     def _close(self, p, exit_t, exit_p, reason, r_net, pnl=None):
         p.update(status="CLOSED", exit_t=int(exit_t), exit_p=exit_p, reason=reason, r_net=r_net,
                  pnl_usd=pnl if pnl is not None else (p["equity_at_entry"] * p["risk_pct"] / 100 * r_net if r_net is not None else None))
         self.store.save_position(p)
-        self.event(f"{p['mode']} exit {p['sym']} {'long' if p['side'] == 'L' else 'short'} ({reason}) at {exit_p:.6g}: "
-                   f"{(r_net if r_net is not None else 0):+.2f}R")
+        self.event(f"{p['mode']} exit {p['sym']} {'long' if p['side'] == 'L' else 'short'} ({reason})"
+                   + (f" at {exit_p:.6g}" if exit_p is not None else "") + (f": {r_net:+.2f}R" if r_net is not None else ": result unknown"))
 
     def book(self, t_now):
         eq = self.store.get("paper_equity", 10.0)
@@ -477,9 +519,13 @@ class KalmanTrendEngine:
             self.store.save_position(p)
             self.event(f"PAPER entry {sym} {'long' if side == 'L' else 'short'} at {ep:.6g}, stop {stop:.6g}, risk ${p['risk_usd']:.4f}")
             return
-        # LIVE
-        held = broker.has_position(sym)
-        if held is None or held: self.event(f"{sym} live entry skipped: {'position already open on the exchange' if held else 'position check failed'}", "WARN"); return
+        # LIVE. The account may be shared with the strategy runner and the SBGZ auto-orders: a coin that has a position
+        # or a resting order is not ours to trade.
+        held, orders = broker.has_position(sym), broker.has_orders(sym)
+        if held is None or orders is None: self.event(f"{sym} live entry skipped: the account check failed", "WARN"); return
+        if held or orders:
+            self.event(f"{sym} live entry skipped: the account already {'holds this coin' if held else 'has an order on this coin'} "
+                       f"(another strategy or a manual trade)", "WARN"); return
         eq = broker.equity(self.store)
         if not eq: return
         ins = self.instr.get(sym, {}); px = st["next_open"] or st["c"][-1]
@@ -487,20 +533,43 @@ class KalmanTrendEngine:
         qty, risk_usd, note = K.order_qty(eq, s["riskPct"], px, stop, ins.get("qty_step", 0.001), ins.get("min_qty", 0),
                                           ins.get("min_notional", 5.0), s["maxRiskOnMinPct"])
         if qty <= 0: self.event(f"{sym} live entry skipped: {note}", "WARN"); return
-        stop_r = round_step(stop, ins.get("tick", 0.0001), "down" if side == "L" else "up")
-        r = broker.open(sym, side, qty, stop_r, int(s["leverage"]))
-        if (r or {}).get("retCode") != 0: self.event(f"LIVE order {sym} rejected: {r}", "ERROR"); return
-        time.sleep(1.0)
-        lp = broker.position(sym) or {}
+        tick, step = ins.get("tick", 0.0001), ins.get("qty_step", 0.001)
+        stop_r = round_step(stop, tick, "down" if side == "L" else "up")
+        link = f"kt-{sym[:-4] if sym.endswith('USDT') else sym}-{bar_t // 60000}"[:36]     # one order per signal, also on a retry
+        r = broker.open(sym, side, qty, stop_r, int(s["leverage"]), link)
+        if (r or {}).get("retCode") not in (0, 110072): self.event(f"LIVE order {sym} rejected: {r}", "ERROR"); return
+        lp = None
+        for _ in range(12):                                               # wait for the fill to show up in the account
+            lp = broker.position(sym)
+            if lp: break
+            time.sleep(0.5)
+        if not lp: self.event(f"LIVE order {sym} accepted but no position found: check the account", "ERROR"); return
+        size = float(lp.get("size") or 0)
+        if size > qty + step / 2:
+            # another order on this coin filled at the same moment and the exchange merged the two into one position
+            rc = broker.close(sym, side, qty)
+            self.event(f"{sym}: another order on this coin filled together with Kalman's and the exchange merged them; Kalman closed "
+                       f"its own {qty}{'' if (rc or {}).get('retCode') == 0 else ' -- THAT CLOSE FAILED, check the account'} and leaves the rest alone", "ERROR")
+            return
         fill = float(lp.get("avgPrice") or px)
-        stop2 = round_step(K.initial_stop(side, st["c"][-1], st["a"][-1], fill), ins.get("tick", 0.0001), "down" if side == "L" else "up")
-        if abs(stop2 - stop_r) > 1e-12:
-            rs = broker.set_stop(sym, stop2)
-            if (rs or {}).get("retCode") == 0: stop_r = stop2
+        stop2 = round_step(K.initial_stop(side, st["c"][-1], st["a"][-1], fill), tick, "down" if side == "L" else "up")
+        try: has_stop = float(lp.get("stopLoss") or 0) > 0
+        except (TypeError, ValueError): has_stop = False
+        if abs(stop2 - stop_r) > 1e-12 or not has_stop:
+            for _ in range(3):
+                rs = broker.set_stop(sym, stop2)
+                if (rs or {}).get("retCode") in (0, 34040): stop_r, has_stop = stop2, True; break
+                time.sleep(0.5)
+        if not has_stop:
+            # an unprotected position is worse than a closed one
+            rc = broker.close(sym, side, size)
+            self.event(f"LIVE {sym}: the stop could not be set, so the position was closed"
+                       f"{'' if (rc or {}).get('retCode') == 0 else ' -- THAT CLOSE FAILED, close it by hand'}", "ERROR")
+            return
         p = dict(id=f"L-{sym}-{bar_t}-{uuid.uuid4().hex[:6]}", sym=sym, side=side, mode="LIVE", signal_t=bar_t, entry_t=now, entry_p=fill,
-                 stop=stop_r, qty=float(lp.get("size") or qty), risk_usd=abs(fill - stop_r) * float(lp.get("size") or qty), equity_at_entry=eq,
+                 stop=stop_r, qty=size, risk_usd=abs(fill - stop_r) * size, equity_at_entry=eq,
                  risk_pct=s["riskPct"], status="OPEN", exit_t=None, exit_p=None, reason=None, r_net=None, pnl_usd=None, booked=1,
-                 order_id=(r.get("result") or {}).get("orderId"), note=note)
+                 order_id=(r.get("result") or {}).get("orderId") or link, note=note)
         self.store.save_position(p)
         self.event(f"LIVE entry {sym} {'long' if side == 'L' else 'short'} qty {p['qty']} at {fill:.6g}, stop {stop_r:.6g} ({note})")
 
@@ -556,7 +625,7 @@ class KalmanTrendEngine:
         if bt:
             tr = K.daily_trend(bt["t"], bt["c"]); btc_trend = tr[-1]
         snap = dict(engine="Kalman Trend (funding-aware, 4H)", version=VERSION, updated_at=now, mode_selected=active, execution=execution,
-                    live_env=self.live_env, live_requested=bool(s["live"]), settings=s, last_bar_close=bar_t + H4, next_bar_close=bar_t + 2 * H4,
+                    live_env=self.live_env, live_why=self.live_why, live_requested=bool(s["live"]), settings=s, last_bar_close=bar_t + H4, next_bar_close=bar_t + 2 * H4,
                     btc=dict(trend=btc_trend, price=bt["c"][-1] if bt else None), symbols=len(self.state),
                     account=dict(paper_equity=self.store.get("paper_equity"), paper_start=self.store.get("paper_start"),
                                  live_equity=broker.equity(self.store) if broker.live else None,
@@ -588,7 +657,7 @@ class KalmanTrendEngine:
 
     def run(self, poll=30):
         log(f"Kalman Trend engine {VERSION} started: {len(self.symbols)} coins, market data {getattr(self.m, 'base', '?')}, "
-            f"live orders {'ALLOWED by KALMAN_LIVE=1 (still needs the dashboard switch)' if self.live_env else 'disabled (paper only)'}")
+            f"live orders {'allowed: ' + self.live_why + ' (still needs the dashboard switch)' if self.live_env else 'disabled (paper only): ' + self.live_why}")
         while True:
             try: self.step()
             except KeyboardInterrupt: break

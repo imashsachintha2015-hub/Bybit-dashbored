@@ -48,7 +48,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "text/html"); self.end_headers(); self.wfile.write(b); return
         if u.path == "/api/kalman/status":
             d = json.load(open(os.path.join(SAMPLE, "kalman_trend_live.json")))
-            d["engine_running"] = True; d["settings"] = KT.clean_settings(SETTINGS); d["live_env"] = False
+            d["engine_running"] = True; d["settings"] = KT.clean_settings(SETTINGS)
+            d["live_env"], d["live_why"] = False, "set KALMAN_LIVE=1 on the Railway server first"
             d["mode_selected"] = STATE.get("strategyMode") == "kalman"
             return self._json(200, d)
         if u.path == "/api/kalman/indicator":
@@ -76,7 +77,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._json(200, STATE)
         if self.path == "/api/kalman/settings":
             SETTINGS.update({k: v for k, v in body.items() if k in KT.DEFAULT_SETTINGS})
-            return self._json(200, {"settings": KT.clean_settings(SETTINGS), "live_env": False})
+            return self._json(200, {"settings": KT.clean_settings(SETTINGS), "live_env": False, "live_why": "set KALMAN_LIVE=1 on the Railway server first"})
         return self._json(200, {})
 
 class TS(socketserver.ThreadingMixIn, http.server.HTTPServer):

@@ -12,6 +12,7 @@ Parity with the research signals: research_archive/live_module/parity_out.txt.
 """
 import bisect
 import math
+import os
 
 H4 = 4 * 3600 * 1000
 DAY = 86400 * 1000
@@ -32,7 +33,7 @@ SETTINGS_KEY = "kalman_trend_settings"
 DEFAULT_SETTINGS = {
     "riskPct": 0.5,            # risk per trade, % of equity (the tested value)
     "maxOpen": 8,              # open positions at most (the tested value)
-    "live": False,             # live orders; also needs KALMAN_LIVE=1 on the server
+    "live": False,             # live orders; also needs KALMAN_LIVE=1 on the server (see live_permission)
     "oiFilter": False,         # longs only when open interest is above its 30-day mean (research_archive/openinterest)
     "corrCap": False,          # skip when 3+ open same-direction trades correlate > 0.7 (research_archive/situations)
     "maxRiskOnMinPct": 2.0,    # when the exchange minimum forces a bigger position, allow at most this risk, else skip
@@ -42,6 +43,28 @@ DEFAULT_SETTINGS = {
 }
 LIMITS = {"riskPct": (0.05, 2.0), "maxOpen": (1, 12), "maxRiskOnMinPct": (0.1, 5.0), "leverage": (1, 20),
           "paperStartEquity": (1.0, 1e7), "paperResetToken": (0, 1e15)}
+
+
+def _truthy(v):
+    return str(v or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def is_demo_url(url):
+    u = str(url or "").lower()
+    return "api-demo" in u or "testnet" in u
+
+
+def live_permission(env=None):
+    """(allowed, reason) for live orders on the server. They need KALMAN_LIVE=1 and, like the strategy runner
+    (daemons/runner/core.py), a demo / testnet BYBIT_BASE_URL unless MASIS_ALLOW_REAL_MONEY=1. The dashboard's
+    live switch is the third condition."""
+    env = os.environ if env is None else env
+    if not _truthy(env.get("KALMAN_LIVE")):
+        return False, "set KALMAN_LIVE=1 on the Railway server first"
+    url = (env.get("BYBIT_BASE_URL") or "https://api-demo.bybit.com").strip()
+    if not is_demo_url(url) and not _truthy(env.get("MASIS_ALLOW_REAL_MONEY")):
+        return False, f"{url} is a real-money endpoint; that also needs MASIS_ALLOW_REAL_MONEY=1, as for the strategy runner"
+    return True, f"orders on the Bybit account of {url}"
 
 
 def clean_settings(raw):
