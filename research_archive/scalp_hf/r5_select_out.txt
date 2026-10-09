@@ -1,0 +1,61 @@
+# SELECTION: design coins; A (2021-01..2024-06) 610 trades, B (2024-07..2025-06) 220 trades
+  baseline A: trades 610  win 37%  net R +0.349 (t +2.89)  $10 -> 25.09 (577 taken, DD 23%)
+  baseline B: trades 220  win 35%  net R +0.249 (t +0.98)  $10 -> 11.50 (198 taken, DD 11%)
+
+# Situation map (net R per group; A | B; $10 on A+B trades of that group alone, trades taken)
+  AGE      cuts +2.00/+3.00
+      group  0: A n  171 win  38% R +0.208 t +1.28 | B n   89 R +0.863 | $10 ->   14.80 (256 tr, DD 13%)
+      group  1: A n  177 win  33% R +0.044 t +0.33 | B n   57 R -0.333 | $10 ->    9.36 (234 tr, DD 14%)
+      group  2: A n  262 win  40% R +0.647 t +3.19 | B n   74 R -0.041 | $10 ->   21.43 (336 tr, DD 9%)
+  MAT      cuts +0.12/+0.74
+      group  0: A n  204 win  40% R +0.696 t +2.97 | B n   64 R +0.006 | $10 ->   19.58 (268 tr, DD 6%)
+      group  1: A n  203 win  36% R +0.080 t +0.57 | B n   80 R +0.326 | $10 ->   11.92 (283 tr, DD 13%)
+      group  2: A n  203 win  36% R +0.269 t +1.52 | B n   76 R +0.373 | $10 ->   14.48 (279 tr, DD 12%)
+  AVD      cuts +0.13/+0.54
+      group  0: A n  204 win  39% R +0.581 t +2.54 | B n   67 R -0.052 | $10 ->   17.18 (271 tr, DD 7%)
+      group  1: A n  203 win  37% R +0.172 t +1.11 | B n   72 R +0.388 | $10 ->   13.20 (275 tr, DD 15%)
+      group  2: A n  203 win  36% R +0.293 t +1.70 | B n   81 R +0.374 | $10 ->   14.91 (284 tr, DD 10%)
+  RNG      cuts +6.59/+8.01
+      group  0: A n  204 win  42% R +0.547 t +2.91 | B n   71 R +1.172 | $10 ->   24.00 (275 tr, DD 9%)
+      group  1: A n  202 win  39% R +0.543 t +2.36 | B n   67 R -0.009 | $10 ->   16.57 (269 tr, DD 8%)
+      group  2: A n  204 win  31% R -0.043 t -0.39 | B n   82 R -0.339 | $10 ->    8.25 (285 tr, DD 19%)
+  BRK      categorical        
+      group  0: A n  584 win  38% R +0.358 t +2.89 | B n  210 R +0.130 | $10 ->   28.77 (751 tr, DD 21%)
+      group  1: A n   17 win  24% R -0.164 t -0.53 | B n    4 R +6.136 | $10 ->   11.08 (21 tr, DD 4%)
+  VP       cuts -1.92/+0.23
+      group  0: A n  203 win  34% R +0.390 t +1.83 | B n   90 R -0.040 | $10 ->   13.79 (290 tr, DD 13%)
+      group  1: A n  204 win  44% R +0.541 t +2.69 | B n   80 R +0.275 | $10 ->   18.57 (284 tr, DD 7%)
+      group  2: A n  203 win  34% R +0.114 t +0.77 | B n   50 R +0.728 | $10 ->   13.08 (253 tr, DD 14%)
+  OI24     cuts -0.01/+0.03
+      group -1: A n  103 win  48% R +0.624 t +1.84 | B n    0 R +nan | $10 ->   13.36 (103 tr, DD 6%)
+      group  0: A n  169 win  39% R +0.259 t +1.44 | B n   51 R +0.016 | $10 ->   12.27 (220 tr, DD 6%)
+      group  1: A n  169 win  37% R +0.568 t +2.26 | B n  105 R +0.301 | $10 ->   17.80 (274 tr, DD 13%)
+      group  2: A n  169 win  30% R +0.051 t +0.32 | B n   64 R +0.350 | $10 ->   11.41 (232 tr, DD 14%)
+  CVD      cuts +0.00/+0.03
+      group  0: A n  204 win  34% R +0.453 t +1.94 | B n   91 R +0.670 | $10 ->   19.60 (291 tr, DD 11%)
+      group  1: A n  203 win  31% R +0.204 t +1.21 | B n   78 R +0.004 | $10 ->   11.99 (281 tr, DD 11%)
+      group  2: A n  203 win  47% R +0.389 t +2.48 | B n   51 R -0.127 | $10 ->   14.04 (251 tr, DD 12%)
+  BREADTH  cuts +0.60/+0.90
+      group  0: A n  147 win  38% R +0.400 t +1.76 | B n   60 R +0.685 | $10 ->   15.84 (207 tr, DD 8%)
+      group  1: A n  246 win  39% R +0.449 t +2.24 | B n   61 R -0.131 | $10 ->   16.02 (307 tr, DD 11%)
+      group  2: A n  217 win  35% R +0.200 t +1.15 | B n   99 R +0.219 | $10 ->   12.94 (314 tr, DD 16%)
+  VOLR     cuts +0.80/+1.08
+      group  0: A n  203 win  42% R +0.733 t +2.71 | B n   68 R -0.046 | $10 ->   19.08 (264 tr, DD 10%)
+      group  1: A n  203 win  36% R +0.169 t +1.20 | B n   81 R -0.288 | $10 ->   10.30 (284 tr, DD 16%)
+      group  2: A n  204 win  34% R +0.145 t +1.11 | B n   71 R +1.144 | $10 ->   16.11 (270 tr, DD 6%)
+  ZJUMP    cuts +0.41/+0.68
+      group  0: A n  204 win  40% R +0.639 t +2.78 | B n   60 R -0.163 | $10 ->   17.48 (264 tr, DD 6%)
+      group  1: A n  203 win  33% R +0.075 t +0.54 | B n   65 R -0.113 | $10 ->   10.24 (268 tr, DD 14%)
+      group  2: A n  203 win  40% R +0.331 t +1.76 | B n   95 R +0.757 | $10 ->   18.19 (294 tr, DD 14%)
+
+# accepted danger groups: []
+# accepted bonus groups: [('bonus', 2.9654775501661668, 'MAT', 0), ('bonus', 2.9135916235280375, 'RNG', 0)]
+
+# Add-ons (stand-alone, design coins): net R per add-on, A | B
+  AVWAP /S3     A: n  490 win  36% R +0.291 (t +2.39) | B: n  171 R +0.248 (t +0.82) | add-ons alone $10 -> 21.49 (661 tr, DD 22%)
+  AVWAP /STRUCT A: n  450 win  26% R +0.280 (t +1.51) | B: n  156 R +0.552 (t +0.79) | add-ons alone $10 -> 19.78 (606 tr, DD 43%)
+  EMA20 /S3     A: n  494 win  33% R +0.188 (t +1.67) | B: n  165 R +0.082 (t +0.31) | add-ons alone $10 -> 15.51 (658 tr, DD 20%)
+  EMA20 /STRUCT A: n  451 win  27% R +0.441 (t +1.81) | B: n  156 R +0.301 (t +0.43) | add-ons alone $10 -> 25.38 (606 tr, DD 27%)
+  FIB50 /S3     A: n  442 win  36% R +0.276 (t +1.96) | B: n  151 R +0.271 (t +0.65) | add-ons alone $10 -> 19.69 (593 tr, DD 21%)
+  FIB50 /STRUCT A: n  401 win  25% R +0.284 (t +1.17) | B: n  137 R +0.347 (t +0.49) | add-ons alone $10 -> 17.56 (538 tr, DD 40%)
+# frozen add-on cells: {'AVWAP': 'S3'}
