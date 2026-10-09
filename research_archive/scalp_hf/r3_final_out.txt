@@ -1,0 +1,57 @@
+
+## LIQ best DEV cell of its side (reporting rule): MAGNET|L|HL1d|R4|T1R
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV         580    51  -0.080  -1.66      7.80    576    25%     5.96   -0.107
+  VAL         795    50  -0.087  -2.07      7.14    781    31%     4.94   -0.115
+  FINAL       488    49  -0.115  -1.96      7.52    470    29%     5.53   -0.143
+  OLD        1408    51  -0.089  -2.73      5.57   1336    45%     2.92   -0.117
+  UNSEEN     1874    47  -0.150  -4.50      2.93   1751    75%     0.79   -0.178
+  FINAL quarters net R: -0.066  -0.200  -0.053  -0.329  +0.238
+  PASS: no
+
+## LIQ best DEV cell of its side (reporting rule): MAGNET|S|HL3d|R4|T1R
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV        1347    54  -0.000  -0.01      9.43   1291    32%     8.36   -0.027
+  VAL        1689    55  +0.011  +0.29      9.91   1567    36%     8.97   -0.015
+  FINAL      1351    52  -0.047  -1.01      6.74   1251    37%     4.21   -0.073
+  OLD        2982    53  -0.030  -0.90      5.17   2611    57%     2.27   -0.056
+  UNSEEN     3111    53  -0.032  -1.13      5.29   2731    50%     2.38   -0.057
+  FINAL quarters net R: -0.073  +0.063  -0.102  -0.074  -0.131
+  PASS: no
+
+## PAIRS best DEV cell of its side (reporting rule): PAIRS|X|Z168|k2.5|HL
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV        2736    51  -0.196  -3.26      3.98   1035    63%     1.47   -0.225
+  VAL        1617    56  -0.100  -1.40      7.65    666    44%     5.30   -0.125
+  FINAL      2226    54  -0.156  -2.68      6.78    835    40%     4.59   -0.193
+  OLD        3211    48  -0.271  -5.29      2.59   1256    77%     0.59   -0.292
+  UNSEEN     2156    53  -0.177  -3.11      4.81    871    65%     2.05   -0.202
+  FINAL quarters net R: -0.226  +0.118  -0.157  -0.119  -0.408
+  PASS: no
+
+## TRENDDAY best DEV cell of its side (reporting rule): TRENDDAY|L|T08|k0.5|daylow
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV         111    53  +0.067  +0.68     10.36    111     4%    10.71   +0.056
+  VAL         108    50  +0.009  +0.06     10.23    101     5%    10.42   -0.001
+  FINAL       126    50  +0.112  +0.83     10.69    117     5%    11.38   +0.101
+  OLD          98    57  +0.090  +1.04     10.46     97     4%    10.92   +0.082
+  UNSEEN       99    45  +0.055  +0.45     10.30     96     3%    10.56   +0.047
+  FINAL quarters net R: -0.087  -0.384  -0.021  -0.081  +0.757
+  PASS: no
+
+## TRENDDAY best DEV cell of its side (reporting rule): TRENDDAY|S|T08|k0.5|daylow
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV          89    54  +0.095  +1.09     10.37     86     3%    10.74   +0.084
+  VAL          64    52  -0.009  -0.07     10.02     63     4%    10.02   -0.019
+  FINAL       151    50  +0.054  +0.45     10.30    144     5%    10.53   +0.042
+  OLD          70    29  -0.281  -2.30      9.07     68    10%     8.20   -0.289
+  UNSEEN       71    59  +0.154  +1.61     10.54     68     2%    11.09   +0.146
+  FINAL quarters net R: +0.260  -0.057  +0.499  +0.110  -0.449
+  PASS: no
+
+## best DEV variant (reporting rule): KENTRY|X|p0.25|W1|market  (paired against the market-entry baseline on the same signals; $10 at 0.5% risk, max 8 open)
+  DEV     signals  299 fill  100% | baseline R +0.406 $10 ->  16.82 (275 tr, DD 14%) | variant R +0.431 $10 ->  17.21 (275 tr, DD 15%) | delta R +0.025 t +0.92
+  VAL     signals  220 fill  100% | baseline R +0.249 $10 ->  11.50 (198 tr, DD 11%) | variant R +0.252 $10 ->  11.33 (198 tr, DD 12%) | delta R +0.003 t +0.10
+  FINAL   signals  252 fill  100% | baseline R +0.325 $10 ->  12.94 (241 tr, DD 12%) | variant R +0.362 $10 ->  13.57 (240 tr, DD 12%) | delta R +0.037 t +1.40
+  OLD     signals  329 fill  100% | baseline R +0.367 $10 ->  17.08 (320 tr, DD 14%) | variant R +0.379 $10 ->  17.32 (320 tr, DD 14%) | delta R +0.012 t +0.57
+  UNSEEN  signals  203 fill  100% | baseline R +0.206 $10 ->  11.53 (190 tr, DD 14%) | variant R +0.198 $10 ->  11.44 (190 tr, DD 14%) | delta R -0.008 t -0.41

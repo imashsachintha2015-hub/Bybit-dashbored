@@ -1,0 +1,87 @@
+
+# LIQ: DEV, all 32 cells (n, net R, t, win%)
+  MAGNET|L|HL1d|R2|T1R                               n   1688 R -0.109 t -3.52 win 49%
+  MAGNET|L|HL1d|R2|T2R                               n   2133 R -0.209 t -5.40 win 33%
+  MAGNET|L|HL1d|R4|T1R                               n    580 R -0.080 t -1.66 win 51%
+  MAGNET|L|HL1d|R4|T2R                               n    682 R -0.221 t -3.56 win 33%
+  MAGNET|L|HL3d|R2|T1R                               n   2449 R -0.071 t -2.60 win 50%
+  MAGNET|L|HL3d|R2|T2R                               n   3234 R -0.145 t -4.44 win 36%
+  MAGNET|L|HL3d|R4|T1R                               n   1169 R -0.088 t -2.44 win 50%
+  MAGNET|L|HL3d|R4|T2R                               n   1447 R -0.175 t -3.82 win 34%
+  MAGNET|S|HL1d|R2|T1R                               n   1782 R -0.008 t -0.26 win 53%
+  MAGNET|S|HL1d|R2|T2R                               n   2336 R -0.079 t -1.93 win 37%
+  MAGNET|S|HL1d|R4|T1R                               n    782 R -0.013 t -0.30 win 54%
+  MAGNET|S|HL1d|R4|T2R                               n    946 R -0.119 t -2.18 win 36%
+  MAGNET|S|HL3d|R2|T1R                               n   2398 R -0.016 t -0.53 win 52%
+  MAGNET|S|HL3d|R2|T2R                               n   3184 R -0.076 t -1.99 win 37%
+  MAGNET|S|HL3d|R4|T1R                               n   1347 R -0.000 t -0.01 win 54%
+  MAGNET|S|HL3d|R4|T2R                               n   1742 R -0.080 t -1.80 win 37%
+  SWEEP|L|HL1d|q98|T15                               n  19380 R -0.321 t -23.88 win 41%
+  SWEEP|L|HL1d|q98|T3                                n  18923 R -0.317 t -17.94 win 32%
+  SWEEP|L|HL1d|q99.5|T15                             n   5783 R -0.239 t -10.18 win 43%
+  SWEEP|L|HL1d|q99.5|T3                              n   5750 R -0.239 t -8.00 win 37%
+  SWEEP|L|HL3d|q98|T15                               n  19208 R -0.317 t -23.46 win 41%
+  SWEEP|L|HL3d|q98|T3                                n  18776 R -0.317 t -17.89 win 32%
+  SWEEP|L|HL3d|q99.5|T15                             n   5675 R -0.226 t -9.46 win 44%
+  SWEEP|L|HL3d|q99.5|T3                              n   5640 R -0.235 t -7.81 win 37%
+  SWEEP|S|HL1d|q98|T15                               n  14192 R -0.347 t -21.95 win 40%
+  SWEEP|S|HL1d|q98|T3                                n  13936 R -0.347 t -15.84 win 30%
+  SWEEP|S|HL1d|q99.5|T15                             n   3943 R -0.346 t -13.18 win 40%
+  SWEEP|S|HL1d|q99.5|T3                              n   3915 R -0.349 t -10.45 win 31%
+  SWEEP|S|HL3d|q98|T15                               n  14090 R -0.344 t -21.22 win 40%
+  SWEEP|S|HL3d|q98|T3                                n  13823 R -0.348 t -15.78 win 30%
+  SWEEP|S|HL3d|q99.5|T15                             n   3876 R -0.344 t -12.56 win 39%
+  SWEEP|S|HL3d|q99.5|T3                              n   3838 R -0.355 t -10.46 win 31%
+# LIQ: DEV screen survivors 0 of 32
+
+# PAIRS: DEV, all 8 cells (n, net R, t, win%)
+  PAIRS|X|Z168|k2.5|HL                               n   2736 R -0.196 t -3.26 win 51%
+  PAIRS|X|Z168|k2.5|none                             n   3561 R -0.219 t -4.03 win 50%
+  PAIRS|X|Z168|k2|HL                                 n   3868 R -0.174 t -4.52 win 51%
+  PAIRS|X|Z168|k2|none                               n   5133 R -0.165 t -4.91 win 51%
+  PAIRS|X|Z72|k2.5|HL                                n   4623 R -0.269 t -4.04 win 60%
+  PAIRS|X|Z72|k2.5|none                              n   6365 R -0.269 t -4.68 win 60%
+  PAIRS|X|Z72|k2|HL                                  n   6520 R -0.239 t -5.53 win 61%
+  PAIRS|X|Z72|k2|none                                n   8939 R -0.234 t -6.10 win 61%
+# PAIRS: DEV screen survivors 0 of 8
+
+# TRENDDAY: DEV, all 24 cells (n, net R, t, win%)
+  TRENDDAY|L|T08|k0.5|daylow                         n    111 R +0.067 t +0.68 win 53%
+  TRENDDAY|L|T08|k0.5|half                           n    194 R -0.060 t -0.51 win 40%
+  TRENDDAY|L|T08|k0.8|daylow                         n     28 R +0.081 t +0.61 win 61%
+  TRENDDAY|L|T08|k0.8|half                           n     77 R -0.205 t -1.24 win 34%
+  TRENDDAY|L|T12|k0.5|daylow                         n    191 R -0.041 t -0.70 win 42%
+  TRENDDAY|L|T12|k0.5|half                           n    321 R -0.142 t -1.62 win 37%
+  TRENDDAY|L|T12|k0.8|daylow                         n     59 R +0.006 t +0.06 win 44%
+  TRENDDAY|L|T12|k0.8|half                           n    145 R -0.214 t -1.70 win 32%
+  TRENDDAY|L|T16|k0.5|daylow                         n    238 R -0.008 t -0.20 win 43%
+  TRENDDAY|L|T16|k0.5|half                           n    421 R -0.041 t -0.56 win 41%
+  TRENDDAY|L|T16|k0.8|daylow                         n     74 R -0.001 t -0.01 win 47%
+  TRENDDAY|L|T16|k0.8|half                           n    222 R -0.060 t -0.54 win 41%
+  TRENDDAY|S|T08|k0.5|daylow                         n     89 R +0.095 t +1.09 win 54%
+  TRENDDAY|S|T08|k0.5|half                           n    116 R +0.033 t +0.26 win 47%
+  TRENDDAY|S|T08|k0.8|daylow                         n     12 R +0.012 t +0.08 win 42%
+  TRENDDAY|S|T08|k0.8|half                           n     22 R -0.234 t -1.10 win 32%
+  TRENDDAY|S|T12|k0.5|daylow                         n    123 R -0.073 t -1.43 win 47%
+  TRENDDAY|S|T12|k0.5|half                           n    190 R -0.107 t -1.43 win 46%
+  TRENDDAY|S|T12|k0.8|daylow                         n     23 R -0.048 t -0.45 win 57%
+  TRENDDAY|S|T12|k0.8|half                           n     53 R -0.060 t -0.41 win 51%
+  TRENDDAY|S|T16|k0.5|daylow                         n    240 R -0.113 t -3.07 win 32%
+  TRENDDAY|S|T16|k0.5|half                           n    400 R -0.192 t -3.12 win 31%
+  TRENDDAY|S|T16|k0.8|daylow                         n     64 R -0.048 t -0.77 win 34%
+  TRENDDAY|S|T16|k0.8|half                           n    156 R -0.187 t -1.84 win 30%
+# TRENDDAY: DEV screen survivors 0 of 24
+# KENTRY DEV: baseline signals 299, baseline mean R +0.406
+  KENTRY|X|p0.25|W1|skip       fill   66%  variant R +0.368  delta R -0.038 t -0.45
+  KENTRY|X|p0.25|W1|market     fill  100%  variant R +0.431  delta R +0.025 t +0.92
+  KENTRY|X|p0.25|W3|skip       fill   79%  variant R +0.391  delta R -0.015 t -0.20
+  KENTRY|X|p0.25|W3|market     fill  100%  variant R +0.410  delta R +0.004 t +0.10
+  KENTRY|X|p0.5|W1|skip        fill   39%  variant R +0.119  delta R -0.287 t -2.05
+  KENTRY|X|p0.5|W1|market      fill  100%  variant R +0.392  delta R -0.014 t -0.42
+  KENTRY|X|p0.5|W3|skip        fill   61%  variant R +0.270  delta R -0.137 t -1.28
+  KENTRY|X|p0.5|W3|market      fill  100%  variant R +0.382  delta R -0.024 t -0.44
+  KENTRY|X|p1|W1|skip          fill    8%  variant R -0.013  delta R -0.419 t -2.22
+  KENTRY|X|p1|W1|market        fill  100%  variant R +0.339  delta R -0.067 t -2.34
+  KENTRY|X|p1|W3|skip          fill   25%  variant R -0.028  delta R -0.434 t -2.32
+  KENTRY|X|p1|W3|market        fill  100%  variant R +0.283  delta R -0.123 t -1.72
+# DEV screen survivors: 0

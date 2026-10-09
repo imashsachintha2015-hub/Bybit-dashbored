@@ -76,3 +76,18 @@ At T in {08:00, 12:00, 16:00 UTC} on 1m data, with the UTC day's open O, high H,
 - Entry at the next 1m open. Stop: P - 0.5 ATR(daily), or the day's low so far - 0.1 ATR(daily) (skipped if more than 6%).
 - Exit at the UTC day's last close.
 - Short mirrored. One trade per coin per day per cell.
+
+## Addendum 1 (written after the round-3 DEV screen and the frozen reporting runs)
+**What DEV showed.** 0 of 76 cells passed. One consistent thing before costs: all 8 MAGNET short cells have a gross edge on DEV of
++0.07 to +0.11R (t 2.0-2.6, +10 to +16 bps per trade), smaller than their 0.09-0.19R taker cost (`r3_gross_dev.txt`). MAGNET long has
+none (gross -0.03 to +0.04R).
+
+**Follow-up: MAGNET with maker execution (16 cells, both sides, so the short side is not cherry-picked).**
+- Limit entry at the signal close P, alive for 3 one-minute bars. It fills only if price trades through it by max(0.05 ATR14(5m),
+  1 bp); otherwise there is no trade. Maker fee 2 bps.
+- Target: the same cluster price, as a limit that needs a 0.02 ATR14(5m) trade-through, maker 2 bps.
+- Stop: as before, measured from the fill price, taker 7 bps. At most 24 h.
+- Same DEV screen, VAL confirmation and pass rule.
+
+**Caveat, stated now:** the frozen MAGNET short cell's taker results on VAL / FINAL / UNSEEN / OLD were already printed (net -0.05 to
++0.01R). So this follow-up is not a clean holdout for that cell. A pass here would justify only a paper forward test, not money.
