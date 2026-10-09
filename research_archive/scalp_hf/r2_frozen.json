@@ -1,0 +1,773 @@
+{
+ "confirmed": [],
+ "report": [
+  {
+   "scenario": "breakout",
+   "regime": "ALL",
+   "side": -1,
+   "cell": [
+    1,
+    -1,
+    15,
+    "ALL",
+    "VOL",
+    3
+   ],
+   "dev_t": -2.1843122025938713,
+   "dev_R": -0.19587150054145386,
+   "dev_n": 1509
+  },
+  {
+   "scenario": "breakout",
+   "regime": "ALL",
+   "side": 1,
+   "cell": [
+    1,
+    1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -3.3174619834626147,
+   "dev_R": -0.18648736902961033,
+   "dev_n": 1674
+  },
+  {
+   "scenario": "breakout",
+   "regime": "DOWN",
+   "side": -1,
+   "cell": [
+    3,
+    -1,
+    15,
+    "DOWN",
+    "VOL",
+    3
+   ],
+   "dev_t": 0.1640669051326535,
+   "dev_R": 0.03282953645545497,
+   "dev_n": 493
+  },
+  {
+   "scenario": "breakout",
+   "regime": "DOWN",
+   "side": 1,
+   "cell": [
+    1,
+    1,
+    5,
+    "DOWN",
+    "VOL",
+    1
+   ],
+   "dev_t": -2.783905816142207,
+   "dev_R": -0.4454452316466644,
+   "dev_n": 157
+  },
+  {
+   "scenario": "breakout",
+   "regime": "RANGE",
+   "side": -1,
+   "cell": [
+    1,
+    -1,
+    15,
+    "RANGE",
+    "VOL",
+    3
+   ],
+   "dev_t": -0.5698525272832117,
+   "dev_R": -0.07904462862333937,
+   "dev_n": 613
+  },
+  {
+   "scenario": "breakout",
+   "regime": "RANGE",
+   "side": 1,
+   "cell": [
+    4,
+    1,
+    15,
+    "RANGE",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.6485594373319272,
+   "dev_R": -0.12103431923546998,
+   "dev_n": 635
+  },
+  {
+   "scenario": "breakout",
+   "regime": "UP",
+   "side": -1,
+   "cell": [
+    3,
+    -1,
+    15,
+    "UP",
+    "VOL",
+    3
+   ],
+   "dev_t": -1.1873505481574833,
+   "dev_R": -0.2073445836962956,
+   "dev_n": 223
+  },
+  {
+   "scenario": "breakout",
+   "regime": "UP",
+   "side": 1,
+   "cell": [
+    1,
+    1,
+    15,
+    "UP",
+    "VOL",
+    1
+   ],
+   "dev_t": -0.15781780173152662,
+   "dev_R": -0.012108784266780206,
+   "dev_n": 536
+  },
+  {
+   "scenario": "continuation",
+   "regime": "ALL",
+   "side": -1,
+   "cell": [
+    14,
+    -1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -0.9190820173356479,
+   "dev_R": -0.09875463368968412,
+   "dev_n": 362
+  },
+  {
+   "scenario": "continuation",
+   "regime": "ALL",
+   "side": 1,
+   "cell": [
+    12,
+    1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.9620445343797268,
+   "dev_R": -0.1531970371999206,
+   "dev_n": 384
+  },
+  {
+   "scenario": "continuation",
+   "regime": "DOWN",
+   "side": -1,
+   "cell": [
+    14,
+    -1,
+    15,
+    "DOWN",
+    "VOL",
+    0
+   ],
+   "dev_t": 0.04712699769678461,
+   "dev_R": 0.005192641144533086,
+   "dev_n": 167
+  },
+  {
+   "scenario": "continuation",
+   "regime": "DOWN",
+   "side": 1,
+   "cell": [
+    16,
+    1,
+    15,
+    "DOWN",
+    "NONE",
+    3
+   ],
+   "dev_t": -0.4042391458799181,
+   "dev_R": -0.03259269740360561,
+   "dev_n": 278
+  },
+  {
+   "scenario": "continuation",
+   "regime": "RANGE",
+   "side": -1,
+   "cell": [
+    15,
+    -1,
+    15,
+    "RANGE",
+    "VOL",
+    2
+   ],
+   "dev_t": -0.4574775248549206,
+   "dev_R": -0.02228862166486963,
+   "dev_n": 1033
+  },
+  {
+   "scenario": "continuation",
+   "regime": "RANGE",
+   "side": 1,
+   "cell": [
+    15,
+    1,
+    15,
+    "RANGE",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.7365843095080666,
+   "dev_R": -0.10407256834174364,
+   "dev_n": 916
+  },
+  {
+   "scenario": "continuation",
+   "regime": "UP",
+   "side": -1,
+   "cell": [
+    13,
+    -1,
+    15,
+    "UP",
+    "VOL",
+    2
+   ],
+   "dev_t": -0.9112238142036441,
+   "dev_R": -0.15599810343746995,
+   "dev_n": 172
+  },
+  {
+   "scenario": "continuation",
+   "regime": "UP",
+   "side": 1,
+   "cell": [
+    16,
+    1,
+    15,
+    "UP",
+    "VOL",
+    1
+   ],
+   "dev_t": -0.5673549459923583,
+   "dev_R": -0.03637075946604438,
+   "dev_n": 841
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "ALL",
+   "side": -1,
+   "cell": [
+    7,
+    -1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.0213315959883051,
+   "dev_R": -0.07708688038331432,
+   "dev_n": 494
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "ALL",
+   "side": 1,
+   "cell": [
+    7,
+    1,
+    15,
+    "ALL",
+    "VOL",
+    3
+   ],
+   "dev_t": 0.3934216190363249,
+   "dev_R": 0.04405345498553297,
+   "dev_n": 363
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "DOWN",
+   "side": -1,
+   "cell": [
+    6,
+    -1,
+    15,
+    "DOWN",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.8816111290164201,
+   "dev_R": -0.2166823303539615,
+   "dev_n": 282
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "DOWN",
+   "side": 1,
+   "cell": [
+    7,
+    1,
+    15,
+    "DOWN",
+    "NONE",
+    3
+   ],
+   "dev_t": -0.8692707745964998,
+   "dev_R": -0.08227258904921707,
+   "dev_n": 331
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "RANGE",
+   "side": -1,
+   "cell": [
+    7,
+    -1,
+    15,
+    "RANGE",
+    "VOL",
+    3
+   ],
+   "dev_t": -1.738681156691995,
+   "dev_R": -0.19296204673498146,
+   "dev_n": 203
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "RANGE",
+   "side": 1,
+   "cell": [
+    7,
+    1,
+    15,
+    "RANGE",
+    "NONE",
+    3
+   ],
+   "dev_t": -1.6638870763286397,
+   "dev_R": -0.19739489966464716,
+   "dev_n": 312
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "UP",
+   "side": -1,
+   "cell": [
+    7,
+    -1,
+    15,
+    "UP",
+    "VOL",
+    1
+   ],
+   "dev_t": 1.0536766840113638,
+   "dev_R": 0.13855660013170495,
+   "dev_n": 155
+  },
+  {
+   "scenario": "fakeout",
+   "regime": "UP",
+   "side": 1,
+   "cell": [
+    6,
+    1,
+    15,
+    "UP",
+    "NONE",
+    3
+   ],
+   "dev_t": -1.8027531579893077,
+   "dev_R": -0.18864222417503723,
+   "dev_n": 642
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "ALL",
+   "side": -1,
+   "cell": [
+    9,
+    -1,
+    15,
+    "ALL",
+    "NONE",
+    3
+   ],
+   "dev_t": -4.055179818965987,
+   "dev_R": -0.37002087650871474,
+   "dev_n": 1348
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "ALL",
+   "side": 1,
+   "cell": [
+    8,
+    1,
+    15,
+    "ALL",
+    "NONE",
+    3
+   ],
+   "dev_t": -4.2778416159604715,
+   "dev_R": -0.2710219357680071,
+   "dev_n": 1424
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "DOWN",
+   "side": -1,
+   "cell": [
+    11,
+    -1,
+    15,
+    "DOWN",
+    "NONE",
+    3
+   ],
+   "dev_t": -2.3895910343466196,
+   "dev_R": -0.2883051926845239,
+   "dev_n": 428
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "DOWN",
+   "side": 1,
+   "cell": [
+    9,
+    1,
+    15,
+    "DOWN",
+    "NONE",
+    1
+   ],
+   "dev_t": -2.049358570145174,
+   "dev_R": -0.2362725152597759,
+   "dev_n": 379
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "RANGE",
+   "side": -1,
+   "cell": [
+    9,
+    -1,
+    15,
+    "RANGE",
+    "NONE",
+    3
+   ],
+   "dev_t": -2.161910129764958,
+   "dev_R": -0.3461621329140497,
+   "dev_n": 497
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "RANGE",
+   "side": 1,
+   "cell": [
+    8,
+    1,
+    15,
+    "RANGE",
+    "NONE",
+    3
+   ],
+   "dev_t": -4.360535567976079,
+   "dev_R": -0.39807382528074076,
+   "dev_n": 541
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "UP",
+   "side": -1,
+   "cell": [
+    10,
+    -1,
+    15,
+    "UP",
+    "NONE",
+    3
+   ],
+   "dev_t": -1.948588959182724,
+   "dev_R": -0.3367085330421517,
+   "dev_n": 160
+  },
+  {
+   "scenario": "liquidity",
+   "regime": "UP",
+   "side": 1,
+   "cell": [
+    9,
+    1,
+    15,
+    "UP",
+    "NONE",
+    3
+   ],
+   "dev_t": -2.5777957735683623,
+   "dev_R": -0.3636745845171229,
+   "dev_n": 312
+  },
+  {
+   "scenario": "range",
+   "regime": "ALL",
+   "side": -1,
+   "cell": [
+    23,
+    -1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -2.5722848012868385,
+   "dev_R": -0.13203232751689167,
+   "dev_n": 2016
+  },
+  {
+   "scenario": "range",
+   "regime": "ALL",
+   "side": 1,
+   "cell": [
+    23,
+    1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -4.055934280262965,
+   "dev_R": -0.19621390316758006,
+   "dev_n": 2057
+  },
+  {
+   "scenario": "range",
+   "regime": "DOWN",
+   "side": -1,
+   "cell": [
+    22,
+    -1,
+    15,
+    "DOWN",
+    "VOL",
+    2
+   ],
+   "dev_t": -1.4507181369685285,
+   "dev_R": -0.19692875915456154,
+   "dev_n": 218
+  },
+  {
+   "scenario": "range",
+   "regime": "DOWN",
+   "side": 1,
+   "cell": [
+    23,
+    1,
+    15,
+    "DOWN",
+    "VOL",
+    1
+   ],
+   "dev_t": -3.778431233362093,
+   "dev_R": -0.32821548088465113,
+   "dev_n": 408
+  },
+  {
+   "scenario": "range",
+   "regime": "RANGE",
+   "side": -1,
+   "cell": [
+    23,
+    -1,
+    15,
+    "RANGE",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.2220278201454822,
+   "dev_R": -0.09667484587156397,
+   "dev_n": 809
+  },
+  {
+   "scenario": "range",
+   "regime": "RANGE",
+   "side": 1,
+   "cell": [
+    23,
+    1,
+    15,
+    "RANGE",
+    "VOL",
+    3
+   ],
+   "dev_t": -2.7097403040697494,
+   "dev_R": -0.21937400368248905,
+   "dev_n": 820
+  },
+  {
+   "scenario": "range",
+   "regime": "UP",
+   "side": -1,
+   "cell": [
+    23,
+    -1,
+    15,
+    "UP",
+    "VOL",
+    0
+   ],
+   "dev_t": -2.2629107761815876,
+   "dev_R": -0.15119744969978402,
+   "dev_n": 421
+  },
+  {
+   "scenario": "range",
+   "regime": "UP",
+   "side": 1,
+   "cell": [
+    23,
+    1,
+    15,
+    "UP",
+    "VOL",
+    1
+   ],
+   "dev_t": -0.5836528356548021,
+   "dev_R": -0.05526872162676682,
+   "dev_n": 492
+  },
+  {
+   "scenario": "reversal",
+   "regime": "ALL",
+   "side": -1,
+   "cell": [
+    20,
+    -1,
+    15,
+    "ALL",
+    "NONE",
+    1
+   ],
+   "dev_t": -1.2250720475776222,
+   "dev_R": -0.1355077914249818,
+   "dev_n": 259
+  },
+  {
+   "scenario": "reversal",
+   "regime": "ALL",
+   "side": 1,
+   "cell": [
+    21,
+    1,
+    15,
+    "ALL",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.366307988529488,
+   "dev_R": -0.12497926033755552,
+   "dev_n": 472
+  },
+  {
+   "scenario": "reversal",
+   "regime": "DOWN",
+   "side": -1,
+   "cell": [
+    17,
+    -1,
+    15,
+    "DOWN",
+    "VOL",
+    1
+   ],
+   "dev_t": -1.111910293640575,
+   "dev_R": -0.09839607677055151,
+   "dev_n": 423
+  },
+  {
+   "scenario": "reversal",
+   "regime": "DOWN",
+   "side": 1,
+   "cell": [
+    21,
+    1,
+    5,
+    "DOWN",
+    "VOL",
+    3
+   ],
+   "dev_t": -1.2822474980631928,
+   "dev_R": -0.13222731389796344,
+   "dev_n": 419
+  },
+  {
+   "scenario": "reversal",
+   "regime": "RANGE",
+   "side": -1,
+   "cell": [
+    17,
+    -1,
+    15,
+    "RANGE",
+    "VOL",
+    1
+   ],
+   "dev_t": 0.10816868745291743,
+   "dev_R": 0.0077663097680868275,
+   "dev_n": 649
+  },
+  {
+   "scenario": "reversal",
+   "regime": "RANGE",
+   "side": 1,
+   "cell": [
+    20,
+    1,
+    15,
+    "RANGE",
+    "NONE",
+    0
+   ],
+   "dev_t": -1.749573557281546,
+   "dev_R": -0.17577165180077203,
+   "dev_n": 231
+  },
+  {
+   "scenario": "reversal",
+   "regime": "UP",
+   "side": -1,
+   "cell": [
+    17,
+    -1,
+    15,
+    "UP",
+    "VOL",
+    2
+   ],
+   "dev_t": -1.8432179094804535,
+   "dev_R": -0.09325972860377056,
+   "dev_n": 439
+  },
+  {
+   "scenario": "reversal",
+   "regime": "UP",
+   "side": 1,
+   "cell": [
+    17,
+    1,
+    15,
+    "UP",
+    "VOL",
+    1
+   ],
+   "dev_t": -0.26977845376303006,
+   "dev_R": -0.028378325354044224,
+   "dev_n": 294
+  }
+ ]
+}

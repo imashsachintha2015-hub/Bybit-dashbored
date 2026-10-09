@@ -1,0 +1,77 @@
+# RANDOM control (DEV, regime ALL, no filter): net R should be about minus the cost in R
+  RANDOM L 5m R15   n  15645 net R -0.626 (cost -0.608, gross -0.019) t -46.8
+  RANDOM L 5m R3    n  14956 net R -0.618 (cost -0.605, gross -0.012) t -31.6
+  RANDOM L 5m LVL   n  15381 net R -0.620 (cost -0.607, gross -0.013) t -38.5
+  RANDOM L 5m TRAIL n  14673 net R -0.617 (cost -0.608, gross -0.009) t -24.2
+  RANDOM L 15m R15   n  14199 net R -0.377 (cost -0.365, gross -0.012) t -25.0
+  RANDOM L 15m R3    n  12707 net R -0.397 (cost -0.360, gross -0.037) t -17.0
+  RANDOM L 15m LVL   n  13596 net R -0.387 (cost -0.363, gross -0.023) t -21.3
+  RANDOM L 15m TRAIL n  12007 net R -0.372 (cost -0.362, gross -0.010) t -11.5
+  RANDOM S 5m R15   n  15674 net R -0.588 (cost -0.607, gross +0.019) t -44.1
+  RANDOM S 5m R3    n  15010 net R -0.565 (cost -0.605, gross +0.040) t -29.7
+  RANDOM S 5m LVL   n  15418 net R -0.569 (cost -0.606, gross +0.037) t -37.3
+  RANDOM S 5m TRAIL n  14747 net R -0.570 (cost -0.607, gross +0.037) t -22.6
+  RANDOM S 15m R15   n  14319 net R -0.324 (cost -0.365, gross +0.041) t -21.9
+  RANDOM S 15m R3    n  12852 net R -0.307 (cost -0.362, gross +0.055) t -13.0
+  RANDOM S 15m LVL   n  13773 net R -0.316 (cost -0.364, gross +0.048) t -17.5
+  RANDOM S 15m TRAIL n  12157 net R -0.335 (cost -0.364, gross +0.029) t -10.1
+
+# DEV: 3200 cells, 2952 with n >= 150; net R > 0 in 7; t >= 3.0 and net R > 0: 0
+  distribution of DEV t (n >= 150): p1=-38.8  p10=-17.4  p50=-6.7  p90=-2.4  p99=-0.9  max=+1.1
+
+# DEV top 25 cells by t (n >= 150)
+  FAKE_PD|S|15m|UP|VOL|R3                          n   155 net R +0.139 t +1.05 win 40%
+  FAKE_PD|S|15m|UP|VOL|LVL                         n   155 net R +0.103 t +0.75 win 41%
+  FAKE_PD|L|15m|ALL|VOL|TRAIL                      n   363 net R +0.044 t +0.39 win 37%
+  FAKE_PD|S|15m|UP|VOL|TRAIL                       n   155 net R +0.037 t +0.26 win 35%
+  BRK_RETEST|S|15m|DOWN|VOL|TRAIL                  n   493 net R +0.033 t +0.16 win 23%
+  CHOCH|S|15m|RANGE|VOL|R3                         n   649 net R +0.008 t +0.11 win 39%
+  EMA_PB|S|15m|DOWN|VOL|R15                        n   167 net R +0.005 t +0.05 win 48%
+  FAKE_PD|L|15m|ALL|VOL|R3                         n   363 net R -0.013 t -0.13 win 40%
+  BRK_PD|L|15m|UP|VOL|R3                           n   536 net R -0.012 t -0.16 win 32%
+  CHOCH|L|15m|UP|VOL|R3                            n   294 net R -0.028 t -0.27 win 35%
+  FAKE_PD|S|15m|UP|VOL|R15                         n   155 net R -0.028 t -0.29 win 46%
+  FAKE_PD|S|15m|UP|NONE|LVL                        n   332 net R -0.030 t -0.33 win 37%
+  MACD_X|L|15m|DOWN|NONE|TRAIL                     n   278 net R -0.033 t -0.40 win 35%
+  BRK_PD|L|15m|UP|NONE|R3                          n   652 net R -0.031 t -0.43 win 32%
+  ST_FLIP|S|15m|RANGE|VOL|LVL                      n  1033 net R -0.022 t -0.46 win 42%
+  ST_FLIP|S|15m|RANGE|VOL|R3                       n  1032 net R -0.030 t -0.55 win 39%
+  MACD_X|L|15m|UP|VOL|R3                           n   841 net R -0.036 t -0.57 win 35%
+  BRK_PD|S|15m|RANGE|VOL|TRAIL                     n   613 net R -0.079 t -0.57 win 33%
+  EMA_PB|S|15m|DOWN|VOL|LVL                        n   167 net R -0.061 t -0.58 win 47%
+  CONF_BOUNCE|L|15m|UP|VOL|R3                      n   492 net R -0.055 t -0.58 win 31%
+  EMA_PB|S|15m|DOWN|VOL|R3                         n   162 net R -0.083 t -0.59 win 35%
+  FAKE_PD|L|15m|ALL|VOL|LVL                        n   363 net R -0.056 t -0.65 win 44%
+  BRK_PD|S|15m|DOWN|NONE|TRAIL                     n   593 net R -0.097 t -0.66 win 27%
+  BRK_RETEST|S|15m|DOWN|VOL|LVL                    n   503 net R -0.097 t -0.67 win 24%
+  EMA_PB|L|15m|UP|VOL|R3                           n   158 net R -0.092 t -0.72 win 32%
+
+# DEV per scenario x regime: cells with n >= 150, share with net R > 0, best net R and its t
+  breakout      ALL   cells  192 positive    0%  best t -2.18 (net R -0.196, n 1509) BRK_PD|S|15m|ALL|VOL|TRAIL
+  breakout      UP    cells  176 positive    0%  best t -0.16 (net R -0.012, n 536) BRK_PD|L|15m|UP|VOL|R3
+  breakout      DOWN  cells  188 positive    1%  best t +0.16 (net R +0.033, n 493) BRK_RETEST|S|15m|DOWN|VOL|TRAIL
+  breakout      RANGE cells  192 positive    0%  best t -0.57 (net R -0.079, n 613) BRK_PD|S|15m|RANGE|VOL|TRAIL
+  continuation  ALL   cells  160 positive    0%  best t -0.92 (net R -0.099, n 362) EMA_PB|S|15m|ALL|VOL|R3
+  continuation  UP    cells  136 positive    0%  best t -0.57 (net R -0.036, n 841) MACD_X|L|15m|UP|VOL|R3
+  continuation  DOWN  cells  136 positive    1%  best t +0.05 (net R +0.005, n 167) EMA_PB|S|15m|DOWN|VOL|R15
+  continuation  RANGE cells  148 positive    0%  best t -0.46 (net R -0.022, n 1033) ST_FLIP|S|15m|RANGE|VOL|LVL
+  fakeout       ALL   cells   64 positive    2%  best t +0.39 (net R +0.044, n 363) FAKE_PD|L|15m|ALL|VOL|TRAIL
+  fakeout       UP    cells   48 positive    6%  best t +1.05 (net R +0.139, n 155) FAKE_PD|S|15m|UP|VOL|R3
+  fakeout       DOWN  cells   40 positive    0%  best t -0.87 (net R -0.082, n 331) FAKE_PD|L|15m|DOWN|NONE|TRAIL
+  fakeout       RANGE cells   60 positive    0%  best t -1.66 (net R -0.197, n 312) FAKE_PD|L|15m|RANGE|NONE|TRAIL
+  liquidity     ALL   cells  128 positive    0%  best t -4.06 (net R -0.370, n 1348) SWEEP_ASIA|S|15m|ALL|NONE|TRAIL
+  liquidity     UP    cells  112 positive    0%  best t -1.95 (net R -0.337, n 160) SWEEP_EQ|S|15m|UP|NONE|TRAIL
+  liquidity     DOWN  cells  112 positive    0%  best t -2.05 (net R -0.236, n 379) SWEEP_ASIA|L|15m|DOWN|NONE|R3
+  liquidity     RANGE cells  128 positive    0%  best t -2.16 (net R -0.346, n 497) SWEEP_ASIA|S|15m|RANGE|NONE|TRAIL
+  range         ALL   cells   96 positive    0%  best t -2.57 (net R -0.132, n 2016) CONF_BOUNCE|S|15m|ALL|VOL|R3
+  range         UP    cells   96 positive    0%  best t -0.58 (net R -0.055, n 492) CONF_BOUNCE|L|15m|UP|VOL|R3
+  range         DOWN  cells   96 positive    0%  best t -1.45 (net R -0.197, n 218) VP_FADE|S|15m|DOWN|VOL|LVL
+  range         RANGE cells   96 positive    0%  best t -1.22 (net R -0.097, n 809) CONF_BOUNCE|S|15m|RANGE|VOL|R3
+  reversal      ALL   cells  160 positive    0%  best t -1.23 (net R -0.136, n 259) EXHAUST|S|15m|ALL|NONE|R3
+  reversal      UP    cells  124 positive    0%  best t -0.27 (net R -0.028, n 294) CHOCH|L|15m|UP|VOL|R3
+  reversal      DOWN  cells  128 positive    0%  best t -1.11 (net R -0.098, n 423) CHOCH|S|15m|DOWN|VOL|R3
+  reversal      RANGE cells  136 positive    1%  best t +0.11 (net R +0.008, n 649) CHOCH|S|15m|RANGE|VOL|R3
+
+# DEV screen survivors: 0; VAL confirmation (n >= 50, net R > 0, t >= 2.0)
+
+frozen: 0 confirmed cells, 48 reporting cells -> r2_frozen.json

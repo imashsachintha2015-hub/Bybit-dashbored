@@ -122,3 +122,16 @@ and tested once on FINAL and UNSEEN, same pass rule as above (non-overlap applie
 ## What happens next
 If nothing passes: say so, report the best scenario x regime cells with their $10 results, and do not loosen anything. If something
 passes: a paper forward test like the Kalman engine's, not live money.
+
+## Addendum 2 (written after the DEV screen and the pre-registered final runs; VAL/FINAL/UNSEEN of these new cells not yet examined)
+**What DEV showed.** 0 of 3200 cells passed (best t +1.1). Before costs, the 25 setups pooled have a gross edge of -0.005R (t -1.0),
+the same as random entries, at every stop width; the best setups make about +5 bps per trade against 14 bps of cost
+(`r2_gross_dev.txt`). The setups do not predict direction on 5m / 15m bars, so tuning their stops cannot help.
+
+**One more test: HTF-aligned scalps ("scale-in entries for the 4H trend").** The one rule with an out-of-sample edge in this project
+is the production Kalman trend on 4H bars (`hf_ladder.py`, rung 240). Stage B takes every setup event whose entry falls inside a 4H
+Kalman trade (production rules incl. BTC daily filter and funding filter, `hf_ladder.coin_rung(..., 240)`), in the same direction.
+Regime = KALMAN (aligned) only; cells = 25 setups x 2 sides x 2 timeframes x 2 filters x 4 exits = 800, with the same DEV screen
+(n >= 150, net R > 0, t >= 3.0), VAL confirmation (n >= 50, net R > 0, t >= 2.0), and pass rule. Also reported: the same events
+pooled over all setups (one position per coin) per timeframe and exit, and the best DEV cell per scenario x side, frozen and run once.
+Expectation written down now: the aligned events earn the 4H drift for a few hours, a few bps, so they fail on cost.
