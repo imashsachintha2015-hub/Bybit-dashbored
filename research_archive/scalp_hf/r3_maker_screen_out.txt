@@ -1,0 +1,19 @@
+
+# LIQMK: DEV, all 16 cells (n, net R, t, win%)
+  MAKERMAG|L|HL1d|R2|T1R                             n   1635 R -0.083 t -2.58 win 48%
+  MAKERMAG|L|HL1d|R2|T2R                             n   2084 R -0.167 t -4.24 win 32%
+  MAKERMAG|L|HL1d|R4|T1R                             n    537 R -0.027 t -0.53 win 51%
+  MAKERMAG|L|HL1d|R4|T2R                             n    643 R -0.158 t -2.46 win 32%
+  MAKERMAG|L|HL3d|R2|T1R                             n   2377 R -0.043 t -1.49 win 50%
+  MAKERMAG|L|HL3d|R2|T2R                             n   3178 R -0.106 t -3.16 win 34%
+  MAKERMAG|L|HL3d|R4|T1R                             n   1113 R -0.062 t -1.64 win 49%
+  MAKERMAG|L|HL3d|R4|T2R                             n   1394 R -0.130 t -2.83 win 33%
+  MAKERMAG|S|HL1d|R2|T1R                             n   1740 R +0.014 t +0.44 win 52%
+  MAKERMAG|S|HL1d|R2|T2R                             n   2303 R -0.050 t -1.26 win 35%
+  MAKERMAG|S|HL1d|R4|T1R                             n    747 R +0.011 t +0.26 win 52%
+  MAKERMAG|S|HL1d|R4|T2R                             n    910 R -0.096 t -1.76 win 34%
+  MAKERMAG|S|HL3d|R2|T1R                             n   2337 R +0.013 t +0.43 win 52%
+  MAKERMAG|S|HL3d|R2|T2R                             n   3135 R -0.031 t -0.83 win 36%
+  MAKERMAG|S|HL3d|R4|T1R                             n   1304 R +0.036 t +0.97 win 54%
+  MAKERMAG|S|HL3d|R4|T2R                             n   1686 R -0.039 t -0.87 win 36%
+# LIQMK: DEV screen survivors 0 of 16
