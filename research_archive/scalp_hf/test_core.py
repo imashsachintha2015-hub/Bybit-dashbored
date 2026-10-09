@@ -1,5 +1,11 @@
 """Checks of hf_core on synthetic data and on the pre-registered debug slice (BTC, ETH, 2023-01..2023-03 only)."""
 import numpy as np, hf_core as C
+from hf_core import ms
+
+def trim(k):
+    a = (ms(2023) - C.GRID_T0) // C.MIN; b = a + 90 * 1440
+    return C.Coin(k.name, C.GRID_T0 + a * C.MIN, *[x[a:b] for x in (k.o, k.h, k.l, k.c, k.qv, k.n, k.tb)])
+
 
 def mk(n, f, wick=0.0005):
     c = np.array([f(i) for i in range(n)], dtype=float); o = np.r_[c[0], c[:-1]]
@@ -33,11 +39,24 @@ assert 0.85 < np.std(ts) < 1.15, np.std(ts)
 ent = np.array([1, 2, 3], np.int64); ext = np.array([10, 10, 10], np.int64); ret = np.array([0.01, 0.01, 0.01]); sf = np.array([0.01, 0.01, 0.01])
 eq, n, mdd, w, _ = C.portfolio(ent, ext, ret, sf, np.array([0, 0, 1]), 10.0, 0.01, 5, 3.0, 6.0); assert n == 2, n   # same coin twice -> one skipped
 assert abs(eq - (10 + 0.01 * 10 / 0.01 * 0.01 * 2)) < 1e-9, eq
+# rolling statistics against brute force, with NaN, zero-volume stretches, an infinity and a long series (the first run lost every signal after an infinity)
+import hf_fam as F
+rng = np.random.default_rng(3); x = rng.normal(0, 1e-3, 30000); x[500:520] = np.nan; x[9000] = np.inf; x[15000:15100] = 0.0
+mu, sd = C.rolling_mean_std(x, 1440)
+for i in (1439, 9500, 10439, 10440, 15099, 15200, 29999):
+    w = x[i - 1439:i + 1]; w = w[np.isfinite(w)]
+    ok = len(w) >= 720 and len(w) > 1
+    assert (not ok and np.isnan(mu[i])) or (abs(mu[i] - w.mean()) < 1e-12 and abs(sd[i] - w.std()) < 1e-9), (i, mu[i], w.mean() if ok else None, sd[i])
+assert np.isfinite(sd[20000:]).all() and (sd[20000:] > 0).all()                      # recovered after the infinity left the window
+q = np.abs(rng.normal(1e6, 3e5, 30000)); q[12000:12080] = 0.0; q[300] = np.nan
+rs = F.rolling_sum(q, 60)
+for i in (59, 400, 12050, 12079, 12139, 29999):
+    w = q[i - 59:i + 1]; assert (np.isnan(rs[i]) and np.isnan(w).any()) or abs(rs[i] - w.sum()) < 1e-3, (i, rs[i], w.sum())
 print("synthetic checks passed")
 
 # --- debug slice
 for name in ("BTC", "ETH"):
-    k = C.load_coin(name, (2023, 1), (2023, 3))
+    k = C.load_coin(name, (2023, 1), (2023, 3)); k = trim(k)
     assert k.N == 90 * 1440 and np.isnan(k.c).mean() < 0.001, (k.N, np.isnan(k.c).mean())
     O, H, L, Cc, Q, NN, TB = C.aggregate(k.o, k.h, k.l, k.c, k.qv, k.n, k.tb, 5)
     assert abs(O[100] - k.o[500]) < 1e-9 and abs(Cc[100] - k.c[504]) < 1e-9 and abs(H[100] - k.h[500:505].max()) < 1e-9 and abs(Q[100] - k.qv[500:505].sum()) < 1e-3

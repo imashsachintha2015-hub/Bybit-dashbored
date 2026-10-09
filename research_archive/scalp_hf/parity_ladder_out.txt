@@ -1,0 +1,6 @@
+ETH: production trades 124 | ladder trades 124 | identical entries and exits: True | 4H bars missing in the archive: 0
+BTC: production trades 124 | ladder trades 124 | identical entries and exits: True | 4H bars missing in the archive: 0
+DOGE: production trades 121 | ladder trades 121 | identical entries and exits: True | 4H bars missing in the archive: 0
+SOL: production trades 89 | ladder trades 88 | identical entries and exits: False | 4H bars missing in the archive: 30
+XRP: production trades 107 | ladder trades 106 | identical entries and exits: False | 4H bars missing in the archive: 30
+parity ok

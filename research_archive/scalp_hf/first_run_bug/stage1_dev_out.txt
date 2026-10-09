@@ -1,0 +1,116 @@
+# Stage 1, segment DEV: gross mean bps per event (entry at the next open, exit at the close h minutes later), day-clustered t; K = 262 cells
+# break-even: 14 bps (taker round trip), 4 bps (optimistic maker round trip)
+
+## flow  (36 cells, events per cell: median 7165)
+variant                                         h        n  mean bps       t
+('n', 3, 'k', 2, 'exh')                         5     7123      1.81    3.17
+('n', 30, 'k', 3, 'exh')                        5      274     13.71    1.51
+('n', 3, 'k', 2, 'exh')                        20     7123      1.16    1.48
+('n', 10, 'k', 2, 'exh')                        5     3579      2.34    1.46
+('n', 10, 'k', 3, 'exh')                        5      281      4.45    1.36
+('n', 10, 'k', 2, 'exh')                       60     3579      3.54    1.35
+
+## fund  (16 cells, events per cell: median 36)
+variant                                         h        n  mean bps       t
+('f', 30)                                      15        4    192.97    2.72
+('f', 10)                                      30       65     45.62    2.15
+('f', 5)                                        5      603      7.96    2.12
+('f', 20)                                      15        7    118.93    2.12
+('f', 30)                                       1        4     19.84    2.12
+('f', 20)                                       5        7     15.96    1.90
+
+## lead  (72 cells, events per cell: median 52122)
+variant                                         h        n  mean bps       t
+('m', 5, 'k', 2, 'lag', 1)                      1    87421      0.38    5.16
+('m', 1, 'k', 2, 'lag', 0)                      1   195174      0.38    3.96
+('m', 1, 'k', 2, 'lag', 1)                      1   125666      0.30    3.78
+('m', 3, 'k', 3, 'lag', 1)                      1    35438      0.64    3.71
+('m', 5, 'k', 3, 'lag', 1)                      1    30744      0.65    3.69
+('m', 1, 'k', 4, 'lag', 1)                      3    21466      1.62    3.64
+
+## oi  (24 cells, events per cell: median 5781)
+variant                                         h        n  mean bps       t
+('w', 3, 'pct', 97.5, 'flush')                 60    11903      5.54    3.43
+('w', 3, 'pct', 97.5, 'flush')                 20    11903      3.50    3.08
+('w', 3, 'pct', 99.0, 'flush')                 20     5485      5.40    2.99
+('w', 1, 'pct', 97.5, 'flush')                 60     7252      6.18    2.54
+('w', 3, 'pct', 99.0, 'flush')                 60     5485      5.46    2.03
+('w', 1, 'pct', 99.0, 'flush')                 60     3592      7.40    1.87
+
+## orb  (24 cells, events per cell: median 5103)
+variant                                         h        n  mean bps       t
+('utc00', 'R', 30)                             10     5004      3.47    3.51
+('utc00', 'R', 30)                              5     5004      3.04    3.41
+('ny0930', 'R', 30)                            60     4713      3.17    0.99
+('utc08', 'R', 30)                             10     4818      0.69    0.92
+('utc00', 'R', 15)                              5     5336      0.53    0.83
+('utc08', 'R', 30)                             30     4818      1.09    0.77
+
+## pullback  (8 cells, events per cell: median 48194)
+variant                                         h        n  mean bps       t
+('adx', 1)                                     60    33996      0.77    1.10
+('adx', 1)                                     30    33996      0.15    0.35
+('adx', 1)                                      5    33996     -0.02   -0.11
+('adx', 0)                                     60    62393     -0.10   -0.20
+('adx', 0)                                     30    62393     -0.08   -0.27
+('adx', 1)                                     10    33996     -0.15   -0.60
+
+## rsi2  (8 cells, events per cell: median 85175)
+variant                                         h        n  mean bps       t
+('var', 1)                                     30   116776      0.63    1.82
+('var', 2)                                      5    53574      0.58    1.65
+('var', 2)                                     30    53574      0.92    1.59
+('var', 1)                                      5   116776      0.27    1.56
+('var', 1)                                     10   116776      0.34    1.45
+('var', 2)                                     10    53574      0.49    1.10
+
+## squeeze  (8 cells, events per cell: median 25658)
+variant                                         h        n  mean bps       t
+('vol', 0)                                     10    30620     -0.18   -0.82
+('vol', 1)                                     10    20697     -0.26   -0.89
+('vol', 0)                                      5    30620     -0.18   -1.18
+('vol', 1)                                     60    20697     -1.19   -1.79
+('vol', 1)                                     30    20697     -0.90   -1.84
+('vol', 1)                                      5    20697     -0.44   -2.05
+
+## sweep  (24 cells, events per cell: median 108988)
+variant                                         h        n  mean bps       t
+('N', 120, 'vol', 1)                           30    73854      0.48    0.99
+('N', 120, 'vol', 0)                           30    90975      0.43    0.93
+('N', 60, 'vol', 0)                            30   129392      0.16    0.46
+('N', 60, 'vol', 1)                            30    98583      0.15    0.39
+('N', 120, 'vol', 0)                           10    90975      0.06    0.27
+('N', 120, 'vol', 1)                            5    73854      0.04    0.19
+
+## vwap  (24 cells, events per cell: median 22426)
+variant                                         h        n  mean bps       t
+('k', 2, 'vol', 1)                             10    53675      0.65    1.99
+('k', 3, 'vol', 0)                             10    17924      1.86    1.56
+('k', 4, 'vol', 0)                             30     6764      4.98    1.45
+('k', 3, 'vol', 0)                             30    17924      2.56    1.39
+('k', 3, 'vol', 0)                              5    17924      1.35    1.37
+('k', 4, 'vol', 0)                             10     6764      3.28    1.33
+
+## xsec  (18 cells, events per cell: median 210048)
+variant                                         h        n  mean bps       t
+('m', 30, 'rev')                               15   210048      0.38    5.80
+('m', 30, 'rev')                               30   210048      0.48    4.39
+('m', 15, 'rev')                               30   210048      0.41    4.27
+('m', 60, 'rev')                               15   210048      0.28    4.14
+('m', 15, 'rev')                               15   210048      0.26    3.95
+('m', 60, 'rev')                               30   210048      0.39    3.27
+
+## screen (DEV gross >= 4 bps, t >= 3.6, n >= 300): 0 cells
+
+## best cell per family by DEV t (n >= 300) -> Stage 2 reporting:
+  flow      ('n', 3, 'k', 2, 'exh')                  h=5   n=   7123 mean   1.81 bps  t   3.17
+  fund      ('f', 5)                                 h=5   n=    603 mean   7.96 bps  t   2.12
+  lead      ('m', 5, 'k', 2, 'lag', 1)               h=1   n=  87421 mean   0.38 bps  t   5.16
+  oi        ('w', 3, 'pct', 97.5, 'flush')           h=60  n=  11903 mean   5.54 bps  t   3.43
+  orb       ('utc00', 'R', 30)                       h=10  n=   5004 mean   3.47 bps  t   3.51
+  pullback  ('adx', 1)                               h=60  n=  33996 mean   0.77 bps  t   1.10
+  rsi2      ('var', 1)                               h=30  n= 116776 mean   0.63 bps  t   1.82
+  squeeze   ('vol', 0)                               h=10  n=  30620 mean  -0.18 bps  t  -0.82
+  sweep     ('N', 120, 'vol', 1)                     h=30  n=  73854 mean   0.48 bps  t   0.99
+  vwap      ('k', 2, 'vol', 1)                       h=10  n=  53675 mean   0.65 bps  t   1.99
+  xsec      ('m', 30, 'rev')                         h=15  n= 210048 mean   0.38 bps  t   5.80
