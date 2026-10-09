@@ -1,0 +1,14 @@
+=== 1. every signal of the final system (before the 8-position limit): average R after 14 bps + real funding ===
+  side            2020          2021          2022          2023          2024          2025          2026        all years
+  long   +0.75 (138)  +1.16 (178)  -0.81 ( 32)  +0.33 (441)  +0.55 (470)  +0.00 (430)  +0.54 (194)    +0.423R, t=3.5, n=1883; without its top 1% (18 trades): +0.228R
+  short  -0.54 ( 29)  +0.26 (140)  +0.25 (301)  +0.18 (110)  -0.09 (133)  -0.02 (232)  +0.02 (252)    +0.088R, t=1.2, n=1197; without its top 1% (11 trades): +0.038R
+
+=== 2. inside the $10 portfolio (0.5% risk, max 8 open, one per coin, compounding 2020-01 .. 2026-09) ===
+  final equity $94.12: longs made $+75.62 from 898 trades, shorts $+8.50 from 718 trades
+  dollars made per year (by exit year):  2020: L  +3.86 S  -0.77  2021: L +16.15 S  +2.71  2022: L  -2.67 S  +6.20  2023: L  +9.50 S  +1.69  2024: L +30.64 S  -1.21  2025: L  +1.02 S  -3.14  2026: L +17.12 S  +3.02
+
+=== 3. with vs without the shorts ($10, same portfolio rules) ===
+  system                           2020     2021     2022     2023     2024     2025     2026   2020-2026 (trades, max DD)         2024-2026 (trades, max DD)
+  long + short (final)            14.27    23.04    10.86    13.81    15.72     9.30    13.04   $ 94.12 (1616 trades,  -28%)    $ 19.37 ( 765 trades,  -19%)
+  long only (with fund cap)       15.40    20.22     9.28    12.93    16.06    10.06    12.24   $ 73.29 ( 898 trades,  -31%)    $ 19.79 ( 427 trades,  -18%)
+  short only                       9.26    11.39    11.71    10.68     9.79     9.24    10.70   $ 12.90 ( 718 trades,  -14%)    $  9.83 ( 338 trades,  -13%)

@@ -61,6 +61,28 @@ Final rules, with the same portfolio limits as the $94.12 result (0.5% risk, max
 - The BTC filter switches the system between long months and short months.
 - At the end of the data, 7 trades opened in 2026-09 were still open. They are valued at the last price, as in the $94.12 result.
 
+## Do the shorts earn their place? (`ls_sides.py`, `ls_sides_out.txt`, exploratory)
+The final system split by side, after 14 bps and real funding:
+
+| | longs | shorts |
+|---|---|---|
+| average per signal | +0.423R (t 3.5, n 1,883) | +0.088R (t 1.2, n 1,197) |
+| without the best 1% of trades | +0.228R | +0.038R |
+| dollars made inside the $10 → $94.12 portfolio | +$75.62 (898 trades) | +$8.50 (718 trades) |
+
+Shorts by year (average R per signal): 2020 −0.54, 2021 +0.26, 2022 +0.25, 2023 +0.18, 2024 −0.09, 2025 −0.02, 2026 +0.02.
+
+| $10, 0.5% risk, max 8 open | 2020-2026 | 2024-2026 |
+|---|---|---|
+| long + short (final) | $94.12 (1,616 trades, DD −28%) | $19.37 (765 trades, DD −19%) |
+| long only (with the funding cap) | $73.29 (898 trades, DD −31%) | $19.79 (427 trades, DD −18%) |
+| short only | $12.90 (718 trades, DD −14%) | $9.83 (338 trades, DD −13%) |
+
+- **The two sides almost never compete for a slot.** 897 of the 898 longs are the same trades with or without shorts, because the BTC filter puts them in different periods.
+- **Shorts made their money in 2021-23** (the May 2021 crash and the 2022 bear market). Since 2024 they are about break-even, and long-only did slightly better.
+- **Verdict:** the short edge is not proven (t 1.2). Shorts act as bear-market insurance, not as a second profit engine.
+- **Possible next data:** Binance's public archive has 5-minute open interest, long/short ratios and taker buy/sell volume (`futures/um/daily/metrics`) from about 2020-09. These are crowding measures like funding, the only short filter that has worked so far.
+
 **Caveats.**
 - SHORT_FUND has two independent confirmations.
 - LONG_FUND_CAP is its mirror image and was tested once.
