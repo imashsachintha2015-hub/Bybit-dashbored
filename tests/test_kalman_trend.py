@@ -2,7 +2,7 @@
 daemons/kalman_trend_engine.py (paper trading on a synthetic market). No network, no research data.
 Run: python3 -m unittest tests/test_kalman_trend.py
 Parity with the research backtest is checked separately in research_archive/live_module/."""
-import math, os, random, sys, tempfile, unittest
+import json, math, os, random, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -157,7 +157,7 @@ class EngineBase(unittest.TestCase):
     def live_engine(self, settings=None, mode="kalman"):
         """an engine with the live switch on, trading the fake exchange (build it inside LiveEnv)"""
         tmp = tempfile.mkdtemp()
-        KE.SNAPSHOT_PATH = os.path.join(tmp, "kalman_trend_live.json"); KE.IND_DIR = os.path.join(tmp, "kalman")
+        KE.SNAPSHOT_PATH = os.path.join(tmp, "kalman_trend_live.json"); KE.IND_DIR = os.path.join(tmp, "kalman"); KE.HISTORY_PATH = os.path.join(tmp, "kalman_history.json")
         clock = Clock(T0 + 1200 * H4 + 60 * 1000); market = FakeMarket(clock); ex = FakeBybit(market)
         eng = KE.KalmanTrendEngine(market=market, store=KE.Store(os.path.join(tmp, "kt.db")),
                                    settings_source=lambda: settings or {"live": True, "riskPct": 0.5}, mode_source=lambda: mode,
@@ -174,7 +174,7 @@ class EngineBase(unittest.TestCase):
 class EngineTest(EngineBase):
     def run_engine(self, mode, bars=900):
         tmp = tempfile.mkdtemp()
-        KE.SNAPSHOT_PATH = os.path.join(tmp, "kalman_trend_live.json"); KE.IND_DIR = os.path.join(tmp, "kalman")
+        KE.SNAPSHOT_PATH = os.path.join(tmp, "kalman_trend_live.json"); KE.IND_DIR = os.path.join(tmp, "kalman"); KE.HISTORY_PATH = os.path.join(tmp, "kalman_history.json")
         clock = Clock(T0 + 1200 * H4 + 60 * 1000); market = FakeMarket(clock)
         eng = KE.KalmanTrendEngine(market=market, store=KE.Store(os.path.join(tmp, "kt.db")),
                                    settings_source=lambda: {"paperStartEquity": 10.0}, mode_source=lambda: mode,
@@ -195,6 +195,13 @@ class EngineTest(EngineBase):
         self.assertAlmostEqual(eq, 10.0 + booked, places=9)
         self.assertTrue(os.path.exists(KE.SNAPSHOT_PATH)); self.assertTrue(os.path.exists(os.path.join(KE.IND_DIR, "AAAUSDT.json")))
         self.assertGreater(eng.store.shadow_stats()["n"], 0)
+        with open(KE.HISTORY_PATH) as f: h = json.load(f)                      # the day filter's data
+        self.assertEqual(len(h["trades"]), len(closed))
+        self.assertTrue(all(t["exit_t"] and t["r_net"] is not None for t in h["trades"]))
+        self.assertTrue(h["signals"] and any(x["taken"] for x in h["signals"]) and any(not x["taken"] for x in h["signals"]))
+        taken = {(x["bar_t"], x["sym"]) for x in h["signals"] if x["taken"]}
+        self.assertEqual(len(taken), len(pos))                                  # every position traces back to a recorded signal
+        self.assertTrue(h["events"] and all(e["msg"] for e in h["events"]))
 
     def test_standby_records_only(self):
         eng, tmp = self.run_engine("championship", bars=500)

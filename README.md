@@ -578,7 +578,10 @@ The one setup that survived every honest test in `research_archive/` is now a da
   - mode, execution, equity, positions, results, BTC daily trend and the forward test;
   - open positions with R;
   - a radar of every coin (z, trend, funding, this bar's signal and why it was or wasn't taken);
-  - recent trades, engine events and settings.
+  - closed trades, a signal log (every signal and what the engine did with it), engine events and settings;
+  - a **Day filter** (All days, Today, Yesterday, previous/next day, date picker; the browser's time zone) for positions, trades, signals and events, with a summary of the day's trades, wins, R and P&L;
+  - a click on any coin row opens that coin's chart with the Kalman line;
+  - it scrolls and fits on phones (the header with the mode and Settings buttons is shown, and the tables do not trap swipes).
 - **KALMAN chart indicator** (on the Bybit Fast Canvas chart, 4H and lower):
   - the Kalman trend line, green or red with the trend;
   - entry and exit markers with R;
@@ -588,6 +591,7 @@ The one setup that survived every honest test in `research_archive/` is now a da
 **API.**
 - `GET /api/kalman/status`
 - `GET /api/kalman/indicator?symbol=BTCUSDT`
+- `GET /api/kalman/history`: every closed trade, signal and engine event (what the day filter reads; kept in `$DATA_DIR/kalman_trend.db`)
 - `POST /api/kalman/settings`: risk %, max open, optional open-interest and correlation rules, leverage, live switch, paper restart. Values are validated and clamped.
 
 **Checks.**

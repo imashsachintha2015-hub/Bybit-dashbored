@@ -30,6 +30,7 @@ VERSION = "KT-1.0"
 SCRATCH = os.path.join(ROOT_DIR, "scratch")
 IND_DIR = os.path.join(SCRATCH, "kalman")
 SNAPSHOT_PATH = os.path.join(SCRATCH, "kalman_trend_live.json")
+HISTORY_PATH = os.path.join(SCRATCH, "kalman_history.json")     # full trade / signal / event history for the dashboard's day filter
 SETTINGS_KEY = K.SETTINGS_KEY
 BAR_DELAY_MS = 45 * 1000          # wait this long after a 4H boundary so the exchange has closed the bar
 FRESH_MS = 30 * 60 * 1000         # only act on a signal bar that closed less than 30 minutes ago
@@ -144,6 +145,9 @@ class Store:
             c.execute("""CREATE TABLE IF NOT EXISTS shadow (id TEXT PRIMARY KEY, sym TEXT, side TEXT, signal_t INTEGER,
                 entry_t INTEGER, entry_p REAL, stop REAL, exit_t INTEGER, exit_p REAL, reason TEXT, r_net REAL)""")
             c.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+            c.execute("""CREATE TABLE IF NOT EXISTS signals (bar_t INTEGER, sym TEXT, side TEXT, ok INTEGER, why TEXT, taken INTEGER,
+                PRIMARY KEY (bar_t, sym))""")
+            c.execute("CREATE TABLE IF NOT EXISTS events (t INTEGER, level TEXT, msg TEXT)")
 
     def _c(self):
         c = sqlite3.connect(self.path, timeout=15); c.row_factory = sqlite3.Row; return c
@@ -172,6 +176,24 @@ class Store:
             for r in rows:
                 c.execute("INSERT OR IGNORE INTO shadow VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                           (r["id"], r["sym"], r["side"], r["signal_t"], r["entry_t"], r["entry_p"], r["stop"], r["exit_t"], r["exit_p"], r["reason"], r["r_net"]))
+
+    def save_signals(self, rows):
+        with self._c() as c:
+            for r in rows:
+                c.execute("INSERT OR REPLACE INTO signals VALUES (?,?,?,?,?,?)", (r["bar_t"], r["sym"], r["side"], int(bool(r["ok"])), r["why"], int(bool(r["taken"]))))
+
+    def add_event(self, t, level, msg):
+        with self._c() as c:
+            c.execute("INSERT INTO events VALUES (?,?,?)", (int(t), level, msg))
+            c.execute("DELETE FROM events WHERE rowid IN (SELECT rowid FROM events ORDER BY t DESC, rowid DESC LIMIT -1 OFFSET 2000)")
+
+    def history(self, trades=3000, signals=4000, events=800):
+        with self._c() as c:
+            tr = [dict(r) for r in c.execute("SELECT id, sym, side, mode, signal_t, entry_t, entry_p, stop, exit_t, exit_p, reason, r_net, pnl_usd "
+                                             "FROM positions WHERE status='CLOSED' ORDER BY exit_t DESC LIMIT ?", (trades,))]
+            sg = [dict(r) for r in c.execute("SELECT bar_t, sym, side, ok, why, taken FROM signals ORDER BY bar_t DESC, sym LIMIT ?", (signals,))]
+            ev = [dict(r) for r in c.execute("SELECT t, level, msg FROM events ORDER BY t DESC, rowid DESC LIMIT ?", (events,))]
+        return tr, sg, ev
 
     def shadow_stats(self):
         with self._c() as c:
@@ -270,6 +292,8 @@ class KalmanTrendEngine:
     def event(self, msg, level="INFO"):
         log(msg, level)
         self.events.append({"t": self.clock(), "level": level, "msg": msg}); self.events = self.events[-40:]
+        try: self.store.add_event(self.clock(), level, msg)
+        except Exception: pass
 
     # ------------------------------------------------ data
     def refresh_data(self, first):
@@ -401,8 +425,10 @@ class KalmanTrendEngine:
             for te, sym in cands: self.try_entry(sym, bar_t, now, s, broker)
         elif not active and any(st["sig"] and st["sig"]["ok"] for st in self.state.values()):
             self.event("signals this bar were recorded only: the Kalman mode is not selected")
+        self.record_signals(bar_t)
         self.write_snapshot(s, mode, broker, bar_t, now)
         self.write_indicators(bar_t)
+        self.write_history()
 
     # ------------------------------------------------ positions
     def manage_exit(self, p, bar_t, now, broker):
@@ -638,6 +664,18 @@ class KalmanTrendEngine:
                                         exit_p=p["exit_p"], reason=p["reason"], r_net=p["r_net"], pnl_usd=p["pnl_usd"]) for p in closed[-30:]][::-1],
                     shadow=self.store.shadow_stats(), events=self.events[-20:][::-1])
         self._write_json(SNAPSHOT_PATH, snap)
+
+    def record_signals(self, bar_t):
+        """every entry signal of this 4H close, what the engine did with it (taken, or why not)"""
+        taken = {p["sym"] for p in self.store.positions() if p["signal_t"] == bar_t}
+        rows = [dict(bar_t=bar_t + H4, sym=sym, side=st["sig"]["side"], ok=st["sig"]["ok"], why=st["sig"]["why"], taken=sym in taken)
+                for sym, st in self.state.items() if st["sig"]]
+        if rows: self.store.save_signals(rows)
+
+    def write_history(self):
+        if not self.write_files: return
+        tr, sg, ev = self.store.history()
+        self._write_json(HISTORY_PATH, dict(updated_at=self.clock(), trades=tr, signals=sg, events=ev))
 
     def _trade_brief(self, st, tr):
         return dict(side=tr["side"], signal_t=st["t"][tr["signal_i"]], entry_t=tr["entry_t"], entry_p=tr["entry_p"], stop=tr["stop"],
