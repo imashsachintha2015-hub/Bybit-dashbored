@@ -57,3 +57,13 @@ A system that passes only under cost model M is reported as a "maker-only candid
 
 ## What happens next
 If nothing passes, the report says so, with the best gross edge per family against its cost. Nothing is loosened after the fact. If something passes, the next step is a paper forward test like the Kalman engine's, not live money.
+
+## Addendum 1 (written before any family was run on any data; details the text above left open)
+- **Horizons per family** (minutes from the entry open): BTC_LEAD {1, 3, 5, 10}; FUND_SETTLE {1, 5, 15, 30} after the settlement (entry 2 minutes before it, so the hold is h + 2); FLOW and OI_FLUSH {5, 20, 60}; XSEC {15, 30, 60}; ORB, VWAP_FADE, SWEEP, SQUEEZE, PULLBACK, RSI2_FADE {5, 10, 30, 60}.
+- **Cell count K** = variants x horizons: FUND_SETTLE 16, BTC_LEAD 72, FLOW 36, OI_FLUSH 24, ORB 24, VWAP_FADE 24, SWEEP 24, SQUEEZE 8, PULLBACK 8, RSI2_FADE 8, XSEC 18 = **262** (FREQ_LADDER is a trade-based family with 6 cells, reported separately). The screen threshold t >= 3.6 is Bonferroni for about 300 cells.
+- **RSI2_FADE variants:** (1) RSI(2) <= 5 (>= 95) and the close outside Bollinger(20, 2.5); (2) RSI(2) <= 2 (>= 98), the same band, and 1m quote volume >= 2x its 30-minute mean.
+- **Rolling percentiles** (OI_FLUSH, SQUEEZE) are computed once per UTC day from the preceding 30 days (OI) or 3 days (SQUEEZE) of data, so they use no information from the day itself. An open-interest value stamped T is treated as known from T + 5 minutes.
+- **Maker model details:** a limit entry waits 3 one-minute bars after the signal, then is cancelled. The ATR used for trade-through and stops is the 5m ATR(14) of the last completed 5m bar.
+- **Portfolio limits** are the strategy runner's: at most 3x equity of notional per position and 6x in total; positions larger than that are scaled down. Max open 5, one per coin.
+- **Stage 2 min stop:** max(stop multiple x ATR(5m), 8 bps). If no cell of a family has n >= 300 events in DEV, the family is reported as "too few events" and gets no Stage 2.
+- The 4H FREQ_LADDER control is run on the same data as the other rungs (Binance, 20 coins), not on the earlier OKX 36-coin data.
