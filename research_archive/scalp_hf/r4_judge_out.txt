@@ -1,0 +1,49 @@
+
+## MAGNET_S: tgt=none w=1 be=off t=2x maker | filters: skip hour group 7
+  HOLDOUT2 OLD           fixed: n  1670 R +0.142 t +1.19 $10 ->   15.14 (1324 tr, DD 37%) | base: R -0.024 $10 ->    5.60 (3440 tr)
+  HOLDOUT2 DEV           fixed: n  1222 R -0.035 t -0.33 $10 ->    6.12 (1023 tr, DD 61%) | base: R -0.001 $10 ->    9.18 (1990 tr)
+  HOLDOUT2 VAL           fixed: n  1379 R +0.122 t +1.03 $10 ->   10.54 (1052 tr, DD 45%) | base: R -0.028 $10 ->    7.06 (2466 tr)
+  HOLDOUT2 FINAL         fixed: n  1310 R -0.138 t -1.59 $10 ->    3.87 (1092 tr, DD 63%) | base: R -0.087 $10 ->    3.63 (2043 tr)
+  HOLDOUT2 2021-2026 pooled: n 5581 R +0.032 t +0.58, +2bps R +0.008, $10 -> 4.45 (4481 trades, DD 78%), positive periods 2/4 -> PASS: no
+  design (seen) FINAL    fixed: n   935 R -0.124 t -1.04 $10 ->    5.59 (775 tr, DD 45%) | base: R -0.047 $10 ->    6.74 (1251 tr)
+  UNSEEN (seen) FINAL    fixed: n  1720 R -0.016 t -0.17 $10 ->    7.41 (1241 tr, DD 37%) | base: R -0.032 $10 ->    5.29 (2731 tr)
+  RANDOM control, same fixes, HOLDOUT2: n 31856 R -0.164 t -5.50
+
+## FAKE_PD_L_5: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## FAKE_PD_S_5: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## FAKE_PD_L_15: tgt=none w=1 be=off t=2x maker | filters: skip hour group 14, skip fund_s group 1
+  HOLDOUT2 OLD           fixed: n   951 R +0.012 t +0.11 $10 ->    9.49 (946 tr, DD 54%) | base: R -0.022 $10 ->    8.25 (1176 tr)
+  HOLDOUT2 DEV           fixed: n   774 R +0.142 t +1.27 $10 ->   15.92 (772 tr, DD 21%) | base: R -0.111 $10 ->    5.67 (966 tr)
+  HOLDOUT2 VAL           fixed: n   557 R -0.100 t -0.73 $10 ->    6.82 (553 tr, DD 39%) | base: R -0.197 $10 ->    4.42 (763 tr)
+  HOLDOUT2 FINAL         fixed: n   612 R -0.300 t -2.69 $10 ->    3.84 (607 tr, DD 62%) | base: R -0.323 $10 ->    2.49 (834 tr)
+  HOLDOUT2 2021-2026 pooled: n 2894 R -0.041 t -0.71, +2bps R -0.089, $10 -> 3.95 (2878 trades, DD 78%), positive periods 2/4 -> PASS: no
+  design (seen) FINAL    fixed: n   635 R -0.243 t -2.16 $10 ->    4.39 (624 tr, DD 60%) | base: R -0.259 $10 ->    3.15 (849 tr)
+  UNSEEN (seen) FINAL    fixed: n   694 R -0.064 t -0.52 $10 ->    7.46 (691 tr, DD 45%) | base: R -0.130 $10 ->    4.87 (898 tr)
+  RANDOM control, same fixes, HOLDOUT2: n 30334 R -0.216 t -7.36
+
+## FAKE_PD_S_15: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## BB_FADE_L_5: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## BB_FADE_S_5: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## CVD_DIV_L_15: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## CVD_DIV_S_15: NOT FIXABLE (no rule positive in both DEV and VAL)
+
+## TRENDDAY_L: tgt=1.5 w=1 be=off t=2x taker | filters: none
+  HOLDOUT2 OLD           fixed: n    54 R +0.018 t +0.12 $10 ->   10.04 (54 tr, DD 5%) | base: R -0.022 $10 ->    9.93 (54 tr)
+  HOLDOUT2 DEV           fixed: n   121 R -0.081 t -0.81 $10 ->    9.48 (119 tr, DD 7%) | base: R -0.095 $10 ->    9.44 (123 tr)
+  HOLDOUT2 VAL           fixed: n    75 R +0.191 t +1.32 $10 ->   10.73 (75 tr, DD 3%) | base: R +0.170 $10 ->   10.65 (76 tr)
+  HOLDOUT2 FINAL         fixed: n   108 R -0.080 t -0.65 $10 ->    9.49 (105 tr, DD 11%) | base: R -0.032 $10 ->    9.83 (106 tr)
+  HOLDOUT2 2021-2026 pooled: n 358 R -0.009 t -0.14, +2bps R -0.020, $10 -> 9.75 (353 trades, DD 12%), positive periods 2/4 -> PASS: no
+  design (seen) FINAL    fixed: n   125 R +0.099 t +0.64 $10 ->   10.67 (115 tr, DD 6%) | base: R +0.112 $10 ->   10.69 (117 tr)
+  UNSEEN (seen) FINAL    fixed: n    97 R -0.001 t -0.01 $10 ->   10.06 (94 tr, DD 5%) | base: R +0.055 $10 ->   10.30 (96 tr)
+  RANDOM control, same fixes, HOLDOUT2: n 54316 R -0.291 t -39.88
+
+# Summary (HOLDOUT2, 10 fresh coins, 2021-01..2026-09)
+  MAGNET_S      trades   5581 net R +0.032 t +0.58  $10 ->    4.45 (4481 taken, DD 78%)  periods +2/4  fail
+  FAKE_PD_L_15  trades   2894 net R -0.041 t -0.71  $10 ->    3.95 (2878 taken, DD 78%)  periods +2/4  fail
+  TRENDDAY_L    trades    358 net R -0.009 t -0.14  $10 ->    9.75 (353 taken, DD 12%)  periods +2/4  fail
