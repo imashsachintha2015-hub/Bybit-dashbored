@@ -34,6 +34,7 @@ HISTORY_PATH = os.path.join(SCRATCH, "kalman_history.json")     # full trade / s
 SETTINGS_KEY = K.SETTINGS_KEY
 BAR_DELAY_MS = 45 * 1000          # wait this long after a 4H boundary so the exchange has closed the bar
 FRESH_MS = 30 * 60 * 1000         # only act on a signal bar that closed less than 30 minutes ago
+MAX_BAR_TRIES = 5                 # a bar whose data is incomplete is asked for again (every poll) up to this many times
 COIN_BARS, BTC_BARS = 1000, 2000  # warm-up windows: parity with the full history (research_archive/live_module)
 DEFAULT_SYMBOLS = [s + "USDT" for s in (
     "AAVE ADA APT ARB ATOM AVAX BCH BNB BTC CRV DOGE DOT ETC ETH FIL HBAR ICP INJ LINK LTC MKR NEAR ONDO OP POL "
@@ -63,6 +64,7 @@ class BybitMarket:
         self.base = self.bases[0]
 
     def _get(self, path, params, retries=2):
+        time.sleep(0.08)                                                 # a burst of 70 requests at a bar close trips Bybit's rate limit
         for base in [self.base] + [b for b in self.bases if b != self.base]:
             url = f"{base}{path}?{urllib.parse.urlencode(params)}"
             for k in range(retries + 1):
@@ -72,6 +74,8 @@ class BybitMarket:
                     if d.get("retCode") == 0:
                         if base != self.base: log(f"market data now from {base}", "WARN"); self.base = base
                         return d.get("result") or {}
+                    if d.get("retCode") == 10006 and k < retries:        # "Too many visits": wait and ask again, do not lose the bar
+                        time.sleep(2.0 * (k + 1)); continue
                     log(f"market {path} {params.get('symbol', '')}: {d.get('retCode')} {d.get('retMsg')}", "WARN")
                     return None                                          # an API answer, not a network problem: no failover
                 except Exception as e:
@@ -272,7 +276,7 @@ class KalmanTrendEngine:
         self.instr = {}; self.bars = {}; self.fund = {}; self.state = {}; self.events = []
         self.oi_source = oi_source
         self.live_env, self.live_why = K.live_permission()
-        self.last_light = 0; self.prices = {}; self.booted = False
+        self.last_light = 0; self.prices = {}; self.booted = False; self.tries = {}; self.bar_summary = ""; self.pending = None
 
     # ------------------------------------------------ shared dashboard state
     @staticmethod
@@ -316,6 +320,19 @@ class KalmanTrendEngine:
             if f:
                 old = dict(self.fund.get(s, [])); old.update(dict(f)); self.fund[s] = sorted(old.items())[-400:]
 
+    def missing_bar(self, bar_t):
+        """coins whose closed 4H bar opening at bar_t has not arrived (a failed or rate-limited download)"""
+        return [s for s in self.symbols if not any(b[0] == bar_t for b in self.bars.get(s, []))]
+
+    def fetch_missing(self, bar_t):
+        """ask again, for those coins only, so a retry does not repeat the whole burst of requests"""
+        for s in self.missing_bar(bar_t):
+            new = self.m.klines_4h(s, 6)
+            if new:
+                need = BTC_BARS if s == "BTCUSDT" else COIN_BARS
+                keep = {b[0]: b for b in self.bars.get(s, [])}; keep.update({b[0]: b for b in new})
+                self.bars[s] = [keep[k] for k in sorted(keep)][-(need + 1):]
+
     def closed_arrays(self, sym, bar_t):
         """bars up to and including the closed bar opening at bar_t, plus the open of the next bar (None if missing)"""
         rows = [b for b in self.bars.get(sym, []) if b[0] <= bar_t]
@@ -329,14 +346,24 @@ class KalmanTrendEngine:
         bar_t = (now - BAR_DELAY_MS) // H4 * H4 - H4                      # open time of the newest closed 4H bar
         last = self.store.get("last_bar_t")
         did = False
-        if last is None or bar_t > last or not self.booted:
+        if last is None or bar_t > last or not self.booted or self.pending == bar_t:
             # after a restart the newest bar is processed again (idempotent: positions, shadow trades and signals are keyed), so the
             # dashboard files exist at once instead of after the next 4H close
             first = last is None or not self.bars
             self.booted = True
+            self.tries = {bar_t: self.tries.get(bar_t, 0) + 1}
+            tries = self.tries[bar_t]
             try:
-                self.on_bar_close(bar_t, now, first)
-                self.store.put("last_bar_t", bar_t); did = True
+                missing = self.on_bar_close(bar_t, now, first, retry=tries > 1)
+                if missing and tries < MAX_BAR_TRIES and now - (bar_t + H4) <= FRESH_MS:
+                    if tries == 1: self.event(f"4H bar {iso(bar_t)}: no data yet for {', '.join(missing)}; asking again", "WARN")
+                    self.pending = bar_t                                  # ask again on the next poll, also right after a restart
+                else:
+                    self.pending = None
+                    if missing: self.event(f"4H bar {iso(bar_t)}: still no data for {', '.join(missing)} after {tries} tries; "
+                                           f"those coins were not checked this bar", "WARN")
+                    self.event(self.bar_summary)
+                    self.store.put("last_bar_t", bar_t); did = True
             except Exception as e:
                 self.event(f"bar {iso(bar_t)} failed: {e}", "ERROR"); traceback.print_exc()
         if not did and now - self.last_light >= 60 * 1000:
@@ -379,10 +406,12 @@ class KalmanTrendEngine:
                 self.event(f"cannot manage live positions: {e}", "ERROR")
         return LiveBroker(self.live_client) if self.live_client is not None else PaperBroker()
 
-    def on_bar_close(self, bar_t, now, first):
+    def on_bar_close(self, bar_t, now, first, retry=False):
         s = self.settings(); mode = self.mode_source(); active = mode == "kalman"
         broker = self.broker(s, active)
-        self.refresh_data(first)
+        if retry: self.fetch_missing(bar_t)
+        else: self.refresh_data(first)
+        missing = self.missing_bar(bar_t)
         bt, bo, bh, bl, bc, _ = self.closed_arrays("BTCUSDT", bar_t)
         btc_tr = dict(zip(bt, K.daily_trend(bt, bc))) if bt else {}
         fresh_ok = now - (bar_t + H4) <= FRESH_MS
@@ -429,9 +458,25 @@ class KalmanTrendEngine:
         elif not active and any(st["sig"] and st["sig"]["ok"] for st in self.state.values()):
             self.event("signals this bar were recorded only: the Kalman mode is not selected")
         self.record_signals(bar_t)
+        self.bar_summary = self.summarize(bar_t, btc_tr.get(bar_t, 0), missing)
         self.write_snapshot(s, mode, broker, bar_t, now)
         self.write_indicators(bar_t)
         self.write_history()
+        return missing
+
+    def summarize(self, bar_t, btc_now, missing):
+        """one line per 4H close: what was checked and why there is (or is not) a signal, for the dashboard's engine events"""
+        zs = [st["z"][-1] for st in self.state.values()]
+        sigs = [(sym, st["sig"]) for sym, st in self.state.items() if st["sig"]]
+        taken = {p["sym"] for p in self.store.positions() if p["signal_t"] == bar_t}
+        txt = (f"4H bar closed {iso(bar_t + H4)}: {len(self.state)} of {len(self.symbols)} coins checked, BTC daily trend "
+               f"{'up' if btc_now == 1 else 'down' if btc_now == -1 else 'flat'}; z below -1: {sum(1 for z in zs if z < -1)}, "
+               f"above +1: {sum(1 for z in zs if z > 1)}; ")
+        if not sigs: return txt + "no coin crossed z = +-1, so no signal"
+        why = {}
+        for sym, g in sigs:
+            if sym not in taken: why[g["why"]] = why.get(g["why"], 0) + 1
+        return txt + (f"{len(sigs)} crossing(s), {len(taken)} taken" + (", not taken: " + ", ".join(f"{n} x {w}" for w, n in why.items()) if why else ""))
 
     # ------------------------------------------------ positions
     def manage_exit(self, p, bar_t, now, broker):
