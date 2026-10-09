@@ -216,6 +216,7 @@ def votes(zs, theta):
 def run_s(t, o, h, l, c, S, a, valid, trend_bar, ft, fr, B, K, X, zslow):
     n = len(c); cap = 80000
     ent = np.zeros(cap, np.int64); ext = np.zeros(cap, np.int64); ret = np.zeros(cap); sf = np.zeros(cap); rs = np.zeros(cap, np.int64)
+    sdv = np.zeros(cap, np.int64); epv = np.zeros(cap); xpv = np.zeros(cap); fv = np.zeros(cap)
     k = 0; busy = -1
     for i in range(WARM, n - 1):
         if not valid[i]: continue
@@ -259,9 +260,9 @@ def run_s(t, o, h, l, c, S, a, valid, trend_bar, ft, fr, B, K, X, zslow):
         for q in range(a0, b0): f += fr[q]
         f *= sgn
         if k < cap:
-            ent[k] = t[i + 1]; ext[k] = xt; ret[k] = gross - FEE - f; sf[k] = risk / ep; rs[k] = reason; k += 1
+            ent[k] = t[i + 1]; ext[k] = xt; ret[k] = gross - FEE - f; sf[k] = risk / ep; rs[k] = reason; sdv[k] = sgn; epv[k] = ep; xpv[k] = xp; fv[k] = f; k += 1
         busy = xt
-    return ent[:k], ext[:k], ret[:k], sf[:k], rs[:k]
+    return ent[:k], ext[:k], ret[:k], sf[:k], rs[:k], sdv[:k], epv[:k], xpv[:k], fv[:k]
 
 
 def test():
@@ -295,12 +296,12 @@ def build():
                 for th in THETAS:
                     S = votes(zs, th)
                     for (_, K, X) in [c for c in cells if c[0] == th]:
-                        e, x, r, s, rs = run_s(t, O, H, L, Cc, S, a, valid, tb, ft, fr, B, K, X, zslow)
+                        e, x, r, s, rs = run_s(t, O, H, L, Cc, S, a, valid, tb, ft, fr, B, K, X, zslow)[:5]
                         res.setdefault((B, th, K, X), []).append((e, x, r, s, np.full(len(e), cid)))
                 # single-estimator reference
                 for k, nm_ in enumerate(NAMES):
                     S1 = votes(zs[k:k + 1], 0.5)
-                    e, x, r, s, rs = run_s(t, O, H, L, Cc, S1, a, valid, tb, ft, fr, B, 1, 0, zslow)
+                    e, x, r, s, rs = run_s(t, O, H, L, Cc, S1, a, valid, tb, ft, fr, B, 1, 0, zslow)[:5]
                     res.setdefault((B, "single", nm_), []).append((e, x, r, s, np.full(len(e), cid)))
             print(group, nm, flush=True)
         agg = {k: tuple(np.concatenate([p[q] for p in v]) for q in range(5)) for k, v in res.items()}

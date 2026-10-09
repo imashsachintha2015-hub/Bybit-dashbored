@@ -1,0 +1,10 @@
+# $10 (max drawdown) by risk per trade; 8 open at most
+  system                              risk |        J1 design FINAL |              J2 UNSEEN |            J3 HOLDOUT2
+  panel + slow exit (frozen 30m)     0.15% | $  10.29 (1051 tr, DD  18%) | $  10.30 (1060 tr, DD  14%) | $  14.21 (4347 tr, DD  22%)
+  panel + slow exit (frozen 30m)     0.25% | $  10.34 (1051 tr, DD  28%) | $  10.38 (1060 tr, DD  23%) | $  17.17 (4347 tr, DD  35%)
+  panel + slow exit (frozen 30m)     0.50% | $  10.01 (1051 tr, DD  50%) | $  10.25 (1059 tr, DD  41%) | $  23.87 (4347 tr, DD  58%)
+  plain Kalman 30m (production setting) 0.15% | $   7.85 (1804 tr, DD  36%) | $   8.56 (1743 tr, DD  27%) | $  10.99 (7546 tr, DD  35%)
+  plain Kalman 30m (production setting) 0.25% | $   6.52 (1804 tr, DD  53%) | $   7.58 (1743 tr, DD  42%) | $  10.84 (7546 tr, DD  52%)
+  plain Kalman 30m (production setting) 0.50% | $   3.81 (1804 tr, DD  79%) | $   5.30 (1743 tr, DD  67%) | $   8.19 (7546 tr, DD  79%)
+
+  trades per month (fresh coins, 10 coins): 66; with 30 coins about 199; median hold 16.0 h; win rate 36%
