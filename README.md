@@ -1,11 +1,184 @@
-# MASIS V3 — Bybit Live Trading Terminal
+# ⚡ MASIS V3 / CME-X5 Model B — Bybit Trading Terminal & Quantitative Engine
 
-A multi-timeframe confluence trading engine, risk governor and backtest harness,
-rebuilt from the V2 dashboard. This document is the reverse-engineering of what
-V2 was doing, the specific reasons it lost money and burned model credit, and
-what replaced each part.
+<div align="center">
+
+[![Bybit API v5](https://img.shields.io/badge/Bybit%20API-v5%20Linear%20Perpetuals-F6A700?style=for-the-badge&logo=bybit&logoColor=black)](https://bybit-exchange.github.io/docs/v5/intro)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+[![Railway Deploy](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app)
+[![Vercel Deploy](https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
+[![Status](https://img.shields.io/badge/Status-Production%20%2F%20Autonomous-success?style=for-the-badge)](#)
+
+<p align="center">
+  <b>Institutional-grade multi-timeframe quantitative terminal, autonomous execution daemons, and mathematical risk governor for Bybit linear perpetuals.</b>
+</p>
+
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-system-architecture">Architecture</a> •
+  <a href="#-autonomous-strategy-daemons">Strategy Daemons</a> •
+  <a href="#-multi-agent-analyst-swarm">Analyst Swarm</a> •
+  <a href="#-empirical-quant-research">Empirical Research</a> •
+  <a href="#-deployment">Deployment</a> •
+  <a href="#-disclaimer">Disclaimer</a>
+</p>
+
+</div>
 
 ---
+
+### Highlights at a Glance
+
+* **24/7 Autonomous Daemon Runner (`masis_runner.py` / `launcher.py`)**: Multi-strategy daemon executing across a 42-coin universe with zero browser dependency and automatic fault recovery.
+* **Empirical Edge Over Hope**: 26 runnable quantitative studies measuring microstructural anomalies across multi-year data — including realistic taker fee (12–14 bps) and slippage deduction.
+* **State-Space Kalman Trend Estimation**: Real-time adaptive filtering measuring momentum transitions without lagging moving-average distortions.
+* **Multi-Agent Specialist Swarm**: 7 independent quantitative desks (Liquidity, Traps, Derivatives/OI, Market Structure, Volume Profile, Manipulation, Session) with adversary red-teaming and meta-learner reliability weighting.
+* **Capital Protection Governor**: Hard equity-percentage position sizing (0.25% - 0.50%), exchange-side stops attached atomically, daily loss circuit breakers, and noise-floor validation.
+* **Zero-Secret Architecture**: Secure `.env` credential management with strict production/demo separation (`MASIS_ALLOW_REAL_MONEY=0` safety latch).
+
+---
+
+## 🏛 System Architecture
+
+```mermaid
+graph TD
+    subgraph Market_Ingestion["1. Market Data Layer"]
+        BYBIT_WS["Bybit v5 Public WebSocket<br/>(Orderbook, Tickers, Klines, Liquidations)"]
+        BYBIT_REST["Bybit v5 REST API<br/>(Account, Fills, Funding History, Open Interest)"]
+    end
+
+    subgraph Analytics_Layer["2. Confluence & Signal Layer"]
+        KALMAN["Kalman Filter Engine<br/>(State-Space Trend Z-Score)"]
+        MTF["Multi-Timeframe Engine<br/>(4H Macro / 1H Structure / 15m Trigger)"]
+        SWARM["Analyst Swarm<br/>(Liquidity, Trap, OI, Volume Profile, Manipulation)"]
+        RED_TEAM["Red-Team Consensus Gate<br/>(Adversarial Counter-Thesis & Vetoes)"]
+    end
+
+    subgraph Risk_Layer["3. Institutional Risk Governor"]
+        RISK_GOV["Risk Governor<br/>(Daily Loss Limit, Equity Sizing, Correlation Cap)"]
+        POS_MGR["Position Manager<br/>(ATR Geometry, BE Ratchet, Structural Invalidation)"]
+        CIRCUIT["Circuit Breaker<br/>(Consecutive Loss Pause, Spread/Volatility Shield)"]
+    end
+
+    subgraph Execution_Layer["4. Autonomous Execution Daemons"]
+        LAUNCHER["Process Supervisor (launcher.py)"]
+        RUNNER["Strategy Runner (masis_runner.py)<br/>• Trend 4H<br/>• Snapback 15m"]
+        KALMAN_DAEMON["Kalman Trend Engine (kalman_trend_engine.py)<br/>• 36-Coin Universe"]
+        SHADOW["Shadow Settlement & Ledger<br/>(Forward Test SQLite Database)"]
+    end
+
+    subgraph Interfaces["5. Presentation & Telemetry"]
+        WEB_TERM["Live Trading Terminal UI<br/>(Fast Canvas, Lightweight Charts)"]
+        MONITOR["Pop-Out Signal Monitor<br/>(All Graded Setups, Win/Loss Tracker)"]
+        CLOUD["Cloud Deployment<br/>(Railway 24/7 Daemon / Vercel Serverless API)"]
+    end
+
+    BYBIT_WS --> MTF
+    BYBIT_WS --> KALMAN
+    BYBIT_REST --> SWARM
+    MTF & KALMAN & SWARM --> RED_TEAM
+    RED_TEAM --> RISK_GOV
+    RISK_GOV & POS_MGR & CIRCUIT --> RUNNER & KALMAN_DAEMON
+    LAUNCHER --> RUNNER & KALMAN_DAEMON
+    RUNNER & KALMAN_DAEMON --> BYBIT_REST
+    RUNNER & KALMAN_DAEMON --> SHADOW
+    SHADOW & BYBIT_WS --> WEB_TERM & MONITOR & CLOUD
+```
+
+---
+
+## 🤖 Strategy Engines & Daemons
+
+The terminal orchestrates two primary execution layers designed from empirical findings:
+
+| Strategy | Engine Daemon | Primary Timeframe | Execution Mode | Stop Loss | Profit Target | Equity Risk |
+|---|---|---|---|---|---|---|
+| **Trend 4H** | `daemons/masis_runner.py` | 4H Candles | Orders on Bybit (Demo/Live) | `2.5 × ATR(4H)` (Exchange-side) | Dynamic trailing stop (`4 × ATR` behind peak close) | `0.25%` |
+| **Snapback** | `daemons/masis_runner.py` | 15m Candles | Paper simulation (default) | `1.0 × ATR(1H)` (Exchange-side) | `1.0 × ATR(1H)` take-profit or 12h time-stop | `0.50%` |
+| **Kalman Trend** | `daemons/kalman_trend_engine.py` | 4H / Daily Filter | Paper or Live orders | `3.0 × ATR(4H)` | Next open upon trend reversal (No fixed cap) | `0.50%` |
+
+> [!IMPORTANT]
+> **Safety First:** By default, all strategies operate against the Bybit Demo environment (`https://api-demo.bybit.com`) or simulated paper execution. Live mainnet order routing requires explicitly setting `MASIS_ALLOW_REAL_MONEY=1` and activating live switches in both `.env` and the UI dashboard.
+
+---
+
+## ⚡ Quick Start
+
+### 1. Prerequisites
+- **Python**: 3.10+
+- **Node.js**: >= 18.0.0
+- **Git**
+
+### 2. Installation & Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/imashsachintha2015-hub/Bybit-dashbored.git
+cd Bybit-dashbored
+
+# Install Python backend dependencies
+pip install -r requirements.txt
+
+# Install Node dependencies
+npm install
+
+# Copy environment template
+cp .env.example .env
+```
+
+### 3. Configure Credentials
+
+Edit `.env` with your Bybit API credentials (Demo account keys recommended for initial verification):
+
+```env
+BYBIT_API_KEY=your_bybit_api_key
+BYBIT_API_SECRET=your_bybit_api_secret
+BYBIT_BASE_URL=https://api-demo.bybit.com
+BYBIT_DEMO=1
+MASIS_ALLOW_REAL_MONEY=0
+```
+
+### 4. Run the Full Stack
+
+Launch the unified process supervisor (starts the local API server and restarts daemons automatically if interrupted):
+
+```bash
+python launcher.py
+```
+
+The terminal interface will be accessible at:
+- **Main Terminal**: `http://localhost:8080`
+- **Signal Monitor**: `http://localhost:8080/monitor.html`
+- **Kalman Telemetry API**: `http://localhost:8080/api/kalman/status`
+
+---
+
+## 🚢 Cloud & Container Deployment
+
+### Docker Deployment
+```bash
+# Build the container
+docker build -t masis-terminal .
+
+# Run the container with environment variables
+docker run -d --name masis-runner -p 8080:8080 --env-file .env masis-terminal
+```
+
+### Deploy to Railway
+The repository includes `railway.json` and `nixpacks.toml` configured for 24/7 daemon execution:
+1. Push your repository to GitHub.
+2. Link the repository in [Railway](https://railway.app).
+3. Set your environment variables in the Railway dashboard.
+4. Railway will automatically provision via Nixpacks/Python 3.10 and execute `python launcher.py`.
+
+### Deploy to Vercel
+The repository includes serverless functions in `api/` configured via `vercel.json`:
+- Note: Run serverless functions in the `sin1` (Singapore) region to maintain low latency to Bybit endpoints without geographic routing blocks.
+
+---
+
+## 🔬 Empirical Quant Research & Architecture Analysis
 
 ## 1. What the measurement says
 
@@ -600,3 +773,72 @@ The one setup that survived every honest test in `research_archive/` is now a da
   - the live code reproduces all 3,080 research trades;
   - a 15-month bar-by-bar replay of the engine takes the same 363 portfolio trades as the backtest;
   - a browser check of the mode, panel and indicator.
+
+
+---
+
+## 📁 Repository Layout
+
+```
+.
+├── launcher.py               # Master process supervisor & daemon restarter
+├── server.py                 # FastAPI/HTTP backend proxy, historical klines, web server
+├── index.html                # High-performance live trading terminal UI
+├── monitor.html              # Pop-out signal monitor & resolution ledger
+├── app.js                    # Terminal client logic & execution wiring
+├── chart.js                  # Fast Canvas & TradingView lightweight-chart rendering
+├── daemons/
+│   ├── masis_runner.py       # Autonomous 24/7 strategy runner (Trend 4H & Snapback)
+│   ├── kalman_trend_engine.py# State-space Kalman filter engine (36 coins)
+│   └── cme_x5_pure_engine.py # CME-X5 execution daemon
+├── backend_lib/
+│   ├── kalman_trend.py       # Kalman state filter & mathematical estimation
+│   ├── deepseek_switch.py    # Zero-cost local fallback switch
+│   └── live_bybit_adapter.py # Resilient Bybit v5 API order routing
+├── agents/                   # Structural rule modules & risk governors
+│   ├── indicators.js         # Math core: Wilders ATR, Kaufman efficiency, fractal swings
+│   ├── risk-governor.js      # Strict equity risk sizing & daily loss limit
+│   └── position-manager.js   # Structural exits, break-even ratchet, trailing stop
+├── analysts/                 # Specialist desks (liquidity, traps, derivatives, etc.)
+├── swarm/                    # Consensus engine, adversarial red team, meta-learner
+├── research/                 # 26 empirical studies & backtesting experiments
+├── tests/                    # Unit & regression test suite
+├── Dockerfile                # Production container specification
+├── railway.json              # Railway 24/7 deployment specification
+└── vercel.json               # Vercel serverless configuration
+```
+
+---
+
+## ⚙️ Environment Configuration
+
+| Variable | Description | Default | Safety Note |
+|---|---|---|---|
+| `BYBIT_API_KEY` | Bybit V5 API Key | - | Required |
+| `BYBIT_API_SECRET` | Bybit V5 API Secret | - | Required |
+| `BYBIT_BASE_URL` | Bybit REST Endpoint | `https://api-demo.bybit.com` | Use demo for testing |
+| `BYBIT_DEMO` | Flag for Demo mode | `1` | Set `0` only for live |
+| `MASIS_ALLOW_REAL_MONEY` | Safety switch for live funds | `0` | Refuses live orders unless `1` |
+| `MASIS_RUNNER` | Start strategy runner in launcher | `1` | `0` keeps runner off |
+| `MASIS_KALMAN` | Start Kalman daemon in launcher | `1` | `0` keeps Kalman off |
+| `KALMAN_LIVE` | Route Kalman orders to exchange | `0` | Default paper execution |
+| `DEEPSEEK_ENABLED` | Enable DeepSeek LLM features | `0` | Defaults to zero-cost local logic |
+| `PORT` | Web server port | `8080` | Configurable |
+
+---
+
+## ⚠️ Financial & Risk Disclaimer
+
+> [!CAUTION]
+> **HIGH RISK NOTICE:** Cryptocurrency perpetual futures trading carries substantial risk of loss and is not suitable for all investors. High leverage can work against you as well as for you.
+>
+> 1. This software is for educational, empirical research, and quantitative analysis purposes.
+> 2. Past performance, backtests, and empirical studies do not guarantee future returns.
+> 3. Always test strategies thoroughly on a demo account or simulated paper environment before committing capital.
+> 4. You are solely responsible for managing your financial risk, API credentials, and trade sizing.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
