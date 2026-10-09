@@ -1,0 +1,138 @@
+parity: final system $94.12 (1616 trades); signals 3080; candidate entries 3460
+25 t-based tests this round: about 0.6 PASS and 0.05 PASS strict expected by luck
+
+=================== test 1 chop: average net R per signal (n) | benchmark = signals with data | kept | removed (the situation) ===
+  COIN_CHOP
+    DEV    bench +0.342 ( 680) | kept +0.263 ( 330) | removed +0.417 ( 350)  
+    VAL    bench +0.560 ( 349) | kept +0.160 ( 153) | removed +0.872 ( 196)  loss
+    FINAL  bench +0.068 ( 661) | kept +0.031 ( 286) | removed +0.097 ( 375)  loss
+    UNSEEN bench +0.155 (1142) | kept +0.190 ( 530) | removed +0.125 ( 612)  win
+    OLD    bench +1.014 ( 248) | kept +0.621 ( 114) | removed +1.349 ( 134)  loss
+    pooled holdouts: kept +0.189R (n 1083) vs removed +0.353R (n 1317), separation t = -1.07; wins 1 of 4 counted -> fail   [removes 55% of holdout signals]
+    all segments by side (information): longs kept +0.263 vs removed +0.547 (t -1.42) | shorts kept +0.127 vs removed +0.049 (t +0.65)
+  BTC_CHOP
+    DEV    bench +0.342 ( 680) | kept +0.429 ( 444) | removed +0.179 ( 236)  
+    VAL    bench +0.560 ( 349) | kept +0.621 ( 216) | removed +0.460 ( 133)  win
+    FINAL  bench +0.068 ( 661) | kept +0.175 ( 298) | removed -0.020 ( 363)  win
+    UNSEEN bench +0.155 (1142) | kept +0.280 ( 649) | removed -0.009 ( 493)  win
+    OLD    bench +1.014 ( 248) | kept +0.810 ( 191) | removed +1.700 (  57)  loss
+    pooled holdouts: kept +0.386R (n 1354) vs removed +0.140R (n 1046), separation t = +1.43; wins 3 of 4 counted -> fail   [removes 44% of holdout signals]
+    all segments by side (information): longs kept +0.526 vs removed +0.239 (t +1.24) | shorts kept +0.133 vs removed +0.044 (t +0.62)
+  MEAN_REVERT
+    DEV    bench +0.342 ( 680) | kept +0.127 ( 197) | removed +0.430 ( 483)  
+    VAL    bench +0.560 ( 349) | kept +0.646 ( 116) | removed +0.517 ( 233)  win
+    FINAL  bench +0.068 ( 661) | kept +0.089 ( 240) | removed +0.056 ( 421)  win
+    UNSEEN bench +0.155 (1142) | kept +0.242 ( 358) | removed +0.116 ( 784)  win
+    OLD    bench +1.014 ( 248) | kept +0.472 (  91) | removed +1.328 ( 157)  loss
+    pooled holdouts: kept +0.280R (n 805) vs removed +0.278R (n 1595), separation t = +0.02; wins 3 of 4 counted -> fail   [removes 66% of holdout signals]
+    all segments by side (information): longs kept +0.426 vs removed +0.422 (t +0.02) | shorts kept -0.030 vs removed +0.144 (t -1.51)
+  DISORDER
+    DEV    bench +0.342 ( 680) | kept -0.101 ( 136) | removed +0.453 ( 544)  
+    VAL    bench +0.560 ( 349) | kept +0.075 (  78) | removed +0.699 ( 271)  loss
+    FINAL  bench +0.068 ( 661) | kept -0.171 ( 232) | removed +0.197 ( 429)  loss
+    UNSEEN bench +0.155 (1142) | kept +0.081 ( 294) | removed +0.181 ( 848)  loss
+    OLD    bench +1.014 ( 248) | kept +0.488 (  40) | removed +1.115 ( 208)  loss
+    pooled holdouts: kept +0.015R (n 644) vs removed +0.376R (n 1756), separation t = -2.62; wins 0 of 4 counted -> fail   [removes 73% of holdout signals]
+    all segments by side (information): longs kept +0.046 vs removed +0.546 (t -2.81) | shorts kept -0.080 vs removed +0.148 (t -1.91)
+  SQUEEZE
+    DEV    bench +0.342 ( 680) | kept +0.323 ( 479) | removed +0.387 ( 201)  
+    VAL    bench +0.560 ( 349) | kept +0.587 ( 258) | removed +0.484 (  91)  win
+    FINAL  bench +0.068 ( 661) | kept +0.086 ( 514) | removed +0.004 ( 147)  win
+    UNSEEN bench +0.155 (1142) | kept +0.192 ( 846) | removed +0.051 ( 296)  win
+    OLD    bench +1.014 ( 248) | kept +1.173 ( 174) | removed +0.642 (  74)  win
+    pooled holdouts: kept +0.314R (n 1792) vs removed +0.176R (n 608), separation t = +0.76; wins 4 of 4 counted -> fail   [removes 25% of holdout signals]
+    all segments by side (information): longs kept +0.409 vs removed +0.475 (t -0.25) | shorts kept +0.137 vs removed -0.004 (t +1.09)
+  COIN_WHIPSAW
+    DEV    bench +0.349 ( 666) | kept +0.318 ( 396) | removed +0.394 ( 270)  
+    VAL    bench +0.544 ( 347) | kept +0.225 ( 220) | removed +1.098 ( 127)  loss
+    FINAL  bench +0.068 ( 661) | kept -0.052 ( 359) | removed +0.210 ( 302)  loss
+    UNSEEN bench +0.154 (1130) | kept +0.067 ( 644) | removed +0.271 ( 486)  loss
+    OLD    bench +1.196 ( 210) | kept +1.131 ( 128) | removed +1.298 (  82)  loss
+    pooled holdouts: kept +0.162R (n 1351) vs removed +0.442R (n 997), separation t = -1.68; wins 0 of 4 counted -> fail   [removes 42% of holdout signals]
+    all segments by side (information): longs kept +0.282 vs removed +0.639 (t -1.57) | shorts kept +0.055 vs removed +0.140 (t -0.70)
+  SYSTEM_COLD
+    DEV    bench +0.342 ( 680) | kept +0.424 ( 355) | removed +0.252 ( 325)  
+    VAL    bench +0.560 ( 349) | kept +0.905 ( 226) | removed -0.075 ( 123)  win
+    FINAL  bench +0.068 ( 661) | kept -0.281 ( 352) | removed +0.466 ( 309)  loss
+    UNSEEN bench +0.155 (1142) | kept +0.122 ( 617) | removed +0.195 ( 525)  loss
+    OLD    bench +1.085 ( 237) | kept +0.966 ( 165) | removed +1.358 (  72)  loss
+    pooled holdouts: kept +0.250R (n 1360) vs removed +0.325R (n 1029), separation t = -0.43; wins 1 of 4 counted -> fail   [removes 43% of holdout signals]
+    all segments by side (information): longs kept +0.379 vs removed +0.492 (t -0.49) | shorts kept +0.110 vs removed +0.074 (t +0.25)
+
+=================== test 5 relative strength: average net R per signal (n) | benchmark = signals with data | kept | removed (the situation) ===
+  RS_LEADER
+    DEV    bench +0.430 ( 333) | kept +0.153 ( 133) | removed +0.614 ( 200)  
+    VAL    bench +0.755 ( 255) | kept +0.466 (  92) | removed +0.918 ( 163)  loss
+    FINAL  bench +0.179 ( 345) | kept +0.077 ( 143) | removed +0.252 ( 202)  loss
+    UNSEEN bench +0.170 ( 698) | kept +0.064 ( 272) | removed +0.238 ( 426)  loss
+    OLD    bench +1.430 ( 176) | kept +1.600 (  65) | removed +1.331 ( 111)  win
+    pooled holdouts: kept +0.306R (n 572) vs removed +0.498R (n 902), separation t = -0.85; wins 1 of 4 counted -> fail   [removes 61% of holdout signals]
+    all segments by side (information): longs kept +0.277 vs removed +0.519 (t -1.19)
+  ALT_SEASON
+    DEV    bench +0.430 ( 333) | kept -0.010 ( 133) | removed +0.722 ( 200)  
+    VAL    bench +0.755 ( 255) | kept +1.478 (  56) | removed +0.552 ( 199)  win
+    FINAL  bench +0.179 ( 345) | kept +0.042 ( 117) | removed +0.250 ( 228)  loss
+    UNSEEN bench +0.170 ( 698) | kept +0.015 ( 216) | removed +0.239 ( 482)  loss
+    OLD    bench +1.656 ( 135) | kept +1.500 (  31) | removed +1.703 ( 104)  loss
+    pooled holdouts: kept +0.327R (n 420) vs removed +0.453R (n 1013), separation t = -0.45; wins 1 of 4 counted -> fail   [removes 71% of holdout signals]
+    all segments by side (information): longs kept +0.246 vs removed +0.498 (t -1.06)
+  RS_LAGGARD
+    DEV    bench +0.295 ( 287) | kept +0.419 ( 183) | removed +0.078 ( 104)  
+    VAL    bench -0.108 (  74) | kept -0.045 (  56) | removed -0.302 (  18)  win
+    FINAL  bench -0.061 ( 276) | kept -0.107 ( 192) | removed +0.045 (  84)  loss
+    UNSEEN bench +0.132 ( 444) | kept +0.150 ( 329) | removed +0.081 ( 115)  win
+    OLD    bench -0.220 (  53) | kept -0.553 (  31) | removed +0.249 (  22)  loss
+    pooled holdouts: kept +0.015R (n 608) vs removed +0.055R (n 239), separation t = -0.27; wins 2 of 4 counted -> fail   [removes 28% of holdout signals]
+    all segments by side (information): shorts kept +0.108 vs removed +0.062 (t +0.37)
+
+=================== test 7-9 lower priority: average net R per signal (n) | benchmark = signals with data | kept | removed (the situation) ===
+  WEEKEND
+    DEV    bench +0.342 ( 680) | kept +0.348 ( 494) | removed +0.327 ( 186)  
+    VAL    bench +0.560 ( 349) | kept +0.603 ( 258) | removed +0.436 (  91)  win
+    FINAL  bench +0.068 ( 661) | kept +0.158 ( 552) | removed -0.386 ( 109)  win
+    UNSEEN bench +0.155 (1142) | kept +0.158 ( 901) | removed +0.146 ( 241)  win
+    OLD    bench +1.014 ( 248) | kept +1.154 ( 170) | removed +0.710 (  78)  win
+    pooled holdouts: kept +0.309R (n 1881) vs removed +0.170R (n 519), separation t = +0.79; wins 4 of 4 counted -> fail   [removes 22% of holdout signals]
+    all segments by side (information): longs kept +0.448 vs removed +0.341 (t +0.44) | shorts kept +0.115 vs removed -0.008 (t +0.95)
+  NEW_LISTING
+    DEV    bench +0.342 ( 680) | kept +0.366 ( 620) | removed +0.097 (  60)  
+    VAL    bench +0.560 ( 349) | kept +0.541 ( 342) | removed +1.480 (   7)  loss
+    FINAL  bench +0.068 ( 661) | kept +0.071 ( 659) | removed -0.762 (   2)  win
+    UNSEEN bench +0.155 (1142) | kept +0.166 (1091) | removed -0.069 (  51)  win
+    OLD    bench +1.014 ( 248) | kept +0.814 ( 177) | removed +1.514 (  71)  loss
+    pooled holdouts: kept +0.245R (n 2269) vs removed +0.861R (n 131), separation t = -1.97; wins 2 of 4 counted -> fail   [removes 5% of holdout signals]
+    all segments by side (information): longs kept +0.397 vs removed +0.712 (t -1.10) | shorts kept +0.083 vs removed +0.240 (t -0.58)
+  FOMC
+    DEV    bench +0.342 ( 680) | kept +0.346 ( 672) | removed -0.003 (   8)  
+    VAL    bench +0.560 ( 349) | kept +0.329 ( 329) | removed +4.349 (  20)  loss
+    FINAL  bench +0.068 ( 661) | kept +0.068 ( 644) | removed +0.062 (  17)  win
+    UNSEEN bench +0.155 (1142) | kept +0.129 (1096) | removed +0.782 (  46)  loss
+    OLD    bench +1.014 ( 248) | kept +0.786 ( 233) | removed +4.552 (  15)  loss
+    pooled holdouts: kept +0.207R (n 2302) vs removed +1.962R (n 98), separation t = -2.36; wins 1 of 4 counted -> fail   [removes 4% of holdout signals]
+    all segments by side (information): longs kept +0.333 vs removed +2.530 (t -2.83) | shorts kept +0.092 vs removed -0.089 (t +0.62)
+
+=================== $10 portfolios (0.5% risk, max 8 open, one per coin): per-year restarts, 2020-2026 and 2024-2026 compounded ===
+                               2020   2021   2022   2023   2024   2025   2026 | 2020-2026                        | 2024-2026
+  final system                14.27  23.04  10.86  13.81  15.72   9.30  13.04 | $  94.12 (1616 trades, DD  -28%) | $ 19.37 ( 765 trades, DD  -19%)
+  skip COIN_CHOP              10.20  14.52  11.69  14.25  11.82  10.04  11.12 | $  32.65 (1070 trades, DD  -19%) | $ 13.22 ( 523 trades, DD  -17%) | better 3/7 years | fail
+  half-risk COIN_CHOP         12.24  18.27  10.87  13.39  13.77   9.61  12.26 | $  52.62 (1616 trades, DD  -21%) | $ 16.32 ( 765 trades, DD  -15%) | better 2/7 years
+  skip BTC_CHOP               14.44  14.21  10.72  16.91  14.88   8.77  14.26 | $  68.50 (1011 trades, DD  -18%) | $ 18.62 ( 436 trades, DD  -18%) | better 3/7 years | fail
+  half-risk BTC_CHOP          14.38  17.57  10.61  14.60  15.62   8.95  13.34 | $  72.49 (1616 trades, DD  -22%) | $ 18.81 ( 765 trades, DD  -17%) | better 3/7 years
+  skip MEAN_REVERT            10.50  11.41   9.14  12.23  13.21  10.22  11.22 | $  20.31 ( 835 trades, DD  -23%) | $ 15.16 ( 456 trades, DD  -16%) | better 1/7 years | fail
+  half-risk MEAN_REVERT       12.14  16.64  10.26  12.48  14.07   9.71  11.63 | $  41.12 (1616 trades, DD  -22%) | $ 16.00 ( 765 trades, DD  -16%) | better 1/7 years
+  skip DISORDER               10.07  10.44   9.22  10.56  11.70   8.19  10.20 | $  10.05 ( 709 trades, DD  -26%) | $  9.83 ( 467 trades, DD  -26%) | better 0/7 years | fail
+  half-risk DISORDER          11.97  16.06  10.24  11.74  13.33   8.91  11.28 | $  30.99 (1616 trades, DD  -18%) | $ 13.53 ( 765 trades, DD  -17%) | better 0/7 years
+  skip SQUEEZE                14.49  20.11  10.43  12.01  15.54  10.87  13.09 | $  79.58 (1383 trades, DD  -31%) | $ 22.12 ( 696 trades, DD  -20%) | better 3/7 years | fail
+  half-risk SQUEEZE           14.38  21.57  10.38  13.08  15.56   9.77  13.12 | $  83.44 (1616 trades, DD  -28%) | $ 20.11 ( 765 trades, DD  -19%) | better 3/7 years
+  skip COIN_WHIPSAW           12.54  20.85  10.98  11.36  12.95   9.21  12.15 | $  48.11 (1277 trades, DD  -24%) | $ 14.75 ( 623 trades, DD  -24%) | better 1/7 years | fail
+  half-risk COIN_WHIPSAW      13.01  20.47  10.65  12.02  13.83   9.34  12.07 | $  53.58 (1616 trades, DD  -22%) | $ 15.88 ( 765 trades, DD  -19%) | better 1/7 years
+  skip SYSTEM_COLD            10.75  26.14  10.54  11.49  16.39   7.87  10.17 | $  44.27 ( 955 trades, DD  -29%) | $ 13.12 ( 448 trades, DD  -29%) | better 2/7 years | fail
+  half-risk SYSTEM_COLD       11.76  23.27  10.65  12.40  16.19   8.65  11.89 | $  60.00 (1616 trades, DD  -24%) | $ 16.81 ( 765 trades, DD  -20%) | better 2/7 years
+  skip RS_LEADER              11.00  15.25  10.93  13.50  12.74   8.73  11.81 | $  32.87 (1301 trades, DD  -18%) | $ 13.35 ( 638 trades, DD  -17%) | better 1/7 years | fail
+  skip ALT_SEASON             11.08  13.23  10.90  12.29  11.49   9.47  11.67 | $  25.18 (1141 trades, DD  -16%) | $ 12.90 ( 512 trades, DD  -14%) | better 2/7 years | fail
+  skip RS_LAGGARD             14.46  21.79  11.86  13.59  15.74   9.50  11.84 | $  90.07 (1518 trades, DD  -25%) | $ 17.90 ( 730 trades, DD  -19%) | better 4/7 years | fail
+  skip WEEKEND                13.90  23.19  10.84  13.64  14.32   9.90  13.36 | $  90.68 (1423 trades, DD  -31%) | $ 19.23 ( 694 trades, DD  -19%) | better 3/7 years | fail
+  skip NEW_LISTING            12.13  20.45  10.88  13.71  15.47   9.34  13.01 | $  70.25 (1561 trades, DD  -28%) | $ 19.11 ( 762 trades, DD  -20%) | better 2/7 years | fail
+  skip FOMC                   13.20  21.19  10.86  14.01  13.10   9.33  12.93 | $  67.31 (1588 trades, DD  -28%) | $ 16.05 ( 748 trades, DD  -19%) | better 3/7 years | fail
+
+verdicts: COIN_CHOP fail, BTC_CHOP fail, MEAN_REVERT fail, DISORDER fail, SQUEEZE fail, COIN_WHIPSAW fail, SYSTEM_COLD fail, RS_LEADER fail, ALT_SEASON fail, RS_LAGGARD fail, WEEKEND fail, NEW_LISTING fail, FOMC fail
