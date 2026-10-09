@@ -122,6 +122,22 @@ Every scenario takes the same 1,616 trades.
 
 **FOMC and new listings point the other way:** the system's signals around FOMC decisions and in newly listed coins did *better*. Avoiding them would cost money. CPI release dates could not be downloaded.
 
+## Live sizing: exchange minimums and leverage (`live_minsize_out.txt`, `live_liq_out.txt`; exploratory)
+**Assumptions.**
+- Bybit minimum orders of 0.001 BTC, 0.01 ETH and 5 USDT for other coins.
+- 10x leverage, used only to check margin.
+- Each trade wants 0.5% risk; if that position is below the minimum, the minimum is used.
+
+| start | 2020-26 end (multiple), max DD | 2024-26 end (multiple), max DD | largest risk on one trade |
+|---|---|---|---|
+| $10 | $518.64 (51.9x), −64% | $96.75 (9.7x), −47%; 42 trades skipped for margin | 16-26% |
+| $100 | $996.83 (10.0x), −29% | $223.09 (2.2x), −23% | 2.8% |
+| $650 and up | 9.4x, −28% (the tested system) | 1.9x, −19% | 0.5% |
+
+- **Leverage solves margin, not risk.** At $10 the minimums force early trades, mostly BTC, to risk 10-26% each instead of 0.5%. In the backtest those oversized early bets happened to win, a lucky sequence, at the cost of drawdowns of −47% to −64%.
+- **Liquidation before the stop.** The median stop is 7.4% from entry (90th percentile 12.5%, max 43.7%). With isolated margin, liquidation comes about 9% from entry at 10x and 4% at 20x. So 31% of the stops (10x) or 91% (20x) would never be reached, because the position is liquidated first.
+- **Use cross margin,** or isolated leverage low enough that liquidation stays beyond the stop. At 0.5% risk, 8 open positions total only about 0.6x the account, so leverage is needed only where the minimums force larger positions.
+
 ## Conclusions
 1. **The simple system is hard to improve.** Of 25 filters and exit changes, none passed; most removed good trades along with bad ones.
 2. **Keep the standard exit.** Partial profits, breakeven, trailing and fixed take-profits all cost money here, because the edge is the few trades that run far. A take-profit order at "TP Entire" would cut those trades; the line is still useful as a reference marker on the chart.
