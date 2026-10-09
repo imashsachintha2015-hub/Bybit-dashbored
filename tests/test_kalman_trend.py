@@ -203,6 +203,20 @@ class EngineTest(EngineBase):
         self.assertEqual(len(taken), len(pos))                                  # every position traces back to a recorded signal
         self.assertTrue(h["events"] and all(e["msg"] for e in h["events"]))
 
+    def test_restart_rewrites_dashboard_files_without_new_trades(self):
+        eng, tmp = self.run_engine("kalman", bars=700)
+        before = [(p["id"], p["status"]) for p in eng.store.positions()]
+        shadow = eng.store.shadow_stats()["n"]
+        os.remove(KE.SNAPSHOT_PATH); os.remove(KE.HISTORY_PATH)                       # a redeploy wipes scratch/, the database survives
+        clock = eng.clock; market = eng.m
+        eng2 = KE.KalmanTrendEngine(market=market, store=KE.Store(eng.store.path), settings_source=lambda: {"paperStartEquity": 10.0},
+                                    mode_source=lambda: "kalman", clock=clock, symbols=list(market.data), write_files=True)
+        clock.t -= H4                                                                   # still inside the bar that was already processed
+        eng2.step()                                                                     # not a new bar ...
+        self.assertTrue(os.path.exists(KE.SNAPSHOT_PATH) and os.path.exists(KE.HISTORY_PATH))   # ... but the files are back
+        self.assertEqual(before, [(p["id"], p["status"]) for p in eng2.store.positions()])       # and nothing was traded twice
+        self.assertEqual(shadow, eng2.store.shadow_stats()["n"])
+
     def test_standby_records_only(self):
         eng, tmp = self.run_engine("championship", bars=500)
         self.assertEqual(eng.store.positions(), [])

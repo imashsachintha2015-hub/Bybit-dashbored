@@ -272,7 +272,7 @@ class KalmanTrendEngine:
         self.instr = {}; self.bars = {}; self.fund = {}; self.state = {}; self.events = []
         self.oi_source = oi_source
         self.live_env, self.live_why = K.live_permission()
-        self.last_light = 0; self.prices = {}
+        self.last_light = 0; self.prices = {}; self.booted = False
 
     # ------------------------------------------------ shared dashboard state
     @staticmethod
@@ -329,8 +329,11 @@ class KalmanTrendEngine:
         bar_t = (now - BAR_DELAY_MS) // H4 * H4 - H4                      # open time of the newest closed 4H bar
         last = self.store.get("last_bar_t")
         did = False
-        if last is None or bar_t > last:
+        if last is None or bar_t > last or not self.booted:
+            # after a restart the newest bar is processed again (idempotent: positions, shadow trades and signals are keyed), so the
+            # dashboard files exist at once instead of after the next 4H close
             first = last is None or not self.bars
+            self.booted = True
             try:
                 self.on_bar_close(bar_t, now, first)
                 self.store.put("last_bar_t", bar_t); did = True
