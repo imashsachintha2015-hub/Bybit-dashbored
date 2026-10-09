@@ -1,0 +1,18 @@
+# POOLED J1+J2+J3 (one chronological portfolio, 30 coins, 0.5% base risk)
+  baseline@8 (production)    $10 ->   23.92  (1113 taken of 1528, DD 19%)
+  SIZE@8 (bonus x1.5)        $10 ->   25.67  (1113 taken of 1528, DD 25%)
+  baseline@12                $10 ->   24.46  (1308 taken of 1528, DD 23%)
+  baseline+AVWAP add-ons@12  $10 ->   34.91  (1774 taken of 2726, DD 26%)
+  add-ons pooled stand-alone: n 1198 net R +0.164 t +2.10
+
+# The frozen bonus groups (young trend MAT low OR coiled range RNG low) vs everything else, in each judge (descriptive; not re-selected)
+  set  bonus n  bonus R  win% | other n  other R  win% | diff t
+  J1       144   +0.317    37 |     108   +0.336    37 | -0.019 (t -0.06)
+  J2       147   -0.025    32 |      88   +0.214    36 | -0.239 (t -0.82)
+  J3       647   +0.098    33 |     394   +0.293    37 | -0.195 (t -1.11)
+  ALL      938   +0.112    33 |     590   +0.289    37 | -0.177 (t -1.12)
+
+# $10 on the bonus-group trades alone vs the other trades alone (one portfolio per judge, 8 slots)
+  J1: bonus-only $10 ->  12.25 (144 taken, DD 9%) | others-only $10 ->  11.78 (108 taken, DD 8%)
+  J2: bonus-only $10 ->   9.82 (145 taken, DD 14%) | others-only $10 ->  10.90 (88 taken, DD 6%)
+  J3: bonus-only $10 ->  13.12 (644 taken, DD 15%) | others-only $10 ->  16.99 (393 taken, DD 11%)
