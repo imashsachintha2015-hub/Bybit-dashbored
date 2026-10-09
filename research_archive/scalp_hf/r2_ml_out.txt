@@ -1,0 +1,20 @@
+
+# exit R15: model 1 (train DEV, test VAL); 904325 DEV events, mean net R of all DEV events -0.452
+  threshold (DEV out-of-fold p90) -0.091; out-of-fold selected DEV events mean net R -0.091
+  DEV (oof)  trades  22273 win  43% net R -0.100 t -8.41 | $10@0.5% ->    0.00 (taken 15042, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.139
+  VAL        trades  16204 win  42% net R -0.105 t -7.19 | $10@0.5% ->    0.03 (taken 10780, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.139
+  model 2 (train DEV+VAL, tested once on FINAL / UNSEEN / OLD)
+  threshold -0.092
+  FINAL      trades  13626 win  42% net R -0.107 t -6.37 | $10@0.5% ->    0.05 (taken 9357, maxDD 99%)  $10@1% ->    0.00  +2bps R -0.141  quarters -0.09 -0.08 -0.15 -0.10 -0.12
+  UNSEEN     trades  21354 win  43% net R -0.083 t -6.82 | $10@0.5% ->    0.02 (taken 13078, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.113  quarters -0.08 -0.05 -0.14 -0.09 -0.05
+  OLD        trades  45994 win  43% net R -0.058 t -7.40 | $10@0.5% ->    0.00 (taken 28482, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.087
+
+# exit LVL: model 1 (train DEV, test VAL); 904325 DEV events, mean net R of all DEV events -0.456
+  threshold (DEV out-of-fold p90) -0.095; out-of-fold selected DEV events mean net R -0.106
+  DEV (oof)  trades  22639 win  43% net R -0.098 t -7.45 | $10@0.5% ->    0.00 (taken 15384, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.140
+  VAL        trades  16518 win  42% net R -0.105 t -6.73 | $10@0.5% ->    0.02 (taken 10865, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.141
+  model 2 (train DEV+VAL, tested once on FINAL / UNSEEN / OLD)
+  threshold -0.094
+  FINAL      trades  14067 win  43% net R -0.111 t -6.18 | $10@0.5% ->    0.04 (taken 9741, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.146  quarters -0.11 -0.08 -0.15 -0.11 -0.09
+  UNSEEN     trades  22004 win  43% net R -0.088 t -6.55 | $10@0.5% ->    0.04 (taken 13609, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.118  quarters -0.10 -0.06 -0.12 -0.07 -0.09
+  OLD        trades  45042 win  42% net R -0.059 t -6.12 | $10@0.5% ->    0.00 (taken 28016, maxDD 100%)  $10@1% ->    0.00  +2bps R -0.092

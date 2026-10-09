@@ -1,0 +1,46 @@
+BTC
+ETH
+SOL
+XRP
+DOGE
+BNB
+ADA
+LINK
+AVAX
+LTC
+
+# FREQ_LADDER, segment DEV, design coins: production Kalman rules per bar size ($10, 0.5% risk, max 8 open, 14 bps + funding)
+  bar  trades  /month  win% avg net R bps/trade      t    $10 ->  taken  maxDD
+  240     299      17  32.4    +0.406     131.8    1.5     16.82    275    14%
+  120     613      34  26.3    +0.051      -2.0   -0.1     10.27    556    22%
+   60    1256      70  28.5    -0.030     -15.6   -0.8      8.54   1127    41%
+   30    2370     132  30.7    +0.028       1.2    0.1      9.41   2153    39%
+   15    5010     279  27.0    -0.070     -12.4   -1.8      0.84   4539    92%
+    5   15001     835  26.3    -0.192     -13.4   -5.9      0.00  13272   100%
+
+# FREQ_LADDER, segment VAL, design coins: production Kalman rules per bar size ($10, 0.5% risk, max 8 open, 14 bps + funding)
+  bar  trades  /month  win% avg net R bps/trade      t    $10 ->  taken  maxDD
+  240     220      18  35.5    +0.249     202.6    1.2     11.50    198    11%
+  120     416      35  35.6    +0.307     153.4    1.8     16.77    377    12%
+   60     816      68  33.9    +0.276      78.2    1.6     21.77    745    22%
+   30    1641     137  31.6    +0.059      22.5    1.0     11.37   1500    39%
+   15    3292     275  31.3    -0.031       1.0    0.1      4.12   3004    73%
+    5   10288     858  28.8    -0.140      -9.9   -3.1      0.01   9251   100%
+
+# FREQ_LADDER, segment FINAL, design coins: production Kalman rules per bar size ($10, 0.5% risk, max 8 open, 14 bps + funding)
+  bar  trades  /month  win% avg net R bps/trade      t    $10 ->  taken  maxDD
+  240     252      17  36.9    +0.325     159.3    1.6     12.94    241    12%
+  120     498      33  32.9    +0.194      67.4    1.1     13.87    459    20%
+   60     984      66  31.7    -0.024       1.0    0.0      8.44    903    51%
+   30    1962     131  28.8    -0.084      -9.6   -0.7      3.81   1804    79%
+   15    3921     261  29.2    -0.081      -8.3   -1.3      1.85   3585    91%
+    5   12209     813  26.2    -0.219     -15.2   -7.2      0.00  10933   100%
+
+# FREQ_LADDER, segment OLD, design coins: production Kalman rules per bar size ($10, 0.5% risk, max 8 open, 14 bps + funding)
+  bar  trades  /month  win% avg net R bps/trade      t    $10 ->  taken  maxDD
+  240     329      14  42.6    +0.367     348.5    2.2     17.08    320    14%
+  120     610      25  38.0    +0.254     169.2    2.4     18.32    587    21%
+   60    1151      48  37.8    +0.103      43.9    1.5     15.27   1107    32%
+   30    2164      90  37.8    +0.150      36.2    2.0     38.47   2077    29%
+   15    4476     187  32.9    +0.036      -0.9   -0.1     12.43   4312    66%
+    5   13401     559  29.8    -0.074      -8.0   -2.3      0.02  12893   100%

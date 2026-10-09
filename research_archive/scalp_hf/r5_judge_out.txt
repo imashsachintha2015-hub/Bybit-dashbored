@@ -1,0 +1,24 @@
+# frozen: danger []  bonus [['bonus', 2.9654775501661668, 'MAT', 0], ['bonus', 2.9135916235280375, 'RNG', 0]]  add-ons {'AVWAP': 'S3'}
+
+## J1 design FINAL: baseline  trades 252  win 37%  net R +0.325 (t +1.55)  $10 -> 12.94 (241 taken, DD 12%)
+   SKIP : kept 252 R +0.325 | removed 0 R +nan | $10 -> 12.94 (241 taken, DD 12%)  [baseline 12.94]
+   SIZE : mean multiplier 1.29 | $10 -> 13.78 (241 taken, DD 16%)  [baseline 12.94]
+   baseline@12: $10 -> 13.99 (252 taken, DD 13%)
+   ADD-ON AVWAP/S3: stand-alone n 179 win 42% R +0.443 (t +1.89) | baseline+add-ons@12 $10 -> 14.30 (374 taken, DD 19%)
+
+## J2 UNSEEN: baseline  trades 235  win 34%  net R +0.065 (t +0.39)  $10 -> 10.37 (215 taken, DD 15%)
+   SKIP : kept 235 R +0.065 | removed 0 R +nan | $10 -> 10.37 (215 taken, DD 15%)  [baseline 10.37]
+   SIZE : mean multiplier 1.31 | $10 -> 10.08 (215 taken, DD 21%)  [baseline 10.37]
+   baseline@12: $10 -> 10.47 (235 taken, DD 16%)
+   ADD-ON AVWAP/S3: stand-alone n 185 win 38% R -0.044 (t -0.37) | baseline+add-ons@12 $10 -> 10.23 (359 taken, DD 23%)
+
+## J3 HOLDOUT2: baseline  trades 1041  win 34%  net R +0.172 (t +2.08)  $10 -> 19.85 (979 taken, DD 19%)
+   SKIP : kept 1041 R +0.172 | removed 0 R +nan | $10 -> 19.85 (979 taken, DD 19%)  [baseline 19.85]
+   SIZE : mean multiplier 1.31 | $10 -> 20.67 (979 taken, DD 25%)  [baseline 19.85]
+   baseline@12: $10 -> 20.33 (1041 taken, DD 21%)
+   ADD-ON AVWAP/S3: stand-alone n 834 win 33% R +0.150 (t +1.84) | baseline+add-ons@12 $10 -> 26.41 (1592 taken, DD 28%)
+
+# PASS CHECKS
+  SKIP: $10 above baseline in 0/3 judges; drawdown within +10 points everywhere: True
+  SIZE: $10 above baseline in 2/3 judges; drawdown within +10 points everywhere: True
+  ADD-ON AVWAP: net R > 0 in 2/3 judges; baseline+add-ons@12 above baseline@12 in 2/3

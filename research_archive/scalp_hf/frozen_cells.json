@@ -1,0 +1,1 @@
+[["flow", ["n", 3, "k", 2, "exh"]], ["fund", ["f", 5]], ["lead", ["m", 5, "k", 2, "lag", 1]], ["oi", ["w", 3, "pct", 97.5, "flush"]], ["orb", ["utc00", "R", 30]], ["pullback", ["adx", 1]], ["rsi2", ["var", 1]], ["squeeze", ["vol", 0]], ["sweep", ["N", 120, "vol", 1]], ["vwap", ["k", 2, "vol", 1]], ["xsec", ["m", 30, "rev"]]]

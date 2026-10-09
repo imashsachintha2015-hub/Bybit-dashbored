@@ -45,6 +45,10 @@ class Coin:
         return self.t0 + np.arange(self.N, dtype=np.int64) * MIN
 
 
+GRID_T0 = ms(2021)
+GRID_N = (ms(2026, 10) - ms(2021)) // MIN          # every coin lives on the same grid, 2021-01-01 .. 2026-09-30 (NaN where it has no data)
+
+
 def load_coin(name, first=(2021, 1), last=(2026, 9)):
     files = sorted(glob.glob(os.path.join(DATA, "k", name, "*.npz")))
     keep = []
@@ -56,14 +60,34 @@ def load_coin(name, first=(2021, 1), last=(2026, 9)):
     for f in keep:
         d = np.load(f); ts.append(d["t"]); Xs.append(d["X"])
     t = np.concatenate(ts); X = np.concatenate(Xs).astype(np.float64)
-    t0 = t[0] // DAY * DAY; t1 = t[-1] // MIN * MIN
-    N = int((t1 - t0) // MIN) + 1
-    idx = ((t - t0) // MIN).astype(np.int64)
+    idx = (t - GRID_T0) // MIN
+    ok = (idx >= 0) & (idx < GRID_N)
     cols = []
     for j in range(7):
-        a = np.full(N, np.nan); a[idx] = X[:, j]; cols.append(a)
+        a = np.full(GRID_N, np.nan); a[idx[ok]] = X[ok, j]; cols.append(a)
     o, h, l, c, qv, n, tb = cols
-    return Coin(name, t0, o, h, l, c, qv, n, tb)
+    return Coin(name, GRID_T0, o, h, l, c, qv, n, tb)
+
+
+def load_oi(name):
+    """5-minute open interest on the grid (index j = bar starting at GRID_T0 + 5j minutes), NaN where missing; cached"""
+    cache = os.path.join(DATA, "oi", name + ".npy")
+    if os.path.exists(cache): return np.load(cache)
+    import zipfile
+    raw = os.path.join(os.path.dirname(FUND_DIR), "oi_raw", name + "USDT")
+    out = np.full(GRID_N // 5, np.nan)
+    for f in sorted(glob.glob(os.path.join(raw, "*.zip"))):
+        try:
+            z = zipfile.ZipFile(f); lines = z.read(z.namelist()[0]).decode().splitlines()[1:]
+        except Exception: continue
+        if not lines: continue
+        ts = np.array([ln[:19] for ln in lines], dtype="datetime64[s]").astype(np.int64) * 1000
+        oi = np.array([float(ln.split(",")[2]) for ln in lines])
+        j = (ts - GRID_T0) // (5 * MIN)
+        ok = (j >= 0) & (j < len(out)) & ((ts - GRID_T0) % (5 * MIN) == 0)
+        out[j[ok]] = oi[ok]
+    os.makedirs(os.path.dirname(cache), exist_ok=True); np.save(cache, out)
+    return out
 
 
 def load_funding(name):
@@ -119,13 +143,19 @@ def atr_wilder(h, l, c, n):
 
 @nb.njit(cache=True)
 def rolling_mean_std(x, w):
-    """causal trailing mean and std over w values (NaN-aware, needs >= w/2 valid)"""
+    """causal trailing mean and std over w values. Non-finite values count as missing (needs >= w/2 valid). The running sums are
+    recomputed from the window every 4096 steps: a single infinity or accumulated rounding error must not poison the rest of the series."""
     n = len(x); mu = np.full(n, np.nan); sd = np.full(n, np.nan)
     s = 0.0; s2 = 0.0; cnt = 0
     for i in range(n):
-        if not np.isnan(x[i]): s += x[i]; s2 += x[i] * x[i]; cnt += 1
-        j = i - w
-        if j >= 0 and not np.isnan(x[j]): s -= x[j]; s2 -= x[j] * x[j]; cnt -= 1
+        if i % 4096 == 0:
+            s = 0.0; s2 = 0.0; cnt = 0
+            for k in range(max(0, i - w + 1), i + 1):
+                if np.isfinite(x[k]): s += x[k]; s2 += x[k] * x[k]; cnt += 1
+        else:
+            if np.isfinite(x[i]): s += x[i]; s2 += x[i] * x[i]; cnt += 1
+            j = i - w
+            if j >= 0 and np.isfinite(x[j]): s -= x[j]; s2 -= x[j] * x[j]; cnt -= 1
         if cnt >= w // 2 and cnt > 1:
             m = s / cnt; v = s2 / cnt - m * m
             mu[i] = m; sd[i] = np.sqrt(v) if v > 0 else 0.0

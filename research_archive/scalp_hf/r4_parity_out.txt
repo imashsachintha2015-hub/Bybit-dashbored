@@ -1,0 +1,12 @@
+MAGNET_S      r4: n   1347 R -0.0004 | round 3 cell: n   1347 R -0.0004
+FAKE_PD_L_5   r4: n    907 R -0.2210 | round 2 cell: n    907 R -0.2210
+FAKE_PD_S_5   r4: n   1103 R -0.2451 | round 2 cell: n   1103 R -0.2451
+FAKE_PD_L_15  r4: n    920 R -0.1470 | round 2 cell: n    920 R -0.1470
+FAKE_PD_S_15  r4: n   1052 R -0.1275 | round 2 cell: n   1052 R -0.1275
+BB_FADE_L_5   r4: n  29319 R -0.7005 | round 2 cell: n  29319 R -0.7005
+BB_FADE_S_5   r4: n  29374 R -0.6202 | round 2 cell: n  29374 R -0.6202
+CVD_DIV_L_15  r4: n   5495 R -0.4261 | round 2 cell: n   5495 R -0.4261
+CVD_DIV_S_15  r4: n  11840 R -0.3270 | round 2 cell: n  11840 R -0.3270
+TRENDDAY_L    r4: n    111 R +0.0667 | round 3 cell: n    111 R +0.0667
+RANDOM_L_15   r4: n  13596 R -0.3867 | round 2 cell: n  13596 R -0.3867
+RANDOM_S_15   r4: n  13773 R -0.3161 | round 2 cell: n  13773 R -0.3161

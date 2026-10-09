@@ -1,0 +1,15 @@
+# JUDGES ($10, 0.5% risk, 8 open). Gross bps = per trade before the 14 bps round trip.
+
+## bar 15 min
+  frozen THETA 1.0, K 8, X 99:  PASS: no
+     J1 design FINAL  trades  2247 (4.92/day, hold  8.5h)  gross   +0.4 bps  net R -0.102 (t -1.56)  +2bps R -0.134  $10 ->    2.79 (2140 taken, DD 87%)
+     J2 UNSEEN        trades  2173 (4.46/day, hold  8.6h)  gross   +4.8 bps  net R -0.073 (t -1.30)  +2bps R -0.095  $10 ->    4.04 (2078 taken, DD 74%)
+     J3 HOLDOUT2      trades  8825 (4.31/day, hold  8.9h)  gross  +13.0 bps  net R -0.005 (t -0.16)  +2bps R -0.029  $10 ->    3.00 (8602 taken, DD 92%)
+     same trades at a lower round-trip cost (optimistic): 10bps: $3.96/$5.04/$8.32  6bps: $5.62/$6.28/$23.07  3bps: $7.31/$7.41/$49.55
+
+## bar 30 min
+  frozen THETA 1.0, K 8, X 99:  PASS: no
+     J1 design FINAL  trades  1106 (2.42/day, hold 17.8h)  gross  +25.1 bps  net R +0.020 (t +0.22)  +2bps R -0.003  $10 ->   10.01 (1051 taken, DD 50%)
+     J2 UNSEEN        trades  1098 (2.26/day, hold 17.6h)  gross  +33.2 bps  net R +0.039 (t +0.43)  +2bps R +0.024  $10 ->   10.25 (1059 taken, DD 41%)
+     J3 HOLDOUT2      trades  4462 (2.18/day, hold 18.0h)  gross  +31.0 bps  net R +0.059 (t +1.48)  +2bps R +0.043  $10 ->   23.87 (4347 taken, DD 58%)
+     same trades at a lower round-trip cost (optimistic): 10bps: $11.27/$11.10/$34.29  6bps: $12.69/$12.02/$49.25  3bps: $13.88/$12.75/$64.61

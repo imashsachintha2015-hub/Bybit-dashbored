@@ -1,0 +1,78 @@
+# frozen rules on design coins, segment OLD; $10, 0.5% risk, max 5 open
+
+## flow ('n', 3, 'k', 2, 'exh') h=5  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n   12614 | net  -13.49 bps/trade t  -24.7 R -0.198 | $10 -> $    0.00 (12590 trades, DD 100%, win  34%)
+   0.5% risk  n   11189 | net  -11.70 bps/trade t  -20.0 R -0.164 | $10 -> $    0.00 (11166 trades, DD 100%, win  37%)
+   1%   risk  $10 -> $0.00 (11156 trades, DD 100%)
+   +2 bps slippage per side: n   11189 | net  -13.69 bps/trade t  -23.4 R -0.191 | $10 -> $    0.00 (11166 trades, DD 100%, win  34%)
+   random-entry control: net -12.69 bps/trade (n 10725)
+
+## fund ('f', 5) h=5  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n    2946 | net  -14.33 bps/trade t   -5.7 R -0.119 | $10 -> $    2.52 (2154 trades, DD  75%, win  40%)
+   0.5% risk  n    2724 | net  -15.22 bps/trade t   -6.0 R -0.115 | $10 -> $    3.38 (2041 trades, DD  67%, win  43%)
+   1%   risk  $10 -> $1.22 (2016 trades, DD 88%)
+   +2 bps slippage per side: n    2724 | net  -17.18 bps/trade t   -6.8 R -0.134 | $10 -> $    2.76 (2041 trades, DD  73%, win  42%)
+   random-entry control: net -11.49 bps/trade (n 2555)
+
+## lead ('m', 5, 'k', 2, 'lag', 1) h=1  [stop 2xATR5, no target, maker]
+   same rule with taker execution (the pass test): n  102655 | net  -13.16 bps/trade t  -96.3 R -0.201 | $10 -> $    0.00 (87294 trades, DD 100%, win  15%)
+   0.5% risk  n   91597 | net  -11.40 bps/trade t  -93.9 R -0.162 | $10 -> $    0.00 (81905 trades, DD 100%, win  15%)
+   1%   risk  $10 -> $0.00 (77562 trades, DD 100%)
+   +2 bps slippage per side: n   91597 | net  -13.40 bps/trade t -110.4 R -0.192 | $10 -> $    0.00 (81905 trades, DD 100%, win  13%)
+   random-entry control: net -12.83 bps/trade (n 88156)
+
+## oi ('w', 3, 'pct', 97.5, 'flush') h=60  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n    8308 | net  -15.31 bps/trade t   -8.5 R -0.156 | $10 -> $    0.02 (7949 trades, DD 100%, win  44%)
+   0.5% risk  n    7313 | net  -13.59 bps/trade t   -7.3 R -0.128 | $10 -> $    0.12 (7023 trades, DD  99%, win  44%)
+   1%   risk  $10 -> $0.00 (6975 trades, DD 100%)
+   +2 bps slippage per side: n    7313 | net  -15.34 bps/trade t   -8.2 R -0.147 | $10 -> $    0.06 (7023 trades, DD  99%, win  43%)
+   random-entry control: net -12.50 bps/trade (n 6940)
+
+## orb ('utc00', 'R', 30) h=10  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n    6238 | net   -7.59 bps/trade t   -5.4 R -0.116 | $10 -> $    0.56 (5083 trades, DD  94%, win  37%)
+   0.5% risk  n    5670 | net   -5.76 bps/trade t   -4.1 R -0.084 | $10 -> $    1.37 (4831 trades, DD  86%, win  39%)
+   1%   risk  $10 -> $0.30 (4650 trades, DD 97%)
+   +2 bps slippage per side: n    5670 | net   -7.69 bps/trade t   -5.5 R -0.109 | $10 -> $    0.76 (4831 trades, DD  92%, win  37%)
+   random-entry control: net -11.92 bps/trade (n 5393)
+
+## pullback ('adx', 1) h=60  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n   37900 | net  -15.83 bps/trade t  -17.6 R -0.211 | $10 -> $    0.00 (34121 trades, DD 100%, win  38%)
+   0.5% risk  n   33427 | net  -13.68 bps/trade t  -14.3 R -0.167 | $10 -> $    0.00 (30786 trades, DD 100%, win  38%)
+   1%   risk  $10 -> $0.00 (29793 trades, DD 100%)
+   +2 bps slippage per side: n   33427 | net  -15.32 bps/trade t  -15.9 R -0.189 | $10 -> $    0.00 (30786 trades, DD 100%, win  37%)
+   random-entry control: net -11.78 bps/trade (n 34094)
+
+## rsi2 ('var', 1) h=30  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n  143030 | net  -13.50 bps/trade t  -36.9 R -0.209 | $10 -> $    0.00 (113865 trades, DD 100%, win  41%)
+   0.5% risk  n  126570 | net  -11.78 bps/trade t  -29.8 R -0.166 | $10 -> $    0.00 (105065 trades, DD 100%, win  43%)
+   1%   risk  $10 -> $0.00 (97912 trades, DD 100%)
+   +2 bps slippage per side: n  126570 | net  -13.63 bps/trade t  -34.4 R -0.193 | $10 -> $    0.00 (105060 trades, DD 100%, win  42%)
+   random-entry control: net -12.11 bps/trade (n 104929)
+
+## squeeze ('vol', 0) h=10  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n   42812 | net  -14.26 bps/trade t  -48.4 R -0.255 | $10 -> $    0.00 (41098 trades, DD 100%, win  28%)
+   0.5% risk  n   39215 | net  -11.58 bps/trade t  -37.8 R -0.197 | $10 -> $    0.00 (37909 trades, DD 100%, win  31%)
+   1%   risk  $10 -> $0.00 (36369 trades, DD 100%)
+   +2 bps slippage per side: n   39215 | net  -13.51 bps/trade t  -43.9 R -0.231 | $10 -> $    0.00 (37909 trades, DD 100%, win  28%)
+   random-entry control: net -12.28 bps/trade (n 35745)
+
+## sweep ('N', 120, 'vol', 1) h=30  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n   92152 | net  -14.35 bps/trade t  -33.0 R -0.215 | $10 -> $    0.00 (81211 trades, DD 100%, win  42%)
+   0.5% risk  n   82808 | net  -12.52 bps/trade t  -27.0 R -0.172 | $10 -> $    0.00 (74740 trades, DD 100%, win  43%)
+   1%   risk  $10 -> $0.00 (70761 trades, DD 100%)
+   +2 bps slippage per side: n   82808 | net  -14.39 bps/trade t  -31.0 R -0.199 | $10 -> $    0.00 (74737 trades, DD 100%, win  42%)
+   random-entry control: net -12.44 bps/trade (n 69794)
+
+## vwap ('k', 2, 'vol', 1) h=10  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n   51764 | net  -12.46 bps/trade t  -23.0 R -0.152 | $10 -> $    0.00 (46541 trades, DD 100%, win  41%)
+   0.5% risk  n   44948 | net  -12.38 bps/trade t  -21.6 R -0.137 | $10 -> $    0.00 (41000 trades, DD 100%, win  43%)
+   1%   risk  $10 -> $0.00 (40491 trades, DD 100%)
+   +2 bps slippage per side: n   44948 | net  -14.37 bps/trade t  -25.1 R -0.158 | $10 -> $    0.00 (41000 trades, DD 100%, win  41%)
+   random-entry control: net -12.76 bps/trade (n 42918)
+
+## xsec ('m', 30, 'rev') h=15  [stop 2xATR5, target 1.5R, maker]
+   same rule with taker execution (the pass test): n  278360 | net  -13.29 bps/trade t -121.2 R -0.184 | $10 -> $    0.00 (277510 trades, DD 100%, win  37%)
+   0.5% risk  n  229006 | net  -12.38 bps/trade t  -72.0 R -0.150 | $10 -> $    0.00 (228353 trades, DD 100%, win  40%)
+   1%   risk  $10 -> $0.00 (222767 trades, DD 100%)
+   +2 bps slippage per side: n  229006 | net  -14.34 bps/trade t  -83.3 R -0.177 | $10 -> $    0.00 (228355 trades, DD 100%, win  38%)
+   random-entry control: net -12.27 bps/trade (n 181329)

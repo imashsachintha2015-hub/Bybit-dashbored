@@ -1,0 +1,20 @@
+
+## LIQMK best DEV cell of its side (reporting rule): MAKERMAG|L|HL1d|R4|T1R
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV         537    51  -0.027  -0.53      9.22    535    16%     8.36   -0.054
+  VAL         756    49  -0.063  -1.42      8.15    743    25%     6.43   -0.091
+  FINAL       464    47  -0.097  -1.60      7.81    451    28%     5.98   -0.125
+  OLD        1327    48  -0.093  -2.90      5.54   1266    45%     2.90   -0.121
+  UNSEEN     1796    45  -0.134  -3.78      3.38   1686    70%     1.05   -0.162
+  FINAL quarters net R: -0.035  -0.216  -0.020  -0.334  +0.329
+  PASS: no
+
+## LIQMK best DEV cell of its side (reporting rule): MAKERMAG|S|HL3d|R4|T1R
+  period   trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV        1304    54  +0.036  +0.97     12.30   1258    26%    14.21   +0.009
+  VAL        1619    54  +0.033  +0.84     12.05   1508    28%    13.26   +0.008
+  FINAL      1293    50  -0.031  -0.65      7.34   1198    33%     4.99   -0.058
+  OLD        2871    51  -0.016  -0.48      7.11   2528    48%     4.29   -0.042
+  UNSEEN     2997    51  -0.013  -0.44      6.69   2641    42%     3.80   -0.038
+  FINAL quarters net R: -0.042  +0.080  -0.117  -0.063  -0.100
+  PASS: no

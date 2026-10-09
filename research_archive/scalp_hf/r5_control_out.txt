@@ -1,0 +1,8 @@
+holdout2 UNI
+
+# Stand-alone net R of add-ons by timing rule (S3 stop, production exit, 14 bps + funding)
+  set                    AVWAP-pullback       RANDOM bar (5 draws)          EARLY (first bar)
+  A+B 21-25  n   661 R +0.280 (t +2.35) n  4085 R -0.265 (t -7.95) n   819 R +0.269 (t +2.53)
+  J1 FINAL   n   179 R +0.443 (t +1.89) n  1245 R -0.276 (t -4.74) n   247 R +0.301 (t +1.57)
+  J2 UNSEEN  n   185 R -0.044 (t -0.37) n  1165 R -0.412 (t -8.89) n   233 R +0.005 (t +0.03)
+  J3 HOLDOUT2 n   834 R +0.150 (t +1.84) n  5130 R -0.300 (t -12.23) n  1026 R +0.144 (t +1.93)

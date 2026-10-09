@@ -1,0 +1,4 @@
+# MAKER follow-up of the frozen 30-minute cell (THETA 1.0, K 8, X 99)
+  J1 design FINAL  signals  4487 filled 3714 (83%)  maker net R +0.028 (t +0.31, n 954)  $10 ->   10.05 (936 taken, DD 48%) | taker result of the filled trades +0.0011, of the missed trades +0.0070 (return per trade)
+  J2 UNSEEN        signals  1098 filled 950 (87%)  maker net R +0.040 (t +0.44, n 950)  $10 ->   10.43 (933 taken, DD 39%) | taker result of the filled trades +0.0010, of the missed trades +0.0081 (return per trade)
+  J3 HOLDOUT2      signals  4462 filled 3674 (82%)  maker net R +0.059 (t +1.40, n 3674)  $10 ->   19.90 (3644 taken, DD 54%) | taker result of the filled trades +0.0013, of the missed trades +0.0035 (return per trade)

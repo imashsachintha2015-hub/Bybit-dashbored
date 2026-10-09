@@ -1,0 +1,59 @@
+{
+ "BB_FADE_L_5": null,
+ "CVD_DIV_L_15": null,
+ "BB_FADE_S_5": null,
+ "CVD_DIV_S_15": null,
+ "FAKE_PD_S_5": null,
+ "FAKE_PD_L_15": {
+  "rule": {
+   "target": "none",
+   "width": 1.0,
+   "be": false,
+   "tmult": 2.0,
+   "maker": true
+  },
+  "causes": [
+   {
+    "feature": "hour",
+    "group": 14,
+    "cuts": null
+   },
+   {
+    "feature": "fund_s",
+    "group": 1,
+    "cuts": [
+     6.112000000000001e-05,
+     0.0001
+    ]
+   }
+  ]
+ },
+ "FAKE_PD_S_15": null,
+ "MAGNET_S": {
+  "rule": {
+   "target": "none",
+   "width": 1.0,
+   "be": false,
+   "tmult": 2.0,
+   "maker": true
+  },
+  "causes": [
+   {
+    "feature": "hour",
+    "group": 7,
+    "cuts": null
+   }
+  ]
+ },
+ "FAKE_PD_L_5": null,
+ "TRENDDAY_L": {
+  "rule": {
+   "target": "1.5",
+   "width": 1.0,
+   "be": false,
+   "tmult": 2.0,
+   "maker": false
+  },
+  "causes": []
+ }
+}
