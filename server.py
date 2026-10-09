@@ -1246,6 +1246,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
+        # every closed Kalman trade, signal and engine event (the dashboard's day filter works on this)
+        if self.path.startswith("/api/kalman/history"):
+            p = os.path.join(DIRECTORY, "scratch", "kalman_history.json")
+            try:
+                if not os.path.exists(p):
+                    self._send_json(200, {"updated_at": None, "trades": [], "signals": [], "events": []}, cache_seconds=5); return
+                with open(p, "r", encoding="utf-8") as f:
+                    self._send_json(200, json.load(f), cache_seconds=15)
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
         if self.path.startswith("/api/kalman/indicator"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             sym = (q.get("symbol") or ["BTCUSDT"])[0].upper().replace("BYBIT:", "").replace(".P", "")

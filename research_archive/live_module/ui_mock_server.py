@@ -52,6 +52,13 @@ class H(http.server.SimpleHTTPRequestHandler):
             d["live_env"], d["live_why"] = False, "set KALMAN_LIVE=1 on the Railway server first"
             d["mode_selected"] = STATE.get("strategyMode") == "kalman"
             return self._json(200, d)
+        if u.path == "/api/kalman/history":
+            d = json.load(open(os.path.join(SAMPLE, "kalman_trend_live.json")))
+            tr = [dict(id=f"t{i}", signal_t=t["entry_t"] - KT.H4, stop=None, **{k: t[k] for k in ("sym", "side", "mode", "entry_t", "entry_p", "exit_t", "exit_p", "reason", "r_net", "pnl_usd")}) for i, t in enumerate(d.get("recent_trades", []))]
+            sg = [dict(bar_t=d["last_bar_close"] - k * KT.H4, sym=r["sym"], side=r["signal"] or "L", ok=1, why="ok" if k % 3 else "a trade on this coin is still open", taken=int(k % 3 != 0))
+                  for k, r in enumerate([x for x in d.get("radar", []) if x.get("z") is not None][:18])]
+            ev = [dict(t=d["last_bar_close"] - k * 3600000, level="INFO", msg=f"sample event {k}") for k in range(12)]
+            return self._json(200, dict(updated_at=d["updated_at"], trades=tr, signals=sg, events=ev))
         if u.path == "/api/kalman/indicator":
             sym = (q.get("symbol") or ["BTCUSDT"])[0].upper()
             p = os.path.join(SAMPLE, "kalman", sym + ".json")

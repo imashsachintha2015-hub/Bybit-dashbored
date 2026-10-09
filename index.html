@@ -2167,6 +2167,26 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .kt-note{padding:2px 12px 8px;font-size:11px;color:var(--tm);line-height:1.5}
 .kt-events{padding:0 12px 12px;font:11px 'JetBrains Mono',monospace;color:var(--tm);max-height:170px;overflow:auto;line-height:1.6}
 .kt-scroll{max-height:380px;overflow:auto}
+.kt-tbl tbody tr[data-sym]{cursor:pointer}
+.kt-tbl tbody tr[data-sym]:hover{background:rgba(255,255,255,.04)}
+.kt-daybar{padding:8px 12px;border-bottom:1px solid var(--b1)}
+.kt-daysum{padding:6px 12px;font-size:11.5px;color:var(--tm);line-height:1.5}
+@media(max-width:900px){
+  /* phone: the generic mobile rules hide every card header and size the shell with 100vh (taller than the visible page behind the address bar) */
+  #a5 .cardh{display:flex !important;flex-wrap:wrap;gap:6px;padding:10px 12px}
+  #a5 .cardh-actions{flex-wrap:wrap}
+  .shell,.main{height:100vh;height:100dvh}
+  .scr{height:calc(100vh - 100px);height:calc(100dvh - 100px)}
+  .scr{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+  /* no scroll boxes inside the page: a swipe that starts on a table must scroll the page, not get trapped in the table */
+  .kt-scroll{max-height:none;overflow-y:visible;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .kt-events{max-height:none;overflow:visible}
+  .kt-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px 12px}
+  .kt-settings{grid-template-columns:1fr}
+  .kt-tbl th,.kt-tbl td{padding:7px 8px;white-space:nowrap}
+  #ktDayBar{flex-wrap:wrap}
+  #ktDayBar input[type=date]{min-width:0;max-width:150px}
+}
 </style>
 </head>
 <body>
@@ -2691,15 +2711,19 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="hbtn" onclick="ktResetPaper()"><i class="fa-solid fa-arrow-rotate-left"></i> Restart paper account</button>
             </div>
           </div>
+          <div class="sbgz-radar-bar sbgz-hist-chips kt-daybar" id="ktDayBar"><span class="mut">Day filter&hellip;</span></div>
+          <div class="kt-daysum" id="ktDaySum"></div>
           <div class="kt-grid" id="ktTiles"></div>
-          <div class="kt-sub">Open positions</div>
-          <div class="tw kt-scroll"><table><thead><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Stop</th><th>Price</th><th>R now</th><th>Bars</th><th>z</th><th>Mode</th></tr></thead><tbody id="ktPos"><tr><td colspan="9" class="emp">No open positions</td></tr></tbody></table></div>
-          <div class="kt-sub">Signal radar &middot; every coin at the last 4H close</div>
+          <div class="kt-sub">Open positions <span class="mut" id="ktPosCap"></span></div>
+          <div class="tw kt-scroll"><table class="kt-tbl"><thead><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Stop</th><th>Price</th><th>R now</th><th>Bars</th><th>z</th><th>Mode</th></tr></thead><tbody id="ktPos"><tr><td colspan="9" class="emp">No open positions</td></tr></tbody></table></div>
+          <div class="kt-sub">Signal radar &middot; every coin at the last 4H close <span class="mut">(always the latest; the day filter does not apply)</span></div>
           <div class="kt-note">"System trade" is the trade the rules are in for that coin, counted even when all 8 slots were full. Only one trade per coin at a time, so a coin in a system trade cannot signal again until it exits.</div>
-          <div class="tw kt-scroll"><table><thead><tr><th>Coin</th><th>z</th><th>Trend</th><th>Funding / 8h</th><th>Signal this bar</th><th title="The trade the system's rules are in for this coin, also when the portfolio had no free slot for it">System trade</th><th>Last trade</th></tr></thead><tbody id="ktRadar"><tr><td colspan="7" class="emp">Waiting for the Kalman engine&hellip;</td></tr></tbody></table></div>
-          <div class="kt-sub">Recent trades</div>
-          <div class="tw kt-scroll"><table><thead><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Exit</th><th>Reason</th><th>R</th><th>P&amp;L</th><th>Mode</th></tr></thead><tbody id="ktTrades"><tr><td colspan="8" class="emp">No closed trades yet</td></tr></tbody></table></div>
-          <div class="kt-sub">Engine events</div>
+          <div class="tw kt-scroll"><table class="kt-tbl"><thead><tr><th>Coin</th><th>z</th><th>Trend</th><th>Funding / 8h</th><th>Signal this bar</th><th title="The trade the system's rules are in for this coin, also when the portfolio had no free slot for it">System trade</th><th>Last trade</th></tr></thead><tbody id="ktRadar"><tr><td colspan="7" class="emp">Waiting for the Kalman engine&hellip;</td></tr></tbody></table></div>
+          <div class="kt-sub">Closed trades <span class="mut" id="ktTrCap"></span></div>
+          <div class="tw kt-scroll"><table class="kt-tbl"><thead><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Exit</th><th>Reason</th><th>R</th><th>P&amp;L</th><th>Mode</th></tr></thead><tbody id="ktTrades"><tr><td colspan="8" class="emp">No closed trades yet</td></tr></tbody></table></div>
+          <div class="kt-sub">Signal log <span class="mut" id="ktSigCap"></span></div>
+          <div class="tw kt-scroll"><table class="kt-tbl"><thead><tr><th>4H close</th><th>Coin</th><th>Side</th><th>What the engine did</th></tr></thead><tbody id="ktSignals"><tr><td colspan="4" class="emp">No signals recorded yet</td></tr></tbody></table></div>
+          <div class="kt-sub">Engine events <span class="mut" id="ktEvCap"></span></div>
           <div class="kt-events" id="ktEvents">&ndash;</div>
         </div>
       </section>
@@ -7366,7 +7390,8 @@ window.openModeMenu = function(ev){
 };
 
 var KT_H4 = 4 * 3600 * 1000;
-var ktState = { status: null, last: 0, ind: {}, line: null, lines: [] };
+var ktState = { status: null, last: 0, ind: {}, line: null, lines: [], hist: null, histAt: 0 };
+window.ktState = ktState;      // read-only peek for tests / debugging
 
 function ktEsc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function ktPx(v){
@@ -7376,7 +7401,7 @@ function ktPx(v){
 }
 function ktR(v){ return (v == null || isNaN(v)) ? '&ndash;' : ((v >= 0 ? '+' : '') + v.toFixed(2) + 'R'); }
 function ktUsd(v){ return (v == null || isNaN(v)) ? '&ndash;' : ((v < 0 ? '-$' : '$') + Math.abs(v).toFixed(Math.abs(v) < 10 ? 4 : 2)); }
-function ktTime(ms){ if(!ms) return '&ndash;'; return new Date(ms).toISOString().slice(5, 16).replace('T', ' '); }
+function ktTime(ms){ if(!ms) return '&ndash;'; var d = new Date(ms), p = function(n){ return (n < 10 ? '0' : '') + n; }; return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
 function ktZ(z){
   if(z == null || isNaN(z)) return '<span class="kt-nt">&ndash;</span>';
   var c = z > 1 ? 'kt-up' : (z < -1 ? 'kt-dn' : 'kt-nt');
@@ -7394,7 +7419,99 @@ window.ktRefresh = function(force){
   if(!force && now - ktState.last < 20000) return;
   ktState.last = now;
   api('/api/kalman/status', function(d){ ktRender(d); });
+  if(force || now - ktState.histAt > 45000){
+    ktState.histAt = now;
+    api('/api/kalman/history', function(h){ if(h && h.trades){ ktState.hist = h; ktRenderDay(); } });
+  }
 };
+
+// ------------------------------------------------ day filter (the browser's time zone, like the SBGZ cards)
+function ktDayGet(){ try{ return localStorage.getItem('kt_day') || ''; }catch(e){ return ''; } }
+function ktInDay(ms){ var day = ktDayGet(); return !day || (!!ms && sbgzDayKey(ms) === day); }
+function ktDayTitle(day){ var t = sbgzToday(); return !day ? 'all days' : day === t ? 'today' : day === sbgzDayShift(t, -1) ? 'yesterday (' + day + ')' : day; }
+window.ktDayRender = function(){
+  var bar = g('ktDayBar'); if(!bar) return;
+  var day = ktDayGet(), today = sbgzToday(), yest = sbgzDayShift(today, -1);
+  var chip = function(label, val){ return '<button type="button" class="sbgz-chip' + (val === day ? ' on' : '') + '" onclick="ktDaySet(\'' + val + '\')">' + label + '</button>'; };
+  bar.innerHTML = '<b style="font-size:11px;color:var(--tm)">DAY</b>' + chip('All days', '') + chip('Today', today) + chip('Yesterday', yest) +
+    '<button type="button" class="sbgz-rbtn" title="Previous day" onclick="ktDayStep(-1)">&#9664;</button>' +
+    '<input type="date" id="ktDayInput" value="' + day + '" max="' + today + '" onchange="ktDaySet(this.value)">' +
+    '<button type="button" class="sbgz-rbtn" title="Next day" onclick="ktDayStep(1)">&#9654;</button>';
+};
+window.ktDaySet = function(day){
+  try{ if(day) localStorage.setItem('kt_day', day); else localStorage.removeItem('kt_day'); }catch(e){}
+  ktRenderDay();
+};
+window.ktDayStep = function(n){
+  var today = sbgzToday(), nx = sbgzDayShift(ktDayGet() || today, n);
+  window.ktDaySet(nx > today ? today : nx);
+};
+// a click on a coin's row (position, trade, signal) opens that coin's chart with the Kalman line
+window.ktOpenChart = function(sym){
+  if(!sym) return;
+  if(window.indicatorState && !window.indicatorState.kal){
+    window.indicatorState.kal = true;
+    try{ localStorage.setItem('ind_kal', '1'); }catch(e){}
+    if(window.updateIndicatorButtonsUI) window.updateIndicatorButtonsUI();
+  }
+  if(window.switchView) window.switchView('chart', 0);
+  if(chartEngine !== 'bybit') window.toggleChartEngine();
+  loadChart('BYBIT:' + sym + '.P', '240');
+};
+document.addEventListener('click', function(e){
+  var tr = e.target.closest && e.target.closest('#view-kalman tr[data-sym]');
+  if(tr && !e.target.closest('button,a,input')) window.ktOpenChart(tr.getAttribute('data-sym'));
+});
+function ktSymCell(sym){ return '<b>' + ktEsc(String(sym).replace('USDT', '')) + '</b>'; }
+
+// open positions, closed trades, signal log and events for the chosen day
+function ktRenderDay(){
+  var d = ktState.status, h = ktState.hist, day = ktDayGet();
+  var title = ktDayTitle(day), cut = function(a, n){ return a.length > n ? a.slice(0, n) : a; };
+  window.ktDayRender();
+  if(d){
+    var pos = (d.positions || []).filter(function(p){ return ktInDay(p.entry_t); });
+    var ph = pos.map(function(p){
+      return '<tr data-sym="' + ktEsc(p.sym) + '"><td>' + ktSymCell(p.sym) + '</td><td>' + ktSide(p.side) + '</td><td class="fm">' + ktPx(p.entry_p) + '</td><td class="fm">' + ktPx(p.stop) +
+        '</td><td class="fm">' + ktPx(p.price) + '</td><td class="fm" style="color:' + ktColor(p.r_now) + '">' + ktR(p.r_now) + '</td><td class="fm">' + (p.bars_held != null ? p.bars_held : '&ndash;') +
+        '</td><td class="fm">' + ktZ(p.z) + '</td><td>' + ktEsc(p.mode) + '</td></tr>';
+    }).join('');
+    var pe = g('ktPos'); if(pe) pe.innerHTML = ph || '<tr><td colspan="9" class="emp">' + (day ? 'No position was opened ' + ktEsc(title) : 'No open positions') + '</td></tr>';
+    var pc = g('ktPosCap'); if(pc) pc.textContent = day ? '(opened ' + title + ')' : '';
+  }
+  var trades = h ? h.trades : ((d && d.recent_trades) || []);
+  var tday = trades.filter(function(t){ return ktInDay(t.exit_t); });
+  var th = cut(tday, 300).map(function(t){
+    return '<tr data-sym="' + ktEsc(t.sym) + '"><td>' + ktSymCell(t.sym) + '</td><td>' + ktSide(t.side) + '</td><td class="fm">' + ktTime(t.entry_t) + ' @ ' + ktPx(t.entry_p) +
+      '</td><td class="fm">' + ktTime(t.exit_t - (t.reason === 'TREND_FLIP' ? KT_H4 : 0)) + ' @ ' + ktPx(t.exit_p) + '</td><td>' + ktEsc(t.reason) +
+      '</td><td class="fm" style="color:' + ktColor(t.r_net) + '">' + ktR(t.r_net) + '</td><td class="fm" style="color:' + ktColor(t.pnl_usd) + '">' + ktUsd(t.pnl_usd) + '</td><td>' + ktEsc(t.mode) + '</td></tr>';
+  }).join('');
+  var te = g('ktTrades'); if(te) te.innerHTML = th || '<tr><td colspan="8" class="emp">' + (day ? 'No trade closed ' + ktEsc(title) : 'No closed trades yet') + '</td></tr>';
+  var tc = g('ktTrCap'); if(tc) tc.textContent = '(' + (day ? 'closed ' + title + ': ' : '') + tday.length + (tday.length > 300 ? ', newest 300 shown' : '') + ')';
+
+  var rs = tday.map(function(t){ return t.r_net; }).filter(function(r){ return r != null; });
+  var pnl = tday.reduce(function(a, t){ return a + (t.pnl_usd || 0); }, 0), sr = rs.reduce(function(a, r){ return a + r; }, 0);
+  var sum = g('ktDaySum');
+  if(sum) sum.innerHTML = (day ? 'Showing <b>' + ktEsc(title) + '</b> (this browser\'s time zone): ' : 'Showing everything. ') +
+    '<b>' + tday.length + '</b> closed trade' + (tday.length === 1 ? '' : 's') + (rs.length ? ' &middot; ' + rs.filter(function(r){ return r > 0; }).length + ' wins &middot; total <b style="color:' + ktColor(sr) + '">' + ktR(sr) + '</b> &middot; <b style="color:' + ktColor(pnl) + '">' + ktUsd(pnl) + '</b>' : '') +
+    (h ? '' : ' &middot; <span class="mut">loading history&hellip;</span>');
+
+  var sigs = (h ? h.signals : []).filter(function(x){ return ktInDay(x.bar_t); });
+  var sh = cut(sigs, 300).map(function(x){
+    return '<tr data-sym="' + ktEsc(x.sym) + '"><td class="fm">' + ktTime(x.bar_t) + '</td><td>' + ktSymCell(x.sym) + '</td><td>' + ktSide(x.side) + '</td><td>' +
+      (x.taken ? '<span style="color:#22c55e">entered</span>' : '<span style="color:var(--tm)">not taken: ' + ktEsc(x.why || (x.ok ? 'no free slot or filter' : '')) + '</span>') + '</td></tr>';
+  }).join('');
+  var se = g('ktSignals'); if(se) se.innerHTML = sh || '<tr><td colspan="4" class="emp">' + (day ? 'No signal ' + ktEsc(title) : 'No signals recorded yet') + '</td></tr>';
+  var sc = g('ktSigCap'); if(sc) sc.textContent = '(' + (day ? title + ': ' : '') + sigs.length + ')';
+
+  var evs = h ? h.events : ((d && d.events) || []);
+  var evd = evs.filter(function(e){ return ktInDay(e.t); });
+  var ev = cut(evd, 120).map(function(e){
+    return '<div style="color:' + (e.level === 'ERROR' ? '#ef4444' : (e.level === 'WARN' ? '#fbbf24' : 'var(--tm)')) + '">' + ktTime(e.t) + ' &nbsp;' + ktEsc(e.msg) + '</div>';
+  }).join('');
+  var ee = g('ktEvents'); if(ee) ee.innerHTML = ev || '&ndash;';
+  var ec = g('ktEvCap'); if(ec) ec.textContent = day ? '(' + title + ')' : '';
+}
 
 function ktRender(d){
   var badge = g('ktBadge');
@@ -7428,13 +7545,7 @@ function ktRender(d){
   tiles += ktTile('Forward test', (sh.n || 0) + ' signals', sh.n ? ('avg ' + ktR(sh.mean_r) + ' &middot; win ' + (sh.win_rate || 0).toFixed(0) + '%') : 'every system signal since start');
   var tl = g('ktTiles'); if(tl) tl.innerHTML = tiles;
 
-  var pos = d.positions || [];
-  var ph = pos.map(function(p){
-    return '<tr><td><b>' + ktEsc(p.sym.replace('USDT', '')) + '</b></td><td>' + ktSide(p.side) + '</td><td class="fm">' + ktPx(p.entry_p) + '</td><td class="fm">' + ktPx(p.stop) +
-      '</td><td class="fm">' + ktPx(p.price) + '</td><td class="fm" style="color:' + ktColor(p.r_now) + '">' + ktR(p.r_now) + '</td><td class="fm">' + (p.bars_held != null ? p.bars_held : '&ndash;') +
-      '</td><td class="fm">' + ktZ(p.z) + '</td><td>' + ktEsc(p.mode) + '</td></tr>';
-  }).join('');
-  var pe = g('ktPos'); if(pe) pe.innerHTML = ph || '<tr><td colspan="9" class="emp">No open positions</td></tr>';
+  ktRenderDay();
 
   var rad = (d.radar || []).slice().sort(function(a, b){
     var ia = a.in_trade ? 1 : 0, ib = b.in_trade ? 1 : 0;
@@ -7452,17 +7563,6 @@ function ktRender(d){
   }).join('');
   var re = g('ktRadar'); if(re) re.innerHTML = rh || '<tr><td colspan="7" class="emp">Waiting for the first 4H close&hellip;</td></tr>';
 
-  var th = (d.recent_trades || []).map(function(t){
-    return '<tr><td><b>' + ktEsc(t.sym.replace('USDT', '')) + '</b></td><td>' + ktSide(t.side) + '</td><td class="fm">' + ktTime(t.entry_t) + ' @ ' + ktPx(t.entry_p) +
-      '</td><td class="fm">' + ktTime(t.exit_t - (t.reason === 'TREND_FLIP' ? KT_H4 : 0)) + ' @ ' + ktPx(t.exit_p) + '</td><td>' + ktEsc(t.reason) +
-      '</td><td class="fm" style="color:' + ktColor(t.r_net) + '">' + ktR(t.r_net) + '</td><td class="fm" style="color:' + ktColor(t.pnl_usd) + '">' + ktUsd(t.pnl_usd) + '</td><td>' + ktEsc(t.mode) + '</td></tr>';
-  }).join('');
-  var te = g('ktTrades'); if(te) te.innerHTML = th || '<tr><td colspan="8" class="emp">No closed trades yet</td></tr>';
-
-  var ev = (d.events || []).map(function(e){
-    return '<div style="color:' + (e.level === 'ERROR' ? '#ef4444' : (e.level === 'WARN' ? '#fbbf24' : 'var(--tm)')) + '">' + ktTime(e.t) + ' &nbsp;' + ktEsc(e.msg) + '</div>';
-  }).join('');
-  var ee = g('ktEvents'); if(ee) ee.innerHTML = ev || '&ndash;';
 
   var sp = g('ktSettings');
   if(sp && sp.style.display === 'none') ktFillSettings(d);
