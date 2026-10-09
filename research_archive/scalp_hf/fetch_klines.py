@@ -8,6 +8,7 @@ import numpy as np
 BASE = "https://data.binance.vision/data/futures/um/monthly/klines/{s}/1m/{s}-1m-{y}-{m:02d}.zip"
 DESIGN = "BTC ETH SOL XRP DOGE BNB ADA LINK AVAX LTC".split()
 UNSEEN = "DOT NEAR ATOM APT ARB OP SUI INJ TIA WLD".split()
+HOLDOUT2 = "AAVE BCH CRV ETC FIL HBAR ICP RUNE TRX UNI".split()             # round 4 clean holdout (never loaded before round 4)
 
 
 def months(y0, m0, y1, m1):
@@ -19,6 +20,10 @@ def months(y0, m0, y1, m1):
 
 
 def jobs():
+    if os.environ.get("HF_FETCH") == "holdout2":
+        for c in HOLDOUT2:
+            for y, m in months(2021, 1, 2026, 9): yield c, y, m
+        return
     for c in DESIGN:
         for y, m in months(2021, 1, 2026, 9): yield c, y, m
     for c in UNSEEN:
