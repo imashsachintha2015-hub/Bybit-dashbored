@@ -49,3 +49,16 @@ Reference table (descriptive, not selected): each estimator alone (vote >= 1, TH
 ## Follow-up rule written now (exploratory, only if a frozen cell has positive net R in J1, J2 and J3)
 A maker version: a limit entry at the signal close (round-1 fill model: fills only on a trade-through of max(0.05 ATR(5m), 1 bp) within 3
 minutes), 2 bps maker fee on entry, taker exit. Reported but never counted as a pass.
+
+## Addendum 1 (written after the first selection output, before any judge was run)
+**What selection showed.** All 24 panel cells with the panel's own exit (X in {0, 2}) were weak: at 15m none qualified (net R -0.02 to
+-0.09, gross only +1 to +6 bps per trade); at 30m the best cell was THETA 1.0, K 8, X 0 (net R +0.032 in A, +0.007 in B, gross +18 bps,
+holds 6.4 h). The sensitive panel makes trades short (2-6 hours) and the per-trade edge shrinks with the hold. Single estimators that
+hold longest (KAL, MAMA at 30m: +11 and +16 bps gross) had the most edge per trade.
+
+**New cells (12 more, same selection and judge rules).** Sensitive entry, slow exit: enter on the panel score as before, but exit when
+the production Kalman trend (drift variance 1e-4, span 100) z crosses 0 against the position (exit code X = 99), 120 bars at most. For
+B in {15, 30}, THETA in {0.5, 1.0}, K in {4, 6, 8}. The frozen cell per bar size is now the best A+B t among all 18 cells of that bar
+size (the 12 old and 6 new), with the same qualification (n >= 300, net R > 0 in A and in B). Everything else is unchanged.
+Chance that this extra choice lets a no-edge cell through is larger than before (18 cells instead of 12 per bar size), and the judges are
+the test.

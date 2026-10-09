@@ -8,7 +8,7 @@ import hf_ladder as LD
 import r4
 import r6_fast as R6
 
-BARS = (15, 30); THETAS = (0.5, 1.0); KS = (4, 6, 8); XS = (0, 2)
+BARS = (15, 30); THETAS = (0.5, 1.0); KS = (4, 6, 8); XS = (0, 2, 99)
 NAMES = ["KAL", "SS", "KAMA", "LAG", "HMA", "ZLEMA", "MAMA", "FISH", "FLOW"]
 OUT = os.path.join(C.DATA, "r7"); HERE = os.path.dirname(os.path.abspath(__file__))
 WARM = 260
@@ -213,7 +213,7 @@ def votes(zs, theta):
 
 
 @nb.njit(cache=True)
-def run_s(t, o, h, l, c, S, a, valid, trend_bar, ft, fr, B, K, X):
+def run_s(t, o, h, l, c, S, a, valid, trend_bar, ft, fr, B, K, X, zslow):
     n = len(c); cap = 80000
     ent = np.zeros(cap, np.int64); ext = np.zeros(cap, np.int64); ret = np.zeros(cap); sf = np.zeros(cap); rs = np.zeros(cap, np.int64)
     k = 0; busy = -1
@@ -246,7 +246,7 @@ def run_s(t, o, h, l, c, S, a, valid, trend_bar, ft, fr, B, K, X):
         for j in range(i + 1, min(n, i + 1 + HOLD)):
             if (sgn == 1 and l[j] <= stop) or (sgn == -1 and h[j] >= stop):
                 xt, xp, reason = t[j] + B * 60000, stop, 1; break
-            if (sgn == 1 and S[j] <= X) or (sgn == -1 and S[j] >= -X):
+            if (X < 90 and ((sgn == 1 and S[j] <= X) or (sgn == -1 and S[j] >= -X))) or (X >= 90 and ((sgn == 1 and zslow[j] < 0) or (sgn == -1 and zslow[j] > 0))):
                 if j + 1 < n: xt, xp, reason = t[j + 1] + B * 60000, o[j + 1], 3
                 break
         else:
@@ -291,16 +291,16 @@ def build():
             for B in BARS:
                 t, O, H, L, Cc, Q, TB, valid, a = prep(co, B)
                 day = np.clip(((t + B * 60000) // C.DAY) - 1 - co.t0 // C.DAY, 0, len(td) - 1); tb = td[day]
-                zs = estimator_z(O, H, L, Cc, Q, TB)
+                zs = estimator_z(O, H, L, Cc, Q, TB); zslow = R6.kalman_z_p(Cc, 1e-4)
                 for th in THETAS:
                     S = votes(zs, th)
                     for (_, K, X) in [c for c in cells if c[0] == th]:
-                        e, x, r, s, rs = run_s(t, O, H, L, Cc, S, a, valid, tb, ft, fr, B, K, X)
+                        e, x, r, s, rs = run_s(t, O, H, L, Cc, S, a, valid, tb, ft, fr, B, K, X, zslow)
                         res.setdefault((B, th, K, X), []).append((e, x, r, s, np.full(len(e), cid)))
                 # single-estimator reference
                 for k, nm_ in enumerate(NAMES):
                     S1 = votes(zs[k:k + 1], 0.5)
-                    e, x, r, s, rs = run_s(t, O, H, L, Cc, S1, a, valid, tb, ft, fr, B, 1, 0)
+                    e, x, r, s, rs = run_s(t, O, H, L, Cc, S1, a, valid, tb, ft, fr, B, 1, 0, zslow)
                     res.setdefault((B, "single", nm_), []).append((e, x, r, s, np.full(len(e), cid)))
             print(group, nm, flush=True)
         agg = {k: tuple(np.concatenate([p[q] for p in v]) for q in range(5)) for k, v in res.items()}
