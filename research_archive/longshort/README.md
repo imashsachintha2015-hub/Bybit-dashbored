@@ -40,6 +40,27 @@
 - **Short:** Kalman z crosses below −1, BTC's 1D trend is down, and the last 9 funding payments average more than 0.
 - **Exits and sizing:** the same as BASE.
 
+## How often it trades (`ls_monthly.py`, `ls_monthly_out.txt`)
+Final rules, with the same portfolio limits as the $94.12 result (0.5% risk, max 8 open, one per coin), 81 months from 2020-01 to 2026-09 (data ends 2026-09-30):
+- **20.0 trades per month on average** (11.1 long, 8.9 short). Median 20, busiest 38.
+- 7 months had fewer than 10 trades, all in 2020-21. The quietest was 2020-01, with 0 trades during the 200-bar warm-up.
+- 1,616 trades taken from 3,080 signals. All 1,464 skipped signals came while 8 trades were already open.
+- Average hold 5.8 days (median 4.7), so about 3.9 trades are open at once on average. 35% of trades win, about 7 winners per month.
+
+| year | trades per month | long | short | winners per month |
+|---|---|---|---|---|
+| 2020 | 11.2 | 8.9 | 2.3 | 3.7 |
+| 2021 | 17.2 | 10.4 | 6.8 | 7.4 |
+| 2022 | 19.4 | 1.8 | 17.7 | 6.8 |
+| 2023 | 23.1 | 18.2 | 4.9 | 7.2 |
+| 2024 | 21.2 | 16.2 | 5.0 | 7.5 |
+| 2025 | 24.2 | 12.6 | 11.7 | 7.2 |
+| 2026 (9 months) | 24.4 | 9.1 | 15.3 | 9.0 |
+
+- Fewer coins had data in 2020, which is why that year trades less.
+- The BTC filter switches the system between long months and short months.
+- At the end of the data, 7 trades opened in 2026-09 were still open. They are valued at the last price, as in the $94.12 result.
+
 **Caveats.**
 - SHORT_FUND has two independent confirmations.
 - LONG_FUND_CAP is its mirror image and was tested once.
