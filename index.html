@@ -2139,6 +2139,35 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 }
 
 </style>
+<style>
+/* Kalman Trend mode (daemons/kalman_trend_engine.py) */
+.dash-champ-toggle-btn.kalman{background:linear-gradient(135deg,rgba(167,139,250,.22),rgba(14,165,233,.14));color:#c4b5fd;border:1px solid rgba(167,139,250,.5)}
+.dash-champ-toggle-btn.kalman:hover,.dash-champ-toggle-btn.kalman:active{background:rgba(167,139,250,.3)}
+.mode-menu{position:fixed;z-index:9999;width:240px;background:#0b0f17;border:1px solid rgba(255,255,255,.12);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.6);padding:6px}
+.mode-menu button{display:flex;align-items:flex-start;gap:10px;width:100%;background:transparent;border:0;border-radius:8px;color:#e5e7eb;padding:9px 10px;text-align:left;cursor:pointer;font:600 12px 'Inter',sans-serif}
+.mode-menu button:hover{background:rgba(255,255,255,.06)}
+.mode-menu button.on{background:rgba(167,139,250,.14)}
+.mode-menu small{display:block;color:#8b9bb4;font-weight:500;font-size:10.5px;margin-top:2px}
+.mode-menu i{width:16px;margin-top:2px;text-align:center}
+.bsi-btn.active .bsi-dot.kal{background:#a78bfa;box-shadow:0 0 6px #a78bfa}
+.kal-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.05);color:var(--td);margin-left:6px;white-space:nowrap}
+.kt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:10px 12px}
+.kt-tile{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 10px;min-width:0}
+.kt-tile .l{font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.04em}
+.kt-tile .v{font-size:15px;font-weight:700;color:var(--tx);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kt-tile .s{font-size:10.5px;color:var(--tm);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kt-sub{padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.05em}
+.kt-z{font-weight:700}.kt-up{color:#22c55e}.kt-dn{color:#ef4444}.kt-nt{color:var(--tm)}
+.kt-pill{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
+.kt-pill.L{background:rgba(34,197,94,.15);color:#22c55e}.kt-pill.S{background:rgba(239,68,68,.15);color:#ef4444}
+.kt-settings{margin:6px 12px 12px;padding:10px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.kt-settings label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--tm)}
+.kt-settings input[type=number]{background:#000;border:1px solid var(--b2);border-radius:6px;color:var(--tx);padding:6px 8px;font:12px 'JetBrains Mono',monospace}
+.kt-settings label.row{flex-direction:row;align-items:center;gap:8px;color:var(--tx)}
+.kt-note{padding:2px 12px 8px;font-size:11px;color:var(--tm);line-height:1.5}
+.kt-events{padding:0 12px 12px;font:11px 'JetBrains Mono',monospace;color:var(--tm);max-height:170px;overflow:auto;line-height:1.6}
+.kt-scroll{max-height:380px;overflow:auto}
+</style>
 </head>
 <body>
 <div class="shell">
@@ -2149,6 +2178,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
     <button class="sbb"    data-tip="Positions"        onclick="switchView('positions',1)"><i class="fa-solid fa-briefcase"></i></button>
     <button class="sbb"    data-tip="Radar &amp; Signals"  onclick="switchView('signals',2)"><i class="fa-solid fa-radar"></i></button>
     <button class="sbb"    data-tip="Analytics &amp; History" onclick="switchView('analytics',3)"><i class="fa-solid fa-chart-pie"></i></button>
+    <button class="sbb"    data-tip="Kalman Trend" onclick="switchView('kalman',4)"><i class="fa-solid fa-wave-square" style="color:#a78bfa"></i></button>
     <button class="sbb"    data-tip="Championship Mode" onclick="openChampModal()"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i></button>
     <button class="sbb"    data-tip="Pine Script v6"    onclick="openPineModal()"><i class="fa-solid fa-code"></i></button>
   </nav>
@@ -2165,7 +2195,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
     </div>
     <div class="bybit-top-right">
       <!-- 1-Tap Active Mode Switcher (Championship vs CME-X5 Pure) -->
-      <button class="dash-champ-toggle-btn champ active" onclick="toggleDashboardStrategyMode()" title="Tap to switch between Championship and CME-X5 Pure Mode">
+      <button class="dash-champ-toggle-btn champ active" onclick="toggleDashboardStrategyMode(event)" title="Tap to choose the strategy mode: Championship, CME-X5 Pure or Kalman Trend">
         <i class="fa-solid fa-trophy"></i> <span>CHAMPIONSHIP</span>
       </button>
       <button class="topbar-icon-btn" onclick="openMenuModal()" title="Terminal Menu">
@@ -2195,6 +2225,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <button class="bsn-item" id="bsnPositions" onclick="switchBybitSubnav('positions')">Positions (<span id="bbPosCount">0</span>)</button>
       <button class="bsn-item" id="bsnRadar" onclick="switchBybitSubnav('signals')">Radar</button>
       <button class="bsn-item" id="bsnOverview" onclick="switchBybitSubnav('analytics')">History</button>
+      <button class="bsn-item" id="bsnKalman" onclick="switchBybitSubnav('kalman')">Kalman</button>
     </div>
     <div class="bybit-subnav-icons">
       <i class="fa-solid fa-arrows-rotate" onclick="refresh()" style="cursor:pointer" title="Refresh"></i>
@@ -2236,7 +2267,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 
     <!-- Header Actions -->
     <div class="hbtns">
-      <button class="dash-champ-toggle-btn champ active" id="dashChampBtn" onclick="toggleDashboardStrategyMode()" title="Tap to switch between Championship and CME-X5 Pure Mode">
+      <button class="dash-champ-toggle-btn champ active" id="dashChampBtn" onclick="toggleDashboardStrategyMode(event)" title="Tap to choose the strategy mode: Championship, CME-X5 Pure or Kalman Trend">
         <i class="fa-solid fa-trophy"></i> <span>CHAMPIONSHIP</span>
       </button>
       <button class="hbtn pri dt-only" onclick="openPineModal()"><i class="fa-solid fa-crosshairs"></i> AMD FVG + POC</button>
@@ -2270,6 +2301,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
       <button class="qjump-btn" id="qj1" onclick="switchView('positions',1)"><i class="fa-solid fa-briefcase"></i> Active Positions (<span id="qjPos">0</span>)</button>
       <button class="qjump-btn" id="qj2" onclick="switchView('signals',2)"><i class="fa-solid fa-radar"></i> CME-X5 Radar</button>
       <button class="qjump-btn" id="qj3" onclick="switchView('analytics',3)"><i class="fa-solid fa-chart-pie"></i> Analytics &amp; History</button>
+      <button class="qjump-btn" id="qj4" onclick="switchView('kalman',4)"><i class="fa-solid fa-wave-square"></i> Kalman Trend</button>
     </div>
 
     <!-- App Views Container (Mobile Single View & Desktop Workstation) -->
@@ -2309,6 +2341,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="cind" id="iSBGZ" onclick="toggleChartIndicator('sbgz')" title="Strong-Break Golden Zone + trend map (draws on the Bybit Fast Canvas chart)">SBGZ</button>
               <button class="cind" id="iCMEX5" onclick="toggleChartIndicator('cmex5')" title="CME-X5 Model B: S2 POC reclaim + S7 EMA continuation, with the agent verdicts (15m, Bybit Fast Canvas chart)">CME-X5</button>
               <button class="cind" id="iCHAMP" onclick="toggleChartIndicator('champ')" title="Championship Dual-Regime: bull 21-EMA springboard / bear exhaustion setups by the BTC regime (15m, Bybit Fast Canvas chart)">CHAMP</button>
+              <button class="cind" id="iKAL" onclick="toggleChartIndicator('kal')" title="Kalman Trend (4H): trend line, signals, stop">KALMAN</button>
               <button class="cind" onclick="fitChartScale()" title="Auto Scale Fit"><i class="fa-solid fa-arrows-to-eye"></i> Fit</button>
             </div>
             <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
@@ -2326,6 +2359,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <span class="vp-tag vp-vah">VAH: <span id="tickVah" class="fm">--</span></span>
               <span class="vp-tag vp-val">VAL: <span id="tickVal" class="fm">--</span></span>
               <span class="amd-tag" id="tickAmd">AMD: SCANNING</span>
+              <span class="kal-tag" id="tickKal">KT: OFF</span>
             </div>
 
             <div class="sigov" id="sigOv"><span class="sigb none"><i class="fa-solid fa-radar"></i> Scanning 15 Pairs (S2 POC + AMD FVG + S7)</span></div>
@@ -2391,6 +2425,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <button class="bsi-btn" id="btnIndSBGZ" onclick="toggleChartIndicator('sbgz')"><span class="bsi-dot sbgz"></span> SBGZ</button>
             <button class="bsi-btn" id="btnIndCMEX5" onclick="toggleChartIndicator('cmex5')"><span class="bsi-dot cmex5"></span> CME-X5</button>
             <button class="bsi-btn" id="btnIndCHAMP" onclick="toggleChartIndicator('champ')"><span class="bsi-dot champ"></span> CHAMP</button>
+            <button class="bsi-btn" id="btnIndKAL" onclick="toggleChartIndicator('kal')"><span class="bsi-dot kal"></span> KALMAN</button>
             <button class="bsi-btn fit-btn" onclick="fitChartScale()"><i class="fa-solid fa-arrows-to-eye"></i> Fit Scale</button>
           </div>
 
@@ -2624,6 +2659,48 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <tbody id="sTb"><tr><td colspan="7" class="emp">Scanning 15 pairs for S2, AMD FVG &amp; S7...</td></tr></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- View 5: Kalman Trend (funding-aware 4H trend system; daemons/kalman_trend_engine.py) -->
+      <section class="app-view" id="view-kalman">
+        <div class="card" id="a5" style="margin-top:12px">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-wave-square" style="color:#a78bfa"></i> Kalman Trend &middot; 4H</span>
+              <span class="cbadge fm" id="ktBadge">LOADING</span>
+            </div>
+            <div class="cardh-actions">
+              <button class="hbtn" id="ktModeBtn" onclick="setDashboardStrategyMode('kalman')" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-power-off"></i> <span>Use this mode</span></button>
+              <button class="hbtn" onclick="ktToggleSettings()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-sliders"></i> Settings</button>
+              <button class="hbtn" onclick="ktRefresh(true)" style="font-size:10px;padding:3px 8px" title="Refresh"><i class="fa-solid fa-rotate"></i></button>
+            </div>
+          </div>
+          <div class="kt-note">Long when the 4H Kalman trend turns up (z above +1) while BTC's daily trend is up, unless funding is overheated. Short when it turns down (z below &minus;1) while BTC's daily trend is down and funding is positive. Stop 3 ATR, out when the trend flips back or after 20 days, no take-profit. 0.5% risk per trade, at most 8 open, one per coin. Decisions happen at each 4H close (00, 04, 08, 12, 16, 20 UTC).</div>
+          <div class="kt-settings" id="ktSettings" style="display:none">
+            <label>Risk per trade (%) <input type="number" id="ktRisk" min="0.05" max="2" step="0.05"></label>
+            <label>Max open positions <input type="number" id="ktMaxOpen" min="1" max="12" step="1"></label>
+            <label>Max risk if the exchange minimum is bigger (%) <input type="number" id="ktMinRisk" min="0.1" max="5" step="0.1"></label>
+            <label>Leverage (margin only) <input type="number" id="ktLev" min="1" max="20" step="1"></label>
+            <label>Paper start equity ($) <input type="number" id="ktPaperStart" min="1" step="1"></label>
+            <label class="row"><input type="checkbox" id="ktOi"> Longs only when open interest is above its 30-day mean</label>
+            <label class="row"><input type="checkbox" id="ktCorr"> Correlation cap (skip if 3+ open trades move together)</label>
+            <label class="row"><input type="checkbox" id="ktLive"> <b>LIVE orders</b> <span id="ktLiveNote" style="color:var(--tm);font-weight:500"></span></label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="hbtn pri" onclick="ktSaveSettings()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+              <button class="hbtn" onclick="ktResetPaper()"><i class="fa-solid fa-arrow-rotate-left"></i> Restart paper account</button>
+            </div>
+          </div>
+          <div class="kt-grid" id="ktTiles"></div>
+          <div class="kt-sub">Open positions</div>
+          <div class="tw kt-scroll"><table><thead><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Stop</th><th>Price</th><th>R now</th><th>Bars</th><th>z</th><th>Mode</th></tr></thead><tbody id="ktPos"><tr><td colspan="9" class="emp">No open positions</td></tr></tbody></table></div>
+          <div class="kt-sub">Signal radar &middot; every coin at the last 4H close</div>
+          <div class="kt-note">"System trade" is the trade the rules are in for that coin, counted even when all 8 slots were full. Only one trade per coin at a time, so a coin in a system trade cannot signal again until it exits.</div>
+          <div class="tw kt-scroll"><table><thead><tr><th>Coin</th><th>z</th><th>Trend</th><th>Funding / 8h</th><th>Signal this bar</th><th title="The trade the system's rules are in for this coin, also when the portfolio had no free slot for it">System trade</th><th>Last trade</th></tr></thead><tbody id="ktRadar"><tr><td colspan="7" class="emp">Waiting for the Kalman engine&hellip;</td></tr></tbody></table></div>
+          <div class="kt-sub">Recent trades</div>
+          <div class="tw kt-scroll"><table><thead><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Exit</th><th>Reason</th><th>R</th><th>P&amp;L</th><th>Mode</th></tr></thead><tbody id="ktTrades"><tr><td colspan="8" class="emp">No closed trades yet</td></tr></tbody></table></div>
+          <div class="kt-sub">Engine events</div>
+          <div class="kt-events" id="ktEvents">&ndash;</div>
         </div>
       </section>
 
@@ -3869,7 +3946,8 @@ window.switchView = function(viewName, tabIdx){
   });
 
   // 3b. Update Bybit mobile subnav tabs
-  var subnavMap = {'chart': 'bsnChart', 'positions': 'bsnPositions', 'signals': 'bsnRadar', 'analytics': 'bsnOverview'};
+  var subnavMap = {'chart': 'bsnChart', 'positions': 'bsnPositions', 'signals': 'bsnRadar', 'analytics': 'bsnOverview', 'kalman': 'bsnKalman'};
+  if(viewName === 'kalman' && window.ktRefresh) window.ktRefresh(true);
   document.querySelectorAll('.bsn-item').forEach(function(b){ b.classList.remove('active'); });
   var activeSubnav = document.getElementById(subnavMap[viewName]);
   if(activeSubnav) activeSubnav.classList.add('active');
@@ -3892,7 +3970,8 @@ window.switchView = function(viewName, tabIdx){
       'chart': 'a1',
       'positions': 'a2',
       'signals': 'a3',
-      'analytics': 'a4'
+      'analytics': 'a4',
+      'kalman': 'a5'
     };
     var secId = targetMap[viewName] || 'a1';
     var secEl = document.getElementById(secId);
@@ -4305,11 +4384,12 @@ var sbgzSeries = null, sbgzPriceLines = [], sbgzKey = null;
 window._fvgMarkers = window._fvgMarkers || [];
 window._sbgzMarkers = window._sbgzMarkers || [];
 window._xmMarkers = window._xmMarkers || { cmex5: [], champ: [] };
+window._ktMarkers = window._ktMarkers || [];
 
-// FVG, SBGZ, CME-X5 and Championship markers share the candle series' single marker set, so all go through here
+// FVG, SBGZ, CME-X5, Championship and Kalman markers share the candle series' single marker set, so all go through here
 window.applyChartMarkers = function(){
   if(!candleSeries) return;
-  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || [], window._xmMarkers.cmex5 || [], window._xmMarkers.champ || []);
+  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || [], window._xmMarkers.cmex5 || [], window._xmMarkers.champ || [], window._ktMarkers || []);
   m.sort(function(a, b){ return a.time - b.time; });
   try{
     if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
@@ -5362,7 +5442,8 @@ window.indicatorState = {
   vol: localStorage.getItem('ind_vol') !== '0',
   sbgz: localStorage.getItem('ind_sbgz') === '1',
   cmex5: localStorage.getItem('ind_cmex5') === '1',
-  champ: localStorage.getItem('ind_champ') === '1'
+  champ: localStorage.getItem('ind_champ') === '1',
+  kal: localStorage.getItem('ind_kal') === '1'
 };
 
 // Auto Scale Fit & Reset Zoom
@@ -5379,7 +5460,7 @@ window.fitChartScale = function(){
 // Toggle Sub-indicators with zero delay reactive chart update
 window.toggleChartIndicator = function(name){
   if(!window.indicatorState){
-    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false, cmex5: false, champ: false };
+    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false, cmex5: false, champ: false, kal: false };
   }
   window.indicatorState[name] = !window.indicatorState[name];
   localStorage.setItem('ind_' + name, window.indicatorState[name] ? '1' : '0');
@@ -5406,6 +5487,13 @@ window.toggleChartIndicator = function(name){
       window.sbgzClear();
     }
     showToast('SBGZ ' + (window.indicatorState.sbgz ? 'Enabled (Fast Canvas chart)' : 'Disabled'));
+    return;
+  }
+
+  // Kalman Trend (4H) draws on the Fast Canvas chart too; ktChartOverlay switches to it, so this runs before the canvas exists
+  if(name === 'kal'){
+    if(window.ktChartOverlay) window.ktChartOverlay(true);
+    showToast('KALMAN ' + (window.indicatorState.kal ? 'Enabled (Fast Canvas chart, 4H and lower)' : 'Disabled'));
     return;
   }
 
@@ -5495,7 +5583,7 @@ window.toggleChartIndicator = function(name){
 
 window.updateIndicatorButtonsUI = function(){
   if(!window.indicatorState) return;
-  ['ema', 'poc', 'fvg', 'vol', 'sbgz', 'cmex5', 'champ'].forEach(function(k){
+  ['ema', 'poc', 'fvg', 'vol', 'sbgz', 'cmex5', 'champ', 'kal'].forEach(function(k){
     var on = !!window.indicatorState[k];
     var mobBtn = document.getElementById('btnInd' + k.toUpperCase());
     if(mobBtn){
@@ -5519,13 +5607,13 @@ window.toggleChampionshipMode = function(){
 // Authoritative local intent: always load from localStorage on refresh, defaulting to championship.
 window.currentStrategyMode = localStorage.getItem('cme_strat_mode') || 'championship';
 
-window.toggleDashboardStrategyMode = function(){
-  var nextMode = window.currentStrategyMode === 'championship' ? 'standard' : 'championship';
-  window.setDashboardStrategyMode(nextMode);
+window.toggleDashboardStrategyMode = function(ev){
+  // Three modes now (Championship, CME-X5 Pure, Kalman Trend): open the chooser instead of flipping between two.
+  window.openModeMenu(ev || window.event);
 };
 
 window.setDashboardStrategyMode = function(mode){
-  mode = (mode === 'championship') ? 'championship' : 'standard';
+  mode = normMode(mode);
   window.currentStrategyMode = mode;
   localStorage.setItem('cme_strat_mode', mode);
   localStorage.setItem('cme_strat_mode_ts', String(Date.now()));
@@ -5535,7 +5623,11 @@ window.setDashboardStrategyMode = function(mode){
 
   // Immediate UI reflection (no lag or flicker)
   window.updateChampionshipUI();
-  showToast(isChamp ? '🏆 Switched to Championship Mode' : '⚡ Switched to CME-X5 Pure Mode');
+  showToast(isChamp ? '🏆 Switched to Championship Mode' : (mode === 'kalman' ? '〰 Switched to Kalman Trend Mode' : '⚡ Switched to CME-X5 Pure Mode'));
+  if(mode === 'kalman'){
+    if(window.indicatorState && !window.indicatorState.kal) window.toggleChartIndicator('kal');
+    if(window.ktRefresh) setTimeout(function(){ window.ktRefresh(true); }, 800);
+  }
 
   var payload = {
     strategyMode: mode,
@@ -5554,7 +5646,7 @@ window.setDashboardStrategyMode = function(mode){
   }).then(function(res){
     console.log('[Dashboard] Backend strategy mode confirmed:', res);
     if(res && (res.strategyMode || res.championshipMode !== undefined)){
-      var confirmedMode = (res.strategyMode === 'championship' || res.championshipMode) ? 'championship' : 'standard';
+      var confirmedMode = normMode(res.strategyMode || (res.championshipMode ? 'championship' : 'standard'));
       window.currentStrategyMode = confirmedMode;
       localStorage.setItem('cme_strat_mode', confirmedMode);
       window.updateChampionshipUI();
@@ -5566,17 +5658,22 @@ window.setDashboardStrategyMode = function(mode){
 
 window.updateChampionshipUI = function(){
   var isChamp = window.currentStrategyMode === 'championship';
+  var isKal = window.currentStrategyMode === 'kalman';
 
   // Header switcher buttons (mobile & desktop)
   document.querySelectorAll('.dash-champ-toggle-btn').forEach(function(btn){
     if(isChamp){
       btn.className = 'dash-champ-toggle-btn champ active';
       btn.innerHTML = '<i class="fa-solid fa-trophy"></i> <span>CHAMPIONSHIP</span>';
-      btn.title = 'Current: Championship Dual-Regime (Bull v2.0 + Bear v4.1). Tap to switch to CME-X5 Pure.';
+      btn.title = 'Current: Championship Dual-Regime (Bull v2.0 + Bear v4.1). Tap to choose a mode.';
+    } else if(isKal){
+      btn.className = 'dash-champ-toggle-btn kalman active';
+      btn.innerHTML = '<i class="fa-solid fa-wave-square"></i> <span>KALMAN TREND</span>';
+      btn.title = 'Current: Kalman Trend (4H, funding-aware). Tap to choose a mode.';
     } else {
       btn.className = 'dash-champ-toggle-btn standard';
       btn.innerHTML = '<i class="fa-solid fa-bolt"></i> <span>CME-X5 PURE</span>';
-      btn.title = 'Current: CME-X5 Pure Strategy. Tap to switch to Championship.';
+      btn.title = 'Current: CME-X5 Pure Strategy. Tap to choose a mode.';
     }
   });
 
@@ -5608,6 +5705,27 @@ window.updateChampionshipUI = function(){
       wmStratMode.style.borderColor = 'rgba(247,166,0,0.3)';
       wmStratMode.style.background = 'rgba(247,166,0,0.14)';
     }
+  } else if(isKal){
+    if(stripName) stripName.textContent = 'Kalman Trend (4H)';
+    if(stripBadge){
+      stripBadge.textContent = 'FUNDING-AWARE';
+      stripBadge.style.color = '#c4b5fd';
+      stripBadge.style.background = 'rgba(167,139,250,0.15)';
+      stripBadge.style.borderColor = 'rgba(167,139,250,0.4)';
+    }
+    if(stripStrat){
+      stripStrat.innerHTML = '<b>z &plusmn;1 trend entries</b> &nbsp;|&nbsp; <b>BTC 1D filter</b> &nbsp;|&nbsp; <b>3-ATR stop, trend-flip exit</b>';
+    }
+    if(esEngine){
+      esEngine.textContent = 'KALMAN';
+      esEngine.style.color = '#c4b5fd';
+    }
+    if(wmStratMode){
+      wmStratMode.textContent = 'KALMAN TREND';
+      wmStratMode.style.color = '#c4b5fd';
+      wmStratMode.style.borderColor = 'rgba(167,139,250,0.3)';
+      wmStratMode.style.background = 'rgba(167,139,250,0.14)';
+    }
   } else {
     if(stripName) stripName.textContent = 'CME-X5 Pure Algorithm';
     if(stripBadge){
@@ -5638,7 +5756,9 @@ window.updateChampionshipUI = function(){
   var regimeBadge = document.getElementById('modalRegimeBadge');
   var toggleBtn = document.getElementById('btnToggleChamp');
 
-  if (stateText) stateText.textContent = isChamp ? 'CHAMPIONSHIP ARMED' : 'CME-X5 PURE ACTIVE';
+  if (stateText) stateText.textContent = isChamp ? 'CHAMPIONSHIP ARMED' : (isKal ? 'KALMAN TREND ACTIVE' : 'CME-X5 PURE ACTIVE');
+  var ktModeBtn = document.getElementById('ktModeBtn');
+  if (ktModeBtn) ktModeBtn.innerHTML = isKal ? '<i class="fa-solid fa-circle-check" style="color:#22c55e"></i> <span>Mode selected</span>' : '<i class="fa-solid fa-power-off"></i> <span>Use this mode</span>';
   if (toggleText) toggleText.textContent = isChamp ? 'Mode: ACTIVE' : 'Mode: INACTIVE';
   if (toggleIcon) {
     toggleIcon.className = isChamp ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off';
@@ -5891,6 +6011,7 @@ function loadLwChartData(cs, tf){
       window._fvgMarkers = fvgMarkers;
       window._sbgzMarkers = [];            // new candle set: SBGZ markers are redrawn by sbgzLoad below
       window._xmMarkers = { cmex5: [], champ: [] };    // ... and CME-X5 / Championship ones by xmLoad
+      window._ktMarkers = [];                          // ... and Kalman ones by ktChartOverlay
       window.applyChartMarkers();
       if(fvgMarkers.length){
         var lastM = fvgMarkers[fvgMarkers.length - 1];
@@ -5926,6 +6047,9 @@ function loadLwChartData(cs, tf){
         if(window.indicatorState && window.indicatorState[m]) window.xmLoad(m, cs, tfVal, false);
         else if(window.xmClear) window.xmClear(m);
       });
+
+      // 7. Kalman Trend (4H): trend line, signals and the open position's stop (/api/kalman/indicator)
+      if(window.ktChartOverlay) window.ktChartOverlay(false);
     })
     .catch(function(err){ console.warn('[Chart] Error loading candles:', err); });
 }
@@ -6876,9 +7000,9 @@ function handleChamp(d, s){
     if(Date.now() - lastUserChange < 25000){
       return;
     }
-    var isChamp = (s.strategyMode === 'championship') || Boolean(s.championshipMode);
-    var backendMode = isChamp ? 'championship' : 'standard';
-    var currentMode = window.currentStrategyMode === 'championship' ? 'championship' : 'standard';
+    var backendMode = normMode(s.strategyMode || (s.championshipMode ? 'championship' : 'standard'));
+    var isChamp = backendMode === 'championship';
+    var currentMode = normMode(window.currentStrategyMode);
     if(backendMode !== currentMode){
       window.currentStrategyMode = backendMode;
       localStorage.setItem('cme_strat_mode', backendMode);
@@ -6985,7 +7109,7 @@ window.switchBybitMarket = function(market){
 };
 
 window.switchBybitSubnav = function(v){
-  var tabMap = {'chart': 0, 'positions': 1, 'signals': 2, 'analytics': 3};
+  var tabMap = {'chart': 0, 'positions': 1, 'signals': 2, 'analytics': 3, 'kalman': 4};
   switchView(v, (tabMap[v] != null) ? tabMap[v] : 0);
 };
 
@@ -7196,6 +7320,287 @@ function refresh(){
 if(window.updateIndicatorButtonsUI) window.updateIndicatorButtonsUI();
 if(window.updateChampionshipUI) window.updateChampionshipUI();
 
+// ================================================================================================
+// Kalman Trend mode (daemons/kalman_trend_engine.py): mode menu, Kalman panel, chart overlay
+// ================================================================================================
+function normMode(m){
+  m = String(m || '').toLowerCase();
+  return m === 'championship' ? 'championship' : (m === 'kalman' ? 'kalman' : 'standard');
+}
+
+window.openModeMenu = function(ev){
+  if(ev && ev.stopPropagation) ev.stopPropagation();
+  var old = document.getElementById('modeMenu');
+  if(old){ old.remove(); return; }
+  var btn = (ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect) ? ev.currentTarget : document.querySelector('.dash-champ-toggle-btn');
+  var r = btn ? btn.getBoundingClientRect() : { right: 250, bottom: 50 };
+  var cur = normMode(window.currentStrategyMode);
+  var m = document.createElement('div');
+  m.id = 'modeMenu'; m.className = 'mode-menu';
+  [
+    ['championship', 'fa-trophy', '#fbbf24', 'Championship', 'Dual-regime 15m engine'],
+    ['standard', 'fa-bolt', '#38bdf8', 'CME-X5 Pure', 'S2 POC reclaim + S7 continuation'],
+    ['kalman', 'fa-wave-square', '#a78bfa', 'Kalman Trend', '4H trend system &middot; 0.5% risk &middot; max 8 open']
+  ].forEach(function(it){
+    var b = document.createElement('button');
+    if(it[0] === cur) b.className = 'on';
+    b.innerHTML = '<i class="fa-solid ' + it[1] + '" style="color:' + it[2] + '"></i><span>' + it[3] +
+      (it[0] === cur ? ' &#10003;' : '') + '<small>' + it[4] + '</small></span>';
+    b.onclick = function(e){
+      e.stopPropagation(); m.remove();
+      if(it[0] !== cur) window.setDashboardStrategyMode(it[0]);
+    };
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  var w = 240, left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+  m.style.left = left + 'px';
+  m.style.top = Math.min(r.bottom + 6, window.innerHeight - 170) + 'px';
+  setTimeout(function(){
+    document.addEventListener('click', function close(){
+      var x = document.getElementById('modeMenu');
+      if(x) x.remove();
+      document.removeEventListener('click', close);
+    });
+  }, 0);
+};
+
+var KT_H4 = 4 * 3600 * 1000;
+var ktState = { status: null, last: 0, ind: {}, line: null, lines: [] };
+
+function ktEsc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function ktPx(v){
+  if(v == null || isNaN(v)) return '&ndash;';
+  var a = Math.abs(v);
+  return a >= 1000 ? v.toFixed(1) : (a >= 1 ? v.toFixed(4) : v.toPrecision(4));
+}
+function ktR(v){ return (v == null || isNaN(v)) ? '&ndash;' : ((v >= 0 ? '+' : '') + v.toFixed(2) + 'R'); }
+function ktUsd(v){ return (v == null || isNaN(v)) ? '&ndash;' : ((v < 0 ? '-$' : '$') + Math.abs(v).toFixed(Math.abs(v) < 10 ? 4 : 2)); }
+function ktTime(ms){ if(!ms) return '&ndash;'; return new Date(ms).toISOString().slice(5, 16).replace('T', ' '); }
+function ktZ(z){
+  if(z == null || isNaN(z)) return '<span class="kt-nt">&ndash;</span>';
+  var c = z > 1 ? 'kt-up' : (z < -1 ? 'kt-dn' : 'kt-nt');
+  return '<span class="kt-z ' + c + '">' + (z >= 0 ? '+' : '') + z.toFixed(2) + '</span>';
+}
+function ktSide(s){ return s ? '<span class="kt-pill ' + s + '">' + (s === 'L' ? 'LONG' : 'SHORT') + '</span>' : '&ndash;'; }
+function ktColor(v){ return v == null ? 'var(--tm)' : (v > 0 ? '#22c55e' : (v < 0 ? '#ef4444' : 'var(--tm)')); }
+function ktTile(label, value, sub, color){
+  return '<div class="kt-tile"><div class="l">' + label + '</div><div class="v"' + (color ? ' style="color:' + color + '"' : '') + '>' + value +
+    '</div><div class="s">' + (sub || '&nbsp;') + '</div></div>';
+}
+
+window.ktRefresh = function(force){
+  var now = Date.now();
+  if(!force && now - ktState.last < 20000) return;
+  ktState.last = now;
+  api('/api/kalman/status', function(d){ ktRender(d); });
+};
+
+function ktRender(d){
+  var badge = g('ktBadge');
+  if(!badge) return;
+  if(!d){
+    badge.textContent = 'ENGINE OFFLINE';
+    badge.style.cssText = 'background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.35)';
+    return;
+  }
+  ktState.status = d;
+  var st = d.settings || {}, acc = d.account || {};
+  var live = !!(st.live && d.live_env);
+  var exec = !d.engine_running ? 'WAITING FOR ENGINE' : (d.mode_selected ? (live ? 'LIVE' : 'PAPER') : 'STANDBY');
+  var bc = { 'LIVE': ['rgba(239,68,68,.15)', '#ef4444'], 'PAPER': ['rgba(14,165,233,.15)', '#38bdf8'], 'STANDBY': ['rgba(255,255,255,.06)', '#94a3b8'] }[exec] || ['rgba(245,158,11,.15)', '#fbbf24'];
+  badge.textContent = exec;
+  badge.style.cssText = 'background:' + bc[0] + ';color:' + bc[1] + ';border:1px solid ' + bc[1] + '55';
+
+  var eq = live ? acc.live_equity : acc.paper_equity;
+  var btcT = d.btc ? d.btc.trend : null;
+  var sh = d.shadow || {};
+  var nextIn = d.next_bar_close ? Math.max(0, d.next_bar_close - Date.now()) : null;
+  var tiles = '';
+  tiles += ktTile('Mode', d.mode_selected ? 'Selected' : 'Not selected', d.mode_selected ? 'trades at each 4H close' : 'records signals only', d.mode_selected ? '#22c55e' : null);
+  tiles += ktTile('Execution', exec, d.live_env ? 'live allowed on the server' : 'live needs KALMAN_LIVE=1', bc[1]);
+  tiles += ktTile(live ? 'Live equity' : 'Paper equity', ktUsd(eq), live ? 'Bybit wallet' : ('start ' + ktUsd(acc.paper_start) + ' &middot; closed trades'));
+  tiles += ktTile('Positions', (acc.open_count || 0) + ' / ' + (acc.max_open || st.maxOpen || 8), 'risk ' + (st.riskPct || 0.5) + '% each');
+  tiles += ktTile('Closed trades', String(acc.closed_trades || 0),
+    acc.closed_trades ? ('win ' + (acc.win_rate || 0).toFixed(0) + '% &middot; avg ' + ktR(acc.avg_r) + ' &middot; total ' + ktR(acc.total_r)) : 'none yet');
+  tiles += ktTile('BTC daily trend', btcT === 1 ? 'UP' : (btcT === -1 ? 'DOWN' : 'FLAT'), 'BTC ' + ktPx(d.btc ? d.btc.price : null) + ' &middot; longs need UP, shorts DOWN', btcT === 1 ? '#22c55e' : (btcT === -1 ? '#ef4444' : null));
+  tiles += ktTile('Last 4H close', ktTime(d.last_bar_close), nextIn != null ? ('next in ' + Math.floor(nextIn / 3600000) + 'h ' + Math.floor(nextIn % 3600000 / 60000) + 'm') : '');
+  tiles += ktTile('Forward test', (sh.n || 0) + ' signals', sh.n ? ('avg ' + ktR(sh.mean_r) + ' &middot; win ' + (sh.win_rate || 0).toFixed(0) + '%') : 'every system signal since start');
+  var tl = g('ktTiles'); if(tl) tl.innerHTML = tiles;
+
+  var pos = d.positions || [];
+  var ph = pos.map(function(p){
+    return '<tr><td><b>' + ktEsc(p.sym.replace('USDT', '')) + '</b></td><td>' + ktSide(p.side) + '</td><td class="fm">' + ktPx(p.entry_p) + '</td><td class="fm">' + ktPx(p.stop) +
+      '</td><td class="fm">' + ktPx(p.price) + '</td><td class="fm" style="color:' + ktColor(p.r_now) + '">' + ktR(p.r_now) + '</td><td class="fm">' + (p.bars_held != null ? p.bars_held : '&ndash;') +
+      '</td><td class="fm">' + ktZ(p.z) + '</td><td>' + ktEsc(p.mode) + '</td></tr>';
+  }).join('');
+  var pe = g('ktPos'); if(pe) pe.innerHTML = ph || '<tr><td colspan="9" class="emp">No open positions</td></tr>';
+
+  var rad = (d.radar || []).slice().sort(function(a, b){
+    var ia = a.in_trade ? 1 : 0, ib = b.in_trade ? 1 : 0;
+    if(ia !== ib) return ib - ia;
+    return Math.abs(b.z || 0) - Math.abs(a.z || 0);
+  });
+  var rh = rad.map(function(x){
+    var sig = '&ndash;';
+    if(x.signal) sig = ktSide(x.signal) + ' ' + (x.signal_ok ? '<span style="color:#22c55e">taken by the system</span>' : '<span style="color:var(--tm)">' + ktEsc(x.signal_why || '') + '</span>');
+    var lt = x.last_trade, ltx = '&ndash;';
+    if(lt) ltx = ktSide(lt.side) + ' ' + (lt.exit_t ? ('<span style="color:' + ktColor(lt.r_net) + '">' + ktR(lt.r_net) + '</span> ' + ktTime(lt.exit_t - KT_H4)) : ('open since ' + ktTime(lt.entry_t)));
+    var tr = x.state === 'UP' ? '<span class="kt-up">UP</span>' : (x.state === 'DOWN' ? '<span class="kt-dn">DOWN</span>' : '<span class="kt-nt">neutral</span>');
+    return '<tr><td><b>' + ktEsc(x.sym.replace('USDT', '')) + '</b></td><td class="fm">' + ktZ(x.z) + '</td><td>' + tr + '</td><td class="fm">' +
+      (x.favg == null ? '&ndash;' : ((x.favg * 100).toFixed(4) + '%')) + '</td><td>' + sig + '</td><td>' + ktSide(x.in_trade) + '</td><td>' + ltx + '</td></tr>';
+  }).join('');
+  var re = g('ktRadar'); if(re) re.innerHTML = rh || '<tr><td colspan="7" class="emp">Waiting for the first 4H close&hellip;</td></tr>';
+
+  var th = (d.recent_trades || []).map(function(t){
+    return '<tr><td><b>' + ktEsc(t.sym.replace('USDT', '')) + '</b></td><td>' + ktSide(t.side) + '</td><td class="fm">' + ktTime(t.entry_t) + ' @ ' + ktPx(t.entry_p) +
+      '</td><td class="fm">' + ktTime(t.exit_t - (t.reason === 'TREND_FLIP' ? KT_H4 : 0)) + ' @ ' + ktPx(t.exit_p) + '</td><td>' + ktEsc(t.reason) +
+      '</td><td class="fm" style="color:' + ktColor(t.r_net) + '">' + ktR(t.r_net) + '</td><td class="fm" style="color:' + ktColor(t.pnl_usd) + '">' + ktUsd(t.pnl_usd) + '</td><td>' + ktEsc(t.mode) + '</td></tr>';
+  }).join('');
+  var te = g('ktTrades'); if(te) te.innerHTML = th || '<tr><td colspan="8" class="emp">No closed trades yet</td></tr>';
+
+  var ev = (d.events || []).map(function(e){
+    return '<div style="color:' + (e.level === 'ERROR' ? '#ef4444' : (e.level === 'WARN' ? '#fbbf24' : 'var(--tm)')) + '">' + ktTime(e.t) + ' &nbsp;' + ktEsc(e.msg) + '</div>';
+  }).join('');
+  var ee = g('ktEvents'); if(ee) ee.innerHTML = ev || '&ndash;';
+
+  var sp = g('ktSettings');
+  if(sp && sp.style.display === 'none') ktFillSettings(d);
+}
+
+function ktFillSettings(d){
+  var st = (d && d.settings) || {};
+  var set = function(id, v){ var e = g(id); if(e && v != null) e.value = v; };
+  set('ktRisk', st.riskPct); set('ktMaxOpen', st.maxOpen); set('ktMinRisk', st.maxRiskOnMinPct); set('ktLev', st.leverage); set('ktPaperStart', st.paperStartEquity);
+  if(g('ktOi')) g('ktOi').checked = !!st.oiFilter;
+  if(g('ktCorr')) g('ktCorr').checked = !!st.corrCap;
+  if(g('ktLive')){ g('ktLive').checked = !!st.live; g('ktLive').disabled = !(d && d.live_env) && !st.live; }
+  var n = g('ktLiveNote');
+  if(n) n.textContent = (d && d.live_env) ? '(real orders on the Bybit account in BYBIT_BASE_URL)' : '(disabled: set KALMAN_LIVE=1 on the Railway server first)';
+}
+
+window.ktToggleSettings = function(){
+  var sp = g('ktSettings'); if(!sp) return;
+  var show = sp.style.display === 'none';
+  if(show) ktFillSettings(ktState.status);
+  sp.style.display = show ? 'grid' : 'none';
+};
+
+window.ktSaveSettings = function(){
+  var st = (ktState.status && ktState.status.settings) || {};
+  var live = !!(g('ktLive') && g('ktLive').checked);
+  if(live && !st.live && !confirm('Turn on LIVE orders?\n\nAt the next 4H close the engine will place real orders on the Bybit account set in BYBIT_BASE_URL, risking ' +
+     (g('ktRisk') ? g('ktRisk').value : '0.5') + '% of equity per trade, with an exchange-side stop on every position.')) return;
+  var num = function(id){ var e = g(id); return e ? parseFloat(e.value) : undefined; };
+  var body = { riskPct: num('ktRisk'), maxOpen: num('ktMaxOpen'), maxRiskOnMinPct: num('ktMinRisk'), leverage: num('ktLev'), paperStartEquity: num('ktPaperStart'),
+               oiFilter: !!(g('ktOi') && g('ktOi').checked), corrCap: !!(g('ktCorr') && g('ktCorr').checked), live: live };
+  fetch(apiUrl('/api/kalman/settings'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(){ showToast('Kalman settings saved'); var sp = g('ktSettings'); if(sp) sp.style.display = 'none'; window.ktRefresh(true); })
+    .catch(function(e){ showToast('Could not save Kalman settings: ' + e.message); });
+};
+
+window.ktResetPaper = function(){
+  var v = g('ktPaperStart') ? parseFloat(g('ktPaperStart').value) : 10;
+  if(!confirm('Restart the paper account at $' + v + '? (Only works when no paper position is open.)')) return;
+  fetch(apiUrl('/api/kalman/settings'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paperReset: true, paperStartEquity: v }) })
+    .then(function(r){ return r.json(); })
+    .then(function(){ showToast('Paper restart requested: applies at the next 4H close'); window.ktRefresh(true); })
+    .catch(function(){ showToast('Could not restart the paper account'); });
+};
+
+// ------------------------------------------------ chart overlay (Bybit Fast Canvas / lightweight-charts)
+function ktSym(){ return String(S || '').replace('BYBIT:', '').replace('.P', ''); }
+function ktTag(v){
+  var el = g('tickKal'); if(!el) return;
+  if(v === null || v === undefined){ el.textContent = 'KT: OFF'; el.style.color = 'var(--td)'; return; }
+  if(typeof v === 'string'){ el.textContent = 'KT: ' + v; el.style.color = 'var(--td)'; return; }
+  el.textContent = 'KT z ' + (v >= 0 ? '+' : '') + v.toFixed(2) + (v > 1 ? ' UP' : (v < -1 ? ' DOWN' : ''));
+  el.style.color = v > 1 ? '#22c55e' : (v < -1 ? '#ef4444' : 'var(--tm)');
+}
+function ktClearOverlay(keepTag){
+  if(ktState.line && lwChart){ try{ lwChart.removeSeries(ktState.line); }catch(e){} }
+  ktState.line = null;
+  if(candleSeries) ktState.lines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} });
+  ktState.lines = [];
+  if(window._ktMarkers && window._ktMarkers.length){ window._ktMarkers = []; window.applyChartMarkers(); }
+  if(!keepTag) ktTag(null);
+}
+function ktDraw(sym, d){
+  if(ktSym() !== sym || !lwChart || !candleSeries || !currentCandles || !currentCandles.length) return;
+  var tf = String(T);
+  var first = Math.floor(currentCandles[0].start / 1000), last = Math.floor(currentCandles[currentCandles.length - 1].start / 1000);
+  var shift = tf === '240' ? 0 : KT_H4 / 1000;           // below 4H a value appears when its 4H bar has closed
+  var pts = [];
+  (d.bars || []).forEach(function(b){
+    var t = Math.floor(b[0] / 1000) + shift;
+    if(t < first || t > last || b[1] == null) return;
+    var z = b[2];
+    pts.push({ time: t, value: b[1], color: z == null ? '#64748b' : (z > 1 ? '#22c55e' : (z > 0 ? 'rgba(34,197,94,0.5)' : (z < -1 ? '#ef4444' : 'rgba(239,68,68,0.5)'))) });
+  });
+  ktClearOverlay(true);
+  if(pts.length){
+    var opts = { lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'Kalman' };
+    if(shift && LightweightCharts.LineType) opts.lineType = LightweightCharts.LineType.WithSteps;
+    ktState.line = (lwChart.addSeries && LightweightCharts.LineSeries) ? lwChart.addSeries(LightweightCharts.LineSeries, opts) : lwChart.addLineSeries(opts);
+    ktState.line.setData(pts);
+  }
+  var ms = [];
+  (d.trades || []).forEach(function(tr){
+    var te = Math.floor(tr.entry_t / 1000);
+    if(te >= first && te <= last) ms.push({ time: te, position: tr.side === 'L' ? 'belowBar' : 'aboveBar', color: tr.side === 'L' ? '#22c55e' : '#ef4444',
+                                          shape: tr.side === 'L' ? 'arrowUp' : 'arrowDown', text: 'KT ' + (tr.side === 'L' ? 'LONG' : 'SHORT') });
+    if(tr.exit_t){
+      var tx = Math.floor((tr.exit_t - KT_H4) / 1000);
+      if(tx >= first && tx <= last) ms.push({ time: tx, position: tr.side === 'L' ? 'aboveBar' : 'belowBar', color: (tr.r_net || 0) >= 0 ? '#22c55e' : '#ef4444',
+                                            shape: 'circle', text: 'exit ' + (tr.r_net == null ? '' : ((tr.r_net >= 0 ? '+' : '') + tr.r_net.toFixed(1) + 'R')) });
+    }
+  });
+  window._ktMarkers = ms;
+  window.applyChartMarkers();
+  if(d.position && window.LightweightCharts){
+    ktState.lines.push(candleSeries.createPriceLine({ price: d.position.entry_p, color: '#a78bfa', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible: true, title: 'KT entry' }));
+    ktState.lines.push(candleSeries.createPriceLine({ price: d.position.stop, color: '#ef4444', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'KT stop' }));
+  }
+  var lb = (d.bars || [])[d.bars.length - 1];
+  ktTag(lb && lb[2] != null ? lb[2] : 'no z yet');
+}
+window.ktChartOverlay = function(force){
+  var on = !!(window.indicatorState && window.indicatorState.kal);
+  if(!on){ ktClearOverlay(); return; }
+  if(chartEngine !== 'bybit'){
+    if(force){ showToast('Kalman overlay draws on the Bybit Fast Canvas chart'); toggleChartEngine(); }
+    else ktTag('switch chart to Bybit canvas');
+    return;
+  }
+  if(!lwChart || !candleSeries) return;
+  var tf = String(T);
+  if(tf === 'D' || tf === 'W' || tf === 'M'){ ktClearOverlay(true); ktTag('4H and lower only'); return; }
+  var sym = ktSym(), c = ktState.ind[sym];
+  if(c && !force && Date.now() - c.at < 60000){ ktDraw(sym, c.d); return; }
+  fetch(apiUrl('/api/kalman/indicator?symbol=' + encodeURIComponent(sym)))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if(!d || !d.bars){ ktClearOverlay(true); ktTag('no data yet'); return; }
+      ktState.ind[sym] = { at: Date.now(), d: d };
+      ktDraw(sym, d);
+    })
+    .catch(function(){ ktClearOverlay(true); ktTag('offline'); });
+};
+
+setInterval(function(){
+  if(document.hidden) return;
+  var v = document.getElementById('view-kalman');
+  if(v && (window.innerWidth > 900 || v.classList.contains('active'))) window.ktRefresh(false);
+}, 30000);
+setInterval(function(){
+  if(!document.hidden && window.indicatorState && window.indicatorState.kal) window.ktChartOverlay(true);
+}, 300000);
+setTimeout(function(){
+  window.ktRefresh(true);
+  if(window.indicatorState && window.indicatorState.kal) window.ktChartOverlay(false);   // shows where the overlay is drawn
+}, 1500);
+
 // Reconcile visible mode with shared Railway/Supabase state.
 api('/api/auto-trade/state', function(state){
   if(!state || typeof state !== 'object' || (!state.strategyMode && state.championshipMode === undefined)){
@@ -7205,8 +7610,7 @@ api('/api/auto-trade/state', function(state){
   if(Date.now() - lastUserChange < 25000){
     return; // Keep recent user intent active
   }
-  var backendMode = (state.strategyMode === 'championship' || state.championshipMode)
-    ? 'championship' : 'standard';
+  var backendMode = normMode(state.strategyMode || (state.championshipMode ? 'championship' : 'standard'));
   window.currentStrategyMode = backendMode;
   localStorage.setItem('cme_strat_mode', backendMode);
   championshipModeActive = backendMode === 'championship';
@@ -7222,8 +7626,8 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 
-// SBGZ lives on the Fast Canvas chart: open on that engine when the user left SBGZ switched on
-if(window.indicatorState && (window.indicatorState.sbgz || window.indicatorState.cmex5 || window.indicatorState.champ) && chartEngine !== 'bybit') window.toggleChartEngine();
+// SBGZ lives on the Fast Canvas chart: open on that engine when the user left SBGZ (or another canvas indicator) switched on
+if(window.indicatorState && (window.indicatorState.sbgz || window.indicatorState.cmex5 || window.indicatorState.champ || window.indicatorState.kal) && chartEngine !== 'bybit') window.toggleChartEngine();
 else loadChart(S,T);
 setTimeout(function(){ if(window.sbgzRadarLoad) window.sbgzRadarLoad(false); }, 2500);   // SBGZ radar card (Radar view)
 })();

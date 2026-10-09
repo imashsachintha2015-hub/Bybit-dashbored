@@ -1,0 +1,6 @@
+replayed 2736 4H bars 2025-07-01 .. 2026-09-30 in 351s (funding rule: research)
+research portfolio took 363 trades, engine took 364: in both 363, only research 0, only engine 1
+closed in both: 357; exit time differs: 0; net R identical (<1e-9): 205; largest |net R difference| 0.0072R (6 still open at the end)
+   differs: ('AVAXUSDT', 1790712000000, 'L') engine
+paper equity in the engine $13.3609 (booked trades); closed trades 357, open 7; shadow (forward-test) trades recorded: {'n': 892, 'mean_r': 0.2847208906361438, 'win_rate': 35.42600896860987}
+exit 0

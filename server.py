@@ -1098,7 +1098,7 @@ def get_live_championship_state():
         from backend_lib import auto_trade_state
         auto_st = auto_trade_state.load()
         strat_mode = auto_st.get("strategyMode", "championship")
-        is_champ = strat_mode == "championship" or bool(auto_st.get("championshipMode", True))
+        is_champ = strat_mode == "championship" or (strat_mode != "kalman" and bool(auto_st.get("championshipMode", True)))
     except Exception:
         strat_mode = "championship"
         is_champ = True
@@ -1111,7 +1111,7 @@ def get_live_championship_state():
         "btc_200_ema": btc_200,
         "btc_dist_200_pct": dist_pct,
         "macro_regime": regime,
-        "active_engine": "CHAMPIONSHIP DUAL-REGIME" if is_champ else "CME-X5 MODEL B",
+        "active_engine": "CHAMPIONSHIP DUAL-REGIME" if is_champ else ("KALMAN TREND" if strat_mode == "kalman" else "CME-X5 MODEL B"),
         "signals_detected": [],
         "last_updated": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
     }
@@ -1224,6 +1224,41 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "uptime": time.time(),
                 "port": PORT
             })
+            return
+
+        # Kalman Trend mode (daemons/kalman_trend_engine.py): panel status and chart indicator
+        if self.path.startswith("/api/kalman/status"):
+            try:
+                from backend_lib import kalman_trend as KT
+                from backend_lib.kv import kv_get_json
+                from backend_lib import auto_trade_state
+                p = os.path.join(DIRECTORY, "scratch", "kalman_trend_live.json")
+                data = {}
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                data["engine_running"] = bool(data) and (time.time() * 1000 - float(data.get("updated_at") or 0)) < 5 * 3600 * 1000
+                data["settings"] = KT.clean_settings(kv_get_json(KT.SETTINGS_KEY, {}) or {})
+                data["live_env"] = os.environ.get("KALMAN_LIVE", "").strip().lower() in ("1", "true", "yes")
+                data["mode_selected"] = auto_trade_state.load().get("strategyMode") == "kalman"
+                self._send_json(200, data, cache_seconds=5)
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
+        if self.path.startswith("/api/kalman/indicator"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            sym = (q.get("symbol") or ["BTCUSDT"])[0].upper().replace("BYBIT:", "").replace(".P", "")
+            if not re.fullmatch(r"[A-Z0-9]{2,20}USDT", sym):
+                self._send_json(400, {"error": "bad symbol"}); return
+            p = os.path.join(DIRECTORY, "scratch", "kalman", sym + ".json")
+            if not os.path.exists(p):
+                self._send_json(404, {"error": f"no Kalman data for {sym} yet (the engine writes it every 4H close)"}); return
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    self._send_json(200, json.load(f), cache_seconds=30)
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
             return
 
         # Forward lab scoreboard (record-only AMD-FVG forward test + order-flow recorder)
@@ -2303,6 +2338,21 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
             self._send_json(200, {"success": True})
             return
 
+        # Kalman Trend settings (risk, positions, optional risk rules, live switch). Validated and clamped;
+        # live orders additionally need KALMAN_LIVE=1 on the server.
+        if self.path == "/api/kalman/settings":
+            from backend_lib import kalman_trend as KT
+            from backend_lib.kv import kv_get_json, kv_set_json
+            cur = KT.clean_settings(kv_get_json(KT.SETTINGS_KEY, {}) or {})
+            if body.get("paperReset"):
+                body["paperResetToken"] = int(time.time())
+            cur.update({k: v for k, v in body.items() if k in KT.DEFAULT_SETTINGS})
+            new = KT.clean_settings(cur)
+            kv_set_json(KT.SETTINGS_KEY, new)
+            self._send_json(200, {"settings": new,
+                                  "live_env": os.environ.get("KALMAN_LIVE", "").strip().lower() in ("1", "true", "yes")})
+            return
+
         # 5. API: Autonomous execution settings & arm state
         if self.path in ("/api/auto-trade/state", "/api/cme_x5/mode", "/api/mode"):
             try:
@@ -2339,7 +2389,7 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
                         with open(snap_p, "r", encoding="utf-8") as f:
                             snap_data = json.load(f)
                         snap_data["strategy_mode"] = strat_mode
-                        snap_data["engine"] = "Championship Dual-Regime" if is_champ_active else "CME-X5 Model B"
+                        snap_data["engine"] = "Championship Dual-Regime" if is_champ_active else ("Kalman Trend (separate engine)" if strat_mode == "kalman" else "CME-X5 Model B")
                         with open(snap_p, "w", encoding="utf-8") as f:
                             json.dump(snap_data, f, indent=2)
                     except Exception:
@@ -2351,7 +2401,7 @@ Respond with ONLY a JSON object — no prose, no markdown — in this exact stru
                             champ_data = json.load(f)
                         champ_data["strategy_mode"] = strat_mode
                         champ_data["mode_active"] = is_champ_active
-                        champ_data["active_engine"] = "CHAMPIONSHIP DUAL-REGIME" if is_champ_active else "CME-X5 MODEL B"
+                        champ_data["active_engine"] = "CHAMPIONSHIP DUAL-REGIME" if is_champ_active else ("KALMAN TREND" if strat_mode == "kalman" else "CME-X5 MODEL B")
                         with open(champ_p, "w", encoding="utf-8") as f:
                             json.dump(champ_data, f, indent=2)
                     except Exception:
