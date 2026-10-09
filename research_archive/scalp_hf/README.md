@@ -2,6 +2,8 @@
 
 **Answer.** No scalping setup is profitable after costs. The best simulated trade of every family loses its $10 in every period and on coins it was never tested on, and loses about what random entries lose. Statistically real effects exist (BTC leading altcoins by a minute, reversals across coins, open-interest flushes) but they are 0.4 to 5.5 bps against a cost of 14 bps (taker) or 4 to 11 bps (maker). The one result that survives is old news: the 4H Kalman trend works, and it fades as the bar gets smaller. It is flat or negative below 1H and wipes out the account at 5 minutes.
 
+**Round 2** (25 structural setups tested by market situation, custom levels, ML, setups aligned with the 4H trend): `README_round2.md`. It also found nothing.
+
 Rules, data and pass criteria were written down before any data was loaded: `PREREG_scalp_hf.md` (and Addendum 1, also written before any run). Earlier scalp studies (`scalp_master`, `scalp_ml_15m`) used 30 to 120 days of data; this one uses 2021-01 to 2026-09.
 
 ## Data and protocol

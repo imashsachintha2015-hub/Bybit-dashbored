@@ -61,9 +61,10 @@ def btc_daily_trend(btc):
 
 @nb.njit(cache=True)
 def run_coin(t, o, h, l, c, z, a, valid, trend_bar, ft, fr, B):
-    """returns arrays of trades: entry_ms, exit_ms, ret_net, stopfrac, reason (1 stop, 0 time, 3 flip)"""
+    """returns arrays of trades: entry_ms, exit_ms, ret_net, stopfrac, reason (1 stop, 0 time, 3 flip), side"""
     n = len(c); cap = 20000
     ent = np.zeros(cap, np.int64); ext = np.zeros(cap, np.int64); ret = np.zeros(cap); sf = np.zeros(cap); rs = np.zeros(cap, np.int64)
+    sd = np.zeros(cap, np.int64)
     k = 0; busy = -1
     for i in range(max(WARMUP, 1), n - 1):
         if not valid[i] or np.isnan(z[i]) or np.isnan(z[i - 1]): continue
@@ -108,12 +109,12 @@ def run_coin(t, o, h, l, c, z, a, valid, trend_bar, ft, fr, B):
         for q in range(a0, b0): f += fr[q]
         f *= sgn
         if k < cap:
-            ent[k] = t[i + 1]; ext[k] = xt; ret[k] = gross - FEE - f; sf[k] = risk / ep; rs[k] = reason; k += 1
+            ent[k] = t[i + 1]; ext[k] = xt; ret[k] = gross - FEE - f; sf[k] = risk / ep; rs[k] = reason; sd[k] = sgn; k += 1
         busy = xt
-    return ent[:k], ext[:k], ret[:k], sf[:k], rs[:k]
+    return ent[:k], ext[:k], ret[:k], sf[:k], rs[:k], sd[:k]
 
 
-def coin_rung(co, ft, fr, trend_days, B):
+def coin_rung(co, ft, fr, trend_days, B, with_side=False):
     O, H, L, Cc, *_ = C.aggregate(co.o, co.h, co.l, co.c, co.qv, co.n, co.tb, B)
     valid = ~(np.isnan(O) | np.isnan(H) | np.isnan(L) | np.isnan(Cc))
     first = np.argmax(valid)
@@ -123,7 +124,8 @@ def coin_rung(co, ft, fr, trend_days, B):
     z = kalman_z(Cc); a = atr14_rma(H, L, Cc)
     day = np.clip(((t + B * 60000) // C.DAY) - 1 - co.t0 // C.DAY, 0, len(trend_days) - 1)
     trend_bar = trend_days[day]
-    return run_coin(t, O, H, L, Cc, z, a, valid, trend_bar, ft, fr, B)
+    out = run_coin(t, O, H, L, Cc, z, a, valid, trend_bar, ft, fr, B)
+    return out if with_side else out[:5]
 
 
 if __name__ == "__main__":

@@ -1,0 +1,166 @@
+# share of DEV setup events inside an aligned 4H Kalman trade: 15.7%
+# DEV: 800 cells, 579 with n >= 150, net R > 0 in 3, screen (t >= 3.0, R > 0): 0
+# RANDOM entries inside aligned Kalman trades (DEV), the baseline these cells must beat:
+  RANDOM L  5m R15   n  4023 net R -0.563 gross R -0.004 t -22.54
+  RANDOM L  5m R3    n  3844 net R -0.547 gross R +0.012 t -16.44
+  RANDOM L  5m LVL   n  3955 net R -0.558 gross R +0.000 t -19.85
+  RANDOM L  5m TRAIL n  3755 net R -0.513 gross R +0.047 t -11.38
+  RANDOM L 15m R15   n  3714 net R -0.312 gross R +0.009 t -12.08
+  RANDOM L 15m R3    n  3347 net R -0.312 gross R +0.008 t -7.73
+  RANDOM L 15m LVL   n  3568 net R -0.307 gross R +0.014 t -9.65
+  RANDOM L 15m TRAIL n  3162 net R -0.268 gross R +0.055 t -4.95
+  RANDOM S  5m R15   n   878 net R -0.697 gross R -0.008 t -12.83
+  RANDOM S  5m R3    n   846 net R -0.627 gross R +0.059 t -7.98
+  RANDOM S  5m LVL   n   861 net R -0.699 gross R -0.011 t -11.91
+  RANDOM S  5m TRAIL n   834 net R -0.611 gross R +0.078 t -6.22
+  RANDOM S 15m R15   n   767 net R -0.463 gross R -0.016 t -7.55
+  RANDOM S 15m R3    n   686 net R -0.442 gross R +0.001 t -4.73
+  RANDOM S 15m LVL   n   736 net R -0.448 gross R -0.001 t -5.92
+  RANDOM S 15m TRAIL n   662 net R -0.516 gross R -0.070 t -4.16
+# DEV top 15 cells by t
+  FAKE_PD|L|15m|KALMAN|NONE|R3                       n   196 net R +0.071 t +0.48 win 42%
+  FAKE_PD|L|15m|KALMAN|NONE|TRAIL                    n   196 net R +0.042 t +0.28 win 37%
+  BRK_PD|L|15m|KALMAN|VOL|R3                         n   464 net R +0.021 t +0.24 win 34%
+  BRK_PD|L|15m|KALMAN|NONE|R3                        n   561 net R -0.003 t -0.03 win 33%
+  FAKE_PD|L|15m|KALMAN|NONE|LVL                      n   196 net R -0.015 t -0.11 win 44%
+  BRK_DON|S|15m|KALMAN|VOL|TRAIL                     n   212 net R -0.089 t -0.41 win 33%
+  FAKE_PD|L|15m|KALMAN|NONE|R15                      n   196 net R -0.057 t -0.50 win 49%
+  OI_FLUSH|L|15m|KALMAN|VOL|R3                       n   178 net R -0.086 t -0.53 win 34%
+  BRK_DON|S|15m|KALMAN|NONE|TRAIL                    n   238 net R -0.110 t -0.55 win 33%
+  OI_FLUSH|L|15m|KALMAN|VOL|LVL                      n   178 net R -0.084 t -0.67 win 47%
+  BRK_PD|L|15m|KALMAN|VOL|LVL                        n   467 net R -0.054 t -0.70 win 37%
+  FAKE_PD|L|5m|KALMAN|NONE|TRAIL                     n   203 net R -0.089 t -0.76 win 38%
+  EXHAUST|L|15m|KALMAN|NONE|R15                      n   152 net R -0.085 t -0.77 win 47%
+  EXHAUST|L|15m|KALMAN|VOL|R15                       n   152 net R -0.085 t -0.77 win 47%
+  CVD_DIV|S|15m|KALMAN|VOL|TRAIL                     n   186 net R -0.179 t -0.78 win 28%
+# DEV pooled over all setups (one position per coin), aligned events only
+   5m R15   n  29023 net R -0.451 t -31.39 gross R -0.015 gross bps -0.4
+   5m R3    n  23558 net R -0.466 t -23.02 gross R -0.009 gross bps -0.2
+   5m LVL   n  27486 net R -0.452 t -25.45 gross R -0.009 gross bps +0.1
+   5m TRAIL n  25845 net R -0.483 t -20.63 gross R +0.008 gross bps +0.1
+  15m R15   n  11054 net R -0.286 t -13.97 gross R -0.004 gross bps +1.0
+  15m R3    n   8742 net R -0.282 t -8.98 gross R +0.014 gross bps +1.4
+  15m LVL   n  10382 net R -0.295 t -11.56 gross R -0.009 gross bps +0.1
+  15m TRAIL n   9352 net R -0.332 t -8.79 gross R -0.012 gross bps +0.4
+
+# Frozen cells, run once
+
+## breakout / KALMAN-aligned / short: BRK_DON|S|15m|KALMAN|VOL|TRAIL
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             212    33  -0.089  -0.41      9.02    204    25%     8.19   -0.146
+  VAL             295    38  -0.011  -0.10      9.95    272    18%     9.83   -0.045
+  FINAL           787    34  -0.147  -1.77      5.40    718    46%     2.87   -0.196
+  OLD            1259    36  +0.025  +0.35     10.53   1120    22%     9.71   -0.004
+  UNSEEN          426    34  -0.129  -1.47      7.46    426    32%     5.51   -0.166
+  FINAL quarters net R: -0.733  -0.149  -0.136  -0.034  -0.220
+  PASS: no
+
+## breakout / KALMAN-aligned / long: BRK_PD|L|15m|KALMAN|VOL|R3
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             464    34  +0.021  +0.24     10.65    458    13%    11.06   -0.033
+  VAL             300    29  -0.189  -1.50      7.64    297    26%     5.81   -0.240
+  FINAL           248    25  -0.262  -2.01      7.00    244    30%     4.72   -0.318
+  OLD             219    36  +0.059  +0.47     10.72    216     8%    11.29   +0.024
+  UNSEEN          235    26  -0.213  -1.85      7.80    233    22%     5.87   -0.254
+  FINAL quarters net R: -0.143  -1.372  +nan  -0.205  -0.591
+  PASS: no
+
+## continuation / KALMAN-aligned / short: MACD_X|S|15m|KALMAN|VOL|TRAIL
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             161    32  -0.134  -0.95      8.93    161    16%     8.07   -0.189
+  VAL             170    44  +0.100  +0.65     10.85    168    15%    11.63   +0.069
+  FINAL           543    35  -0.107  -1.59      7.75    522    29%     6.38   -0.150
+  OLD             766    36  -0.024  -0.43      9.09    755    20%     7.88   -0.053
+  UNSEEN          301    33  -0.135  -1.68      8.10    301    19%     6.47   -0.165
+  FINAL quarters net R: +0.029  -0.043  -0.099  -0.054  -0.285
+  PASS: no
+
+## continuation / KALMAN-aligned / long: ST_FLIP|L|15m|KALMAN|VOL|R3
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             639    37  -0.084  -1.17      7.23    623    30%     5.00   -0.115
+  VAL             375    37  -0.122  -1.32      8.02    360    24%     6.41   -0.151
+  FINAL           276    41  +0.015  +0.12     10.48    261    19%    10.65   -0.017
+  OLD             195    38  +0.009  +0.07      9.97    194    14%     9.79   -0.010
+  UNSEEN          282    46  +0.128  +1.15     11.91    273    10%    13.86   +0.110
+  FINAL quarters net R: +0.197  -1.072  +nan  -0.227  -0.164
+  PASS: no
+
+## fakeout / KALMAN-aligned / short: FAKE_DON|S|15m|KALMAN|NONE|R15
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             236    38  -0.369  -3.36      6.45    236    40%     4.61   -0.461
+  VAL             308    38  -0.295  -3.49      6.48    296    36%     4.30   -0.363
+  FINAL           802    41  -0.300  -5.39      3.16    789    69%     1.52   -0.388
+  OLD            1235    42  -0.151  -3.61      3.83   1227    64%     1.48   -0.203
+  UNSEEN          482    41  -0.180  -2.77      6.40    482    39%     4.21   -0.234
+  FINAL quarters net R: -0.669  -0.159  -0.263  -0.313  -0.475
+  PASS: no
+
+## fakeout / KALMAN-aligned / long: FAKE_PD|L|15m|KALMAN|NONE|R3
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             196    42  +0.071  +0.48     10.46    194     9%    10.95   +0.018
+  VAL             175    31  -0.138  -0.86      8.80    175    17%     7.79   -0.197
+  FINAL           104    29  -0.287  -1.96      8.58    104    16%     7.31   -0.356
+  OLD              91    40  +0.126  +0.52     10.38     90     5%    10.66   +0.092
+  UNSEEN          139    29  -0.143  -1.02      8.99    139    11%     7.97   -0.185
+  FINAL quarters net R: -0.352  -1.116  +nan  -0.204  -0.173
+  PASS: no
+
+## liquidity / KALMAN-aligned / short: SWEEP_SWING|S|5m|KALMAN|NONE|R3
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             323    18  -0.987 -10.65      2.28    321    77%     1.73   -1.182
+  VAL             291    26  -0.474  -4.05      5.00    289    52%     3.58   -0.615
+  FINAL           923    25  -0.648  -9.70      0.59    912    94%     0.28   -0.828
+  OLD            1490    29  -0.374  -6.93      0.61   1476    95%     0.14   -0.504
+  UNSEEN          537    28  -0.402  -5.28      3.48    535    65%     2.25   -0.531
+  FINAL quarters net R: -1.150  -0.690  -0.523  -0.501  -0.795
+  PASS: no
+
+## liquidity / KALMAN-aligned / long: SWEEP_PD|L|15m|KALMAN|NONE|TRAIL
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             346    32  -0.119  -0.88      7.85    340    24%     6.26   -0.193
+  VAL             232    19  -0.508  -3.43      5.50    232    45%     3.43   -0.592
+  FINAL           143    18  -0.389  -1.33      7.45    143    27%     5.79   -0.481
+  OLD             115    23  -0.436  -2.97      7.75    115    24%     6.10   -0.495
+  UNSEEN          184    23  -0.135  -0.68      8.68    184    23%     7.29   -0.194
+  FINAL quarters net R: -0.307  -1.130  +nan  -0.589  -0.312
+  PASS: no
+
+## range / KALMAN-aligned / short: VP_FADE|S|15m|KALMAN|NONE|TRAIL
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             159    24  -0.558  -3.08      6.51    159    35%     5.54   -0.723
+  VAL             151    14  -0.845  -7.16      5.30    151    47%     3.64   -0.963
+  FINAL           443    19  -0.554  -3.73      2.96    439    71%     1.54   -0.695
+  OLD             671    21  -0.171  -1.20      5.21    665    64%     3.99   -0.268
+  UNSEEN          268    21  -0.297  -1.78      6.55    268    39%     4.36   -0.395
+  FINAL quarters net R: -1.432  -0.344  -0.417  -0.677  -0.840
+  PASS: no
+
+## range / KALMAN-aligned / long: CONF_BOUNCE|L|15m|KALMAN|VOL|R3
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             572    30  -0.124  -1.52      6.66    569    37%     4.34   -0.185
+  VAL             331    25  -0.272  -2.58      6.35    329    37%     4.15   -0.325
+  FINAL           248    31  -0.090  -0.72      8.88    247    24%     7.93   -0.155
+  OLD             234    29  -0.145  -1.32      8.36    234    18%     6.87   -0.183
+  UNSEEN          297    29  -0.087  -0.70      8.75    295    16%     7.37   -0.123
+  FINAL quarters net R: +0.102  +nan  +nan  -0.166  -0.402
+  PASS: no
+
+## reversal / KALMAN-aligned / short: CVD_DIV|S|15m|KALMAN|VOL|TRAIL
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             186    28  -0.179  -0.78      8.36    186    28%     6.35   -0.286
+  VAL             193    23  -0.350  -2.20      7.23    188    28%     5.52   -0.418
+  FINAL           455    25  -0.334  -2.74      4.64    455    55%     2.60   -0.432
+  OLD             724    28  -0.103  -1.03      6.63    720    49%     4.28   -0.162
+  UNSEEN          273    30  -0.066  -0.46      8.94    273    20%     7.23   -0.133
+  FINAL quarters net R: -0.503  -0.415  -0.306  +0.196  -0.508
+  PASS: no
+
+## reversal / KALMAN-aligned / long: OI_FLUSH|L|15m|KALMAN|VOL|R3
+  period       trades  win%   net R      t  $10@0.5%  taken  maxDD   $10@1%  +2bps R
+  DEV             178    34  -0.086  -0.53      9.24    168    16%     8.52   -0.132
+  VAL              44    30  -0.157  -0.68      9.64     44     5%     9.18   -0.206
+  FINAL            25    24  -0.410  -1.40      9.49     25     6%     8.96   -0.457
+  OLD              11    36  +0.074  +0.17     10.04     11     2%    10.03   +0.024
+  UNSEEN           17    24  -0.398  -1.20      9.66     17     6%     9.33   -0.432
+  FINAL quarters net R: -0.658  +nan  +nan  -0.373  -0.004
+  PASS: no
