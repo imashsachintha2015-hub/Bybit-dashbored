@@ -1,0 +1,4 @@
+fresh coins inside the training years (2021-01..2024-06): contaminated by shared dates
+   n 297935  corr +0.105  quintiles  -17.2   -4.4   +0.4   +4.7  +15.8  top-bottom +33.1 bps
+fresh coins after the training years (2024-07..2026-09): clean
+   n 197260  corr +0.003  quintiles   -1.0   -0.8   -0.5   +0.4   +0.9  top-bottom +1.9 bps
