@@ -709,7 +709,10 @@ class CMEX5Engine:
             state = {}
 
         mode = str(state.get("strategyMode") or "").strip().lower()
-        if mode == "championship" or bool(state.get("championshipMode")):
+        if mode == "kalman":
+            # Kalman Trend runs in its own engine (daemons/kalman_trend_engine.py); this one stands down.
+            mode = "kalman"
+        elif mode == "championship" or bool(state.get("championshipMode")):
             mode = "championship"
         else:
             # The current UI uses 'standard' for CME-X5 Pure. Other legacy
@@ -719,7 +722,7 @@ class CMEX5Engine:
         if force or mode != self.strategy_mode:
             previous = self.strategy_mode
             self.strategy_mode = mode
-            LOG_STRATEGY_LABEL = "CHAMPIONSHIP" if mode == "championship" else "CME-X5"
+            LOG_STRATEGY_LABEL = "CHAMPIONSHIP" if mode == "championship" else "KALMAN-STANDBY" if mode == "kalman" else "CME-X5"
             # Signal candidates belong to the active strategy. Never carry
             # stale setups from the previous mode into the new mode.
             if hasattr(self, "scanned_signals") and previous != mode:
@@ -933,7 +936,11 @@ class CMEX5Engine:
             except Exception as e:
                 log(f"[UPD ERR] {sym}: {e}", "WARN")
 
-        if self.strategy_mode == "championship":
+        if self.strategy_mode == "kalman":
+            # Kalman Trend mode: no scanning here. Positions this engine opened before the switch
+            # are still managed above until they exit.
+            pass
+        elif self.strategy_mode == "championship":
             # Championship uses BTC 15m as the global macro regime anchor.
             btc_bars = fetch_klines("BTCUSDT", "15", 250)
             if len(btc_bars) < 200:
@@ -974,7 +981,7 @@ class CMEX5Engine:
         try:
             with open(SNAPSHOT_PATH, "w", encoding="utf-8") as f:
                 json.dump({
-                    "engine":"Championship Dual-Regime" if self.strategy_mode == "championship" else "CME-X5 Model B",
+                    "engine":"Championship Dual-Regime" if self.strategy_mode == "championship" else "Kalman Trend (separate engine)" if self.strategy_mode == "kalman" else "CME-X5 Model B",
                     "strategy_mode": self.strategy_mode,
                     "status":"ACTIVE_24H_EXECUTOR",
                     "version":"B.2.0",
@@ -1005,7 +1012,7 @@ class CMEX5Engine:
                     "btc_200_ema": champ_btc_200,
                     "btc_dist_200_pct": ((champ_btc_price - champ_btc_200) / champ_btc_200 * 100.0) if champ_btc_200 else 0.0,
                     "macro_regime": champ_regime,
-                    "active_engine": "CHAMPIONSHIP DUAL-REGIME" if self.strategy_mode == "championship" else "CME-X5 MODEL B",
+                    "active_engine": "CHAMPIONSHIP DUAL-REGIME" if self.strategy_mode == "championship" else "KALMAN TREND" if self.strategy_mode == "kalman" else "CME-X5 MODEL B",
                     "signals_detected": champ_signals,
                     "scan_metrics": self.scan_metrics,
                     "last_updated": now,

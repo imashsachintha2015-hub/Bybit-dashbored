@@ -1,0 +1,27 @@
+trades taken 2020-01 .. 2026-09 (data to 2026-09-30): 1616 over 81 months (signals before the 8-position limit: 3080)
+average per month: 20.0 trades (11.1 long, 8.9 short), median month 20, quietest 0, busiest 38
+quietest months: 2020-01 (0), 2020-02 (2), 2021-04 (2), 2020-09 (3), 2021-02 (3) | months with fewer than 10 trades: 7
+average holding time 5.8 days (median 4.7); winners 35% of trades
+
+per year: trades per month on average (long / short), winning trades per month
+  2020:  11.2 per month ( 8.9 long /  2.3 short) | winners  3.7 per month | 12 months, 135 trades
+  2021:  17.2 per month (10.4 long /  6.8 short) | winners  7.4 per month | 12 months, 206 trades
+  2022:  19.4 per month ( 1.8 long / 17.7 short) | winners  6.8 per month | 12 months, 233 trades
+  2023:  23.1 per month (18.2 long /  4.9 short) | winners  7.2 per month | 12 months, 277 trades
+  2024:  21.2 per month (16.2 long /  5.0 short) | winners  7.5 per month | 12 months, 254 trades
+  2025:  24.2 per month (12.6 long / 11.7 short) | winners  7.2 per month | 12 months, 291 trades
+  2026:  24.4 per month ( 9.1 long / 15.3 short) | winners  9.0 per month | 9 months, 220 trades
+
+last 12 months:
+  2025-10:  28 trades (12 long, 16 short), 9 winners
+  2025-11:  13 trades (0 long, 13 short), 9 winners
+  2025-12:  38 trades (0 long, 38 short), 8 winners
+  2026-01:  17 trades (0 long, 17 short), 9 winners
+  2026-02:  13 trades (0 long, 13 short), 2 winners
+  2026-03:  28 trades (0 long, 28 short), 9 winners
+  2026-04:  32 trades (24 long, 8 short), 7 winners
+  2026-05:  23 trades (23 long, 0 short), 11 winners
+  2026-06:  20 trades (0 long, 20 short), 15 winners
+  2026-07:  38 trades (0 long, 38 short), 6 winners
+  2026-08:  19 trades (5 long, 14 short), 4 winners
+  2026-09:  30 trades (30 long, 0 short), 18 winners

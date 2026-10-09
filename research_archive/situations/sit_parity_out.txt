@@ -1,0 +1,5 @@
+1. re-simulated standard exit vs stored result: 3080 signals, 0 mismatches, largest |dR| 8.88e-16
+2. all 3460 candidate entries re-simulated and sequenced one per coin: same trades as the system's list: True (3080 vs 3080)
+3. portfolio: prereg_run.equity 94.119377 / 1616 / -28.4798 | sit_core.port 94.119377 / 1616 / -28.4798 | identical: True
+4. per-year restarts identical to ls_improve.growth: True  2020:14.27 2021:23.04 2022:10.86 2023:13.81 2024:15.72 2025:9.30 2026:13.04
+5. weight 1.0 everywhere unchanged: True; dircap 8 unchanged: True

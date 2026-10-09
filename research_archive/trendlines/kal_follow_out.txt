@@ -1,0 +1,27 @@
+=== (a) dependence on the biggest winners ===
+  baseline 2020-21 (pre-registered window)   n=943 avg +0.439R (t=+2.6) | median -0.332R | without the single best trade +0.357R (t=+3.0) | without the top 1% (9 trades) +0.177R | best trade +77.7R
+  baseline 2020-2026                         n=9158 avg +0.129R (t=+3.3) | median -0.392R | without the single best trade +0.121R (t=+3.2) | without the top 1% (91 trades) -0.009R | best trade +77.7R
+  BTC-filtered 2020-2026                     n=3957 avg +0.234R (t=+3.3) | median -0.444R | without the single best trade +0.214R (t=+3.3) | without the top 1% (39 trades) +0.063R | best trade +77.7R
+
+=== (b) only trade in the direction of BTC's 1D trend vs baseline, by year (avg net R, trades) ===
+  2020: baseline +0.304 (538) | BTC-filtered +0.381 (215) | filter better
+  2021: baseline +0.307 (1047) | BTC-filtered +0.800 (468) | filter better | walk-forward adopts filter: True
+  2022: baseline +0.054 (1193) | BTC-filtered +0.080 (527) | filter better | walk-forward adopts filter: True
+  2023: baseline +0.178 (1432) | BTC-filtered +0.252 (595) | filter better | walk-forward adopts filter: True
+  2024: baseline +0.250 (1642) | BTC-filtered +0.330 (687) | filter better | walk-forward adopts filter: True
+  2025: baseline -0.041 (1869) | BTC-filtered -0.019 (830) | filter better | walk-forward adopts filter: True
+  2026: baseline +0.031 (1437) | BTC-filtered +0.105 (635) | filter better | walk-forward adopts filter: True
+  factor walk-forward 2021-2026  n=3742 avg +0.225R t=+3.1
+  baseline 2021-2026             n=8620 avg +0.118R t=+2.9
+
+=== (c) $10 portfolios 2020-2026 ===
+  baseline      risk 1.00% max  3 open: $10 -> $39.00 (1225 trades, DD -41%)
+  baseline      risk 0.50% max  8 open: $10 -> $53.97 (3245 trades, DD -41%)
+  baseline      risk 0.33% max 12 open: $10 -> $59.36 (4721 trades, DD -39%)
+  baseline      2022-2026 only, risk 0.5% max 8: $10 -> $16.91 (2383 trades, DD -41%)
+  baseline      2025-2026 only, risk 0.5% max 8: $10 -> $9.11 (882 trades, DD -41%)
+  BTC-filtered  risk 1.00% max  3 open: $10 -> $75.92 (779 trades, DD -29%)
+  BTC-filtered  risk 0.50% max  8 open: $10 -> $87.56 (1797 trades, DD -33%)
+  BTC-filtered  risk 0.33% max 12 open: $10 -> $59.91 (2449 trades, DD -30%)
+  BTC-filtered  2022-2026 only, risk 0.5% max 8: $10 -> $25.44 (1370 trades, DD -33%)
+  BTC-filtered  2025-2026 only, risk 0.5% max 8: $10 -> $11.34 (536 trades, DD -24%)

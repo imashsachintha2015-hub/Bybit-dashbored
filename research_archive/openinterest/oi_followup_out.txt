@@ -1,0 +1,26 @@
+=== L_OI_HIGH, exploratory ===
+  pooled holdouts (the tested set)
+     kept    n  681  mean +0.571  median -0.451  win  37%  without best 1% +0.381
+     removed n  608  mean +0.023  median -0.550  win  28%  without best 1% -0.096
+     separation t = +2.52
+  DEV (design coins 2021-12 .. 2023-12)
+     kept    n  136  mean +0.331  median -0.391  win  35%  without best 1% +0.234
+     removed n  155  mean +0.362  median -0.438  win  29%  without best 1% +0.246
+     separation t = -0.10
+  everything with data
+     kept    n  817  mean +0.531  median -0.446  win  37%  without best 1% +0.342
+     removed n  763  mean +0.092  median -0.522  win  28%  without best 1% -0.043
+     separation t = +2.27
+  holdouts without the best 0% of each group: kept +0.571 vs removed +0.023 (gap +0.549R)
+  holdouts without the best 1% of each group: kept +0.381 vs removed -0.096 (gap +0.478R)
+  holdouts without the best 2% of each group: kept +0.273 vs removed -0.160 (gap +0.433R)
+  holdouts without the best 5% of each group: kept +0.044 vs removed -0.295 (gap +0.339R)
+
+  by calendar year (all coins with data): kept vs removed, mean net R (n)
+    2020: kept +4.839 (  3) | removed +1.676 (  2)
+    2021: kept -0.504 (  5) | removed +0.202 (  4)
+    2022: kept -0.746 ( 16) | removed -0.857 ( 15)
+    2023: kept +0.490 (195) | removed +0.206 (246)
+    2024: kept +0.901 (241) | removed +0.189 (229)
+    2025: kept +0.189 (253) | removed -0.262 (177)
+    2026: kept +0.707 (104) | removed +0.344 ( 90)

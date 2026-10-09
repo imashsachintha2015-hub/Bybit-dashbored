@@ -1,0 +1,75 @@
+=== FINAL + UNSEEN, one look, per scenario's frozen DEV-best variant (48 frozen configs; total configs tried 702) ===
+
+-- Volume-Fibonacci (new tool)
+VFIB0.382|any|btcAligned|struct              FINAL n=  53 R=-0.017 t=-0.1 | UNSEEN n= 141 R=-0.011 t=-0.1 | unseen qtrs +0.26 -0.27 -0.14 +0.13 | win  47% PF 0.98 | $10->$   8.39 (181 taken, DD -36%) fail
+VFIB0.5|against1D|btcAligned|2R              FINAL n=  74 R=+0.186 t=+0.9 | UNSEEN n= 288 R=-0.004 t=-0.0 | unseen qtrs +0.11 -0.03 -0.51 +0.34 | win  37% PF 1.06 | $10->$  12.87 (237 taken, DD -37%) fail
+VFIB0.618|against1D|btcAligned|ext           FINAL n=  72 R=+0.479 t=+2.2 | UNSEEN n= 261 R=+0.063 t=+0.5 | unseen qtrs -0.14 +0.22 -0.31 +0.35 | win  42% PF 1.26 | $10->$  13.81 (246 taken, DD -38%) fail
+VFIB0.786|against1D|btcAligned|ext           FINAL n=  66 R=+0.486 t=+1.4 | UNSEEN n= 242 R=+0.066 t=+0.4 | unseen qtrs -0.27 +0.23 -0.30 +0.70 | win  31% PF 1.22 | $10->$   7.81 (226 taken, DD -53%) fail
+
+-- Time-Fibonacci (new tool)
+TFIB0.382|with1D|any|struct                  FINAL n= 817 R=-0.161 t=-1.9 | UNSEEN n=2313 R=-0.104 t=-1.9 | unseen qtrs +0.06 -0.18 -0.18 -0.10 | win  33% PF 0.85 | $10->$   1.00 (812 taken, DD -92%) fail
+TFIB0.618|with1D|any|2R                      FINAL n=1064 R=-0.142 t=-2.1 | UNSEEN n=2895 R=-0.098 t=-2.5 | unseen qtrs -0.02 -0.18 -0.08 -0.10 | win  34% PF 0.85 | $10->$   0.99 (1063 taken, DD -92%) fail
+TFIB1.0|against1D|any|2R                     FINAL n= 800 R=-0.109 t=-1.6 | UNSEEN n=2050 R=-0.133 t=-2.9 | unseen qtrs -0.02 -0.09 -0.21 -0.19 | win  34% PF 0.83 | $10->$   0.99 (890 taken, DD -92%) fail
+
+-- Data-learned retracement grid (new tool)
+LFIB0.30_stopL|against1D|any|2R              FINAL n= 526 R=-0.065 t=-0.8 | UNSEEN n=1367 R=-0.095 t=-1.9 | unseen qtrs -0.10 +0.01 -0.19 -0.08 | win  37% PF 0.85 | $10->$   4.86 (705 taken, DD -62%) fail
+LFIB0.30_stopT|against1D|any|ext             FINAL n= 479 R=-0.126 t=-1.1 | UNSEEN n=1291 R=-0.120 t=-1.8 | unseen qtrs +0.01 -0.01 -0.21 -0.22 | win  22% PF 0.86 | $10->$   0.98 (852 taken, DD -92%) fail
+LFIB0.40_stopL|against1D|any|2R              FINAL n= 638 R=-0.134 t=-1.9 | UNSEEN n=1619 R=-0.154 t=-3.2 | unseen qtrs -0.12 -0.07 -0.26 -0.15 | win  34% PF 0.77 | $10->$   1.29 (813 taken, DD -90%) fail
+LFIB0.40_stopT|against1D|btcAligned|ext      FINAL n=  74 R=-0.000 t=-0.0 | UNSEEN n= 254 R=-0.223 t=-1.5 | unseen qtrs -0.36 -0.14 -0.69 +0.07 | win  19% PF 0.81 | $10->$   3.15 (276 taken, DD -82%) fail
+LFIB0.45_stopL|against1D|any|2R              FINAL n= 645 R=-0.146 t=-2.1 | UNSEEN n=1636 R=-0.135 t=-2.8 | unseen qtrs -0.09 -0.06 -0.18 -0.19 | win  34% PF 0.79 | $10->$   1.84 (880 taken, DD -87%) fail
+LFIB0.45_stopT|against1D|btcAligned|ext      FINAL n=  74 R=+0.320 t=+0.9 | UNSEEN n= 286 R=-0.254 t=-1.6 | unseen qtrs -0.43 -0.20 -0.39 -0.07 | win  19% PF 0.85 | $10->$   5.93 (297 taken, DD -69%) fail
+LFIB0.55_stopL|with1D|any|ext                FINAL n= 650 R=-0.038 t=-0.5 | UNSEEN n=1681 R=+0.002 t=+0.0 | unseen qtrs -0.00 -0.10 +0.15 -0.04 | win  39% PF 0.98 | $10->$   8.68 (1054 taken, DD -84%) fail
+LFIB0.55_stopT|against1D|any|ext             FINAL n= 567 R=-0.134 t=-1.2 | UNSEEN n=1442 R=-0.113 t=-1.6 | unseen qtrs -0.11 -0.05 -0.07 -0.20 | win  17% PF 0.87 | $10->$   1.83 (1311 taken, DD -89%) fail
+LFIB0.60_stopL|with1D|any|2R                 FINAL n= 628 R=-0.042 t=-0.5 | UNSEEN n=1582 R=+0.004 t=+0.1 | unseen qtrs +0.01 -0.09 +0.13 -0.04 | win  36% PF 0.99 | $10->$   3.64 (1054 taken, DD -88%) fail
+LFIB0.60_stopT|with1D|any|ext                FINAL n= 554 R=-0.043 t=-0.4 | UNSEEN n=1492 R=-0.021 t=-0.3 | unseen qtrs +0.05 +0.02 -0.11 -0.03 | win  19% PF 0.97 | $10->$   0.97 (883 taken, DD -94%) fail
+LFIB0.65_stopL|with1D|any|ext                FINAL n= 603 R=-0.003 t=-0.0 | UNSEEN n=1477 R=-0.014 t=-0.2 | unseen qtrs -0.06 -0.09 +0.19 -0.12 | win  32% PF 0.98 | $10->$   2.11 (1041 taken, DD -89%) fail
+LFIB0.65_stopT|with1D|any|ext                FINAL n= 535 R=-0.022 t=-0.2 | UNSEEN n=1401 R=-0.049 t=-0.6 | unseen qtrs +0.04 -0.00 -0.13 -0.09 | win  18% PF 0.95 | $10->$   0.95 (778 taken, DD -96%) fail
+LFIB0.70_stopL|with1D|any|ext                FINAL n= 568 R=-0.019 t=-0.2 | UNSEEN n=1403 R=+0.007 t=+0.1 | unseen qtrs -0.03 -0.12 +0.26 -0.11 | win  29% PF 1.00 | $10->$   2.75 (1042 taken, DD -91%) fail
+LFIB0.70_stopT|with1D|any|ext                FINAL n= 514 R=+0.020 t=+0.2 | UNSEEN n=1340 R=+0.060 t=+0.7 | unseen qtrs -0.10 +0.06 +0.20 +0.04 | win  18% PF 1.06 | $10->$   6.00 (1210 taken, DD -90%) fail
+LFIB0.75_stopL|against1D|btcAligned|2R       FINAL n=  61 R=+0.321 t=+1.2 | UNSEEN n= 239 R=-0.020 t=-0.2 | unseen qtrs -0.33 +0.10 -0.04 +0.19 | win  38% PF 1.08 | $10->$   6.14 (230 taken, DD -46%) fail
+LFIB0.75_stopT|with1D|any|struct             FINAL n= 472 R=+0.065 t=+0.5 | UNSEEN n=1259 R=+0.023 t=+0.3 | unseen qtrs -0.14 -0.02 +0.19 +0.02 | win  22% PF 1.04 | $10->$   0.95 (1198 taken, DD -93%) fail
+LFIB0.80_stopL|against1D|btcAligned|2R       FINAL n=  51 R=+0.378 t=+1.3 | UNSEEN n= 224 R=+0.014 t=+0.1 | unseen qtrs -0.37 +0.12 +0.05 +0.32 | win  39% PF 1.12 | $10->$   8.55 (223 taken, DD -39%) fail
+LFIB0.80_stopT|with1D|any|struct             FINAL n= 436 R=+0.185 t=+1.2 | UNSEEN n=1144 R=-0.002 t=-0.0 | unseen qtrs -0.21 -0.15 +0.41 -0.13 | win  21% PF 1.06 | $10->$   3.24 (1143 taken, DD -91%) fail
+LFIB0.85_stopL|against1D|btcAligned|2R       FINAL n=  42 R=+0.174 t=+0.6 | UNSEEN n= 191 R=-0.029 t=-0.2 | unseen qtrs -0.33 +0.02 -0.06 +0.37 | win  37% PF 1.01 | $10->$   6.86 (198 taken, DD -48%) fail
+LFIB0.90_stopL|against1D|btcAligned|2R       FINAL n=  37 R=+0.158 t=+0.6 | UNSEEN n= 161 R=-0.029 t=-0.2 | unseen qtrs -0.03 -0.11 -0.06 +0.28 | win  38% PF 1.01 | $10->$   8.63 (180 taken, DD -41%) fail
+
+-- SBGZ volatility ladder
+VULADDER4.0|with1D|any|2R                    FINAL n= 557 R=-0.030 t=-0.4 | UNSEEN n=1377 R=-0.022 t=-0.4 | unseen qtrs -0.02 -0.21 +0.18 -0.04 | win  37% PF 0.96 | $10->$   6.02 (814 taken, DD -78%) fail
+VULADDER4.7|against1D|any|ext                FINAL n= 456 R=-0.024 t=-0.2 | UNSEEN n=1037 R=-0.072 t=-1.0 | unseen qtrs -0.20 +0.04 -0.07 -0.07 | win  30% PF 0.92 | $10->$   1.51 (761 taken, DD -87%) fail
+VULADDER5.7|against1D|any|ext                FINAL n= 328 R=-0.224 t=-1.5 | UNSEEN n= 788 R=+0.006 t=+0.1 | unseen qtrs -0.05 +0.12 +0.04 -0.07 | win  18% PF 0.93 | $10->$   3.66 (740 taken, DD -88%) fail
+
+-- Harmonic patterns (Gartley/Bat/AB=CD)
+HARM_ABCD1.0|with1D|btcAligned|struct        FINAL n= 171 R=+0.009 t=+0.1 | UNSEEN n= 502 R=-0.106 t=-1.5 | unseen qtrs -0.32 +0.13 -0.06 -0.19 | win  33% PF 0.89 | $10->$   4.21 (604 taken, DD -71%) fail
+HARM_ABCD1.272|against1D|btcAligned|struct   FINAL n=  23 R=-0.410 t=-1.5 | UNSEEN n= 141 R=-0.148 t=-1.0 | unseen qtrs -0.03 -0.19 -0.24 -0.24 | win  26% PF 0.77 | $10->$   5.13 (150 taken, DD -57%) fail
+HARM_BAT|against1D|any|struct                FINAL n=  32 R=-0.145 t=-0.5 | UNSEEN n=  95 R=-0.184 t=-0.9 | unseen qtrs +0.12 -0.57 +0.08 -0.29 | win  21% PF 0.80 | $10->$   6.03 (126 taken, DD -56%) fail
+HARM_GARTLEY|with1D|btcAligned|struct        FINAL n=  52 R=+0.124 t=+0.7 | UNSEEN n= 116 R=-0.243 t=-2.1 | unseen qtrs -0.16 -0.27 -0.40 -0.10 | win  39% PF 0.80 | $10->$   6.54 (165 taken, DD -51%) fail
+
+-- CME weekend gap fill
+CMEGAP_fill_g0.005_s0.5|against1D|btcAligned|struct FINAL n=  33 R=+0.093 t=+0.4 | UNSEEN n= 136 R=-0.048 t=-0.2 | unseen qtrs -0.09 -0.13 +0.45 -0.26 | win  40% PF 0.97 | $10->$   8.60 (93 taken, DD -25%) fail
+CMEGAP_fill_g0.005_s1.0|against1D|btcAligned|struct FINAL n=  31 R=+0.195 t=+1.0 | UNSEEN n= 139 R=+0.158 t=+1.2 | unseen qtrs +0.36 +0.07 +0.23 -0.07 | win  62% PF 1.46 | $10->$  11.91 (93 taken, DD -17%) fail
+CMEGAP_fill_g0.01_s0.5|against1D|btcAligned|struct FINAL n=  27 R=+0.299 t=+1.4 | UNSEEN n= 121 R=-0.056 t=-0.3 | unseen qtrs -0.31 -0.11 +0.55 -0.10 | win  40% PF 1.01 | $10->$   9.64 (83 taken, DD -22%) fail
+CMEGAP_fill_g0.01_s1.0|against1D|btcAligned|struct FINAL n=  25 R=+0.282 t=+1.8 | UNSEEN n= 121 R=+0.147 t=+1.0 | unseen qtrs +0.33 +0.05 +0.30 -0.08 | win  62% PF 1.49 | $10->$  11.38 (82 taken, DD -16%) fail
+CMEGAP_fill_g0.02_s0.5|with1D|btcAligned|struct FINAL n=  59 R=-0.288 t=-1.6 | UNSEEN n= 214 R=-0.108 t=-0.6 | unseen qtrs -0.65 +0.55 -0.44 -0.21 | win  32% PF 0.80 | $10->$   6.48 (153 taken, DD -39%) fail
+CMEGAP_fill_g0.02_s1.0|against1D|btcAligned|struct FINAL n=  17 R=+0.345 t=+2.4 | UNSEEN n=  94 R=+0.207 t=+1.5 | unseen qtrs +0.41 +0.07 +0.62 -0.08 | win  64% PF 1.75 | $10->$  12.39 (66 taken, DD -13%) fail
+
+-- Dalton 80% value-area rule
+VA80_REENTRY|against1D|btcAligned|2R         FINAL n=  76 R=+0.224 t=+1.1 | UNSEEN n= 267 R=-0.065 t=-0.5 | unseen qtrs -0.10 -0.09 -0.36 +0.20 | win  37% PF 1.00 | $10->$   5.45 (239 taken, DD -55%) fail
+
+-- Previous day/week high-low
+PDH_BREAKOUT_VOL|against1D|btcAligned|struct FINAL n= 121 R=+0.025 t=+0.1 | UNSEEN n= 356 R=+0.048 t=+0.4 | unseen qtrs +0.09 +0.26 -0.57 -0.10 | win  35% PF 1.06 | $10->$   7.37 (345 taken, DD -53%) fail
+PDL_SWEEP_RECLAIM|against1D|btcAligned|struct FINAL n= 135 R=+0.062 t=+0.2 | UNSEEN n= 611 R=-0.191 t=-1.5 | unseen qtrs -0.36 -0.05 -0.28 -0.22 | win  22% PF 0.84 | $10->$   0.98 (309 taken, DD -90%) fail
+PWH_BREAKOUT|against1D|btcAligned|2R         FINAL n=  27 R=+0.091 t=+0.4 | UNSEEN n=  86 R=+0.043 t=+0.2 | unseen qtrs +0.99 +0.05 -0.77 -0.37 | win  38% PF 1.08 | $10->$   9.53 (101 taken, DD -35%) fail
+PWL_SWEEP_RECLAIM|with1D|btcAligned|struct   FINAL n=  94 R=-0.129 t=-0.4 | UNSEEN n= 258 R=+0.483 t=+1.3 | unseen qtrs -0.46 +0.66 +0.06 +1.36 | win  19% PF 1.34 | $10->$  16.33 (289 taken, DD -52%) fail
+
+-- Weekend range on Monday
+WEEKEND_BREAKOUT|against1D|any|2R            FINAL n= 193 R=-0.321 t=-2.7 | UNSEEN n= 480 R=-0.048 t=-0.4 | unseen qtrs +0.17 +0.02 -0.08 -0.25 | win  33% PF 0.81 | $10->$   6.31 (286 taken, DD -57%) fail
+WEEKEND_FAILED_BREAK|any|any|struct          FINAL n= 335 R=+0.001 t=+0.0 | UNSEEN n=1073 R=-0.079 t=-0.7 | unseen qtrs +0.29 -0.02 -0.36 -0.28 | win  21% PF 0.93 | $10->$   0.96 (604 taken, DD -95%) fail
+
+-- Round-number stop hunt
+ROUND_SWEEP_RECLAIM|against1D|btcAligned|struct FINAL n= 628 R=-0.222 t=-2.4 | UNSEEN n=2386 R=-0.180 t=-3.2 | unseen qtrs -0.32 -0.07 -0.39 -0.09 | win  30% PF 0.77 | $10->$   0.95 (199 taken, DD -91%) fail
+
+=== CONTROLS and COST SENSITIVITY (final + unseen) for the top frozen setups by DEV t ===
+  PWH_BREAKOUT|against1D|btcAligned|2R: setup +0.054R (n=113) | random entries (same filter) +0.240R | flipped direction -0.143R | cost 4/8/14/20bps: +0.102 +0.083 +0.054 +0.026
+  PWL_SWEEP_RECLAIM|with1D|btcAligned|struct: setup +0.319R (n=352) | random entries (same filter) -0.263R | flipped direction -0.137R | cost 4/8/14/20bps: +0.414 +0.376 +0.319 +0.263
+  LFIB0.30_stopL|against1D|any|2R: setup -0.086R (n=1893) | random entries (same filter) -0.080R | flipped direction +0.048R | cost 4/8/14/20bps: -0.076 -0.086 -0.102 -0.117
+  PDH_BREAKOUT_VOL|against1D|btcAligned|struct: setup +0.042R (n=477) | random entries (same filter) -0.084R | flipped direction -0.210R | cost 4/8/14/20bps: +0.117 +0.087 +0.042 -0.003

@@ -15,3 +15,8 @@ Verdict: a weak regime-dependent lead, not a 0.5R edge; needs forward (paper) va
 Per-trade entry-time features for the AMD candidate (1,107 trades, 33 coins x 900d). Learned tercile-bucket grades on the first 60% of trades, tested on the last 40% (and reverse).
 Result: dropping grade D did not help out of sample (lift -0.03R both directions; permutation-null p ~0.7-0.8). Nine a-priori loss hypotheses: none significant (need |t|>2.8), several with the opposite sign.
 Loss anatomy: 54% of trades lose exactly -1R (median 12h to stop), winners average +1.72R -- losses are inherent to the 2R payoff design, not a detectable feature.
+
+## Correction 2026-10-08 (found by ../loss_diagnosis)
+disc.py's limit fill checked "close below the gap -> cancel" before "traded through the limit -> filled" on the same bar, a look-ahead
+that dropped real fills (mostly losers). The AMD candidate's +0.19R out-of-sample came largely from it. Corrected, OKX 1H 2021-26,
+all coins: AMD_PRIMARY +0.057R, AMD_NO_GATE +0.028R per trade, not significant. backend_lib/amd_fvg.py is fixed.

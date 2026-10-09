@@ -23,3 +23,11 @@ information candles never contained, once several weeks are recorded.
 signals are paper-tracked locally; set the variable to 0 to re-enable demo execution. Reason: both lost after
 costs in the historical replay (research_archive/historical_replay).
 Persistence: databases live in DATA_DIR (Railway volume mounted at /data).
+
+## 2026-10-08: fill-order fix (look-ahead bias found by the loss diagnosis)
+amd_fvg.scan (and disc_reference.py / discovery_loop/disc.py) checked "close below the gap bottom -> CANCELLED" before "low traded
+through the limit -> FILLED" on the same bar. A resting limit fills before that bar closes, and any bar closing below the gap bottom
+has traded through the entry, so real fills were dropped (1,261 trades over 2021-26, avg -0.24R, 70% stopped). Fixed: fill first.
+Corrected backtest, OKX 1H 2021-06..2026-09, all coins: AMD_PRIMARY +0.056R/trade (t=1.3), AMD_NO_GATE +0.028R (t=0.8);
+on 2021-24 alone -0.004R / -0.020R. The earlier +0.19R and the 2021-24 "pass" came from the biased rule. Parity after the fix:
+parity_check.py on 2024-26 data, 1,595 reference trades, 0 mismatches. Rows recorded live before the fix keep their old status.

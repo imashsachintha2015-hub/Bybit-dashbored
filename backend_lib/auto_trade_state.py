@@ -11,7 +11,8 @@ through kv.py so every browser tab/device sees the same selected strategy.
 from .kv import kv_get_json, kv_set_json
 
 STATE_KEY = "auto_trade_state"
-VALID_STRATEGY_MODES = {"standard", "pure", "cme_x5", "scalp", "sureshot", "championship"}
+# "kalman" = the funding-aware Kalman trend (daemons/kalman_trend_engine.py); the unified engine stands down in it
+VALID_STRATEGY_MODES = {"standard", "pure", "cme_x5", "scalp", "sureshot", "championship", "kalman"}
 
 DEFAULT_STATE = {
     "armed": False,

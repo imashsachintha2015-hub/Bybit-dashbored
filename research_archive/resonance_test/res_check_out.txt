@@ -1,0 +1,6 @@
+no-repaint test: 300 random bars, 0 mismatches
+1D parity BTC: 364 days, 0 differ
+1D parity ETH: 364 days, 0 differ
+1D parity SOL: 364 days, 0 differ
+ladder: TP1+BE +0.3333 (want +0.3333) | all TPs +1.5833 (want +1.5833) | stop -1.0000 (want -1) | same-bar -1.0000 (want -1)
+ALL CHECKS PASSED

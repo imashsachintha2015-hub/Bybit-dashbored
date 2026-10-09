@@ -1,0 +1,4 @@
+stop distance from entry, all 3,080 signals: 50th pct 7.4%, 90th pct 12.5%, 95th pct 14.6%, 99th pct 21.5%, max 43.7%
+   5x: liquidation about 19.0% away -> 1.7% of trades have their stop beyond the liquidation price
+  10x: liquidation about 9.0% away -> 30.9% of trades have their stop beyond the liquidation price
+  20x: liquidation about 4.0% away -> 90.7% of trades have their stop beyond the liquidation price

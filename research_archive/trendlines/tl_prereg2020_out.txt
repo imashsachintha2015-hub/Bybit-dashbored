@@ -1,0 +1,20 @@
+series 66; first 4H bar 2019-12-16; trades in 2020-01 .. 2021-05: 14694
+
+=== PRE-REGISTERED, one look: 2020-01-01 .. 2021-05-31 (pass: avg > 0 and t >= 2.0; strict t >= 2.33) ===
+  KALMAN1  kal   any     n=  943 avg +0.462R t=+2.5 | win 35% PF 2.14 | long +1.085 (468) short -0.152 (475) | 7 full-history coins +0.406 (487) | PASS strict
+        $10 at 1% -> $39.74 (226 trades, DD -12%) | at 2% -> $101.23 (226 trades, DD -23%)
+  STRONG   2     any     n=   62 avg +0.131R t=+0.7 | win 40% PF 1.22 | long +0.239 (24) short +0.063 (38) | 7 full-history coins +0.221 (37) | FAIL
+        $10 at 1% -> $10.88 (61 trades, DD -9%) | at 2% -> $11.68 (61 trades, DD -17%)
+  OPTBRK   3     with1D  n=  570 avg +0.172R t=+1.7 | win 33% PF 1.25 | long +0.300 (463) short -0.386 (107) | 7 full-history coins +0.094 (300) | FAIL
+        $10 at 1% -> $15.05 (262 trades, DD -16%) | at 2% -> $20.38 (262 trades, DD -30%)
+  CHOCH    3     any     n=  567 avg +0.168R t=+2.3 | win 43% PF 1.42 | long +0.444 (335) short -0.231 (232) | 7 full-history coins +0.234 (293) | PASS
+        $10 at 1% -> $12.78 (169 trades, DD -10%) | at 2% -> $15.74 (169 trades, DD -19%)
+  ENSEMBLE (all four in one portfolio) n=2142 avg +0.297R t=+2.9 | win 37% PF 1.62 | PASS strict
+        $10 at 1% -> $12.17 (232 trades, DD -17%) | at 2% -> $13.63 (232 trades, DD -31%)
+
+--- descriptive only: the same four on every period, all coins (2020-21 is the only never-seen one) ---
+  KALMAN1  | 2020-21: +0.477 (1120) | 2021-23: +0.107 (3804) | 2024: +0.196 (1905) | 2025-26: -0.006 (3851)
+  STRONG   | 2020-21: +0.131 (62) | 2021-23: +0.088 (232) | 2024: +0.409 (75) | 2025-26: +0.076 (200)
+  OPTBRK   | 2020-21: +0.149 (904) | 2021-23: +0.069 (2727) | 2024: +0.073 (1508) | 2025-26: +0.042 (2773)
+  CHOCH    | 2020-21: +0.133 (1175) | 2021-23: +0.096 (3890) | 2024: +0.022 (2017) | 2025-26: -0.016 (3819)
+  ENSEMBLE | 2020-21: +0.255 (3261) | 2021-23: +0.093 (10653) | 2024: +0.102 (5505) | 2025-26: +0.005 (10643)

@@ -1,0 +1,5 @@
+=== Kalman + BTC filter, REAL funding: long + short vs long-only (stand aside in BTC downtrends) ===
+  2020-2026         long+short $76.53 (1797 trades, DD -33%) | long-only $67.65 (990 trades, DD -32%)
+  2022 (bear year)  long+short $10.84 (274 trades, DD -20%) | long-only $9.28 (21 trades, DD -7%)
+  2024-2026         long+short $16.90 (814 trades, DD -24%) | long-only $18.71 (447 trades, DD -18%)
+  2025-2026         long+short $11.46 (536 trades, DD -24%) | long-only $12.31 (234 trades, DD -16%)

@@ -6,6 +6,8 @@ Processes:
     snap-back (paper by default), with account-level risk limits and self-monitoring.
   - Forward Lab (daemons/forward_lab.py): record-only research, no orders.  MASIS_FORWARD_LAB=0 switches it off.
   - WVBR forward test (daemons/forward_wvbr.py): paper only, no orders.  MASIS_WVBR_FORWARD=0 switches it off.
+  - Kalman Trend engine (daemons/kalman_trend_engine.py): the dashboard's "Kalman Trend" mode; paper unless KALMAN_LIVE=1
+    and the dashboard's live switch.  MASIS_KALMAN=0 switches it off.
   - HTTP server (server.py): dashboard, API, runner status at /api/runner/status.
 
 The previous CME-X5 / Championship engine is OFF.  Set MASIS_LEGACY_ENGINE=1 to run it again (it is record-only
@@ -50,6 +52,10 @@ def main():
     if _on("MASIS_WVBR_FORWARD", "1"):
         # Blind PAPER forward test of the weekly value breakout retest + BTC gate (and an SBGZ gate log): reads public prices, places no orders, ever.
         daemon_cmds.append(("WVBR Forward Test (paper)", [sys.executable, "daemons/forward_wvbr.py"]))
+    if _on("MASIS_KALMAN", "1"):
+        # Funding-aware 4H Kalman trend: trades only while the dashboard mode is "kalman"; paper unless KALMAN_LIVE=1
+        # and the dashboard's live switch (and a demo endpoint, or MASIS_ALLOW_REAL_MONEY=1).
+        daemon_cmds.append(("Kalman Trend Engine", [sys.executable, "daemons/kalman_trend_engine.py"]))
     if _on("MASIS_LEGACY_ENGINE", "0"):
         daemon_cmds.append(("Legacy CME-X5 / Championship Engine", [sys.executable, "daemons/cme_x5_pure_engine.py"]))
 

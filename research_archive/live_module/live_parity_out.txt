@@ -1,0 +1,11 @@
+/tmp/claude-0/-home-user-Bybit-dashbored/75f1764d-aab5-5961-97c3-7261f6eaa24e/scratchpad/live_parity.py:24: RuntimeWarning: invalid value encountered in divide
+  zmax = max(zmax, float(np.nanmax(np.abs(np.array(z2)[ok] - z1[ok])))); amax = max(amax, float(np.max(np.abs(np.array(a2) - a1) / a1)))
+1. Kalman z: largest |difference| 6.26e-13 over 363403 bars, crossing signals that differ: 0; ATR largest relative difference 0.00e+00
+2. BTC daily trend: 0 of 14881 bars differ
+3. funding average at 3068 system signals: value differs at 115, filter decision differs at 9
+4. trades: research 3080, live module 3080; in both 3080, only research 0, only live 0
+   same entry and exit time: 3070 of 3070 closed (10 still open at the end of the data, which the research closed at the last price)
+   net R with real funding: largest |difference| 2.49e-14 over 3058 trades
+5. warm-up 1000 bars: at 10635 sampled bars, largest |z difference| at the last bar 0.0000; crossing signal differs at 0
+5. warm-up 1500 bars: at 10635 sampled bars, largest |z difference| at the last bar 0.0000; crossing signal differs at 0
+   BTC daily trend from the last 2000 bars: differs at 0 of 476 sampled bars

@@ -114,10 +114,12 @@ def scan(A, P, side="L", fee=FEE_LIMIT, fill_pen=FILL_PEN, since_t=None):
             q = i + w
             if q >= n:
                 state = "PENDING"; break
-            if c[q] < zb:
-                state = "CANCELLED"; break
+            # a resting limit fills as soon as price trades through it, before this bar's close exists:
+            # check the fill first (checking "close below the gap -> cancel" first dropped real fills, mostly losers)
             if l[q] <= ce - fill_pen * atr[i]:
                 filled = q; break
+            if c[q] < zb:
+                state = "CANCELLED"; break
         else:
             state = "EXPIRED"
         if filled is not None:

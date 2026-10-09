@@ -22,7 +22,9 @@ def data_dir():
 DB_PATH = os.path.join(data_dir(), "forward_lab.db")
 
 # Pass/fail rule declared before any forward data existed (see research_archive/forward_lab/README.md)
-CRITERIA = {"min_closed_trades": 60, "min_avg_r": 0.10, "backtest_unseen_avg_r": 0.19}
+# backtest reference, recomputed 2026-10-08 after the fill-order fix in amd_fvg.scan (a touched limit is a fill), OKX 1H
+# 2021-06..2026-09, all coins, net of fees + funding. The earlier 0.19R came from the old order, which dropped real fills.
+CRITERIA = {"min_closed_trades": 60, "min_avg_r": 0.10, "backtest_avg_r": {"AMD_PRIMARY": 0.056, "AMD_NO_GATE": 0.028}}
 
 
 def connect():

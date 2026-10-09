@@ -1,0 +1,26 @@
+[d4] done
+[d5] scen2 events 740829 from 30 coins in 13s
+[d5] done
+
+================ PRE-REGISTERED TESTS: one look at 2021-06 .. 2024-04 (never used) ================
+pass = avg net R > 0 and t >= 2.0 (strict, Bonferroni for 6 tests: t >= 2.6). t is clustered by day.
+
+test                                                               |   2024-26 (found here) |     2021-24 NEVER SEEN | win%   PF |   $10 -> taken maxDD | verdict
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+1 CME gap fill, gap>=1%, stop 1x gap, coin 1D against, BTC aligned | n=  271 +0.150R t=+1.1 | n=  133 -0.288R t=-2.1 |   39 0.55 | $   6.45    92  -41% | FAIL
+2 CME gap fill, gap>=2%, stop 2x gap, no filters                   | n= 2272 +0.050R t=+1.5 | n= 1864 -0.037R t=-1.0 |   62 0.88 | $   8.58   442  -36% | FAIL
+3 weekend vs placebo: filled within 24h (gap>=1%)                  | wkd  44% vs plc  25% t=+5.9 | wkd  42% vs plc  28% t=+4.9 | n weekend 2547, placebo 2897              | PASS strict
+4 AMD_NO_GATE (frozen)                                             | n= 1559 +0.158R t=+2.6 | n= 1375 +0.120R t=+2.3 |   41 1.21 | $  59.31   904  -59% | PASS
+5 PWL sweep+reclaim, coin 1D with, BTC aligned, target PWH         | n=  637 +0.255R t=+1.2 | n=  552 -0.081R t=-0.6 |   22 0.90 | $   2.57   428  -82% | FAIL
+6 AMD_PRIMARY (frozen, reference)                                  | n= 1103 +0.232R t=+3.0 | n=  930 +0.137R t=+2.1 |   42 1.24 | $  29.63   715  -58% | PASS
+
+---- descriptive only (not tests): the same frozen rules on the never-seen period, split up ----
+1 CME gap fill, gap>=1%, stop 1x gap, co years 2021:-0.04(19) 2022:+0.15(31) 2023:-0.76(61) 2024:+0.20(22) | long -0.43(94) short +0.06(39) | cost 4/8/14/20bps -0.247 -0.263 -0.288 -0.312
+2 CME gap fill, gap>=2%, stop 2x gap, no years 2021:+0.12(367) 2022:-0.08(634) 2023:-0.07(633) 2024:-0.07(230) | long -0.08(815) short -0.01(1049) | cost 4/8/14/20bps -0.024 -0.029 -0.037 -0.044
+4 AMD_NO_GATE (frozen)                   years 2021:+0.29(237) 2022:+0.31(433) 2023:-0.07(548) 2024:+0.03(157) | long +0.17(543) short +0.09(832) | cost 4/8/14/20bps +0.134 +0.120 +0.098 +0.076
+5 PWL sweep+reclaim, coin 1D with, BTC a years 2021:+0.15(79) 2022:-0.26(213) 2023:+0.09(181) 2024:-0.22(79) | long -0.08(275) short -0.08(277) | cost 4/8/14/20bps -0.007 -0.037 -0.081 -0.125
+6 AMD_PRIMARY (frozen, reference)        years 2021:+0.25(172) 2022:+0.34(316) 2023:-0.08(329) 2024:+0.02(113) | long +0.19(356) short +0.10(574) | cost 4/8/14/20bps +0.151 +0.137 +0.115 +0.094
+  fill within 24h, gap>=0.5%: weekend 47% (n=2988) vs placebo 33% (n=3171), t=+5.1
+  fill within 24h, gap>=1.0%: weekend 42% (n=2547) vs placebo 28% (n=2897), t=+4.9
+  fill within 24h, gap>=2.0%: weekend 34% (n=1864) vs placebo 21% (n=2378), t=+4.7
+  robustness for test 1 without the round-2 float quirk and without the BTC filter: n=1128 -0.178R t=-3.0

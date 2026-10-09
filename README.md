@@ -538,3 +538,61 @@ The other three findings, briefly:
   ETH over the window measured. The selective "only when funding is positive"
   variant loses to simply staying on, because re-entry fees exceed what the
   timing saves.
+
+---
+
+## 9. Kalman Trend mode (V3.3)
+
+The one setup that survived every honest test in `research_archive/` is now a dashboard mode next to Championship and CME-X5 Pure.
+
+**What it does.**
+- **Long:** the 4H Kalman trend turns up (z crosses +1) while BTC's daily trend is up. It is skipped when the last 3 days of funding average more than 0.03% per 8h.
+- **Short:** the trend turns down (z crosses −1) while BTC's daily trend is down and that funding average is positive.
+- **Exit:** a 3-ATR stop; out at the next open after the trend flips back, or after 20 days. No take-profit: the profit comes from the few trades that run far.
+- **Sizing:** 0.5% risk per trade, at most 8 open, one per coin, on 36 coins.
+- **Backtest:** $10 → $94.12 from 2020 to 2026 (1,616 trades, max drawdown −28%); $10 → $19.37 from 2024 to 2026 (765 trades).
+  - Positive up to about 0.95% slippage per fill.
+  - Expect about 20 trades a month, 35% winners and long losing streaks.
+  - Studies: `research_archive/longshort/`, `openinterest/` and `situations/`.
+
+**How it runs.**
+- `daemons/kalman_trend_engine.py` is started by `launcher.py` (`MASIS_KALMAN=0` keeps it off) and wakes at every 4H close (00, 04, 08, 12, 16, 20 UTC).
+- It reads Bybit public 4H bars and funding, computes the signals with `backend_lib/kalman_trend.py`, and keeps a forward-test record of every system signal in `$DATA_DIR/kalman_trend.db`.
+- It writes `scratch/kalman_trend_live.json` and `scratch/kalman/<SYMBOL>.json` for the dashboard.
+- **Mode not selected:** it only records signals.
+- **Mode selected:** it trades:
+  - **PAPER (default):** a virtual account, default $10, with the research accounting (next-open fills, stop first, 14 bps fees plus real funding).
+  - **LIVE:** market orders with an exchange-side stop on the Bybit account of `BYBIT_BASE_URL`. This needs `KALMAN_LIVE=1` on the server **and** the dashboard switch (Kalman panel → Settings → LIVE orders). Like the strategy runner, it refuses a real-money endpoint unless `MASIS_ALLOW_REAL_MONEY=1`.
+  - When the exchange minimum would force a position bigger than the 0.5% risk, the trade is skipped unless the larger risk stays within "max risk if the exchange minimum is bigger" (default 2%).
+- Open positions are always managed to their exit, even after another mode is selected. The legacy CME-X5 / Championship engine (off unless `MASIS_LEGACY_ENGINE=1`) stands down while Kalman is selected.
+- **Sharing the account with the strategy runner and the SBGZ auto-orders.** All of them can trade the same Bybit account:
+  - Kalman never enters a coin that already has a position or a resting order; the runner does the same.
+  - It manages and books only the position it opened itself: the same side, size and entry price on the exchange. If the coin's position is not its own any more (another strategy's, or changed by hand), Kalman leaves it alone and says so in its events.
+  - Its result comes only from closed-P&L records at its own entry price, so another strategy's trade on the same coin is never counted.
+  - Every order carries a deterministic id, so a retry cannot open the same trade twice. A position whose stop cannot be set is closed.
+  - Open risk adds up across the strategies: the runner's caps (up to 7.5% of equity) count only its own trades, and Kalman's 8 positions at 0.5% add up to 4%.
+
+**Dashboard.**
+- **Mode button:** opens a three-way chooser.
+- **Kalman panel** (sidebar or quick-jump "Kalman Trend", mobile tab "Kalman") shows:
+  - mode, execution, equity, positions, results, BTC daily trend and the forward test;
+  - open positions with R;
+  - a radar of every coin (z, trend, funding, this bar's signal and why it was or wasn't taken);
+  - recent trades, engine events and settings.
+- **KALMAN chart indicator** (on the Bybit Fast Canvas chart, 4H and lower):
+  - the Kalman trend line, green or red with the trend;
+  - entry and exit markers with R;
+  - the entry and stop lines of an open position;
+  - a z readout.
+
+**API.**
+- `GET /api/kalman/status`
+- `GET /api/kalman/indicator?symbol=BTCUSDT`
+- `POST /api/kalman/settings`: risk %, max open, optional open-interest and correlation rules, leverage, live switch, paper restart. Values are validated and clamped.
+
+**Checks.**
+- `tests/test_kalman_trend.py` covers the rules, sizing and settings, plus paper, standby and live runs against a fake exchange, including an account shared with other strategies.
+- `research_archive/live_module/`:
+  - the live code reproduces all 3,080 research trades;
+  - a 15-month bar-by-bar replay of the engine takes the same 363 portfolio trades as the backtest;
+  - a browser check of the mode, panel and indicator.

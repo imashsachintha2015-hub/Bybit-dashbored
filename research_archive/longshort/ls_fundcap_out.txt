@@ -1,0 +1,7 @@
+long signals skipped by the cap (funding > 0.03%/payment): 295
+  system                             2020     2021     2022     2023     2024     2025     2026
+  BASE + SHORT_FUND                 14.11    22.56    10.86    13.68    14.86     9.30    13.04
+  + LONG_FUND_CAP                   14.27    23.04    10.86    13.81    15.72     9.30    13.04   better in 4/7 years
+  BASE + SHORT_FUND                    2020-2026 $10 -> $86.84 (1708 trades, DD -28%) | 2024-2026 $10 -> $18.32 (785 trades, DD -19%)
+  BASE + SHORT_FUND + LONG_FUND_CAP    2020-2026 $10 -> $94.12 (1616 trades, DD -28%) | 2024-2026 $10 -> $19.37 (765 trades, DD -19%)
+  BASE (for reference)                 2020-2026 $10 -> $76.53 (1797 trades, DD -33%) | 2024-2026 $10 -> $16.90 (814 trades, DD -24%)

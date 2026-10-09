@@ -1,0 +1,61 @@
+=== resonance with limit orders, base 1H: 216 configs (54 x 4 execution modes) ===
+all coins, whole period, per execution mode: fill rate | avg fee per trade | configs positive after fees (of 54) | avg net R over the 54
+  MKT   fill 100.0% | fee 0.050R | positive 17/54 | avg -0.033R
+  LMT0  fill  96.0% | fee 0.026R | positive 15/54 | avg -0.044R
+  LMT25 fill  80.8% | fee 0.029R | positive 15/54 | avg -0.053R
+  LMT50 fill  64.6% | fee 0.033R | positive 13/54 | avg -0.088R
+chance check: DEV t>=3: 0 (luck ~0.29); t>=2: 0 (luck ~4.9)
+
+frozen on DEV (best agree/adx per trigger x exit x mode) DEV            | VAL            | FINAL                 | UNSEEN coins          | verdict
+  choch agree>=3 adx>=25 ladder MKT          +0.062 t=+1.4 | +0.034 t=+0.6 | -0.078 t=-1.4 n=1039 | +0.014 t=+0.4 n=2764 | fail | $10 1%: $10.52 (1270 trades, DD -32%)
+  choch agree>=3 adx>=25 ladder LMT0         +0.053 t=+1.2 | +0.026 t=+0.4 | -0.076 t=-1.4 n=1015 | -0.006 t=-0.2 n=2700 | fail | $10 1%: $10.42 (1277 trades, DD -35%)
+  choch agree>=3 adx>=20 ladder LMT25        +0.064 t=+1.7 | +0.028 t=+0.5 | -0.088 t=-1.8 n=1325 | -0.027 t=-0.9 n=3524 | fail | $10 1%: $5.32 (1499 trades, DD -66%)
+  choch agree>=3 adx>=25 ladder LMT50        +0.066 t=+1.4 | +0.021 t=+0.4 | -0.133 t=-2.3 n= 887 | -0.001 t=-0.0 n=2388 | fail | $10 1%: $6.54 (1335 trades, DD -49%)
+  choch agree>=3 adx>=25 1.5R   MKT          +0.073 t=+1.5 | +0.013 t=+0.2 | -0.084 t=-1.3 n=1109 | +0.015 t=+0.4 n=2936 | fail | $10 1%: $11.68 (1276 trades, DD -31%)
+  choch agree>=3 adx>=25 1.5R   LMT0         +0.066 t=+1.3 | +0.021 t=+0.3 | -0.075 t=-1.2 n=1080 | +0.007 t=+0.2 n=2854 | fail | $10 1%: $12.68 (1298 trades, DD -42%)
+  choch agree>=3 adx>=20 1.5R   LMT25        +0.060 t=+1.4 | +0.040 t=+0.7 | -0.092 t=-1.7 n=1404 | -0.008 t=-0.2 n=3725 | fail | $10 1%: $5.27 (1592 trades, DD -70%)
+  choch agree>=3 adx>=25 1.5R   LMT50        +0.074 t=+1.5 | +0.073 t=+1.1 | -0.088 t=-1.4 n= 952 | +0.019 t=+0.5 n=2546 | fail | $10 1%: $10.59 (1463 trades, DD -41%)
+  choch agree>=3 adx>=25 2.25R  MKT          +0.097 t=+1.5 | +0.032 t=+0.4 | -0.077 t=-1.0 n=1004 | +0.028 t=+0.6 n=2623 | fail | $10 1%: $12.49 (1113 trades, DD -33%)
+  choch agree>=5 adx>=25 2.25R  LMT0         +0.114 t=+1.3 | -0.002 t=-0.0 | -0.123 t=-1.2 n= 430 | +0.066 t=+1.0 n=1158 | fail | $10 1%: $8.74 (692 trades, DD -45%)
+  choch agree>=3 adx>=20 2.25R  LMT25        +0.093 t=+1.7 | +0.040 t=+0.5 | -0.099 t=-1.5 n=1251 | -0.020 t=-0.5 n=3329 | fail | $10 1%: $4.99 (1320 trades, DD -72%)
+  choch agree>=3 adx>=20 2.25R  LMT50        +0.050 t=+0.9 | +0.031 t=+0.4 | -0.155 t=-2.4 n=1186 | -0.011 t=-0.3 n=3126 | fail | $10 1%: $5.30 (1368 trades, DD -72%)
+  ema   agree>=4 adx>=25 ladder MKT          -0.108 t=-2.2 | -0.033 t=-0.5 | -0.116 t=-2.0 n= 724 | -0.067 t=-1.7 n=2124 | fail | $10 1%: $1.80 (1611 trades, DD -85%)
+  ema   agree>=4 adx>=25 ladder LMT0         -0.135 t=-2.7 | -0.048 t=-0.7 | -0.117 t=-2.0 n= 694 | -0.093 t=-2.4 n=2043 | fail | $10 1%: $1.33 (1567 trades, DD -88%)
+  ema   agree>=4 adx>=25 ladder LMT25        -0.174 t=-3.5 | -0.062 t=-0.9 | -0.139 t=-2.4 n= 605 | -0.100 t=-2.5 n=1817 | fail | $10 1%: $1.33 (1583 trades, DD -87%)
+  ema   agree>=4 adx>=25 ladder LMT50        -0.198 t=-3.9 | -0.138 t=-2.2 | -0.241 t=-4.3 n= 492 | -0.167 t=-3.8 n=1548 | fail | $10 1%: $1.00 (1229 trades, DD -90%)
+  ema   agree>=4 adx>=25 1.5R   MKT          -0.087 t=-1.6 | -0.014 t=-0.2 | -0.112 t=-1.7 n= 729 | -0.054 t=-1.3 n=2123 | fail | $10 1%: $1.75 (1665 trades, DD -84%)
+  ema   agree>=4 adx>=25 1.5R   LMT0         -0.114 t=-2.1 | -0.018 t=-0.2 | -0.126 t=-1.9 n= 701 | -0.077 t=-1.8 n=2050 | fail | $10 1%: $1.23 (1623 trades, DD -88%)
+  ema   agree>=4 adx>=25 1.5R   LMT25        -0.168 t=-3.2 | -0.051 t=-0.7 | -0.134 t=-2.0 n= 608 | -0.099 t=-2.2 n=1834 | fail | $10 1%: $1.23 (1611 trades, DD -89%)
+  ema   agree>=4 adx>=25 1.5R   LMT50        -0.199 t=-3.4 | -0.146 t=-2.2 | -0.242 t=-3.6 n= 504 | -0.177 t=-3.8 n=1567 | fail | $10 1%: $0.99 (1250 trades, DD -90%)
+  ema   agree>=3 adx>=25 2.25R  MKT          -0.075 t=-1.4 | -0.010 t=-0.1 | -0.179 t=-2.7 n=1024 | -0.078 t=-1.8 n=2894 | fail | $10 1%: $1.86 (1748 trades, DD -85%)
+  ema   agree>=3 adx>=25 2.25R  LMT0         -0.095 t=-1.8 | -0.019 t=-0.2 | -0.173 t=-2.6 n= 983 | -0.089 t=-2.1 n=2818 | fail | $10 1%: $2.00 (1728 trades, DD -84%)
+  ema   agree>=4 adx>=25 2.25R  LMT25        -0.153 t=-2.4 | +0.015 t=+0.2 | -0.149 t=-1.9 n= 580 | -0.090 t=-1.7 n=1749 | fail | $10 1%: $1.45 (1433 trades, DD -87%)
+  ema   agree>=4 adx>=25 2.25R  LMT50        -0.173 t=-2.6 | -0.094 t=-1.1 | -0.259 t=-3.3 n= 479 | -0.163 t=-2.8 n=1505 | fail | $10 1%: $0.99 (1219 trades, DD -90%)
+
+=== second holdout 2021-24 (d5), all coins, the same frozen configs; pass = avg > 0 and t >= 2 ===
+  choch agree>=3 adx>=25 ladder MKT          -0.029R t=-1.2 n= 5850 (before fees +0.016) | win 50% PF 0.94 | fail | $10 at 1% -> $6.27 (1628 trades, DD -56%) | at 2% -> $3.11 (1628 trades, DD -83%)
+  choch agree>=3 adx>=25 ladder LMT0         -0.041R t=-1.7 n= 5716 (before fees -0.017) | win 48% PF 0.92 | fail | $10 at 1% -> $5.06 (1624 trades, DD -58%) | at 2% -> $2.02 (1624 trades, DD -85%)
+  choch agree>=3 adx>=20 ladder LMT25        -0.025R t=-1.1 n= 7253 (before fees +0.002) | win 49% PF 0.95 | fail | $10 at 1% -> $7.63 (1847 trades, DD -44%) | at 2% -> $4.41 (1847 trades, DD -72%)
+  choch agree>=3 adx>=25 ladder LMT50        -0.071R t=-2.7 n= 5104 (before fees -0.041) | win 47% PF 0.86 | fail | $10 at 1% -> $3.85 (1714 trades, DD -67%) | at 2% -> $0.99 (1260 trades, DD -91%)
+  choch agree>=3 adx>=25 1.5R   MKT          -0.023R t=-0.8 n= 6163 (before fees +0.022) | win 42% PF 0.96 | fail | $10 at 1% -> $9.82 (1693 trades, DD -55%) | at 2% -> $6.97 (1693 trades, DD -82%)
+  choch agree>=3 adx>=25 1.5R   LMT0         -0.036R t=-1.3 n= 6029 (before fees -0.014) | win 41% PF 0.94 | fail | $10 at 1% -> $7.22 (1673 trades, DD -59%) | at 2% -> $3.76 (1673 trades, DD -85%)
+  choch agree>=3 adx>=20 1.5R   LMT25        -0.023R t=-0.9 n= 7640 (before fees +0.002) | win 41% PF 0.96 | fail | $10 at 1% -> $9.66 (1907 trades, DD -52%) | at 2% -> $6.15 (1907 trades, DD -81%)
+  choch agree>=3 adx>=25 1.5R   LMT50        -0.062R t=-2.1 n= 5395 (before fees -0.033) | win 40% PF 0.90 | fail | $10 at 1% -> $3.17 (1837 trades, DD -71%) | at 2% -> $1.00 (1293 trades, DD -90%)
+  choch agree>=3 adx>=25 2.25R  MKT          -0.008R t=-0.2 n= 5573 (before fees +0.037) | win 36% PF 0.99 | fail | $10 at 1% -> $13.39 (1421 trades, DD -59%) | at 2% -> $12.42 (1421 trades, DD -84%)
+  choch agree>=5 adx>=25 2.25R  LMT0         -0.060R t=-1.2 n= 2529 (before fees -0.036) | win 34% PF 0.90 | fail | $10 at 1% -> $11.65 (991 trades, DD -34%) | at 2% -> $10.04 (991 trades, DD -63%)
+  choch agree>=3 adx>=20 2.25R  LMT25        -0.005R t=-0.2 n= 6849 (before fees +0.023) | win 35% PF 0.99 | fail | $10 at 1% -> $9.66 (1566 trades, DD -50%) | at 2% -> $6.13 (1566 trades, DD -79%)
+  choch agree>=3 adx>=20 2.25R  LMT50        -0.032R t=-1.0 n= 6456 (before fees -0.000) | win 34% PF 0.95 | fail | $10 at 1% -> $4.54 (1731 trades, DD -73%) | at 2% -> $0.95 (1161 trades, DD -92%)
+  ema   agree>=4 adx>=25 ladder MKT          -0.119R t=-4.3 n= 4641 (before fees -0.031) | win 48% PF 0.79 | fail | $10 at 1% -> $0.99 (1709 trades, DD -91%) | at 2% -> $0.99 (862 trades, DD -91%)
+  ema   agree>=4 adx>=25 ladder LMT0         -0.122R t=-4.3 n= 4497 (before fees -0.076) | win 45% PF 0.79 | fail | $10 at 1% -> $0.98 (1552 trades, DD -90%) | at 2% -> $0.98 (779 trades, DD -90%)
+  ema   agree>=4 adx>=25 ladder LMT25        -0.131R t=-4.8 n= 4038 (before fees -0.071) | win 46% PF 0.77 | fail | $10 at 1% -> $1.00 (1546 trades, DD -90%) | at 2% -> $0.99 (787 trades, DD -90%)
+  ema   agree>=4 adx>=25 ladder LMT50        -0.182R t=-6.4 n= 3450 (before fees -0.101) | win 44% PF 0.71 | fail | $10 at 1% -> $0.99 (1298 trades, DD -90%) | at 2% -> $0.98 (761 trades, DD -90%)
+  ema   agree>=4 adx>=25 1.5R   MKT          -0.124R t=-4.0 n= 4618 (before fees -0.037) | win 39% PF 0.81 | fail | $10 at 1% -> $1.00 (1804 trades, DD -90%) | at 2% -> $0.98 (830 trades, DD -91%)
+  ema   agree>=4 adx>=25 1.5R   LMT0         -0.121R t=-3.8 n= 4497 (before fees -0.077) | win 37% PF 0.81 | fail | $10 at 1% -> $0.97 (1775 trades, DD -90%) | at 2% -> $0.96 (819 trades, DD -90%)
+  ema   agree>=4 adx>=25 1.5R   LMT25        -0.134R t=-4.4 n= 4068 (before fees -0.077) | win 37% PF 0.80 | fail | $10 at 1% -> $0.99 (1350 trades, DD -90%) | at 2% -> $0.99 (785 trades, DD -90%)
+  ema   agree>=4 adx>=25 1.5R   LMT50        -0.182R t=-5.9 n= 3486 (before fees -0.102) | win 36% PF 0.74 | fail | $10 at 1% -> $0.97 (1327 trades, DD -90%) | at 2% -> $0.99 (781 trades, DD -90%)
+  ema   agree>=3 adx>=25 2.25R  MKT          -0.069R t=-2.1 n= 6555 (before fees +0.017) | win 33% PF 0.90 | fail | $10 at 1% -> $1.93 (2322 trades, DD -85%) | at 2% -> $0.99 (1799 trades, DD -93%)
+  ema   agree>=3 adx>=25 2.25R  LMT0         -0.068R t=-2.1 n= 6381 (before fees -0.022) | win 32% PF 0.90 | fail | $10 at 1% -> $1.79 (2304 trades, DD -85%) | at 2% -> $0.99 (1436 trades, DD -93%)
+  ema   agree>=4 adx>=25 2.25R  LMT25        -0.139R t=-3.6 n= 3860 (before fees -0.078) | win 29% PF 0.82 | fail | $10 at 1% -> $0.98 (1433 trades, DD -90%) | at 2% -> $0.94 (733 trades, DD -91%)
+  ema   agree>=4 adx>=25 2.25R  LMT50        -0.157R t=-4.0 n= 3359 (before fees -0.075) | win 29% PF 0.80 | fail | $10 at 1% -> $0.97 (1417 trades, DD -91%) | at 2% -> $0.98 (795 trades, DD -91%)
+
+PASSED (final + unseen bar): none

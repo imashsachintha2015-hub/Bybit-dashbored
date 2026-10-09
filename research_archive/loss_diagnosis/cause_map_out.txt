@@ -1,0 +1,80 @@
+configs with >= 60 trades in both periods: 934
+
+class in 2024-26 (rows) vs 2021-24 (columns):
+                    wrong direction          no edge   killed by fees       profitable
+wrong direction                   7               34                0                0
+no edge                          29              825                2               21
+killed by fees                    0                3                0                0
+profitable                        0               13                0                0
+same class in both periods: 832/934 (89%)
+
+per setup family (all its variants): share of variants per class in BOTH periods, avg gross / net R per trade 2024-26 -> 2021-24
+  STOPHUNT_EQUAL_LOWS        [market] no edge         (12/12 variants in both) | gross -0.012 -> -0.018 | net -0.190 -> -0.189
+  RSI_DIVERGENCE             [market] no edge         (12/12 variants in both) | gross -0.002 -> -0.052 | net -0.113 -> -0.154
+  RANGE_BREAK_VOL            [market] no edge         (12/12 variants in both) | gross +0.018 -> +0.056 | net -0.022 -> +0.018
+  FIB0.635                   [limit*] no edge         (18/18 variants in both) | gross -0.002 -> -0.000 | net -0.041 -> -0.036
+  FIB0.5                     [limit*] no edge         (12/12 variants in both) | gross +0.006 -> +0.009 | net -0.022 -> -0.018
+  POC_IMPULSE                [limit*] no edge         (18/18 variants in both) | gross +0.086 -> +0.005 | net +0.046 -> -0.033
+  VAL_IMPULSE                [limit*] no edge         (18/18 variants in both) | gross +0.029 -> +0.014 | net -0.015 -> -0.028
+  AVWAP_FROM_LOW             [limit*] no edge         (17/17 variants in both) | gross -0.002 -> -0.001 | net -0.029 -> -0.027
+  ACCUM_SPRING               [market] no edge         (12/12 variants in both) | gross -0.013 -> -0.022 | net -0.176 -> -0.166
+  PWH_BREAKOUT               [market] no edge         (12/12 variants in both) | gross +0.135 -> +0.019 | net +0.074 -> -0.035
+  PDH_BREAKOUT_VOL           [market] no edge         (12/12 variants in both) | gross +0.041 -> +0.027 | net -0.050 -> -0.058
+  TFIB0.382                  [market] no edge         (12/12 variants in both) | gross -0.001 -> -0.034 | net -0.146 -> -0.171
+  TFIB0.618                  [market] no edge         (12/12 variants in both) | gross -0.013 -> -0.036 | net -0.150 -> -0.167
+  HARM_ABCD1.0               [limit*] no edge         (18/18 variants in both) | gross +0.010 -> +0.031 | net -0.074 -> -0.054
+  TFIB1.0                    [market] no edge         (12/12 variants in both) | gross -0.016 -> -0.033 | net -0.146 -> -0.157
+  VFIB0.786                  [limit*] no edge         (18/18 variants in both) | gross +0.048 -> +0.029 | net -0.002 -> -0.019
+  LFIB0.55_stopL             [limit*] no edge         (18/18 variants in both) | gross -0.010 -> -0.009 | net -0.041 -> -0.038
+  LFIB0.75_stopL             [limit*] no edge         (18/18 variants in both) | gross +0.045 -> +0.043 | net -0.010 -> -0.009
+  LFIB0.80_stopL             [limit*] no edge         (18/18 variants in both) | gross +0.079 -> +0.051 | net +0.012 -> -0.014
+  LFIB0.85_stopL             [limit*] no edge         (18/18 variants in both) | gross +0.073 -> +0.078 | net -0.012 -> -0.003
+  VULADDER4.0                [limit*] no edge         (18/18 variants in both) | gross -0.035 -> -0.003 | net -0.060 -> -0.027
+  VULADDER4.7                [limit*] no edge         (18/18 variants in both) | gross -0.049 -> -0.012 | net -0.082 -> -0.043
+  VULADDER5.7                [limit*] no edge         (18/18 variants in both) | gross -0.009 -> +0.039 | net -0.066 -> -0.016
+  VFIB0.382                  [limit*] no edge         (17/17 variants in both) | gross -0.004 -> +0.036 | net -0.032 -> +0.009
+  VFIB0.5                    [limit*] no edge         (18/18 variants in both) | gross -0.014 -> +0.008 | net -0.046 -> -0.022
+  LFIB0.30_stopL             [limit*] no edge         (6/6 variants in both) | gross -0.016 -> +0.011 | net -0.036 -> -0.007
+  LFIB0.45_stopL             [limit*] no edge         (12/12 variants in both) | gross +0.001 -> +0.011 | net -0.025 -> -0.013
+  LFIB0.60_stopT             [limit*] no edge         (18/18 variants in both) | gross -0.015 -> -0.028 | net -0.096 -> -0.106
+  CMEGAP_fill_g0.02_s1.0     [market] no edge         (6/6 variants in both) | gross +0.061 -> -0.051 | net +0.026 -> -0.088
+  HARM_GARTLEY               [limit*] no edge         (15/15 variants in both) | gross -0.036 -> -0.038 | net -0.112 -> -0.113
+  FIB0.705                   [limit*] no edge         (17/18 variants in both) | gross +0.009 -> +0.027 | net -0.039 -> -0.017
+  LFIB0.60_stopL             [limit*] no edge         (17/18 variants in both) | gross -0.007 -> +0.004 | net -0.042 -> -0.029
+  LFIB0.65_stopL             [limit*] no edge         (17/18 variants in both) | gross -0.001 -> +0.012 | net -0.042 -> -0.026
+  LFIB0.70_stopL             [limit*] no edge         (17/18 variants in both) | gross +0.007 -> +0.028 | net -0.040 -> -0.015
+  VFIB0.618                  [limit*] no edge         (17/18 variants in both) | gross +0.016 -> +0.009 | net -0.020 -> -0.026
+  LFIB0.65_stopT             [limit*] no edge         (17/18 variants in both) | gross -0.029 -> +0.013 | net -0.111 -> -0.065
+  FIB0.382                   [limit*] no edge         (11/12 variants in both) | gross -0.014 -> +0.018 | net -0.036 -> -0.003
+  LFIB0.40_stopL             [limit*] no edge         (11/12 variants in both) | gross -0.013 -> +0.019 | net -0.036 -> -0.002
+  WEEKEND_FAILED_BREAK       [market] no edge         (11/12 variants in both) | gross +0.066 -> +0.065 | net -0.077 -> -0.069
+  FIB0.786                   [limit*] no edge         (16/18 variants in both) | gross +0.077 -> +0.050 | net +0.014 -> -0.010
+  LFIB0.70_stopT             [limit*] no edge         (16/18 variants in both) | gross +0.032 -> +0.052 | net -0.050 -> -0.027
+  LFIB0.40_stopT             [limit*] no edge         (16/18 variants in both) | gross -0.036 -> +0.016 | net -0.116 -> -0.060
+  FAKEOUT_BODY               [market] no edge         (10/12 variants in both) | gross +0.025 -> +0.005 | net -0.097 -> -0.115
+  VA80_REENTRY               [market] no edge         (10/12 variants in both) | gross -0.051 -> -0.007 | net -0.140 -> -0.095
+  PDL_SWEEP_RECLAIM          [market] no edge         (10/12 variants in both) | gross -0.041 -> +0.025 | net -0.192 -> -0.112
+  PWL_SWEEP_RECLAIM          [market] no edge         (10/12 variants in both) | gross +0.121 -> +0.101 | net -0.003 -> -0.003
+  LFIB0.90_stopL             [limit*] no edge         (15/18 variants in both) | gross +0.072 -> +0.078 | net -0.041 -> -0.031
+  CMEGAP_fill_g0.005_s0.5    [market] no edge         (5/6 variants in both) | gross +0.015 -> -0.056 | net -0.116 -> -0.196
+  CMEGAP_fill_g0.01_s0.5     [market] no edge         (5/6 variants in both) | gross +0.035 -> -0.062 | net -0.068 -> -0.171
+  CMEGAP_fill_g0.01_s1.0     [market] no edge         (5/6 variants in both) | gross +0.022 -> -0.086 | net -0.030 -> -0.142
+  LFIB0.45_stopT             [limit*] no edge         (15/18 variants in both) | gross -0.030 -> +0.006 | net -0.111 -> -0.071
+  CMEGAP_fill_g0.02_s0.5     [market] no edge         (5/6 variants in both) | gross +0.052 -> -0.060 | net -0.017 -> -0.134
+  HARM_ABCD1.272             [limit*] no edge         (14/18 variants in both) | gross -0.032 -> +0.087 | net -0.119 -> +0.000
+  LFIB0.75_stopT             [limit*] no edge         (14/18 variants in both) | gross +0.082 -> +0.091 | net -0.001 -> +0.012
+  LFIB0.55_stopT             [limit*] no edge         (14/18 variants in both) | gross -0.016 -> -0.069 | net -0.097 -> -0.147
+  WEEKEND_BREAKOUT           [market] no edge         (9/12 variants in both) | gross -0.131 -> -0.046 | net -0.175 -> -0.090
+  HARM_BAT                   [limit*] no edge         (11/15 variants in both) | gross -0.124 -> +0.064 | net -0.231 -> -0.036
+  CMEGAP_fill_g0.005_s1.0    [market] no edge         (4/6 variants in both) | gross +0.006 -> -0.084 | net -0.065 -> -0.162
+  ROUND_SWEEP_RECLAIM        [market] no edge         (6/12 variants in both) | gross -0.017 -> -0.034 | net -0.171 -> -0.183
+  LFIB0.80_stopT             [limit*] no edge         (9/18 variants in both) | gross +0.143 -> +0.103 | net +0.059 -> +0.022
+  LFIB0.30_stopT             [limit*] no edge         (9/18 variants in both) | gross -0.065 -> +0.033 | net -0.144 -> -0.042
+  RANGE_FADE_LOW             [market] no edge         (5/12 variants in both) | gross -0.029 -> -0.037 | net -0.138 -> -0.140
+  REVERSAL_CHOCH_MKT         [market] no edge         (5/12 variants in both) | gross -0.075 -> -0.090 | net -0.118 -> -0.131
+  RANGE_SWEEP_RECLAIM        [market] no edge         (4/12 variants in both) | gross -0.138 -> +0.021 | net -0.287 -> -0.110
+  REVERSAL_CHOCH_RETEST      [limit*] no edge         (3/12 variants in both) | gross -0.068 -> -0.087 | net -0.094 -> -0.112
+
+profitable in BOTH periods (gross t>=2 and net>0 in each): 0 -> none
+killed by fees in BOTH periods (a real but small edge - only cheaper execution could save it): 0
+* limit-entry families: upper bound (fill-order look-ahead in scen.py/scen2.py, same as the AMD bug)

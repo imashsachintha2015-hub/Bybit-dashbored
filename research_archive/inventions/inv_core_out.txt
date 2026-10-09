@@ -1,0 +1,3 @@
+no-repaint test (inventions): 24 cut points x 6 estimators, 0 mismatches (49s)
+mirror check (Kalman z of -price == -z): max abs difference 0.00e+00
+parity with tl_core.kalman_trend (benchmark KALMAN1): max abs z difference 0.00e+00, same NaN pattern True
