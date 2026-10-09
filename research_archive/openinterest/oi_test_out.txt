@@ -1,0 +1,90 @@
+parity: final system 2020-01 .. 2026-09 $10 -> $94.12 (1616 trades, DD -28%) [longshort/README: $94.12, 1,616 trades, -28%]
+8 pre-registered tests; at t >= 2.0 about 0.18 false passes are expected by luck, at t >= 2.5 about 0.05
+
+=== PRIMARY: shorts - average net R per signal (n): benchmark = all signals with data | kept by the filter | removed ===
+  S_RETAIL_LONG (keep if LSR > 0)
+    DEV    bench +0.149 (238) | kept +0.240 (184) | removed -0.163 ( 54)  
+    VAL    bench -0.091 ( 77) | kept -0.154 ( 52) | removed +0.039 ( 25)  loss
+    FINAL  bench -0.052 (296) | kept -0.037 (161) | removed -0.070 (135)  win
+    UNSEEN bench +0.095 (376) | kept +0.104 (262) | removed +0.073 (114)  win
+    OLD    bench -0.366 (  2) | kept -0.669 (  1) | removed -0.063 (  1)  too few (not counted)
+    pooled holdouts: kept +0.027R (n 476, se 0.102) vs removed -0.001R (n 275, se 0.108): separation t = +0.18; wins 2 of 3 counted holdouts -> fail
+  S_OI_BUILD (keep if OI24 > 0)
+    DEV    bench +0.190 (291) | kept +0.239 (132) | removed +0.149 (159)  
+    VAL    bench -0.091 ( 77) | kept -0.130 ( 40) | removed -0.049 ( 37)  loss
+    FINAL  bench -0.052 (296) | kept +0.003 (190) | removed -0.150 (106)  win
+    UNSEEN bench +0.111 (416) | kept +0.106 (230) | removed +0.118 (186)  loss
+    OLD    bench -0.366 (  2) | kept -0.366 (  2) | removed     -        too few (not counted)
+    pooled holdouts: kept +0.041R (n 462, se 0.104) vs removed +0.013R (n 329, se 0.091): separation t = +0.21; wins 1 of 3 counted holdouts -> fail
+  S_OI_HIGH (keep if OI30 > 0)
+    DEV    bench +0.222 (264) | kept +0.368 (135) | removed +0.069 (129)  
+    VAL    bench -0.091 ( 77) | kept -0.149 ( 36) | removed -0.040 ( 41)  loss
+    FINAL  bench -0.052 (296) | kept -0.004 (158) | removed -0.107 (138)  win
+    UNSEEN bench +0.121 (395) | kept +0.115 (217) | removed +0.129 (178)  loss
+    OLD    bench -0.366 (  2) | kept -0.366 (  2) | removed     -        too few (not counted)
+    pooled holdouts: kept +0.044R (n 413, se 0.112) vs removed +0.018R (n 357, se 0.089): separation t = +0.18; wins 1 of 3 counted holdouts -> fail
+  S_TAKER_SELL (keep if TK24 < 0)
+    DEV    bench +0.047 (228) | kept +0.033 (193) | removed +0.127 ( 35)  
+    VAL    bench -0.091 ( 77) | kept -0.198 ( 66) | removed +0.552 ( 11)  loss
+    FINAL  bench -0.052 (296) | kept -0.036 (209) | removed -0.090 ( 87)  win
+    UNSEEN bench +0.033 (372) | kept +0.048 (302) | removed -0.032 ( 70)  win
+    OLD    bench -0.366 (  2) | kept -0.063 (  1) | removed -0.669 (  1)  too few (not counted)
+    pooled holdouts: kept -0.011R (n 578, se 0.093) vs removed -0.028R (n 169, se 0.108): separation t = +0.12; wins 2 of 3 counted holdouts -> fail
+
+=== SECONDARY: longs - average net R per signal (n): benchmark = all signals with data | kept by the filter | removed ===
+  L_RETAIL_SHORT (keep if LSR < 0)
+    DEV    bench +0.348 (291) | kept +0.361 (208) | removed +0.314 ( 83)  
+    VAL    bench +0.744 (272) | kept +0.726 (173) | removed +0.776 ( 99)  loss
+    FINAL  bench +0.165 (365) | kept +0.225 (205) | removed +0.089 (160)  win
+    UNSEEN bench +0.190 (643) | kept +0.335 (432) | removed -0.105 (211)  win
+    OLD    bench +1.966 (  9) | kept +1.652 (  6) | removed +2.594 (  3)  too few (not counted)
+    pooled holdouts: kept +0.400R (n 816, se 0.156) vs removed +0.162R (n 473, se 0.159): separation t = +1.07; wins 2 of 3 counted holdouts -> fail
+  L_OI_BUILD (keep if OI24 > 0)
+    DEV    bench +0.333 (290) | kept +0.216 (206) | removed +0.620 ( 84)  
+    VAL    bench +0.744 (272) | kept +0.687 (174) | removed +0.845 ( 98)  loss
+    FINAL  bench +0.165 (365) | kept +0.276 (243) | removed -0.055 (122)  win
+    UNSEEN bench +0.190 (643) | kept +0.210 (419) | removed +0.154 (224)  win
+    OLD    bench +1.966 (  9) | kept +2.191 (  8) | removed +0.164 (  1)  too few (not counted)
+    pooled holdouts: kept +0.346R (n 844, se 0.141) vs removed +0.249R (n 445, se 0.180): separation t = +0.43; wins 2 of 3 counted holdouts -> fail
+  L_OI_HIGH (keep if OI30 > 0)
+    DEV    bench +0.348 (291) | kept +0.331 (136) | removed +0.362 (155)  
+    VAL    bench +0.744 (272) | kept +1.263 (139) | removed +0.202 (133)  win
+    FINAL  bench +0.165 (365) | kept +0.321 (205) | removed -0.034 (160)  win
+    UNSEEN bench +0.190 (643) | kept +0.406 (331) | removed -0.039 (312)  win
+    OLD    bench +1.966 (  9) | kept +2.225 (  6) | removed +1.447 (  3)  too few (not counted)
+    pooled holdouts: kept +0.571R (n 681, se 0.177) vs removed +0.023R (n 608, se 0.128): separation t = +2.52; wins 3 of 3 counted holdouts -> PASS strict
+  L_TAKER_BUY (keep if TK24 > 0)
+    DEV    bench +0.348 (285) | kept +0.423 ( 94) | removed +0.311 (191)  
+    VAL    bench +0.744 (272) | kept +0.703 ( 70) | removed +0.758 (202)  loss
+    FINAL  bench +0.165 (365) | kept +0.189 (169) | removed +0.145 (196)  win
+    UNSEEN bench +0.199 (636) | kept +0.238 (197) | removed +0.181 (439)  win
+    OLD    bench +1.966 (  9) | kept +2.804 (  6) | removed +0.290 (  3)  too few (not counted)
+    pooled holdouts: kept +0.328R (n 442, se 0.163) vs removed +0.312R (n 840, se 0.157): separation t = +0.07; wins 2 of 3 counted holdouts -> fail
+
+=== $10 portfolio, 0.5% risk, max 8 open, one per coin (signals without data stay as in the final system) ===
+  system                      2020    2021    2022    2023    2024    2025    2026   2020-2026 (trades, DD)       2024-2026 (trades, DD)    years better
+  final system               14.27   23.04   10.86   13.81   15.72    9.30   13.04   $ 94.12 (1616,  -28%)     $ 19.37 ( 765,  -19%)    
+  + S_RETAIL_LONG            14.27   23.22   11.18   13.68   15.55   10.09   11.73   $ 93.42 (1519,  -30%)     $ 18.71 ( 696,  -20%)    3/7 (1 equal)
+  + S_OI_BUILD               14.27   22.82   11.18   13.19   15.29    9.57   12.93   $ 91.43 (1480,  -26%)     $ 19.22 ( 725,  -21%)    2/7 (1 equal)
+  + S_OI_HIGH                14.27   23.14   12.04   13.96   16.01    9.77   11.52   $100.30 (1448,  -22%)     $ 18.32 ( 694,  -18%)    5/7 (1 equal)
+  + S_TAKER_SELL             14.28   23.40   10.60   13.47   15.79    9.41   13.03   $ 92.52 (1578,  -28%)     $ 19.68 ( 739,  -20%)    4/7 (0 equal)
+  + L_RETAIL_SHORT           13.98   23.25   10.86   13.82   15.95    9.79   12.15   $ 92.66 (1540,  -25%)     $ 19.30 ( 707,  -18%)    4/7 (0 equal)
+  + L_OI_BUILD               14.27   25.88   10.98   14.03   14.69    9.41   12.80   $100.71 (1548,  -22%)     $ 17.97 ( 733,  -22%)    4/7 (1 equal)
+  + L_OI_HIGH                14.29   23.08   11.02   13.34   15.23    9.70   13.07   $ 93.56 (1472,  -21%)     $ 19.60 ( 683,  -19%)    5/7 (0 equal)
+  + L_TAKER_BUY              14.27   25.98   10.91   14.40   11.53    9.25   11.33   $ 70.35 (1381,  -19%)     $ 12.27 ( 626,  -15%)    3/7 (1 equal)
+
+=== for information only: the same filters on the BASE system (no funding filters), all segments with data pooled ===
+  S_RETAIL_LONG   kept +0.007R (n 1021) vs removed -0.101R (n 560), separation t = +1.00
+  S_OI_BUILD      kept -0.006R (n 933) vs removed -0.010R (n 752), separation t = +0.03
+  S_OI_HIGH       kept +0.024R (n 851) vs removed -0.036R (n 782), separation t = +0.56
+  S_TAKER_SELL    kept -0.050R (n 1204) vs removed -0.149R (n 344), separation t = +0.95
+  L_RETAIL_SHORT  kept +0.366R (n 1051) vs removed +0.142R (n 601), separation t = +1.16
+  L_OI_BUILD      kept +0.285R (n 1096) vs removed +0.275R (n 555), separation t = +0.05
+  L_OI_HIGH       kept +0.481R (n 864) vs removed +0.069R (n 788), separation t = +2.19
+  L_TAKER_BUY     kept +0.338R (n 539) vs removed +0.263R (n 1100), separation t = +0.37
+
+=== diagnostics: rank correlation of each feature with the 3-day funding average at final-system signals ===
+  shorts: OI24 -0.02 (n 1082) | OI30 +0.11 (n 1034) | LSR +0.14 (n 989) | TK24 +0.00 (n 975)
+  longs : OI24 +0.10 (n 1579) | OI30 +0.06 (n 1580) | LSR +0.02 (n 1580) | TK24 -0.25 (n 1567)
+
+verdicts: S_RETAIL_LONG fail, S_OI_BUILD fail, S_OI_HIGH fail, S_TAKER_SELL fail, L_RETAIL_SHORT fail, L_OI_BUILD fail, L_OI_HIGH PASS strict, L_TAKER_BUY fail

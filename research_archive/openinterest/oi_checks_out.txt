@@ -1,0 +1,47 @@
+=== 1. timestamp alignment (implied price of the hour's last snapshot vs OKX 1H close of the bar starting at hour + lag) ===
+  BTC  last snapshot at minute 55 of the hour (5%-95%: 55-55), 46710 hours
+       lag -2h: median |gap|   30.6 bp, return corr -0.006
+       lag -1h: median |gap|   21.7 bp, return corr 0.046
+       lag +0h: median |gap|    3.9 bp, return corr 0.956
+       lag +1h: median |gap|   22.3 bp, return corr 0.002
+       lag +2h: median |gap|   31.2 bp, return corr -0.010
+  ETH  last snapshot at minute 55 of the hour (5%-95%: 55-55), 42325 hours
+       lag -2h: median |gap|   39.0 bp, return corr -0.005
+       lag -1h: median |gap|   27.4 bp, return corr 0.038
+       lag +0h: median |gap|    3.8 bp, return corr 0.967
+       lag +1h: median |gap|   28.1 bp, return corr 0.011
+       lag +2h: median |gap|   39.6 bp, return corr -0.008
+  SOL  last snapshot at minute 55 of the hour (5%-95%: 55-55), 42325 hours
+       lag -2h: median |gap|   61.5 bp, return corr -0.015
+       lag -1h: median |gap|   43.1 bp, return corr 0.033
+       lag +0h: median |gap|    4.4 bp, return corr 0.954
+       lag +1h: median |gap|   44.2 bp, return corr -0.005
+       lag +2h: median |gap|   61.8 bp, return corr -0.016
+  XRP  last snapshot at minute 55 of the hour (5%-95%: 55-55), 42325 hours
+       lag -2h: median |gap|   46.2 bp, return corr -0.006
+       lag -1h: median |gap|   32.7 bp, return corr 0.029
+       lag +0h: median |gap|    4.0 bp, return corr 0.972
+       lag +1h: median |gap|   33.9 bp, return corr -0.005
+       lag +2h: median |gap|   47.3 bp, return corr -0.005
+  DOGE last snapshot at minute 55 of the hour (5%-95%: 55-55), 42325 hours
+       lag -2h: median |gap|   53.3 bp, return corr -0.026
+       lag -1h: median |gap|   38.0 bp, return corr 0.017
+       lag +0h: median |gap|    4.2 bp, return corr 0.969
+       lag +1h: median |gap|   39.0 bp, return corr -0.008
+       lag +2h: median |gap|   54.4 bp, return corr -0.028
+
+=== 2. no look-ahead: 400 random final-system signals with data ===
+  identical after deleting later rows: 400/400 | identical after scrambling later rows: 400/400 | features defined in the sample: 1334/1600
+
+=== 3. coverage: final-system signals (before the 8-position limit) with each feature, by side and segment ===
+  side  segment   signals   OI24   OI30    LSR   TK24
+  S     DEV           325    291    264    238    228
+  S     VAL            77     77     77     77     77
+  S     FINAL         296    296    296    296    296
+  S     UNSEEN        444    416    395    376    372
+  S     OLD            55      2      2      2      2
+  L     DEV           355    290    291    291    285
+  L     VAL           272    272    272    272    272
+  L     FINAL         365    365    365    365    365
+  L     UNSEEN        698    643    643    643    636
+  L     OLD           193      9      9      9      9
