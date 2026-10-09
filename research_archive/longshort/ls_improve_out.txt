@@ -1,0 +1,26 @@
+=== per-year $10 growth (each year from $10; real funding; 0.5% risk, max 8 open) ===
+  system            2020      2021      2022      2023      2024      2025      2026   years better than BASE
+  BASE             13.85     22.45     10.84     13.34     14.75      9.01     12.28
+  SHORT_BEAR       15.23     20.93     10.84     12.13     14.20      9.16     12.28   2/7
+  SHORT_Z2         14.00     22.33     10.20     13.06     14.68      9.29     12.48   3/7
+  SHORT_FUND       14.11     22.56     10.86     13.68     14.86      9.30     13.04   7/7
+  SHORT_HALF       14.53     21.12     10.11     13.09     14.97      9.53     12.30   4/7
+  SHORT_QUICK      13.94     22.32     10.67     13.15     14.75      9.45     11.95   3/7
+  LONG_PATH        13.79     23.60     10.84     11.65     14.77      9.09     12.09   3/7
+  NEWTON2          12.64     19.34     10.81     12.73     13.24      8.89     14.28   1/7
+  LONG_LT          14.02     21.86     11.34     13.34     14.75      9.01     11.49   2/7
+  LONG_ONLY        15.23     19.81      9.28     12.81     15.19     10.06     12.24   3/7
+
+=== WALK-FORWARD: in year Y switch on every candidate that beat BASE over all earlier years (product of yearly growth) ===
+  2021: switched on ['LONG_LT', 'LONG_ONLY'] -> $10 becomes $19.29 (BASE $22.45)
+  2022: switched on ['LONG_PATH', 'SHORT_BEAR', 'SHORT_FUND', 'SHORT_QUICK', 'SHORT_Z2'] -> $10 becomes $10.82 (BASE $10.84)
+  2023: switched on ['LONG_LT', 'LONG_PATH', 'SHORT_BEAR', 'SHORT_FUND'] -> $10 becomes $10.73 (BASE $13.34)
+  2024: switched on ['LONG_LT', 'SHORT_FUND'] -> $10 becomes $14.86 (BASE $14.75)
+  2025: switched on ['LONG_LT', 'SHORT_FUND'] -> $10 becomes $9.30 (BASE $9.01)
+  2026: switched on ['LONG_LT', 'SHORT_FUND', 'SHORT_QUICK'] -> $10 becomes $12.03 (BASE $12.28)
+  2021-2026 compounded: walk-forward system $10 -> $37.23 | BASE $10 -> $52.95
+
+=== full-period view 2020-2026 (in-sample, for reference) ===
+  parity: BASE compounded continuously 2020-2026 $10 -> $76.53 (1797 trades, DD -33%) [downtrends/kal_funding: $76.53 with one trade per coin AND side]
+  BASE: 2020-2026 $10 -> $73.36 (1816 trades, worst year drawdown -20%) | 2024-2026 $10 -> $16.31 (822 trades)
+  BASE + ['SHORT_FUND']: 2020-2026 $10 -> $85.21 (1724 trades, worst year drawdown -19%) | 2024-2026 $10 -> $18.02 (789 trades)
