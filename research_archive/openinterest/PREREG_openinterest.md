@@ -67,6 +67,12 @@ and in 7 of 7 years). This test asks whether other crowding data, which we have 
 - **No look-ahead:** features recomputed after deleting all data past the cut-off must be identical.
 - **Coverage:** signals with features, per segment and side.
 
+## Coverage addendum
+Written 2026-10-09 after listing the archive's files, before any file was opened or any feature was compared with returns.
+- BTC's data starts 2020-09-01. Most coins start 2021-12-01, and newer listings start later.
+- So OLD (2020-09 to 2021-05) holds BTC signals only, and DEV effectively starts 2021-12. The 2022 bear market is covered.
+- **Rule added (it can only make passing harder):** a holdout with fewer than 20 signals with data on that side does not count as a win. "At least 3 of the 4 holdouts" stays as written, so with OLD too small, all 3 other holdouts must be wins.
+
 ## Known caveats, stated before running
 - Binance positioning stands in for the whole market, as with funding.
 - Open interest and the long/short ratio are related to funding. The test runs on top of the funding filters, so a pass means information beyond funding.
