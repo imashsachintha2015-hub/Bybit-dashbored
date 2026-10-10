@@ -1,11 +1,15 @@
 """Replays the paper-trader state machine of daemons/forward_wvbr.py over research data and compares it with the research ledger (scratch/wide_trades_f.pkl).
 Needs scratch/binance_15m and the ledger (gitignored research files) - skipped when they are absent."""
 import os, sys
-import numpy as np
+try:
+    import numpy as np
+except ImportError:    # CI installs only requirements.txt; this test needs the research stack
+    np = None
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); sys.path.insert(0, ROOT); sys.path.insert(0, os.path.join(ROOT, "daemons"))
 import forward_wvbr as W
 
 def main():
+    if np is None: print("skipped (numpy not installed)"); return
     led = os.path.join(ROOT, "scratch", "wide_trades_f.pkl")
     if not os.path.exists(led): print("skipped (no research files)"); return
     import pandas as pd
