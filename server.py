@@ -1282,6 +1282,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
+        if self.path.startswith("/api/wvbr/report"):
+            try:
+                from daemons import forward_wvbr
+                self._send_json(200, forward_wvbr.summary(), cache_seconds=30)
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
+            return
+
         # 0. API: Consolidated Dashboard Telemetry Bundle (Cuts network requests by 83%)
         if self.path.startswith("/api/dashboard/bundle"):
             bundle = get_dashboard_bundle()
