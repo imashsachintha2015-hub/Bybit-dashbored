@@ -2150,6 +2150,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
 .mode-menu small{display:block;color:#8b9bb4;font-weight:500;font-size:10.5px;margin-top:2px}
 .mode-menu i{width:16px;margin-top:2px;text-align:center}
 .bsi-btn.active .bsi-dot.kal{background:#a78bfa;box-shadow:0 0 6px #a78bfa}
+.bsi-btn.active .bsi-dot.abs{background:#f472b6;box-shadow:0 0 6px #f472b6}
 .kal-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.05);color:var(--td);margin-left:6px;white-space:nowrap}
 .kt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:10px 12px}
 .kt-tile{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:8px 10px;min-width:0}
@@ -2362,6 +2363,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <button class="cind" id="iCMEX5" onclick="toggleChartIndicator('cmex5')" title="CME-X5 Model B: S2 POC reclaim + S7 EMA continuation, with the agent verdicts (15m, Bybit Fast Canvas chart)">CME-X5</button>
               <button class="cind" id="iCHAMP" onclick="toggleChartIndicator('champ')" title="Championship Dual-Regime: bull 21-EMA springboard / bear exhaustion setups by the BTC regime (15m, Bybit Fast Canvas chart)">CHAMP</button>
               <button class="cind" id="iKAL" onclick="toggleChartIndicator('kal')" title="Kalman Trend (4H): trend line, signals, stop">KALMAN</button>
+              <button class="cind" id="iABS" onclick="toggleChartIndicator('abs')" title="Absorption + HVN (order-flow proxy from taker-buy volume): heavy one-sided aggression with no price progress, and the high-volume nodes (Bybit Fast Canvas chart)">ABSORB</button>
               <button class="cind" onclick="fitChartScale()" title="Auto Scale Fit"><i class="fa-solid fa-arrows-to-eye"></i> Fit</button>
             </div>
             <a href="/advanced-chart" target="_blank" style="margin-left:8px;color:var(--cy);font-size:13px;text-decoration:none;flex-shrink:0" title="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></a>
@@ -2446,6 +2448,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <button class="bsi-btn" id="btnIndCMEX5" onclick="toggleChartIndicator('cmex5')"><span class="bsi-dot cmex5"></span> CME-X5</button>
             <button class="bsi-btn" id="btnIndCHAMP" onclick="toggleChartIndicator('champ')"><span class="bsi-dot champ"></span> CHAMP</button>
             <button class="bsi-btn" id="btnIndKAL" onclick="toggleChartIndicator('kal')"><span class="bsi-dot kal"></span> KALMAN</button>
+            <button class="bsi-btn" id="btnIndABS" onclick="toggleChartIndicator('abs')"><span class="bsi-dot abs"></span> ABSORB</button>
             <button class="bsi-btn fit-btn" onclick="fitChartScale()"><i class="fa-solid fa-arrows-to-eye"></i> Fit Scale</button>
           </div>
 
@@ -4409,11 +4412,12 @@ window._fvgMarkers = window._fvgMarkers || [];
 window._sbgzMarkers = window._sbgzMarkers || [];
 window._xmMarkers = window._xmMarkers || { cmex5: [], champ: [] };
 window._ktMarkers = window._ktMarkers || [];
+window._absMarkers = window._absMarkers || [];
 
 // FVG, SBGZ, CME-X5, Championship and Kalman markers share the candle series' single marker set, so all go through here
 window.applyChartMarkers = function(){
   if(!candleSeries) return;
-  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || [], window._xmMarkers.cmex5 || [], window._xmMarkers.champ || [], window._ktMarkers || []);
+  var m = (window._fvgMarkers || []).concat(window._sbgzMarkers || [], window._xmMarkers.cmex5 || [], window._xmMarkers.champ || [], window._ktMarkers || [], window._absMarkers || []);
   m.sort(function(a, b){ return a.time - b.time; });
   try{
     if(window.LightweightCharts && LightweightCharts.createSeriesMarkers){
@@ -5297,6 +5301,58 @@ window.sbgzHistRender = function(){
   }).join('') + (!dayKey && d.total > rows.length ? '<tr><td colspan="12" class="emp">Showing the latest ' + rows.length + ' of ' + d.total + ' setups.</td></tr>' : '');
 };
 
+// ── Absorption + HVN (order-flow proxy) ───────────────────────────────────────────────────────────────────────────
+// /api/ind/absorption -> backend_lib/absorption.py. A bar "absorbs" when volume is heavy, one side's taker flow dominates and price
+// makes no progress: aggressive buying that does not lift price = sellers absorbed it (marker above the bar), aggressive selling that
+// does not push price = buyers absorbed it (marker below). "+HVN" = the close sits on a high-volume node of the previous 300 bars.
+// Dashed pink lines = the current high-volume nodes (POC solid). A chart aid, not a validated rule.
+var ABS = { lines: [], timer: null, key: null };
+window.absClear = function(){
+  clearTimeout(ABS.timer);
+  ABS.lines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} });
+  ABS.lines = []; ABS.key = null;
+  if(window._absMarkers && window._absMarkers.length){ window._absMarkers = []; if(window.applyChartMarkers) window.applyChartMarkers(); }
+  var t = document.getElementById('absTag'); if(t) t.remove();
+};
+function absTag(text){
+  var vp = document.getElementById('chartViewport'); if(!vp) return;
+  var t = document.getElementById('absTag');
+  if(!text){ if(t) t.remove(); return; }
+  if(!t){ t = document.createElement('div'); t.id = 'absTag'; t.style.cssText = 'position:absolute;left:8px;bottom:34px;z-index:5;font:600 10px var(--mo,monospace);color:#f472b6;background:rgba(15,23,42,.8);border:1px solid rgba(244,114,182,.4);border-radius:6px;padding:2px 6px;pointer-events:none'; vp.appendChild(t); }
+  t.textContent = text;
+}
+window.absLoad = function(refresh){
+  if(!window.indicatorState || !window.indicatorState.abs || chartEngine !== 'bybit') return;
+  if(!lwChart || !candleSeries) return;
+  clearTimeout(ABS.timer);
+  var cs = S.replace('BYBIT:','').replace('.P',''), tf = String(T);
+  if(['1','3','5','15','30','60','120','240','D'].indexOf(tf) < 0){ window.absClear(); absTag('ABSORB: this timeframe is not supported'); return; }
+  var again = function(){ ABS.timer = setTimeout(function(){ window.absLoad(true); }, 60000); };
+  fetch(apiUrl('/api/ind/absorption?symbol=' + encodeURIComponent(cs) + '&tf=' + encodeURIComponent(tf)))
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      var nowCs = S.replace('BYBIT:','').replace('.P','');
+      if(!window.indicatorState.abs || chartEngine !== 'bybit' || nowCs !== cs || String(T) !== tf) return;   // user moved on
+      if(!d || !d.ok){ window.absClear(); absTag('ABSORB: ' + ((d && d.error) || 'no answer (server not updated yet?)')); again(); return; }
+      var sigs = d.signals || [], mk = [], nS = 0, nB = 0;
+      sigs.forEach(function(s){
+        var sell = s.side === 'SELL'; sell ? nS++ : nB++;
+        mk.push({ time: s.t, position: sell ? 'aboveBar' : 'belowBar', color: s.hvn ? '#f472b6' : (sell ? '#fb7185' : '#4ade80'),
+                  shape: sell ? 'arrowDown' : 'arrowUp', size: s.hvn ? 1.2 : 0.7, text: s.hvn ? (sell ? 'ABS S+HVN' : 'ABS B+HVN') : '' });
+      });
+      window._absMarkers = mk; window.applyChartMarkers();
+      ABS.lines.forEach(function(pl){ try{ candleSeries.removePriceLine(pl); }catch(e){} }); ABS.lines = [];
+      var LS = LightweightCharts.LineStyle;
+      (d.hvn || []).forEach(function(n, i){
+        ABS.lines.push(candleSeries.createPriceLine({ price: n.price, color: '#f472b6', lineWidth: i === 0 ? 2 : 1, lineStyle: i === 0 ? LS.Solid : LS.Dashed,
+          axisLabelVisible: true, title: (i === 0 ? 'POC ' : 'HVN ') + n.rel.toFixed(1) + 'x' }));
+      });
+      absTag('ABSORB: ' + nS + ' sell-absorption / ' + nB + ' buy-absorption bars, ' + (d.hvn || []).length + ' HVN lines (taker-flow proxy)');
+      ABS.key = cs + '|' + tf; again();
+    })
+    .catch(function(){ absTag('ABSORB: offline'); again(); });
+};
+
 // ── CME-X5 (Model B) and Championship Dual-Regime chart indicators ────────────────────────────────────────────────
 // The engines' own signals on the 15m candles (/api/ind/cmex5, /api/ind/champ -> backend_lib/xmodes.py), each with the
 // outcome the engine's position manager would have had (stop, target, break-even / +0.5R locks, 12 h timeout, 14 bps
@@ -5467,7 +5523,8 @@ window.indicatorState = {
   sbgz: localStorage.getItem('ind_sbgz') === '1',
   cmex5: localStorage.getItem('ind_cmex5') === '1',
   champ: localStorage.getItem('ind_champ') === '1',
-  kal: localStorage.getItem('ind_kal') === '1'
+  kal: localStorage.getItem('ind_kal') === '1',
+  abs: localStorage.getItem('ind_abs') === '1'
 };
 
 // Auto Scale Fit & Reset Zoom
@@ -5484,7 +5541,7 @@ window.fitChartScale = function(){
 // Toggle Sub-indicators with zero delay reactive chart update
 window.toggleChartIndicator = function(name){
   if(!window.indicatorState){
-    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false, cmex5: false, champ: false, kal: false };
+    window.indicatorState = { ema: true, poc: true, fvg: true, vol: true, sbgz: false, cmex5: false, champ: false, kal: false, abs: false };
   }
   window.indicatorState[name] = !window.indicatorState[name];
   localStorage.setItem('ind_' + name, window.indicatorState[name] ? '1' : '0');
@@ -5511,6 +5568,16 @@ window.toggleChartIndicator = function(name){
       window.sbgzClear();
     }
     showToast('SBGZ ' + (window.indicatorState.sbgz ? 'Enabled (Fast Canvas chart)' : 'Disabled'));
+    return;
+  }
+
+  // Absorption + HVN (order-flow proxy) draws on the Fast Canvas chart too
+  if(name === 'abs'){
+    if(window.indicatorState.abs){
+      if(chartEngine !== 'bybit'){ window.toggleChartEngine(); }
+      else window.absLoad(false);
+    } else window.absClear();
+    showToast('ABSORB ' + (window.indicatorState.abs ? 'Enabled (Fast Canvas chart)' : 'Disabled'));
     return;
   }
 
@@ -5607,7 +5674,7 @@ window.toggleChartIndicator = function(name){
 
 window.updateIndicatorButtonsUI = function(){
   if(!window.indicatorState) return;
-  ['ema', 'poc', 'fvg', 'vol', 'sbgz', 'cmex5', 'champ', 'kal'].forEach(function(k){
+  ['ema', 'poc', 'fvg', 'vol', 'sbgz', 'cmex5', 'champ', 'kal', 'abs'].forEach(function(k){
     var on = !!window.indicatorState[k];
     var mobBtn = document.getElementById('btnInd' + k.toUpperCase());
     if(mobBtn){
@@ -6074,6 +6141,9 @@ function loadLwChartData(cs, tf){
 
       // 7. Kalman Trend (4H): trend line, signals and the open position's stop (/api/kalman/indicator)
       if(window.ktChartOverlay) window.ktChartOverlay(false);
+
+      // 8. Absorption + HVN (order-flow proxy): markers and high-volume-node lines (/api/ind/absorption)
+      if(window.absLoad) window.absLoad(false);
     })
     .catch(function(err){ console.warn('[Chart] Error loading candles:', err); });
 }
@@ -6110,6 +6180,7 @@ function loadChart(ns,nt){
     if(lwWrap) lwWrap.style.display = 'none';
     if(window.sbgzClear) window.sbgzClear();       // SBGZ only exists on the Fast Canvas chart
     if(window.xmClear){ window.xmClear('cmex5'); window.xmClear('champ'); }     // ... and so do CME-X5 / Championship
+    if(window.absClear) window.absClear();                                       // ... and Absorption
     if(tvWrap){
       tvWrap.style.display = 'block';
       // Prevent resetting widget and losing drawings on tick/refresh when symbol & timeframe haven't changed

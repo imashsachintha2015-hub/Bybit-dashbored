@@ -1580,6 +1580,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "error": f"indicator failed: {e}"})
             return
 
+        # 6a-0aa. API: absorption + HVN chart indicator (backend_lib/absorption.py), from Binance taker-buy volume
+        if urllib.parse.urlparse(self.path).path == "/api/ind/absorption":
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            symbol = re.sub(r"[^A-Z0-9]", "", (q.get("symbol") or ["BTCUSDT"])[0].upper()) or "BTCUSDT"
+            try:
+                from backend_lib import absorption as _abs
+                self._send_json(200, _abs.get(symbol, (q.get("tf") or ["15"])[0]), cache_seconds=15)
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"absorption indicator failed: {e}"})
+            return
+
         # 6a-0b. API: SBGZ radar history - every setup the radar showed and what happened to it (WIN / LOSS / OPEN / NO FILL)
         if self.path.startswith("/api/sbgz/history"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)

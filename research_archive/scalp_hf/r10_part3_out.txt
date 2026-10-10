@@ -1,0 +1,21 @@
+# Part 3: book imbalance as a filter. Skip a trade when side * Z_1 <= -thr (the book leans against the trade). Sets use 2023-01 on (book data).
+
+panel thr=1.0: pooled kept +0.048R (n=3895) vs removed -0.023R (n=1527), difference t +0.78; filtered beats unfiltered in 2 of 3 $10 portfolios
+   J1: n=1106 removed 464 (42%) meanR kept +0.103 removed -0.095 | $10 all $10.01 filtered $12.68
+   J2: n=1098 removed 307 (28%) meanR kept +0.093 removed -0.097 | $10 all $10.25 filtered $12.09
+   J3: n=3218 removed 756 (23%) meanR kept +0.020 removed +0.051 | $10 all $10.68 filtered $10.30
+
+panel thr=2.0: pooled kept +0.036R (n=4688) vs removed -0.022R (n=734), difference t +0.54; filtered beats unfiltered in 3 of 3 $10 portfolios
+   J1: n=1106 removed 204 (18%) meanR kept +0.037 removed -0.056 | $10 all $10.01 filtered $10.90
+   J2: n=1098 removed 150 (14%) meanR kept +0.063 removed -0.106 | $10 all $10.25 filtered $11.32
+   J3: n=3218 removed 380 (12%) meanR kept +0.026 removed +0.030 | $10 all $10.68 filtered $11.63
+
+kalman thr=1.0: pooled kept +0.195R (n=925) vs removed +0.234R (n=282), difference t -0.21; filtered beats unfiltered in 1 of 3 $10 portfolios
+   J1: n=252 removed 77 (31%) meanR kept +0.247 removed +0.501 | $10 all $12.94 filtered $11.88
+   J2: n=197 removed 52 (26%) meanR kept +0.283 removed +0.086 | $10 all $11.75 filtered $11.86
+   J3: n=758 removed 153 (20%) meanR kept +0.160 removed +0.150 | $10 all $15.25 filtered $14.24
+
+kalman thr=2.0: pooled kept +0.190R (n=1093) vs removed +0.340R (n=114), difference t -0.64; filtered beats unfiltered in 1 of 3 $10 portfolios
+   J1: n=252 removed 31 (12%) meanR kept +0.246 removed +0.887 | $10 all $12.94 filtered $12.02
+   J2: n=197 removed 22 (11%) meanR kept +0.219 removed +0.326 | $10 all $11.75 filtered $11.47
+   J3: n=758 removed 61 (8%) meanR kept +0.166 removed +0.067 | $10 all $15.25 filtered $15.77
