@@ -212,10 +212,10 @@ def test_windows_are_the_engines_own():
 
 def test_windows_on_real_history():
     """The same exact-match check on real candles (Binance 15m in scratch/, when present), where Championship fires often."""
-    import numpy as np
     d = os.path.join(ROOT, "scratch", "binance_15m")
     if not os.path.exists(os.path.join(d, "BTCUSDT.npz")):
         print("  windows on real history: skipped (no scratch/binance_15m)"); return
+    import numpy as np
 
     def load(sym, a, b):
         z = np.load(os.path.join(d, sym + ".npz")); t, o, h, l, c, v = (z[k][a:b] for k in ("t", "o", "h", "l", "c", "v"))
