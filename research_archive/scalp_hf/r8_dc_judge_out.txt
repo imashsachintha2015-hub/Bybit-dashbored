@@ -1,0 +1,7 @@
+# M1 DOLLAR-CLOCK judges ($10, 0.5% risk, 8 open); reference = the same panel on fixed-time bars (round 7)
+  frozen D=48 bars/day, K=8:  PASS: no
+     J1 design FINAL  trades  1312 (2.87/day, hold 16.2h)  gross  +14.8 bps  net R +0.007 (t +0.10)  +2bps R -0.013  $10 ->    9.36 (1249 taken, DD 50%)
+     J2 UNSEEN        trades  1177 (2.54/day, hold 16.0h)  gross  +15.2 bps  net R -0.006 (t -0.08)  +2bps R -0.018  $10 ->    8.58 (1141 taken, DD 49%)
+     J3 HOLDOUT2      trades  5196 (2.54/day, hold 15.7h)  gross  +19.1 bps  net R +0.022 (t +0.68)  +2bps R +0.007  $10 ->   13.11 (5071 taken, DD 60%)
+  reference, fixed-time 30m (round 7 frozen): J1 +0.020R $10.01 | J2 +0.039R $10.25 | J3 +0.059R $23.87 (DD 50/41/58%)
+  reference, fixed-time 15m (round 7 frozen): J1 -0.102R $2.79 | J2 -0.073R $4.04 | J3 -0.005R $3.00

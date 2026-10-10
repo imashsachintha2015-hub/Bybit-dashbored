@@ -314,7 +314,7 @@ class SharedAccountTest(EngineBase):
             for _ in range(150):
                 eng.step(); clock.t += H4
         self.assertEqual(ex.pos[sym]["size"], before["size"]); self.assertEqual(ex.pos[sym]["avg"], before["avg"])
-        self.assertTrue(any("changed outside Kalman" in e["msg"] for e in eng.events))
+        self.assertTrue(any("changed outside Kalman" in e["msg"] for e in eng.store.history()[2]))   # the stored events (the in-memory list keeps only the last 40)
 
     def test_merged_fill_closes_only_our_part(self):
         with LiveEnv():
@@ -333,6 +333,91 @@ class SharedAccountTest(EngineBase):
             self.assertTrue(self.run_until(eng, clock, lambda: ex.orders >= 1))
         self.assertEqual(ex.pos, {}); self.assertEqual(eng.store.positions("OPEN"), [])
         self.assertTrue(any("stop could not be set" in e["msg"] for e in eng.events))
+
+
+class HiddenBarMarket(FakeMarket):
+    """a market that does not deliver the newest closed bar of some coins (a failed or rate-limited download)"""
+    def __init__(self, clock, hidden=()):
+        super().__init__(clock); self.hidden = set(hidden); self.calls = 0
+    def klines_4h(self, sym, bars):
+        self.calls += 1
+        rows = super().klines_4h(sym, bars)
+        if sym in self.hidden:
+            forming = self.clock() // H4 * H4
+            rows = [r for r in rows if r[0] != forming - H4]
+        return rows
+
+
+class BarSummaryAndRetryTest(unittest.TestCase):
+    def engine(self, hidden=()):
+        tmp = tempfile.mkdtemp()
+        KE.SNAPSHOT_PATH = os.path.join(tmp, "kalman_trend_live.json"); KE.IND_DIR = os.path.join(tmp, "kalman"); KE.HISTORY_PATH = os.path.join(tmp, "kalman_history.json")
+        clock = Clock(T0 + 1200 * H4 + 60 * 1000); market = HiddenBarMarket(clock, hidden)
+        eng = KE.KalmanTrendEngine(market=market, store=KE.Store(os.path.join(tmp, "kt.db")), settings_source=lambda: {"paperStartEquity": 10.0},
+                                   mode_source=lambda: "kalman", clock=clock, symbols=list(market.data), write_files=False)
+        return eng, clock, market
+
+    def test_every_bar_leaves_a_summary_line(self):
+        eng, clock, market = self.engine()
+        for _ in range(60):
+            eng.step(); clock.t += H4
+        lines = [e["msg"] for e in eng.store.history()[2] if e["msg"].startswith("4H bar closed")]
+        self.assertEqual(len(lines), 60)                                     # one per bar, also the quiet ones
+        self.assertTrue(all("BTC daily trend" in m and "coins checked" in m for m in lines))
+        self.assertTrue(any("no coin crossed z = +-1, so no signal" in m for m in lines))
+        self.assertTrue(any("crossing(s)" in m for m in lines))
+
+    def test_incomplete_bar_is_asked_for_again(self):
+        eng, clock, market = self.engine(hidden=["BBBUSDT"])
+        self.assertFalse(eng.step())                                          # BBB has no newest bar: the bar is not closed off ...
+        self.assertIsNone(eng.store.get("last_bar_t"))
+        self.assertNotIn("BBBUSDT", eng.state)
+        warns = [e["msg"] for e in eng.store.history()[2] if e["level"] == "WARN"]
+        self.assertTrue(any("no data yet for BBBUSDT" in m for m in warns))
+        market.hidden.clear(); clock.t += 30 * 1000                          # ... the data arrives 30 seconds later
+        self.assertTrue(eng.step())
+        self.assertIn("BBBUSDT", eng.state)
+        self.assertEqual(eng.store.get("last_bar_t"), (clock.t - KE.BAR_DELAY_MS) // H4 * H4 - H4)
+        self.assertEqual(sum(1 for e in eng.store.history()[2] if "no data yet" in e["msg"]), 1)   # asked once, not on every poll
+
+    def test_gives_up_after_the_tries_and_says_so(self):
+        eng, clock, market = self.engine(hidden=["BBBUSDT"])
+        done = False
+        for k in range(KE.MAX_BAR_TRIES + 2):
+            done = eng.step() or done; clock.t += 30 * 1000
+            if done: break
+        self.assertTrue(done and eng.store.get("last_bar_t") is not None)
+        msgs = [e["msg"] for e in eng.store.history()[2]]
+        self.assertTrue(any("still no data for BBBUSDT" in m for m in msgs))
+        self.assertTrue(any(m.startswith("4H bar closed") and "3 of 4 coins checked" in m for m in msgs))
+        self.assertEqual(market.hidden, {"BBBUSDT"})
+
+    def test_retry_after_a_restart(self):
+        eng, clock, market = self.engine(hidden=["BBBUSDT"])
+        eng.step()
+        eng2 = KE.KalmanTrendEngine(market=market, store=KE.Store(eng.store.path), settings_source=lambda: {"paperStartEquity": 10.0},
+                                    mode_source=lambda: "kalman", clock=clock, symbols=list(market.data), write_files=False)
+        market.hidden.clear(); clock.t += 30 * 1000
+        self.assertTrue(eng2.step()); self.assertIn("BBBUSDT", eng2.state)
+
+    def test_rate_limit_answer_is_retried(self):
+        answers = [{"retCode": 10006, "retMsg": "Too many visits."}, {"retCode": 10006, "retMsg": "Too many visits."},
+                   {"retCode": 0, "result": {"list": [["1", "2", "3", "4", "5"]]}}]
+        calls = []
+        class R:
+            def __init__(self, d): self.d = d
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return json.dumps(self.d).encode()
+        def fake_urlopen(req, timeout=10):
+            calls.append(req.full_url); return R(answers[len(calls) - 1])
+        old_open, old_sleep = KE.urllib.request.urlopen, KE.time.sleep
+        KE.urllib.request.urlopen = fake_urlopen; KE.time.sleep = lambda s: None
+        try:
+            r = KE.BybitMarket()._get("/v5/market/kline", {"symbol": "ADAUSDT"})
+        finally:
+            KE.urllib.request.urlopen, KE.time.sleep = old_open, old_sleep
+        self.assertEqual(r, {"list": [["1", "2", "3", "4", "5"]]}); self.assertEqual(len(calls), 3)
 
 
 class FakeBybit:

@@ -266,6 +266,25 @@ def report():
     s = [e for e in sb if e["type"] == "sbgz_setup"]; print(f"SBGZ gate log: {len(s)} setups logged, {sum(1 for e in s if e['sbgz_gate_ok'])} pass the BTC gate (outcomes are logged as sbgz_outcome)")
 
 
+def summary():
+    """the report as data (and text) for the dashboard server: counts, the three groups' statistics, and the ledger's last write"""
+    import io, contextlib
+    ev = [json.loads(l) for l in open(LOG_P)] if os.path.exists(LOG_P) else []
+    sig = [e for e in ev if e["type"] == "signal"]; ex = [e for e in ev if e["type"] == "exit"]
+    groups = {}
+    for nm, sel in (("all", ex), ("gate_aligned", [e for e in ex if e["gate_ok"]]), ("against_gate", [e for e in ex if not e["gate_ok"]])):
+        R = [e["R"] for e in sel]
+        groups[nm] = dict(n=len(R), avg_r=(sum(R) / len(R)) if R else None, total_r=sum(R) if R else 0.0, win_rate=(sum(r > 0 for r in R) / len(R) * 100) if R else None)
+    sb = [json.loads(l) for l in open(SBGZ_LOG_P)] if os.path.exists(SBGZ_LOG_P) else []
+    setups = [e for e in sb if e["type"] == "sbgz_setup"]
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf): report()
+    return dict(version=VERSION, ledger_dir=OUT, ledger_exists=os.path.exists(LOG_P), signals=len(sig), fills=sum(e["type"] == "fill" for e in ev), closed=len(ex),
+                skipped_busy=sum(e["type"] == "skipped_busy" for e in ev), groups=groups, research=dict(gate_avg_r=0.23, all_avg_r=0.13),
+                sbgz_gate=dict(setups=len(setups), pass_gate=sum(1 for e in setups if e.get("sbgz_gate_ok"))),
+                last_event_t=(max((e.get("t") or 0) for e in ev) if ev else None), errors=sum(e["type"] == "error" for e in ev), text=buf.getvalue())
+
+
 def main():
     if "--report" in sys.argv: return report()
     st = load()

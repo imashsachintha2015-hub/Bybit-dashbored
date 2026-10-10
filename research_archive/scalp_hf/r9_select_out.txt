@@ -1,0 +1,31 @@
+# SELECTION: model trained on design coins 2021-01..2024-06 (A); thresholds chosen on 2024-07..2025-06 (B)
+
+## bar 5 min: 63328 training signals, 23759 validation signals
+   A (in-sample)            n   63328 realised net R by predicted decile: -0.67 -0.46 -0.37 -0.33 -0.26 -0.20 -0.12 -0.06 +0.10 +1.21   top-bottom +1.88  corr +0.376
+   B (validation)           n   23759 realised net R by predicted decile: -0.25 -0.26 -0.21 -0.19 -0.18 -0.11 -0.12 -0.13 -0.07 -0.00   top-bottom +0.25  corr +0.057
+   unfiltered primary on B: n 14980 (41.0/day) gross +2.5 bps net R -0.150 (t -7.22) $10 -> 0.00 (DD 100%)
+   T 0.0: n  1154 ( 3.16/day) gross  +20.1 bps  net R +0.004 (t +0.06)  hold  2.2h  $10 ->    9.15 (1141 taken, DD 33%)
+   T 0.1: n   445 ( 1.22/day) gross  +28.6 bps  net R +0.069 (t +0.67)  hold  2.4h  $10 ->   11.03 (443 taken, DD 19%)
+   T 0.2: n   198 ( 0.54/day) gross  +24.8 bps  net R +0.009 (t +0.07)  hold  2.5h  $10 ->   10.06 (196 taken, DD 12%)
+   T 0.3: n   111 ( 0.30/day) gross  +45.0 bps  net R +0.118 (t +0.63)  hold  2.5h  $10 ->   10.62 (111 taken, DD 8%)
+   -> frozen T for 5 min: 0.1
+
+## bar 15 min: 19719 training signals, 7355 validation signals
+   A (in-sample)            n   19719 realised net R by predicted decile: -0.74 -0.59 -0.44 -0.34 -0.27 -0.19 -0.06 +0.08 +0.33 +1.96   top-bottom +2.71  corr +0.410
+   B (validation)           n    7355 realised net R by predicted decile: -0.07 -0.06 -0.06 -0.03 -0.01 +0.00 +0.02 +0.01 +0.09 +0.08   top-bottom +0.15  corr +0.038
+   unfiltered primary on B: n 4515 (12.4/day) gross +12.2 bps net R -0.035 (t -0.88) $10 -> 3.47 (DD 73%)
+   T 0.0: n  1254 ( 3.44/day) gross  +24.8 bps  net R +0.022 (t +0.30)  hold  6.4h  $10 ->    9.90 (1239 taken, DD 34%)
+   T 0.1: n   655 ( 1.79/day) gross  +36.9 bps  net R +0.049 (t +0.54)  hold  6.9h  $10 ->   11.00 (651 taken, DD 26%)
+   T 0.2: n   355 ( 0.97/day) gross  +45.1 bps  net R +0.090 (t +0.71)  hold  6.7h  $10 ->   11.36 (354 taken, DD 22%)
+   T 0.3: n   211 ( 0.58/day) gross  +47.1 bps  net R +0.110 (t +0.70)  hold  6.3h  $10 ->   11.07 (211 taken, DD 13%)
+   -> frozen T for 15 min: 0.2
+
+## bar 30 min: 9647 training signals, 3661 validation signals
+   A (in-sample)            n    9647 realised net R by predicted decile: -0.82 -0.66 -0.50 -0.39 -0.28 -0.16 -0.10 +0.11 +0.45 +1.99   top-bottom +2.81  corr +0.557
+   B (validation)           n    3661 realised net R by predicted decile: -0.00 +0.20 +0.23 +0.28 +0.15 -0.02 +0.02 +0.17 +0.20 +0.24   top-bottom +0.24  corr +0.030
+   unfiltered primary on B: n 2193 (6.0/day) gross +24.2 bps net R +0.027 (t +0.45) $10 -> 9.57 (DD 46%)
+   T 0.0: n   891 ( 2.44/day) gross  +51.5 bps  net R +0.107 (t +1.43)  hold 12.5h  $10 ->   14.72 (885 taken, DD 21%)
+   T 0.1: n   464 ( 1.27/day) gross  +47.9 bps  net R +0.103 (t +0.97)  hold 13.6h  $10 ->   12.29 (461 taken, DD 14%)
+   T 0.2: n   262 ( 0.72/day) gross  +68.4 bps  net R +0.230 (t +1.32)  hold 15.3h  $10 ->   13.18 (262 taken, DD 10%)
+   T 0.3: n   129 ( 0.35/day) gross +110.2 bps  net R +0.399 (t +1.57)  hold 16.5h  $10 ->   12.76 (129 taken, DD 5%)
+   -> frozen T for 30 min: 0.0
