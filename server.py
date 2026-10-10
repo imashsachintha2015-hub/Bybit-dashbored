@@ -1157,6 +1157,7 @@ def get_dashboard_bundle():
 
     # Auto Trade State
     try:
+        from backend_lib import auto_trade_state     # (was imported only inside get_live_championship_state, so this always fell through to {})
         auto_state = auto_trade_state.load()
     except Exception:
         auto_state = {}
@@ -1209,7 +1210,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        global _closed_pnl_cache
         if self.path == "/favicon.ico":
             self.send_response(204)
             self.end_headers()
