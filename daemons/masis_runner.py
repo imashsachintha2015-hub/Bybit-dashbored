@@ -148,6 +148,7 @@ def cycle(rt):
         if due:
             rt.snap.process(now, boundary)
     if rt.trend_on:
+        rt.trend.manage(now)
         due, boundary = rt.trend.due(now)
         if due:
             rt.trend.process(now, boundary)

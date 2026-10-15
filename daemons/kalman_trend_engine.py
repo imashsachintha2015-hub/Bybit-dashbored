@@ -414,6 +414,8 @@ class KalmanTrendEngine:
         missing = self.missing_bar(bar_t)
         bt, bo, bh, bl, bc, _ = self.closed_arrays("BTCUSDT", bar_t)
         btc_tr = dict(zip(bt, K.daily_trend(bt, bc))) if bt else {}
+        btc_e20 = K.ema(bc, 20) if bc and len(bc) >= 20 else []
+        btc_4h_dn = (bc[-1] < btc_e20[-1]) if btc_e20 else False
         fresh_ok = now - (bar_t + H4) <= FRESH_MS
         if self.store.get("engine_start") is None: self.store.put("engine_start", bar_t + H4)
         record_from = self.store.get("engine_start")                     # the forward test only counts signals after the start
@@ -436,7 +438,7 @@ class KalmanTrendEngine:
             fav_now = fav(bar_t + H4); btc_now = btc_tr.get(bar_t, 0)
             sig = None
             if side:
-                ok, why = K.entry_allowed(side, btc_now, fav_now)
+                ok, why = K.entry_allowed(side, btc_now, fav_now, btc_4h_dn)
                 if open_tr is not None or bar_t + H4 < busy_until: ok, why = False, "a trade on this coin is still open"
                 sig = dict(side=side, ok=ok, why=why, stop=K.initial_stop(side, c[-1], a[-1], next_open or c[-1]))
             self.state[sym] = dict(t=t, o=o, h=h, l=l, c=c, z=z, level=level, a=a, chain=chain, open_tr=open_tr, sig=sig,

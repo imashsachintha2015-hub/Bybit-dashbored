@@ -546,26 +546,73 @@ def _sync(client, st, cfg, now, ex, setups, counts):
             _log(st, now, "error", f"bookkeeping failed for {t.get('symbol')}: {e}", t, once=True)
 
 
+def _ema_calc(xs, n):
+    if not xs: return []
+    k, out = 2 / (n + 1), [xs[0]]
+    for x in xs[1:]: out.append(x * k + out[-1] * (1 - k))
+    return out
+
+
 def _manage_open(client, st, cfg, now, ex, series, btc, counts):
-    """Open auto trades: close at the market once BTC has moved 0.5R against them (the radar history's BTC rule)."""
-    if not cfg["btc_close"]: return
+    """Open auto trades: profit protection (BE ratchet + rejection guard) and the radar history's BTC exit rule."""
     for link, t in list(st["tracked"].items()):
-        if t.get("virtual") or t["status"] != "open" or t["symbol"] == "BTCUSDT": continue
-        pos = ex["positions"].get(t["symbol"]); iv = t["interval"]
-        if not pos or (t["symbol"], iv) not in series or iv not in btc: continue
-        times, closes = series[(t["symbol"], iv)]; step = sbgz.TF_MS[iv] // 1000
-        fill_s = int(t.get("fill_ms") or now) // 1000 // step * step
-        row = dict(symbol=t["symbol"], side=t["side"], entry=_f(pos.get("avgPrice")) or t["entry"], stop=t["stop"], t_fill=fill_s, t_end=None)
-        bx = sbgz.btc_exit(row, times, closes, btc[iv], step)
-        if not bx or not bx.get("fired"): continue
-        body = dict(category="linear", symbol=t["symbol"], side="Sell" if t["side"] == "LONG" else "Buy", orderType="Market", qty=pos.get("size"),
-                    reduceOnly=True, timeInForce="IOC")
-        res = client.signed_request("POST", "/v5/order/create", body=body)
-        if res.get("retCode") == 0:
-            t.update(status="closing", close_why="btc", closed_seen=now); counts["closed"] += 1
-            _log(st, now, "close", f"closed at the market: BTC moved {sbgz.BX_R:g}R against the trade (candle closed {time.strftime('%H:%M', time.gmtime(bx['t']))} UTC)", t)
-        else:
-            _log(st, now, "error", f"could not close at the market: {res.get('retMsg')} (code {res.get('retCode')})", t, once=True)
+        if t.get("virtual") or t["status"] != "open": continue
+        pos = ex["positions"].get(t["symbol"])
+        if not pos: continue
+        entry = _f(pos.get("avgPrice")) or t["entry"]
+        sd = 1 if t["side"] == "LONG" else -1
+        price = (_f(pos.get("markPrice")) if pos else 0) or _prices.get((t["symbol"], t["interval"]))
+        if not price or entry <= 0: continue
+
+        # Current unbooked excursion
+        gain_pct = sd * (price - entry) / entry * 100
+        t["peak_pct"] = max(t.get("peak_pct", 0.0), gain_pct)
+
+        # 1. Break-Even Ratchet: when gain reaches +1.0%, move broker-side stop to BE + 0.05% (covers fees)
+        if t["peak_pct"] >= 1.0 and not t.get("be_set"):
+            be_px = entry * (1 + 0.0005) if sd == 1 else entry * (1 - 0.0005)
+            spec = T.instrument(t["symbol"])
+            if spec and spec.get("tick"): be_px = T.round_step(be_px, spec["tick"])
+            if sd * (be_px - t["stop"]) > 0:
+                res = client.set_trading_stop(category="linear", symbol=t["symbol"], stop_loss=be_px)
+                if res.get("retCode") == 0:
+                    t["stop"] = be_px; t["be_set"] = True
+                    _log(st, now, "trail", f"moved stop to break-even ({_fmt(be_px)}) after gain reached +{gain_pct:.2f}%", t)
+
+        # 2. 15m EMA20 Rejection Trail: when peak excursion reached >= +2.0%, exit if 15m candle closes beyond EMA20
+        iv15 = (t["symbol"], "15")
+        if t["peak_pct"] >= 2.0 and iv15 in series:
+            times15, closes15 = series[iv15]
+            if len(closes15) >= 20:
+                e20 = _ema_calc(closes15, 20)[-1]
+                last_c = closes15[-1]
+                rejected = (last_c < e20) if sd == 1 else (last_c > e20)
+                if rejected:
+                    body = dict(category="linear", symbol=t["symbol"], side="Sell" if sd == 1 else "Buy", orderType="Market", qty=pos.get("size"),
+                                reduceOnly=True, timeInForce="IOC")
+                    res = client.signed_request("POST", "/v5/order/create", body=body)
+                    if res.get("retCode") == 0:
+                        t.update(status="closing", close_why="rejection_guard", closed_seen=now); counts["closed"] += 1
+                        _log(st, now, "close", f"defensive exit at market: 15m candle closed beyond EMA20 ({_fmt(last_c)} vs EMA20 {_fmt(e20)}) after peak +{t['peak_pct']:.2f}%", t)
+                        continue
+
+        # 3. BTC Exit Rule (optional): close at market once BTC moves 0.5R against the trade
+        if cfg.get("btc_close") and t["symbol"] != "BTCUSDT":
+            iv = t["interval"]
+            if (t["symbol"], iv) in series and iv in btc:
+                times, closes = series[(t["symbol"], iv)]; step = sbgz.TF_MS[iv] // 1000
+                fill_s = int(t.get("fill_ms") or now) // 1000 // step * step
+                row = dict(symbol=t["symbol"], side=t["side"], entry=entry, stop=t["stop"], t_fill=fill_s, t_end=None)
+                bx = sbgz.btc_exit(row, times, closes, btc[iv], step)
+                if bx and bx.get("fired"):
+                    body = dict(category="linear", symbol=t["symbol"], side="Sell" if sd == 1 else "Buy", orderType="Market", qty=pos.get("size"),
+                                reduceOnly=True, timeInForce="IOC")
+                    res = client.signed_request("POST", "/v5/order/create", body=body)
+                    if res.get("retCode") == 0:
+                        t.update(status="closing", close_why="btc", closed_seen=now); counts["closed"] += 1
+                        _log(st, now, "close", f"closed at the market: BTC moved {sbgz.BX_R:g}R against the trade (candle closed {time.strftime('%H:%M', time.gmtime(bx['t']))} UTC)", t)
+                    else:
+                        _log(st, now, "error", f"could not close at the market: {res.get('retMsg')} (code {res.get('retCode')})", t, once=True)
 
 
 def run_cycle(client, scan=None, now=None):

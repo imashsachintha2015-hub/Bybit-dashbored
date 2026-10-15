@@ -181,13 +181,14 @@ def crossing(z_prev, z_now):
     return 0
 
 
-def entry_allowed(side, btc_trend, favg):
-    """(allowed, reason). Long: BTC 1D trend up and funding not overheated. Short: BTC 1D trend down and funding > 0."""
+def entry_allowed(side, btc_trend, favg, btc_4h_below_ema=False):
+    """(allowed, reason). Long: BTC 1D trend up and funding not overheated. Short: BTC 1D trend down OR 4H breakdown and funding > 0."""
     if side == "L":
         if btc_trend != 1: return False, "BTC daily trend not up"
         if favg is not None and favg > FUND_CAP_LONG: return False, "funding overheated"
         return True, "ok"
-    if btc_trend != -1: return False, "BTC daily trend not down"
+    if not (btc_trend == -1 or btc_trend <= 0 or btc_4h_below_ema):
+        return False, "BTC daily trend not down"
     if favg is None: return False, "no funding history"
     if not favg > 0: return False, "funding not positive"
     return True, "ok"
