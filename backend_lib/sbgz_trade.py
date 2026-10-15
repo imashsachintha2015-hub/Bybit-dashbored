@@ -90,13 +90,11 @@ def size_qty(equity, risk_frac, entry, stop, spec, max_pos_x):
 
 
 def round_levels(z, spec):
-    """(entry, stop, target) of a setup on the instrument's tick: the stop rounded away from the entry, the target towards it.
-    Applies a 0.05% front-run offset to target to avoid being front-run at exact resistance/support levels."""
+    """(entry, stop, target) of a setup on the instrument's tick: the stop rounded away from the entry, the target towards it."""
     sd, tick = (1 if z["side"] == "LONG" else -1), spec["tick"]
-    raw_target = z["target"] * (1 - 0.0005) if sd == 1 else z["target"] * (1 + 0.0005)
     return (round_step(z["entry"], tick),
             floor_step(z["stop"], tick) if sd == 1 else ceil_step(z["stop"], tick),
-            floor_step(raw_target, tick) if sd == 1 else ceil_step(raw_target, tick))
+            floor_step(z["target"], tick) if sd == 1 else ceil_step(z["target"], tick))
 
 
 def account(client):

@@ -574,10 +574,18 @@ def _manage_open(client, st, cfg, now, ex, series, btc, counts):
             spec = T.instrument(t["symbol"])
             if spec and spec.get("tick"): be_px = T.round_step(be_px, spec["tick"])
             if sd * (be_px - t["stop"]) > 0:
-                res = client.set_trading_stop(category="linear", symbol=t["symbol"], stop_loss=be_px)
-                if res.get("retCode") == 0:
-                    t["stop"] = be_px; t["be_set"] = True
-                    _log(st, now, "trail", f"moved stop to break-even ({_fmt(be_px)}) after gain reached +{gain_pct:.2f}%", t)
+                try:
+                    if hasattr(client, "set_trading_stop"):
+                        res = client.set_trading_stop(category="linear", symbol=t["symbol"], stop_loss=be_px)
+                    elif hasattr(client, "signed_request"):
+                        res = client.signed_request("POST", "/v5/position/trading-stop", body=dict(category="linear", symbol=t["symbol"], stopLoss=str(be_px), positionIdx=0))
+                    else:
+                        res = {}
+                    if res.get("retCode") == 0:
+                        t["stop"] = be_px; t["be_set"] = True
+                        _log(st, now, "trail", f"moved stop to break-even ({_fmt(be_px)}) after gain reached +{gain_pct:.2f}%", t)
+                except Exception:
+                    pass
 
         # 2. 15m EMA20 Rejection Trail: when peak excursion reached >= +2.0%, exit if 15m candle closes beyond EMA20
         iv15 = (t["symbol"], "15")
