@@ -5085,7 +5085,7 @@ window.sbgzAutoSave = function(){
   if(g('sbgzAuto60').checked) ivs.push('60');
   if(!ivs.length){ alert('Pick at least one timeframe.'); return; }
   var patch = { equity_usd: parseFloat(g('sbgzAutoEquity').value), risk_pct: parseFloat(g('sbgzAutoRisk').value), vol_only: g('sbgzAutoVol').checked, intervals: ivs, btc_close: g('sbgzAutoBtcClose').checked,
-                btc_cancel: g('sbgzAutoBtcCancel').checked, max_resting: parseInt(g('sbgzAutoMaxW').value, 10), max_open: parseInt(g('sbgzAutoMaxO').value, 10),
+                btc_cancel: g('sbgzAutoBtcCancel').checked, max_resting: parseInt(g('sbgzAutoMaxW').value, 10), max_open: parseInt(g('sbgzAutoMaxO').value, 10), max_same_side: parseInt(g('sbgzAutoSide').value, 10),
                 max_open_risk_pct: parseFloat(g('sbgzAutoMaxRisk').value) };
   sbgzAutoPost('/api/sbgz/auto/settings', patch).then(function(r){ if(r && r.ok) window._sbgzAutoSetKey = null; sbgzAutoAfter(r, 'Could not save'); });
 };
@@ -5128,6 +5128,7 @@ window.sbgzAutoRender = function(){
       '<label title="Backtest: no gain, off by default"><input type="checkbox" id="sbgzAutoBtcCancel"' + (s.btc_cancel ? ' checked' : '') + '> cancel waiting orders when BTC moves 0.5R against since the signal</label>' +
       '<label>Max waiting <select id="sbgzAutoMaxW">' + opt([2, 4, 8, 12, 20], s.max_resting) + '</select></label>' +
       '<label>Max open <select id="sbgzAutoMaxO">' + opt([1, 3, 6, 10, 20], s.max_open) + '</select></label>' +
+      '<label title="Most open trades in one direction (long or short). They tend to win or lose together when the market turns, so this keeps one move from stopping out everything.">Max per direction <select id="sbgzAutoSide">' + opt([1, 2, 3, 4, 6, 10], s.max_same_side) + '</select></label>' +
       '<label title="Counts the trades that are OPEN. Waiting orders do not use it (most never fill). If fills use it up, the waiting orders that could not be taken are cancelled and placed again when there is room.">Max open risk <select id="sbgzAutoMaxRisk">' + opt([1, 2, 3, 5, 8, 10], s.max_open_risk_pct, '%') + '</select></label>' +
       '<button type="button" class="sbgz-rbtn" onclick="sbgzAutoSave()">Save settings</button>' +
       '<button type="button" class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="sbgzAutoKill(false)">Stop + cancel waiting orders</button>' +

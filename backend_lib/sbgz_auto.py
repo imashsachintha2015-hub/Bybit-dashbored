@@ -35,9 +35,9 @@ MODES = ("off", "preview", "live")
 # user wants to trade; at 20 USDT Bybit's smallest order (about 5 USDT) needs a risk of at least ~0.5% per trade (38 of the 42 radar coins
 # fit at 1%), so risk_pct defaults to 1.
 DEFAULTS = dict(mode="off", equity_usd=20.0, risk_pct=1.0, vol_only=True, intervals=["15", "60"], max_resting=8, max_open=6, max_open_risk_pct=5.0,
-                max_new_per_cycle=3, max_orders_per_day=30, daily_stop_r=8.0, btc_close=True, btc_cancel=False, leverage=10)
+                max_new_per_cycle=3, max_orders_per_day=30, daily_stop_r=8.0, btc_close=True, btc_cancel=False, leverage=10, max_same_side=3)
 LIMITS = dict(equity_usd=(0.0, 1_000_000.0), risk_pct=(0.05, 5.0), max_resting=(1, 20), max_open=(1, 20), max_open_risk_pct=(0.25, 10.0),
-              max_new_per_cycle=(1, 5), max_orders_per_day=(1, 100), daily_stop_r=(1.0, 50.0), leverage=(1, 25))
+              max_new_per_cycle=(1, 5), max_orders_per_day=(1, 100), daily_stop_r=(1.0, 50.0), leverage=(1, 25), max_same_side=(1, 20))
 FLOATS = ("equity_usd", "risk_pct", "max_open_risk_pct", "daily_stop_r")
 BOOLS = ("vol_only", "btc_close", "btc_cancel")
 LOG_MAX = 150
@@ -294,6 +294,14 @@ def _used(st, virtual):
     return len(waiting), len(opened), sum(_f(t.get("risk_usd")) for t in waiting + opened)
 
 
+def _open_by_side(st, virtual):
+    """{"LONG": n, "SHORT": n}: the open trades the auto-orders hold, per direction (trades in one direction tend to win or lose together)."""
+    n = dict(LONG=0, SHORT=0)
+    for t in st["tracked"].values():
+        if bool(t.get("virtual")) == virtual and t["status"] in ("open", "closing") and t.get("side") in n: n[t["side"]] += 1
+    return n
+
+
 def _open_risk(st, virtual):
     """Risk in USDT of the trades that are really open (filled, or closing). Waiting orders are not counted: most of them never fill."""
     return sum(_f(t.get("risk_usd")) for t in st["tracked"].values() if bool(t.get("virtual")) == virtual and t["status"] in ("open", "closing"))
@@ -423,6 +431,11 @@ def _trim_waiting(client, st, cfg, now, ex, counts, live):
             used = (ex["equity"] * cfg["max_open_risk_pct"] / 100 - room) / ex["equity"] * 100 if ex["equity"] else 0
             if _cancel_order(client, st, now, t, link, f"the open trades use {used:.1f}% of the {cfg['max_open_risk_pct']:g}% risk limit, so this order could not be taken if it filled "
                                                       "(it is placed again when there is room)"): counts["cancelled"] += 1
+    cap = cfg["max_same_side"]; side_open = _open_by_side(st, not live)       # the same-direction cap: a waiting order that would be one open trade too many
+    for link, t in list(st["tracked"].items()):
+        if t["status"] != "resting" or bool(t.get("virtual")) == live or side_open.get(t["side"], 0) < cap: continue
+        if _cancel_order(client, st, now, t, link, f"{side_open[t['side']]} {t['side']} trades are already open (limit {cap} per direction), so this order could not be taken if it filled "
+                                                  "(it is placed again when there is room)"): counts["cancelled"] += 1
 
 
 def _place_new(client, st, cfg, now, ex, setups, counts, live):
@@ -437,10 +450,12 @@ def _place_new(client, st, cfg, now, ex, setups, counts, live):
     held = {t["symbol"] for t in st["tracked"].values() if t["status"] in ("resting", "open", "closing") and bool(t.get("virtual")) == (not live)}
     cands = sorted((s for s in setups.values() if s["interval"] in cfg["intervals"] and (s["vol_ok"] or not cfg["vol_only"])),
                    key=lambda s: (not s["vol_ok"], s["interval"] != "60", -(s["since"] or 0)))
-    new = 0
+    new = 0; side_open = _open_by_side(st, not live)
     for s in cands:
         sym, iv, side = s["symbol"], s["interval"], s["side"]; key = _setup_key(sym, iv, side, s["since"])
         if key in keys or _retry_at.get(key, 0) > now or sym in busy or sym in held: continue
+        if side_open[side] >= cfg["max_same_side"]:
+            _log(st, now, "skip", f"not placed: {side_open[side]} {side} trades are already open (limit {cfg['max_same_side']} per direction); it is placed when there is room", s, once=True, mode=mode); continue
         if new >= cfg["max_new_per_cycle"] or n_wait >= cfg["max_resting"] or n_open >= cfg["max_open"]: break
         if day["orders"] >= cfg["max_orders_per_day"]:
             _log(st, now, "halt", f"{cfg['max_orders_per_day']} orders placed today: no more until tomorrow (UTC)", once=True, mode=mode); break
