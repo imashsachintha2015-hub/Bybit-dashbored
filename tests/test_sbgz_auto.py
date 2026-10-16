@@ -261,7 +261,7 @@ def test_caps():
         e.mode("live", max_resting=3, max_new_per_cycle=5); e.cycle(); e.cycle()
         assert len(e.tracked()) == 3, "waiting orders are capped"
     with Env(w) as e:                                                                 # the risk limit counts OPEN trades: waiting orders do not use it
-        e.mode("live", max_open_risk_pct=0.6, max_new_per_cycle=5, max_resting=20)    # 0.25% each: two open trades fit, a third would make 0.75%
+        e.mode("live", max_open_risk_pct=0.6, max_new_per_cycle=5, max_resting=20, max_same_side=20)    # 0.25% each: two open trades fit, a third would make 0.75%
         e.cycle(); assert len(e.tracked(status="resting")) == 5 and not e.log(kinds=("skip",)), e.log()
         e.cycle(); assert len(e.tracked(status="resting")) == 8, "all eight wait: unfilled orders do not use the risk limit"
         for t in e.tracked(status="resting")[:3]: e.ex.fill(t["link"])                # three fill at once: 0.75% open, over the 0.6% limit
@@ -275,6 +275,30 @@ def test_caps():
         e.mode("live", max_open=1, max_resting=20, max_new_per_cycle=1); e.cycle(); e.ex.fill(e.tracked()[0]["link"]); e.cycle()
         n = len(e.ex.posts()); e.cycle(); assert len(e.ex.posts()) == n, "no new order while the open-trade cap is reached"
     print("  caps: waiting orders, total risk, orders per day, open trades")
+
+
+def test_same_direction_cap():
+    """Trades in one direction win or lose together, so at most max_same_side may be open per direction: waiting orders of a full direction are
+    cancelled, new ones are not placed, and the other direction is not affected."""
+    w = World()
+    for i in range(4): w.add(f"L{i}USDT", "60", 10.5, setups=[zone(since_bar=ARM + i)])
+    w.add("S0USDT", "60", 9.5, setups=[zone(entry=10.0, stop=10.2, target=9.1, side="SHORT", since_bar=ARM + 9)])
+    with Env(w) as e:
+        e.mode("live", max_same_side=2, max_new_per_cycle=5, max_resting=20, max_open=20, max_open_risk_pct=10.0)
+        e.cycle(); e.cycle()
+        assert len(e.tracked(status="resting")) == 5, "nothing is open yet, so all five wait"
+        for t in [t for t in e.tracked(status="resting") if t["side"] == "LONG"][:2]: e.ex.fill(t["link"])
+        e.cycle()
+        assert len(e.tracked(status="open")) == 2 and all(t["side"] == "LONG" for t in e.tracked(status="open")), e.tracked()
+        assert [t["symbol"] for t in e.tracked(status="resting")] == ["S0USDT"], "the two other long orders are cancelled, the short one stays"
+        assert any("per direction" in x[2] for x in e.log(kinds=("cancel",))), e.log()
+        n = len(e.ex.posts()); e.cycle(); e.cycle(); assert len(e.ex.posts()) == n, "no long order is placed while two longs are open"
+    with Env(w) as e:
+        assert A.DEFAULTS["max_same_side"] == 3
+        for bad in (0, 21, "x"):
+            try: A.clean_settings(dict(max_same_side=bad), dict(A.DEFAULTS)); raise AssertionError(f"accepted {bad}")
+            except ValueError: pass
+    print("  same-direction cap: skip, cancel, other direction unaffected")
 
 
 def test_waiting_orders_do_not_use_the_risk_limit():
