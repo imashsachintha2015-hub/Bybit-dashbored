@@ -99,6 +99,10 @@ class FakeEx:
         if path == "/v5/order/history":
             st = self.history.get(params.get("orderLinkId"))
             return {"retCode": 0, "result": {"list": [{"orderStatus": st}] if st else []}}
+        if path == "/v5/position/trading-stop":                                              # the position's stop moved (the break-even)
+            p = self.positions.get(body["symbol"])
+            if not p: return {"retCode": 110025, "retMsg": "position not exists"}
+            p["stopLoss"] = body["stopLoss"]; return {"retCode": 0, "result": {}}
         if path == "/v5/position/closed-pnl":
             return {"retCode": 0, "result": {"list": [c for c in self.closed if c["symbol"] == params["symbol"]]}}
         if path == "/v5/position/list":
@@ -446,6 +450,29 @@ def test_fill_is_noticed_and_btc_rule_closes_at_market():
         link = e.tracked(symbol="XYZUSDT")[0]["link"]; e.ex.fill(link); e.ex.positions["XYZUSDT"]["createdTime"] = str((T0 + fill_idx * 3600) * 1000 + 5000)
         e.cycle(); e.cycle(); assert e.ex.positions and len(e.ex.posts()) == 1
     print("  a fill is noticed; BTC -0.5R closes the trade at the market (reduce-only), leftovers removed, R logged; option off = no close")
+
+
+def test_stop_moves_to_entry_only_after_3_5r_and_the_stop_field_stays():
+    w = World(); w.add("XYZUSDT", "60", 10.5, setups=[zone()]); w.add("BTCUSDT", "60", 1000.0)
+    fill_idx = N - 4
+    with Env(w) as e:
+        e.mode("live"); e.cycle(); link = e.tracked(symbol="XYZUSDT")[0]["link"]
+        e.ex.fill(link); e.ex.positions["XYZUSDT"]["createdTime"] = str((T0 + fill_idx * 3600) * 1000 + 5000)
+        stops = lambda: e.ex.posts("/v5/position/trading-stop")
+        for px in ("10.12", "10.3", "10.55"):                                                          # +0.6R, +1.5R, +2.75R: nothing moves, nothing closes
+            e.ex.positions["XYZUSDT"].update(markPrice=px, unrealisedPnl="1.0"); e.cycle()
+            assert not stops() and len(e.ex.posts()) == 1 and e.ex.positions, (px, e.ex.calls[-3:])
+        e.ex.positions["XYZUSDT"].update(markPrice="10.71", unrealisedPnl="9.0"); e.cycle()               # +3.55R: the stop goes to the entry, once
+        assert len(stops()) == 1 and stops()[0]["stopLoss"] == "10.0" and e.ex.positions["XYZUSDT"]["stopLoss"] == "10.0", stops()
+        t = A._state["tracked"][link]                                                                  # the stored trade, not the status view
+        assert t["be_set"] is True and t["be_stop"] == 10.0 and t["stop"] == 9.8, t                    # t["stop"] is still the original stop: R and the BTC rule use it
+        assert any(x[0] == "trail" and "to the entry" in x[2] for x in e.log()), e.log()
+        e.ex.positions["XYZUSDT"].update(markPrice="10.8"); e.cycle(); assert len(stops()) == 1, "moved once only"
+        c2 = [1000.0] * N
+        for i in range(N - 2, N): c2[i] = 995.0                                                         # BTC -0.5% = -0.25R on the ORIGINAL stop distance (2%): below the 0.5R rule
+        w.add("BTCUSDT", "60", 995.0, closes=c2); e.cycle()
+        assert e.ex.positions and len(e.ex.posts()) == 1, "after the break-even the BTC rule still measures R on the original stop"
+    print("  the stop moves to the entry once, only after +3.5R; t[stop] stays the original; the BTC rule keeps its scale; no +1% ratchet, no EMA20 exit")
 
 
 def test_exchange_exits_are_booked_and_the_daily_stop_halts():

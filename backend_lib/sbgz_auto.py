@@ -563,13 +563,46 @@ def _sync(client, st, cfg, now, ex, setups, counts):
             _log(st, now, "error", f"bookkeeping failed for {t.get('symbol')}: {e}", t, once=True)
 
 
+BE_AFTER_R = 3.5                       # the stop moves to the entry once the trade has been this many R in profit (near-miss study: same total R, fewer -1R)
+
+
+def _break_even(client, st, now, t, pos, entry):
+    """Move the broker-side stop to the entry once the trade has been BE_AFTER_R in profit. t["stop"] is NOT changed: it stays the original
+    stop, because the trade's R and the BTC rule's risk-unit are measured on it (the entry is not the stop for those)."""
+    if t.get("be_set"): return
+    sd = 1 if t["side"] == "LONG" else -1
+    risk = abs(entry - t["stop"])
+    price = _f(pos.get("markPrice")) or _prices.get((t["symbol"], t["interval"]))
+    if not price or risk <= 0: return
+    t["peak_R"] = max(t.get("peak_R", 0.0), sd * (price - entry) / risk)
+    if t["peak_R"] < BE_AFTER_R: return
+    spec = T.instrument(t["symbol"])
+    be_px = T.round_step(entry, spec["tick"]) if spec and spec.get("tick") else entry
+    try:
+        if hasattr(client, "set_trading_stop"):
+            res = client.set_trading_stop(category="linear", symbol=t["symbol"], stop_loss=be_px)
+        else:
+            res = client.signed_request("POST", "/v5/position/trading-stop", body=dict(category="linear", symbol=t["symbol"], stopLoss=str(be_px), positionIdx=0))
+    except Exception as e:
+        _log(st, now, "error", f"could not move the stop to the entry: {e}", t, once=True)
+        return
+    if res.get("retCode") == 0:
+        t.update(be_set=True, be_stop=be_px)
+        _log(st, now, "trail", f"moved the stop to the entry ({_fmt(be_px)}) after the trade reached +{t['peak_R']:.1f}R", t)
+    else:
+        _log(st, now, "error", f"could not move the stop to the entry: {res.get('retMsg')} (code {res.get('retCode')})", t, once=True)
+
+
 def _manage_open(client, st, cfg, now, ex, series, btc, counts):
-    """Open auto trades: close at the market once BTC has moved 0.5R against them (the radar history's BTC rule)."""
-    if not cfg["btc_close"]: return
+    """Open auto trades: stop to the entry after +BE_AFTER_R, and close at the market once BTC has moved 0.5R against them (the radar history's BTC rule)."""
     for link, t in list(st["tracked"].items()):
-        if t.get("virtual") or t["status"] != "open" or t["symbol"] == "BTCUSDT": continue
-        pos = ex["positions"].get(t["symbol"]); iv = t["interval"]
-        if not pos or (t["symbol"], iv) not in series or iv not in btc: continue
+        if t.get("virtual") or t["status"] != "open": continue
+        pos = ex["positions"].get(t["symbol"])
+        if not pos: continue
+        _break_even(client, st, now, t, pos, _f(pos.get("avgPrice")) or t["entry"])
+        if not cfg["btc_close"] or t["symbol"] == "BTCUSDT": continue
+        iv = t["interval"]
+        if (t["symbol"], iv) not in series or iv not in btc: continue
         times, closes = series[(t["symbol"], iv)]; step = sbgz.TF_MS[iv] // 1000
         fill_s = int(t.get("fill_ms") or now) // 1000 // step * step
         row = dict(symbol=t["symbol"], side=t["side"], entry=_f(pos.get("avgPrice")) or t["entry"], stop=t["stop"], t_fill=fill_s, t_end=None)
