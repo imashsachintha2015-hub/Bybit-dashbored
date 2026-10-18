@@ -7437,7 +7437,11 @@ window.openModeMenu = function(ev){
     ['championship', 'fa-trophy', '#fbbf24', 'Championship', 'Dual-regime 15m engine'],
     ['standard', 'fa-bolt', '#38bdf8', 'CME-X5 Pure', 'S2 POC reclaim + S7 continuation'],
     ['kalman', 'fa-wave-square', '#a78bfa', 'Kalman Trend', '4H trend system &middot; 0.5% risk &middot; max 8 open']
-  ].forEach(function(it){
+  ].filter(function(it){
+    // Championship and CME-X5 Pure lost money in the replay (about -0.17R / -0.19R per trade after fees; README, xmodes.py), so they are no longer
+    // offered. One that is the current mode stays in the list (ticked) so nobody is left on a mode they cannot see.
+    return it[0] === 'kalman' || it[0] === cur;
+  }).forEach(function(it){
     var b = document.createElement('button');
     if(it[0] === cur) b.className = 'on';
     b.innerHTML = '<i class="fa-solid ' + it[1] + '" style="color:' + it[2] + '"></i><span>' + it[3] +
@@ -7448,10 +7452,14 @@ window.openModeMenu = function(ev){
     };
     m.appendChild(b);
   });
+  var note = document.createElement('div');
+  note.style.cssText = 'padding:8px 12px 6px;font-size:11px;line-height:1.4;color:#94a3b8';
+  note.textContent = 'SBGZ (Radar tab) is not a mode here: its signals are on the Radar tab and its auto-orders run on the server (Radar > My SBGZ orders).';
+  m.appendChild(note);
   document.body.appendChild(m);
   var w = 240, left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
   m.style.left = left + 'px';
-  m.style.top = Math.min(r.bottom + 6, window.innerHeight - 170) + 'px';
+  m.style.top = Math.min(r.bottom + 6, window.innerHeight - 190) + 'px';
   setTimeout(function(){
     document.addEventListener('click', function close(){
       var x = document.getElementById('modeMenu');
