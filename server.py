@@ -1610,7 +1610,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if urllib.parse.urlparse(self.path).path == "/api/sbgz/auto":
             try:
                 from backend_lib import sbgz_auto as _auto
-                self._send_json(200, _auto.status(bybit_client))
+                full = (urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("log") or [""])[0] == "all"
+                self._send_json(200, _auto.status(bybit_client, full_log=full))
             except Exception as e:
                 self._send_json(200, {"ok": False, "error": f"sbgz auto failed: {e}"})
             return

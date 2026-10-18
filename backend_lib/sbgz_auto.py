@@ -40,8 +40,10 @@ LIMITS = dict(equity_usd=(0.0, 1_000_000.0), risk_pct=(0.05, 5.0), max_resting=(
               max_new_per_cycle=(1, 5), max_orders_per_day=(1, 100), daily_stop_r=(1.0, 50.0), leverage=(1, 25), max_same_side=(1, 20))
 FLOATS = ("equity_usd", "risk_pct", "max_open_risk_pct", "daily_stop_r")
 BOOLS = ("vol_only", "btc_close", "btc_cancel")
-LOG_MAX = 150
-KEEP_DONE_MS = 3 * 86_400_000          # finished orders / trades stay listed for 3 days
+LOG_MAX = 600                          # log lines kept in the store (about two weeks at the usual pace)
+LOG_VIEW = 150                         # lines /api/sbgz/auto returns unless asked for all of them (?log=all): the dashboard polls it every minute
+KEEP_DONE_MS = 3 * 86_400_000          # replaced (moved) orders and ones that vanished stay listed for 3 days
+KEEP_RESULT_MS = 14 * 86_400_000       # finished trades and cancelled orders (the ones with an outcome or a reason) stay for 14 days
 RETRY_AFTER_MS = 600_000               # an order Bybit refused is not tried again for 10 minutes
 SKIP_RETRY_MS = 300_000                # a setup that cannot be planned (price already through the entry, too small, ...) is looked at again after 5 minutes
 LIVE_STATUSES = ("New", "PartiallyFilled", "Untriggered", "Created")
@@ -623,7 +625,8 @@ def _run_cycle(client, scan, now):
         _trim_waiting(client, st, cfg, now, ex, counts, live)
         _place_new(client, st, cfg, now, ex, setups, counts, live)
         _mark(st, ex, live)
-        for k in [k for k, t in st["tracked"].items() if t["status"] in ("cancelled", "replaced", "gone", "done") and now - t.get("done", now) > KEEP_DONE_MS]:
+        for k in [k for k, t in st["tracked"].items() if t["status"] in ("cancelled", "replaced", "gone", "done")
+                   and now - t.get("done", now) > (KEEP_RESULT_MS if t["status"] in ("cancelled", "done") else KEEP_DONE_MS)]:
             del st["tracked"][k]
         for d in ("keys", "pkeys"):
             for k in [k for k, v in st[d].items() if now - v > 14 * 86_400_000]: del st[d][k]
@@ -646,8 +649,8 @@ def _risk_summary(st, cfg):
     return dict(open_usd=round(op, 4), waiting_usd=round(wt, 4), open_pct=pct(op), waiting_pct=pct(wt), worst_pct=pct(op + wt), limit_pct=cfg["max_open_risk_pct"], equity=eq)
 
 
-def status(client=None):
-    """GET /api/sbgz/auto."""
+def status(client=None, full_log=False):
+    """GET /api/sbgz/auto. The newest LOG_VIEW log lines; full_log=True: every stored line (LOG_MAX)."""
     st = _ensure()
     if st is None: return dict(ok=False, error="the auto-order store could not be read; try again in a minute")
     with _lock:
@@ -658,7 +661,7 @@ def status(client=None):
         day = dict(st["day"]); cfg = dict(st["settings"])
         return dict(ok=True, account=T.account(client) if client else None, settings=cfg, day=day,
                     equity=dict(used=_status.get("equity_used"), real=_status.get("equity_real")), open_r=dict(n=len(open_r), r=sum(open_r)),
-                    halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:LOG_MAX]),
+                    halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:LOG_MAX if full_log else LOG_VIEW]), log_total=len(st["log"]),
                     risk=_risk_summary(st, cfg), running=bool(_thread and _thread.is_alive()))
 
 
