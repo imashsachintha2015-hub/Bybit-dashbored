@@ -305,6 +305,24 @@ def test_same_direction_cap():
     print("  same-direction cap: skip, cancel, other direction unaffected")
 
 
+def test_log_and_finished_trades_are_kept_longer():
+    """The log keeps 600 lines (the default answer shows the newest 150, ?log=all all of them); finished trades and cancelled orders stay 14 days,
+    replaced / vanished orders 3 days."""
+    w = one_setup()
+    with Env(w) as e:
+        e.mode("live"); e.cycle()                                                  # the first pass takes the lease (and reloads the state)
+        st = A._ensure(); now = e.ex.clock; day = 86_400_000
+        for i in range(700): A._log(st, now + i, "info", f"line {i}")
+        assert len(A.status(e.ex)["log"]) == A.LOG_VIEW == 150 and len(A.status(e.ex, full_log=True)["log"]) == A.LOG_MAX == 600
+        assert A.status(e.ex)["log_total"] == 600 and A.status(e.ex)["log"][0]["text"] == "line 699", "newest first"
+        base = dict(symbol="OLDUSDT", interval="60", side="LONG", entry=10, stop=9.8, target=10.9, qty=1, risk_usd=0.2, vol_ok=True, virtual=False, placed=now - 6 * day)
+        for status, age, name in (("done", 5, "d5"), ("cancelled", 13, "c13"), ("replaced", 5, "r5"), ("done", 15, "d15"), ("replaced", 2, "r2")):
+            st["tracked"][name] = dict(base, link=name, status=status, done=now - age * day)
+        e.cycle()
+        kept = set(A._ensure()["tracked"]); assert {"d5", "c13", "r2"} <= kept and not ({"r5", "d15"} & kept), kept
+    print("  log: 600 lines kept (150 shown unless all asked for); results 14 days, replaced orders 3 days")
+
+
 def test_waiting_orders_do_not_use_the_risk_limit():
     """Most waiting orders never fill, so only open trades count: signals are no longer dropped because other orders are merely waiting;
     when fills use the limit up the orders that could not be taken are cancelled, and they come back once a trade closes."""

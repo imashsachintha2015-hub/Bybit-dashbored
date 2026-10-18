@@ -5046,7 +5046,7 @@ window._sbgzAuto = null;
 window.sbgzAutoLoad = function(){
   var info = document.getElementById('sbgzAutoInfo');
   if(!info) return;
-  fetch('/api/sbgz/auto')
+  fetch('/api/sbgz/auto' + (sbgzDayGet() ? '?log=all' : ''))
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){
       if(!d || !d.ok){ info.textContent = 'Auto-orders unavailable: ' + ((d && d.error) || 'no answer from /api/sbgz/auto (server not updated yet?)'); return; }
@@ -5142,7 +5142,7 @@ window.sbgzAutoRender = function(){
     (d.open_r && d.open_r.n ? ' · open trades now <b class="' + (d.open_r.r >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(d.open_r.r) + '</b>' : '') +
     (d.risk && d.risk.open_pct != null ? '<br>Risk: open trades <b>' + d.risk.open_pct.toFixed(1) + '%</b> of the <b>' + d.risk.limit_pct + '%</b> limit' +
       (d.risk.waiting_pct ? ' · another <b>' + d.risk.waiting_pct.toFixed(1) + '%</b> if every waiting order filled <span class="mut">(waiting orders do not use the limit; most never fill)</span>' : '') : '') +
-    (sbgzDayGet() ? '<br><span class="mut">Day filter: showing <b>' + sbgzDayTitle(sbgzDayGet()) + '</b> in the two tables below. The server keeps the last 3 days of orders and ' + (d.log || []).length + ' log lines; older days: see the history.</span>' : '') +
+    (sbgzDayGet() ? '<br><span class="mut">Day filter: showing <b>' + sbgzDayTitle(sbgzDayGet()) + '</b> in the two tables below. The server keeps finished trades and cancelled orders for 14 days and the last ' + (d.log_total || (d.log || []).length) + ' log lines; older days: see the history.</span>' : '') +
     (st.t ? '<br><span class="mut">last check ' + sbgzEsc(sbgzWhen(st.t / 1000)) + ': ' + sbgzEsc(st.msg || '') + (d.running ? '' : ' (background thread not running on this server)') + '</span>' : '');
   var dayKey = sbgzDayGet();
   // no day chosen: what is waiting or open now. A day chosen: every order placed that day (replaced ones left out), with how it ended
@@ -5165,7 +5165,7 @@ window.sbgzAutoRender = function(){
     var cls = e.kind === 'error' || e.kind === 'halt' ? 'dn' : e.kind === 'place' || e.kind === 'fill' ? 'ok' : e.kind === 'skip' ? 'mut' : e.kind === 'closed' || e.kind === 'close' ? '' : 'warn';
     return '<tr><td>' + sbgzEsc(sbgzWhen(e.t / 1000)) + '</td><td>' + (e.symbol ? '<b>' + sbgzEsc(String(e.symbol).replace(/USDT$/, '')) + '</b>' : '') + '</td><td>' + (e.interval ? (e.interval === '60' ? '1h' : e.interval + 'm') : '') + '</td>' +
       '<td class="' + (e.side === 'LONG' ? 'up' : e.side === 'SHORT' ? 'dn' : '') + '">' + sbgzEsc(e.side || '') + '</td><td class="' + cls + '">' + sbgzEsc(SBGZ_AUTO_KIND[e.kind] || e.kind) + (e.mode === 'preview' ? ' <span class="mut">(preview)</span>' : '') + '</td><td>' + sbgzEsc(e.text) + '</td></tr>';
-  }).join('') : '<tr><td colspan="6" class="emp">' + (dayKey ? 'No auto-order activity was logged ' + sbgzDayTitle(dayKey) + ' (the server keeps only the latest ' + (d.log || []).length + ' log lines).'
+  }).join('') : '<tr><td colspan="6" class="emp">' + (dayKey ? 'No auto-order activity was logged ' + sbgzDayTitle(dayKey) + ' (the server keeps only the latest ' + (d.log_total || (d.log || []).length) + ' log lines).'
                                                          : 'Nothing yet. Pick Preview or Live above and its decisions appear here.') + '</td></tr>';
 };
 

@@ -1,0 +1,37 @@
+# Round 11 SELECTION on design coins: A 2021-01..2024-06, B 2024-07..2025-06 (32 cells)
+N= 96 CONF=C0 TM=2R TG=none  A: n=36772 netR=-0.211 gross=  -3.5bps | B: n=12532 netR=-0.263 gross=  -3.5 | A+B n=49304 t=-20.74
+N= 96 CONF=C0 TM=2R TG=BTC  A: n=14068 netR=-0.192 gross=  -0.0bps | B: n= 5574 netR=-0.276 gross=  -4.6 | A+B n=19642 t=-11.90
+N= 96 CONF=C0 TM=4R TG=none  A: n=31171 netR=-0.194 gross=  -3.3bps | B: n=10728 netR=-0.290 gross=  -4.5 | A+B n=41899 t=-13.03
+N= 96 CONF=C0 TM=4R TG=BTC  A: n=13464 netR=-0.170 gross=  +2.8bps | B: n= 5358 netR=-0.342 gross=  -8.2 | A+B n=18822 t=-8.00
+N= 96 CONF=C1 TM=2R TG=none  A: n= 3977 netR=-0.150 gross=  +0.1bps | B: n= 2132 netR=-0.232 gross=  -2.2 | A+B n=6109 t=-7.87
+N= 96 CONF=C1 TM=2R TG=BTC  A: n= 1265 netR=-0.122 gross=  +7.5bps | B: n=  846 netR=-0.247 gross=  +0.7 | A+B n=2111 t=-4.41
+N= 96 CONF=C1 TM=4R TG=none  A: n= 3871 netR=-0.119 gross=  +2.3bps | B: n= 2031 netR=-0.221 gross=  -1.4 | A+B n=5902 t=-4.76
+N= 96 CONF=C1 TM=4R TG=BTC  A: n= 1259 netR=-0.067 gross= +14.3bps | B: n=  840 netR=-0.278 gross=  -1.9 | A+B n=2099 t=-2.70
+N= 96 CONF=C2 TM=2R TG=none  A: n= 1459 netR=-0.289 gross=  -9.0bps | B: n=  841 netR=-0.319 gross=  -5.9 | A+B n=2300 t=-9.38
+N= 96 CONF=C2 TM=2R TG=BTC  A: n=  677 netR=-0.232 gross=  -0.7bps | B: n=  472 netR=-0.282 gross=  -0.6 | A+B n=1149 t=-5.33
+N= 96 CONF=C2 TM=4R TG=none  A: n= 1423 netR=-0.261 gross= -11.4bps | B: n=  827 netR=-0.314 gross=  -5.9 | A+B n=2250 t=-6.40
+N= 96 CONF=C2 TM=4R TG=BTC  A: n=  670 netR=-0.163 gross=  -0.2bps | B: n=  470 netR=-0.337 gross=  -4.8 | A+B n=1140 t=-3.60
+N= 96 CONF=C3 TM=2R TG=none  A: n=  236 netR=-0.151 gross=  +2.8bps | B: n=  209 netR=-0.267 gross=  -5.6 | A+B n=445 t=-3.12
+N= 96 CONF=C3 TM=2R TG=BTC  A: n=  107 netR=+0.046 gross= +41.1bps | B: n=  115 netR=-0.193 gross=  +0.1 | A+B n=222 t=-0.76
+N= 96 CONF=C3 TM=4R TG=none  A: n=  235 netR=-0.116 gross=  -3.0bps | B: n=  206 netR=-0.302 gross=  +0.7 | A+B n=441 t=-2.06
+N= 96 CONF=C3 TM=4R TG=BTC  A: n=  107 netR=+0.138 gross= +35.5bps | B: n=  115 netR=-0.361 gross=  -4.2 | A+B n=222 t=-0.81
+N=288 CONF=C0 TM=2R TG=none  A: n=19691 netR=-0.193 gross=  -1.9bps | B: n= 7041 netR=-0.279 gross=  -5.9 | A+B n=26732 t=-15.32
+N=288 CONF=C0 TM=2R TG=BTC  A: n= 6080 netR=-0.162 gross=  +4.6bps | B: n= 2803 netR=-0.288 gross=  -6.5 | A+B n=8883 t=-8.05
+N=288 CONF=C0 TM=4R TG=none  A: n=19146 netR=-0.180 gross=  -2.1bps | B: n= 6921 netR=-0.309 gross=  -7.5 | A+B n=26067 t=-10.51
+N=288 CONF=C0 TM=4R TG=BTC  A: n= 6053 netR=-0.123 gross=  +8.7bps | B: n= 2785 netR=-0.350 gross=  -9.6 | A+B n=8838 t=-5.28
+N=288 CONF=C1 TM=2R TG=none  A: n= 1752 netR=-0.176 gross=  -6.3bps | B: n= 1003 netR=-0.230 gross=  -4.9 | A+B n=2755 t=-6.23
+N=288 CONF=C1 TM=2R TG=BTC  A: n=  464 netR=-0.182 gross=  +6.4bps | B: n=  381 netR=-0.197 gross=  +7.7 | A+B n=845 t=-3.33
+N=288 CONF=C1 TM=4R TG=none  A: n= 1747 netR=-0.129 gross=  -1.6bps | B: n= 1002 netR=-0.231 gross=  -5.2 | A+B n=2749 t=-3.74
+N=288 CONF=C1 TM=4R TG=BTC  A: n=  464 netR=-0.023 gross= +27.8bps | B: n=  381 netR=-0.160 gross= +10.5 | A+B n=845 t=-1.02
+N=288 CONF=C2 TM=2R TG=none  A: n=  684 netR=-0.324 gross= -16.6bps | B: n=  413 netR=-0.379 gross= -17.7 | A+B n=1097 t=-7.69
+N=288 CONF=C2 TM=2R TG=BTC  A: n=  267 netR=-0.184 gross=  +8.1bps | B: n=  231 netR=-0.364 gross= -13.8 | A+B n=498 t=-3.78
+N=288 CONF=C2 TM=4R TG=none  A: n=  683 netR=-0.363 gross= -20.1bps | B: n=  413 netR=-0.384 gross= -20.2 | A+B n=1096 t=-6.16
+N=288 CONF=C2 TM=4R TG=BTC  A: n=  267 netR=-0.120 gross= +13.5bps | B: n=  231 netR=-0.360 gross= -11.4 | A+B n=498 t=-2.33
+N=288 CONF=C3 TM=2R TG=none  A: n=   99 netR=-0.100 gross= +10.1bps | B: n=   76 netR=-0.558 gross= -31.1 | A+B n=175 t=-2.78
+N=288 CONF=C3 TM=2R TG=BTC  A: n=   47 netR=+0.063 gross= +59.5bps | B: n=   42 netR=-0.463 gross= -11.9 | A+B n=89 t=-1.13
+N=288 CONF=C3 TM=4R TG=none  A: n=   99 netR=+0.066 gross= +17.2bps | B: n=   76 netR=-0.229 gross=  -0.9 | A+B n=175 t=-0.39
+N=288 CONF=C3 TM=4R TG=BTC  A: n=   47 netR=+0.337 gross= +69.4bps | B: n=   42 netR=-0.036 gross= +34.1 | A+B n=89 t=+0.66
+FROZEN C0: none qualified (n>=300 and net R>0 in A and in B)
+FROZEN C1: none qualified (n>=300 and net R>0 in A and in B)
+FROZEN C2: none qualified (n>=300 and net R>0 in A and in B)
+FROZEN C3: none qualified (n>=300 and net R>0 in A and in B)
