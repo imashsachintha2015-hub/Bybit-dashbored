@@ -515,6 +515,60 @@ def _outcome(client, t):
     return R, f"{how} at {_fmt(px)}" + (f": {R:+.2f}R ({pnl:+.2f} USDT after fees)" if R is not None else "")
 
 
+AFTER_EVERY_MS = 600_000               # a trade the BTC rule closed is looked at again this often until price has hit its stop or target
+AFTER_GIVE_UP_MS = 10 * 86_400_000     # ... and no longer after this long
+AFTER_PER_PASS = 3                     # at most this many candle downloads per pass
+
+
+def _after_outcome(t, candles):
+    """What price did after the BTC rule closed the trade: walks 5m candles from the one after the close. Returns dict(result="STOP"|"TARGET"|"PENDING",
+    t=candle start ms, R=the R it would have ended on at the original stop / target, before fees: -1 or the target's R). A candle that touches
+    both counts as the stop (the worse case). The candle the close happened in is skipped (the part before the close is not known)."""
+    sd = 1 if t["side"] == "LONG" else -1; entry = _f(t.get("fill_price")) or t["entry"]; risk = abs(entry - t["stop"])
+    start = (int(t.get("closed_seen") or 0) // 300_000 + 1) * 300_000
+    for c in candles:
+        if c["start"] < start: continue
+        stop_hit = c["low"] <= t["stop"] if sd > 0 else c["high"] >= t["stop"]
+        tgt_hit = c["high"] >= t["target"] if sd > 0 else c["low"] <= t["target"]
+        if stop_hit: return dict(result="STOP", t=c["start"], R=-1.0)
+        if tgt_hit: return dict(result="TARGET", t=c["start"], R=round(abs(t["target"] - entry) / risk, 2) if risk > 0 else None)
+    return dict(result="PENDING")
+
+
+def _review_btc_exits(st, now):
+    """For the trades the BTC rule closed: track whether price then went to the stop or to the target, so the rule's worth can be judged trade
+    by trade (its R against the R of holding on). Candles of the coin only; nothing is sent to Bybit's trading side."""
+    todo = [t for t in st["tracked"].values() if t.get("close_why") == "btc" and t["status"] == "done" and not t.get("virtual")
+            and (t.get("after") or {}).get("result") in (None, "PENDING") and now - t.get("closed_seen", now) < AFTER_GIVE_UP_MS
+            and now - t.get("after_chk", 0) >= AFTER_EVERY_MS]
+    for t in todo[:AFTER_PER_PASS]:
+        t["after_chk"] = now
+        age_bars = (now - int(t.get("closed_seen") or now)) // 300_000 + 4
+        cs = sbgz.fetch_candles(t["symbol"], "5", min(3000, max(12, age_bars)))
+        if not cs: continue
+        a = _after_outcome(t, cs); was = (t.get("after") or {}).get("result")
+        t["after"] = a
+        if a["result"] != "PENDING" and was != a["result"]:
+            mine = t.get("R")
+            _log(st, now, "info", f"after the BTC close, price went to the {a['result'].lower()} first: holding on would have been {a['R']:+.2f}R (before fees), the BTC close made "
+                 + (f"{mine:+.2f}R" if mine is not None else "its result"), t)
+
+
+def btc_review(st):
+    """Every trade closed by the BTC rule, newest first: the R it made, where price went afterwards, and the R of holding on instead."""
+    rows = []
+    for t in st["tracked"].values():
+        if t.get("close_why") != "btc" or t.get("virtual") or t["status"] != "done": continue
+        a = t.get("after") or {}; res = a.get("result") or "PENDING"; hold = a.get("R") if res in ("STOP", "TARGET") else None
+        rows.append(dict(symbol=t["symbol"], interval=t["interval"], side=t["side"], closed=t.get("closed_seen"), R=t.get("R"), after=res, after_t=a.get("t"), hold_R=hold,
+                         saved_R=(round(t["R"] - hold, 2) if t.get("R") is not None and hold is not None else None)))
+    rows.sort(key=lambda x: -(x["closed"] or 0))
+    judged = [x for x in rows if x["saved_R"] is not None]
+    return dict(rows=rows, n=len(rows), to_stop=sum(1 for x in rows if x["after"] == "STOP"), to_target=sum(1 for x in rows if x["after"] == "TARGET"),
+                pending=sum(1 for x in rows if x["after"] == "PENDING"), r_closed=round(sum(x["R"] for x in rows if x["R"] is not None), 2),
+                r_judged=round(sum(x["R"] for x in judged), 2), r_if_held=round(sum(x["hold_R"] for x in judged), 2), judged=len(judged))
+
+
 def _cleanup_orphans(client, st, now, sym, ex):
     """After a trade is over, remove what is left of its take-profit / stop orders so the coin is free again."""
     for o in ex["orders"]:
@@ -654,6 +708,7 @@ def _run_cycle(client, scan, now):
         counts = dict(placed=0, cancelled=0, moved=0, filled=0, closed=0)
         if live: _sync(client, st, cfg, now, ex, setups, counts)
         _manage_waiting(client, st, cfg, now, setups, series, btc, ended, counts, live)
+        _review_btc_exits(st, now)
         if live: _manage_open(client, st, cfg, now, ex, series, btc, counts)
         _trim_waiting(client, st, cfg, now, ex, counts, live)
         _place_new(client, st, cfg, now, ex, setups, counts, live)
@@ -695,7 +750,7 @@ def status(client=None, full_log=False):
         return dict(ok=True, account=T.account(client) if client else None, settings=cfg, day=day,
                     equity=dict(used=_status.get("equity_used"), real=_status.get("equity_real")), open_r=dict(n=len(open_r), r=sum(open_r)),
                     halted=day.get("r", 0) <= -cfg["daily_stop_r"], status=dict(_status), tracked=rows, log=list(st["log"][:LOG_MAX if full_log else LOG_VIEW]), log_total=len(st["log"]),
-                    risk=_risk_summary(st, cfg), running=bool(_thread and _thread.is_alive()))
+                    risk=_risk_summary(st, cfg), btc_review=btc_review(st), running=bool(_thread and _thread.is_alive()))
 
 
 def _leave_live(client, st, now, close_positions=False):
