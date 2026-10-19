@@ -2598,6 +2598,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <button class="sbgz-rbtn" onclick="sbgzAutoLoad()"><i class="fa-solid fa-rotate"></i> Refresh</button>
           </div>
           <div class="tw" id="sbgzAutoHold"></div>
+          <div class="tw" id="sbgzBtcRev"></div>
           <div class="tw">
             <table>
               <thead><tr><th>When</th><th>Coin</th><th>TF</th><th>Side</th><th>What</th><th>Details</th></tr></thead>
@@ -5156,6 +5157,15 @@ window.sbgzAutoRender = function(){
     return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(t.symbol) + '" data-tf="' + sbgzEsc(t.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)"><td><b>' + sbgzEsc(String(t.symbol).replace(/USDT$/, '')) + '</b>' + placedAt + '</td><td>' +
       (t.interval === '60' ? '1h' : t.interval + 'm') + '</td><td class="' + (L ? 'up' : 'dn') + '">' + t.side + '</td><td>' + state + '</td><td>' + sbgzFmt(t.entry) + '</td><td>' + sbgzFmt(t.stop) + '</td><td>' + sbgzFmt(t.target) + '</td><td>' + (t.risk_usd != null ? t.risk_usd.toFixed(2) + ' USDT' : '--') + '</td><td>' + now + '</td></tr>';
   }).join('') + '</tbody></table>' : '';
+  var rv = d.btc_review, rvEl = document.getElementById('sbgzBtcRev');
+  if(rvEl) rvEl.innerHTML = rv && rv.n ? '<div class="mut" style="padding:6px 2px">Trades closed by the BTC rule (BTC moved 0.5R against): <b>' + rv.n + '</b> · price then went to the stop first in <b>' + rv.to_stop + '</b>, to the target first in <b>' + rv.to_target + '</b>, still undecided <b>' + rv.pending +
+    '</b>.' + (rv.judged ? ' Of the ' + rv.judged + ' decided: the BTC close made <b class="' + (rv.r_judged >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(rv.r_judged) + '</b>, holding on to the stop / target would have made <b class="' + (rv.r_if_held >= 0 ? 'hwin' : 'hloss') + '">' + fmtR(rv.r_if_held) + '</b> (before fees).' : '') + '</div>' +
+    '<table><thead><tr><th>Closed</th><th>Coin</th><th>TF</th><th>Side</th><th>BTC close</th><th>Price went to</th><th>If held</th><th>Rule saved / cost</th></tr></thead><tbody>' + rv.rows.map(function(x){
+      var go = x.after === 'STOP' ? '<span class="hloss">STOP first</span>' : x.after === 'TARGET' ? '<span class="hwin">TARGET first</span>' : '<span class="mut">not yet</span>';
+      return '<tr class="sbgz-rrow" data-sym="' + sbgzEsc(x.symbol) + '" data-tf="' + sbgzEsc(x.interval) + '" onclick="sbgzRadarOpen(this.dataset.sym, this.dataset.tf)"><td>' + (x.closed ? sbgzEsc(sbgzWhen(x.closed / 1000)) : '--') + '</td><td><b>' + sbgzEsc(String(x.symbol).replace(/USDT$/, '')) + '</b></td><td>' +
+        (x.interval === '60' ? '1h' : x.interval + 'm') + '</td><td class="' + (x.side === 'LONG' ? 'up' : 'dn') + '">' + x.side + '</td><td>' + (x.R != null ? '<b class="' + (x.R >= 0 ? 'up' : 'dn') + '">' + sbgzR(x.R) + '</b>' : '--') + '</td><td>' + go + '</td><td>' +
+        (x.hold_R != null ? '<b class="' + (x.hold_R >= 0 ? 'up' : 'dn') + '">' + sbgzR(x.hold_R) + '</b>' : '--') + '</td><td>' + (x.saved_R != null ? '<b class="' + (x.saved_R >= 0 ? 'up' : 'dn') + '">' + sbgzR(x.saved_R) + '</b>' : '--') + '</td></tr>';
+    }).join('') + '</tbody></table>' : '';
   var log = (d.log || []).filter(function(e){ return sbgzInDay((e.t || 0) / 1000); });
   if(tb) tb.innerHTML = log.length ? log.slice(0, dayKey ? 150 : 40).map(function(e){
     var cls = e.kind === 'error' || e.kind === 'halt' ? 'dn' : e.kind === 'place' || e.kind === 'fill' ? 'ok' : e.kind === 'skip' ? 'mut' : e.kind === 'closed' || e.kind === 'close' ? '' : 'warn';

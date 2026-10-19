@@ -452,6 +452,37 @@ def test_fill_is_noticed_and_btc_rule_closes_at_market():
     print("  a fill is noticed; BTC -0.5R closes the trade at the market (reduce-only), leftovers removed, R logged; option off = no close")
 
 
+def test_trades_closed_by_the_btc_rule_are_followed_to_their_stop_or_target():
+    def cs(t0, rows): return [dict(start=t0 + i * 300_000, open=0, high=h, low=l, close=0, volume=0) for i, (h, l) in enumerate(rows)]
+    t = dict(side="LONG", entry=10.0, stop=9.8, target=10.9, fill_price=10.0, closed_seen=1_000_000)
+    first = (1_000_000 // 300_000 + 1) * 300_000
+    assert A._after_outcome(t, cs(first, [(10.2, 9.9), (10.95, 10.1)]))["result"] == "TARGET"
+    r = A._after_outcome(t, cs(first, [(10.2, 9.9), (10.4, 9.79)])); assert r["result"] == "STOP" and r["R"] == -1.0, r
+    assert A._after_outcome(t, cs(first, [(10.95, 9.7)]))["result"] == "STOP"                          # both in one candle: the worse case
+    assert A._after_outcome(t, cs(first, [(10.3, 9.9)]))["result"] == "PENDING"
+    assert A._after_outcome(t, cs(first - 300_000, [(11.0, 9.0)]))["result"] == "PENDING"              # the candle of the close is not used
+    s = dict(t, side="SHORT", entry=10.0, stop=10.2, target=9.1, fill_price=10.0)
+    assert A._after_outcome(s, cs(first, [(10.1, 9.05)]))["result"] == "TARGET"
+    assert A._after_outcome(s, cs(first, [(10.25, 9.9)]))["result"] == "STOP"
+    st = {"tracked": {"a": dict(t, symbol="AAAUSDT", interval="60", status="done", close_why="btc", R=-0.3, placed=1, done=2),
+                      "b": dict(t, symbol="BBBUSDT", interval="60", status="done", close_why="btc", R=0.4, placed=1, done=2),
+                      "c": dict(t, symbol="CCCUSDT", interval="60", status="done", close_why="exchange", R=-1.0, placed=1, done=2)}, "log": [], "settings": {"mode": "live"}}
+    orig = sbgz.fetch_candles
+    try:
+        sbgz.fetch_candles = lambda sym, iv, n, timeout=6: cs(first, [(10.95, 9.9)] if sym == "AAAUSDT" else [(10.3, 9.79)])
+        A._review_btc_exits(st, 1_000_000 + 600_000)
+        rv = A.btc_review(st); rows = {x["symbol"]: x for x in rv["rows"]}
+        assert rv["n"] == 2 and "CCCUSDT" not in rows, rv
+        assert rows["AAAUSDT"]["after"] == "TARGET" and abs(rows["AAAUSDT"]["hold_R"] - 4.5) < 1e-9 and abs(rows["AAAUSDT"]["saved_R"] + 4.8) < 1e-9, rows
+        assert rows["BBBUSDT"]["after"] == "STOP" and rows["BBBUSDT"]["hold_R"] == -1.0 and abs(rows["BBBUSDT"]["saved_R"] - 1.4) < 1e-9, rows
+        assert rv["to_stop"] == 1 and rv["to_target"] == 1 and rv["pending"] == 0 and abs(rv["r_closed"] - 0.1) < 1e-9 and abs(rv["r_if_held"] - 3.5) < 1e-9, rv
+        n = [0]; sbgz.fetch_candles = lambda *a, **k: n.__setitem__(0, n[0] + 1) or []
+        A._review_btc_exits(st, 1_000_000 + 700_000); assert n[0] == 0, "settled trades are not looked at again"
+    finally:
+        sbgz.fetch_candles = orig
+    print("  BTC-rule closes are followed: stop or target first, the R of holding on, the R the rule saved or cost, per trade")
+
+
 def test_stop_moves_to_entry_only_after_3_5r_and_the_stop_field_stays():
     w = World(); w.add("XYZUSDT", "60", 10.5, setups=[zone()]); w.add("BTCUSDT", "60", 1000.0)
     fill_idx = N - 4
