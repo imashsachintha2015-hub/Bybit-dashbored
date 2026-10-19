@@ -58,6 +58,15 @@ class Rules(unittest.TestCase):
         self.assertTrue(K.exit_now("L", -0.01)); self.assertFalse(K.exit_now("L", 0.3))
         self.assertTrue(K.exit_now("S", 0.01)); self.assertFalse(K.exit_now("S", -0.3))
 
+    def test_walk_signal_on_the_newest_bar_is_not_entered_yet(self):
+        """A paper position whose signal bar is the newest bar has no entry bar yet (the next open): no exception (it was an IndexError in the
+        first pass after a restart), no exit, nothing booked."""
+        n = 6; t = [T0 + i * H4 for i in range(n)]; px = [100.0] * n; z = [0.0] * n
+        tr = K._walk(t, px, px, px, px, z, n - 1, "L", 95.0)
+        self.assertTrue(tr["not_entered"]); self.assertIsNone(tr["exit_t"]); self.assertIsNone(tr.get("pending_exit"))
+        tr = K._walk(t, px, px, px, px, z, n - 2, "S", 105.0)                      # one bar earlier the entry bar exists: walked as before
+        self.assertFalse(tr.get("not_entered")); self.assertEqual(tr["entry_p"], 100.0); self.assertEqual(tr["entry_i"], n - 1)
+
     def test_funding_average(self):
         t8 = [T0 + k * 8 * HOUR for k in range(30)]; r8 = [0.0001 * (k % 3) for k in range(30)]
         close = t8[20] + 2 * HOUR
