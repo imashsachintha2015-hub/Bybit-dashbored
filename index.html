@@ -2200,7 +2200,6 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
     <button class="sbb"    data-tip="Radar &amp; Signals"  onclick="switchView('signals',2)"><i class="fa-solid fa-radar"></i></button>
     <button class="sbb"    data-tip="Analytics &amp; History" onclick="switchView('analytics',3)"><i class="fa-solid fa-chart-pie"></i></button>
     <button class="sbb"    data-tip="Kalman Trend" onclick="switchView('kalman',4)"><i class="fa-solid fa-wave-square" style="color:#a78bfa"></i></button>
-    <button class="sbb"    data-tip="Championship Mode" onclick="openChampModal()"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i></button>
     <button class="sbb"    data-tip="Pine Script v6"    onclick="openPineModal()"><i class="fa-solid fa-code"></i></button>
   </nav>
   <div class="sb-foot"><div class="wsd" id="wsd" title="Bybit WebSocket Status"></div></div>
@@ -2235,7 +2234,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <!-- Live Macro BTC Regime Pill -->
-      <span class="macro-regime-pill bull" id="mobileRegimePill" onclick="openChampModal()">BULL (+0.26%)</span>
+      <span class="macro-regime-pill bull" id="mobileRegimePill">BULL (+0.26%)</span>
       <button class="topbar-icon-btn" onclick="openPairSheet()" title="Switch Pair"><i class="fa-solid fa-magnifying-glass"></i></button>
     </div>
   </div>
@@ -2384,7 +2383,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
               <span class="kal-tag" id="tickKal">KT: OFF</span>
             </div>
 
-            <div class="sigov" id="sigOv"><span class="sigb none"><i class="fa-solid fa-radar"></i> Scanning 15 Pairs (S2 POC + AMD FVG + S7)</span></div>
+            <div class="sigov" id="sigOv"><span class="sigb none"><i class="fa-solid fa-radar"></i> CME-X5 scanner: off</span></div>
 
             <div class="cthint">
               <button class="hbtn pri" id="chartEngineBtn" onclick="toggleChartEngine()" style="padding:2px 8px;font-size:10.5px" title="Toggle TradingView / Bybit Fast Canvas"><i class="fa-solid fa-chart-line"></i> TradingView Pro</button>
@@ -2507,7 +2506,6 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             </div>
             <div class="bps-right">
               <i class="fa-solid fa-arrows-rotate" style="cursor:pointer" onclick="fPos()" title="Refresh Positions"></i>
-              <i class="fa-solid fa-sliders" style="cursor:pointer" onclick="openChampModal()" title="Championship Dual-Regime Settings"></i>
             </div>
           </div>
 
@@ -2530,7 +2528,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <div class="pos-empty-state">
               <div class="pes-icon"><i class="fa-solid fa-briefcase"></i></div>
               <div class="pes-title">No Active Positions</div>
-              <div class="pes-sub">CME-X5 24H Autonomous Engine is scanning 15 pairs for institutional setups.</div>
+              <div class="pes-sub">The retired CME-X5 engine is off. SBGZ trades are under Radar &rsaquo; My SBGZ orders.</div>
             </div>
           </div>
 
@@ -2550,12 +2548,12 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
         <div class="card" id="sbgzDayCard" style="margin-bottom:12px">
           <div class="sbgz-radar-bar sbgz-hist-chips" id="sbgzDayBar"><span class="mut">Day filter…</span></div>
         </div>
-        <!-- SBGZ Radar: every strong-break golden-zone setup across the runner's 42 coins, 15m + 1h (/api/sbgz/radar) -->
+        <!-- SBGZ Radar: every strong-break golden-zone setup across the runner's 42 coins, 1h (/api/sbgz/radar) -->
         <div class="card" id="sbgzRadarCard" style="margin-bottom:12px">
           <div class="cardh">
             <div class="cardt-group">
               <span class="cardt"><i class="fa-solid fa-crosshairs" style="color:#14b8a6"></i> SBGZ Radar · strong-break golden zone</span>
-              <span class="cbadge fm" id="sbgzRadarBadge" style="background:rgba(20,184,166,.15);color:#5eead4;border:1px solid rgba(20,184,166,.35)">42 coins · 15m + 1h</span>
+              <span class="cbadge fm" id="sbgzRadarBadge" style="background:rgba(20,184,166,.15);color:#5eead4;border:1px solid rgba(20,184,166,.35)">42 coins · 1h</span>
             </div>
           </div>
           <div class="sbgz-radar-bar">
@@ -2566,7 +2564,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
           <div class="tw">
             <table>
               <thead><tr><th>Coin</th><th>TF</th><th>Side</th><th>Status</th><th>Entry zone</th><th>Stop</th><th>Target</th><th>R:R</th><th>Break</th><th>Volume</th><th>Trend</th><th>Backtest</th><th>Order</th></tr></thead>
-              <tbody id="sbgzRadarTb"><tr><td colspan="13" class="emp">Scanning 42 coins on 15m and 1h…</td></tr></tbody>
+              <tbody id="sbgzRadarTb"><tr><td colspan="13" class="emp">Scanning 42 coins on 1h…</td></tr></tbody>
             </table>
           </div>
           <!-- orders placed with the SBGZ "Place order" button (POST /api/sbgz/orders, needs the trade password) -->
@@ -2661,7 +2659,6 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
                   <span>Read Market</span>
                 </button>
               </div>
-              <button class="hbtn" onclick="openChampModal()" style="font-size:10px;padding:3px 8px"><i class="fa-solid fa-trophy" style="color:#fbbf24"></i> Archetypes</button>
               <a href="/monitor.html" target="_blank" class="hbtn" style="text-decoration:none;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)"><i class="fa-solid fa-satellite-dish"></i> Cloud Monitor</a>
             </div>
           </div>
@@ -2670,8 +2667,8 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
           <div class="mob-cards-wrap" id="sCards">
             <div class="pos-empty-state">
               <div class="pes-icon"><i class="fa-solid fa-satellite-dish"></i></div>
-              <div class="pes-title">Scanning 15 Trading Pairs</div>
-              <div class="pes-sub">Checking S2 POC Reclaim, AMD FVG &amp; Championship Dual-Regime setups.</div>
+              <div class="pes-title">CME-X5 scanner is off</div>
+              <div class="pes-sub">S2, AMD FVG, S7 and Championship setups are no longer scanned here. The SBGZ radar is under the Radar tab.</div>
             </div>
           </div>
 
@@ -2679,7 +2676,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
           <div class="tw dt-only">
             <table>
               <thead><tr><th>Symbol</th><th>Setup</th><th>Dir</th><th>Entry</th><th>Target / POC</th><th>MFE</th><th>24H Action</th></tr></thead>
-              <tbody id="sTb"><tr><td colspan="7" class="emp">Scanning 15 pairs for S2, AMD FVG &amp; S7...</td></tr></tbody>
+              <tbody id="sTb"><tr><td colspan="7" class="emp">CME-X5 scanner is off: no setups are scanned.</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -4735,14 +4732,14 @@ function sbgzPanel(d, cs, tf){
   el.innerHTML = head + rows.join('') + foot;
 }
 
-// ── SBGZ Radar: every strong-break setup and open SBGZ trade across the runner's 42 coins, 15m + 1h ─────────────
+// ── SBGZ Radar: every strong-break setup and open SBGZ trade across the runner's 42 coins, 1h ─────────────
 window.sbgzRadarLoad = function(force){
   var tb = document.getElementById('sbgzRadarTb');
   if(!tb) return;
   clearTimeout(window._sbgzRadarTimer);
   var info = document.getElementById('sbgzRadarInfo');
-  if(info && (force || !window._sbgzRadarData)) info.textContent = 'Scanning 84 charts (42 coins × 15m, 1h)…';
-  fetch('/api/sbgz/radar?tf=15,60')
+  if(info && (force || !window._sbgzRadarData)) info.textContent = 'Scanning 42 charts (42 coins, 1h)…';
+  fetch('/api/sbgz/radar?tf=60')
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){
       if(!d || !d.ok){
@@ -5081,7 +5078,6 @@ window.sbgzAutoMode = function(mode){
 
 window.sbgzAutoSave = function(){
   var g = function(id){ return document.getElementById(id); }, ivs = [];
-  if(g('sbgzAuto15').checked) ivs.push('15');
   if(g('sbgzAuto60').checked) ivs.push('60');
   if(!ivs.length){ alert('Pick at least one timeframe.'); return; }
   var patch = { equity_usd: parseFloat(g('sbgzAutoEquity').value), risk_pct: parseFloat(g('sbgzAutoRisk').value), vol_only: g('sbgzAutoVol').checked, intervals: ivs, btc_close: g('sbgzAutoBtcClose').checked,
@@ -5123,7 +5119,7 @@ window.sbgzAutoRender = function(){
         return '<option value="' + z[0] + '"' + (Math.abs(z[0] - (s.equity_usd || 0)) < 1e-9 ? ' selected' : '') + '>' + z[1] + '</option>'; }).join('') + '</select></label>' +
       '<label>Risk per trade <select id="sbgzAutoRisk">' + opt([0.1, 0.25, 0.5, 1, 2, 5], s.risk_pct, '%') + '</select></label>' +
       '<label><input type="checkbox" id="sbgzAutoVol"' + (s.vol_only ? ' checked' : '') + '> volume-confirmed only</label>' +
-      '<label><input type="checkbox" id="sbgzAuto15"' + has('15') + '> 15m</label><label><input type="checkbox" id="sbgzAuto60"' + has('60') + '> 1h</label>' +
+      '<label><input type="checkbox" id="sbgzAuto60"' + has('60') + '> 1h (15m was retired)</label>' +
       '<label><input type="checkbox" id="sbgzAutoBtcClose"' + (s.btc_close ? ' checked' : '') + '> close open trades when BTC moves 0.5R against</label>' +
       '<label title="Backtest: no gain, off by default"><input type="checkbox" id="sbgzAutoBtcCancel"' + (s.btc_cancel ? ' checked' : '') + '> cancel waiting orders when BTC moves 0.5R against since the signal</label>' +
       '<label>Max waiting <select id="sbgzAutoMaxW">' + opt([2, 4, 8, 12, 20], s.max_resting) + '</select></label>' +
@@ -5194,7 +5190,7 @@ window.sbgzHistLoad = function(){
   var tb = document.getElementById('sbgzHistTb'), info = document.getElementById('sbgzHistInfo');
   if(!tb) return;
   var lim = sbgzDayGet() && sbgzDayGet() !== sbgzToday() ? 1200 : 400;                // an older day needs more of the stored rows than the latest 400
-  fetch('/api/sbgz/history?tf=15,60&limit=' + lim + '&vonly=' + (sbgzVonly() ? '1' : '0'))
+  fetch('/api/sbgz/history?tf=60&limit=' + lim + '&vonly=' + (sbgzVonly() ? '1' : '0'))
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){
       if(!d || !d.ok){
@@ -6905,7 +6901,7 @@ function handleSnap(d){
         ov.innerHTML='<div class="sigb '+cl+'"><i class="fa-solid fa-'+ar+'"></i> '+sit+' &middot; '+(cur.direction||'LONG')+pocSnippet+' | Entry:'+parseFloat(cur.entry_p||0).toFixed(4)+' | Target:'+parseFloat(cur.target_p||0).toFixed(4)+' | MFE:+'+parseFloat(cur.mfe_pct||0).toFixed(2)+'%</div>'
       }else{
         var ks=Object.keys(pos);
-        ov.innerHTML=ks.length?'<div class="sigb s2"><i class="fa-solid fa-radar"></i> '+ks.length+' position(s) active in other pairs</div>':'<div class="sigb none"><i class="fa-solid fa-radar"></i> Scanning 15 Pairs (S2 POC + AMD FVG + S7)</div>'
+        ov.innerHTML=ks.length?'<div class="sigb s2"><i class="fa-solid fa-radar"></i> '+ks.length+' position(s) active in other pairs</div>':'<div class="sigb none"><i class="fa-solid fa-radar"></i> CME-X5 scanner: off</div>'
       }
     }
     var stb=g('sTb'), scWrap=g('sCards'), sBadge=g('mSigBadge'), ks2=Object.keys(pos);
@@ -6916,7 +6912,7 @@ function handleSnap(d){
     if(stb){
       if(!ks2.length){
         if (stb.dataset.lastHtml !== 'empty') {
-          stb.innerHTML='<tr><td colspan="7" class="emp">Scanning 15 pairs for S2 POC, AMD FVG &amp; S7 setups...</td></tr>';
+          stb.innerHTML='<tr><td colspan="7" class="emp">CME-X5 scanner is off: no setups are scanned.</td></tr>';
           stb.dataset.lastHtml = 'empty';
         }
       }else{
@@ -6947,7 +6943,7 @@ function handleSnap(d){
     if (scWrap) {
       if (!ks2.length) {
         if (scWrap.dataset.lastHtml !== 'empty') {
-          scWrap.innerHTML = '<div class="pos-empty-state"><i class="fa-solid fa-satellite-dish"></i><div>Scanning 15 pairs for institutional setups...</div><div style="font-size:11px;color:var(--td);margin-top:4px">S2 POC Reclaims, AMD FVGs &amp; S7 Sweeps</div></div>';
+          scWrap.innerHTML = '<div class="pos-empty-state"><i class="fa-solid fa-satellite-dish"></i><div>CME-X5 scanner is off</div><div style="font-size:11px;color:var(--td);margin-top:4px">SBGZ trades are under the Radar tab</div></div>';
           scWrap.dataset.lastHtml = 'empty';
         }
       } else {

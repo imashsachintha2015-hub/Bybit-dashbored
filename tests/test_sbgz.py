@@ -308,6 +308,7 @@ def test_history_btc_rule_and_backfill():
         for n in (1601, 1801, 2001, 2201, 2401, 2601):
             now["n"] = n; sbgz._hist_mem = None
             h = sbgz.history(("15",), coins, ttl=0, limit=100_000)
+            assert all(x["interval"] == "15" for x in h["rows"]), "only the timeframes asked for are listed"
             rows = {x["k"]: x for x in store["rows"]}
             filled = {k: x for k, x in rows.items() if x["status"] != "NO FILL"}
             assert h["ok"] and all("bx" in x for x in filled.values()), "every filled row carries the BTC-rule result"
