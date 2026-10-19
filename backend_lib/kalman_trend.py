@@ -209,7 +209,11 @@ def exit_now(side, z_j):
 def _walk(t, o, h, l, c, z, i, side, stop):
     """trade entered at the open of bar i+1 after a signal at bar i, walked bar by bar: stop first, then the trend
     flip at the close (exit at the next open), at most HOLD bars. exit_i stays None while the trade is open."""
-    n = len(c); e = i + 1; s = 1 if side == "L" else -1; ep = o[e]; risk = s * (ep - stop)
+    n = len(c); e = i + 1; s = 1 if side == "L" else -1
+    if e >= n:                                                           # the signal is on the newest bar: its entry bar (the next open) does not exist yet
+        return dict(side=side, signal_i=i, entry_i=e, entry_t=None, entry_p=None, stop=stop, risk=None,
+                    exit_i=None, exit_t=None, exit_p=None, reason=None, r_gross=None, not_entered=True)
+    ep = o[e]; risk = s * (ep - stop)
     tr = dict(side=side, signal_i=i, entry_i=e, entry_t=int(t[e]), entry_p=ep, stop=stop, risk=risk,
               exit_i=None, exit_t=None, exit_p=None, reason=None, r_gross=None)
     for j in range(e, min(n, e + HOLD)):
