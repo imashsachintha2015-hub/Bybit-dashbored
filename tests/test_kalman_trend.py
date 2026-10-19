@@ -367,6 +367,17 @@ class BarSummaryAndRetryTest(unittest.TestCase):
         self.assertTrue(any("no coin crossed z = +-1, so no signal" in m for m in lines))
         self.assertTrue(any("crossing(s)" in m for m in lines))
 
+    def test_paper_position_whose_signal_bar_is_the_newest_is_skipped(self):
+        eng, clock, market = self.engine()
+        eng.step()
+        st = eng.state["AAAUSDT"]; closed = []
+        eng._close = lambda *a, **k: closed.append(a)
+        p = dict(sym="AAAUSDT", mode="PAPER", side="L", stop=0.0, signal_t=st["t"][-1])
+        eng.manage_exit(p, st["t"][-1], clock.t, None)                       # no o[i + 1] yet: must not raise
+        self.assertEqual(closed, [])
+        warns = [e["msg"] for e in eng.store.history()[2] if e["level"] == "WARN"]
+        self.assertTrue(any("no entry bar yet" in m for m in warns))
+
     def test_incomplete_bar_is_asked_for_again(self):
         eng, clock, market = self.engine(hidden=["BBBUSDT"])
         self.assertFalse(eng.step())                                          # BBB has no newest bar: the bar is not closed off ...

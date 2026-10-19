@@ -489,6 +489,7 @@ class KalmanTrendEngine:
         except ValueError: i = None
         if p["mode"] == "PAPER":
             if i is None: self.event(f"{p['sym']}: signal bar outside the data window", "WARN"); return
+            if i + 1 >= len(st["o"]): self.event(f"{p['sym']}: signal bar is the newest bar, no entry bar yet, position not checked this bar", "WARN"); return
             tr = K._walk(st["t"], st["o"], st["h"], st["l"], st["c"], st["z"], i, p["side"], p["stop"])
             if tr["exit_t"] is not None:
                 self._close(p, tr["exit_t"], tr["exit_p"], tr["reason"], K.net_r(tr, st["ft"], st["fr"]))
