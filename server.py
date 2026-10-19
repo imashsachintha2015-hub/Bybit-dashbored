@@ -1176,7 +1176,8 @@ def get_dashboard_bundle():
 # Routes that place, close or change orders. The dashboard's order buttons are for the demo / testnet Bybit account only (no password):
 # on a real-money BYBIT_BASE_URL every one of them refuses.
 LEGACY_ORDER_ROUTES = ("/api/cme_x5/execute", "/api/positions/close", "/api/order/place", "/api/order/close", "/api/position/stop")
-SBGZ_ORDER_ROUTES = ("/api/sbgz/order", "/api/sbgz/orders", "/api/sbgz/cancel", "/api/sbgz/auto/settings", "/api/sbgz/auto/kill")
+SBGZ_ORDER_ROUTES = ("/api/sbgz/order", "/api/sbgz/orders", "/api/sbgz/cancel", "/api/sbgz/auto/settings", "/api/sbgz/auto/kill",
+                     "/api/amd/auto/settings", "/api/amd/auto/kill")
 
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
@@ -1554,7 +1555,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # 6a-0. API: SBGZ radar - every strong-break setup / open SBGZ trade across the runner's 42 coins (15m + 1h)
         if self.path.startswith("/api/sbgz/radar"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            ivs = [x for x in (q.get("tf") or ["15,60"])[0].split(",") if x in ("15", "60", "240")] or ["15", "60"]
+            ivs = [x for x in (q.get("tf") or ["60"])[0].split(",") if x in ("15", "60", "240")] or ["60"]       # 1h only unless asked (15m was retired)
             coins = [re.sub(r"[^A-Z0-9]", "", x.upper()) for x in (q.get("coins") or [""])[0].split(",") if x.strip()][:60] or None
             try:
                 from backend_lib import sbgz as _sbgz
@@ -1594,7 +1595,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # 6a-0b. API: SBGZ radar history - every setup the radar showed and what happened to it (WIN / LOSS / OPEN / NO FILL)
         if self.path.startswith("/api/sbgz/history"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            ivs = [x for x in (q.get("tf") or ["15,60"])[0].split(",") if x in ("15", "60")] or ["15", "60"]
+            ivs = [x for x in (q.get("tf") or ["60"])[0].split(",") if x in ("15", "60")] or ["60"]
             try:
                 limit = min(1200, max(10, int((q.get("limit") or ["400"])[0])))
             except Exception:
@@ -1604,6 +1605,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, _sbgz.history(tuple(ivs), None, vonly=(q.get("vonly") or ["0"])[0] == "1", limit=limit))
             except Exception as e:
                 self._send_json(200, {"ok": False, "error": f"sbgz history failed: {e}"})
+            return
+
+        # 6a-0d. API: AMD-FVG auto-orders (backend_lib/amd_auto.py): mode, settings, the orders / trades it manages, its log
+        if urllib.parse.urlparse(self.path).path == "/api/amd/auto":
+            try:
+                from backend_lib import amd_auto as _amd
+                full = (urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("log") or [""])[0] == "all"
+                self._send_json(200, _amd.status(bybit_client, full_log=full))
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"amd auto failed: {e}"})
             return
 
         # 6a-0c. API: SBGZ auto-orders (backend_lib/sbgz_auto.py): mode, settings, the waiting orders / open trades it manages, its log
@@ -1874,6 +1885,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             elif self.path == "/api/sbgz/auto/kill":            # switch off + cancel the waiting auto orders (+ close the open auto trades)
                 from backend_lib import sbgz_auto
                 res = sbgz_auto.kill(bybit_client, close_positions=body.get("close_positions") is True)
+            elif self.path == "/api/amd/auto/settings":         # backend_lib/amd_auto.py: the Forward Lab's AMD-FVG setups traded on the demo account
+                from backend_lib import amd_auto
+                res = amd_auto.update_settings({k: v for k, v in body.items() if k != "confirm"}, bybit_client, confirm=body.get("confirm") is True)
+            elif self.path == "/api/amd/auto/kill":
+                from backend_lib import amd_auto
+                res = amd_auto.kill(bybit_client, close_positions=body.get("close_positions") is True)
             else:
                 res = sbgz_trade.cancel(bybit_client, re.sub(r"[^A-Z0-9]", "", str(body.get("symbol") or "").upper()), body.get("link"))
             self._send_json(200, res)
@@ -2475,6 +2492,11 @@ def _start_auto_orders():
     except Exception as e:                      # never let this keep the dashboard itself from starting
         print(f"[sbgz auto] thread not started: {e}")
         return False
+    try:
+        from backend_lib import amd_auto        # the AMD-FVG auto-orders (default off, like the SBGZ ones)
+        amd_auto.start_thread(lambda: bybit_client)
+    except Exception as e:
+        print(f"[amd auto] thread not started: {e}")
     return True
 
 

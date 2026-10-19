@@ -655,7 +655,7 @@ def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400)
                 if (old is None and row["k"] in settled) or (old is not None and old["status"] == "OPEN" and (row["status"] != "OPEN" or row.get("bx") != old.get("bx"))):
                     _hist_mem[row["k"]] = row; changed = True
         tnow = time.time()
-        todo = [dict(x) for x in _hist_mem.values() if x["status"] != "NO FILL" and x.get("t_fill") and "bx" not in x
+        todo = [dict(x) for x in _hist_mem.values() if x["interval"] in intervals and x["status"] != "NO FILL" and x.get("t_fill") and "bx" not in x
                 and tnow - _bx_tried.get(x["k"], 0) > 1800] if btc else []
     if todo:                                                            # stored rows the BTC rule has not been worked out for (downloads: outside the lock)
         got = _bx_backfill(todo)
@@ -668,7 +668,7 @@ def history(intervals=("15", "60"), coins=None, ttl=150, vonly=False, limit=400)
             keep = sorted(_hist_mem.values(), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)[:HIST_MAX]
             if _hist_save(keep): _hist_mem = {x["k"]: x for x in keep}
             else: print("[sbgz history] could not save to the store (kept in memory, retried on the next change)")
-        rows = sorted(_hist_mem.values(), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)
+        rows = sorted((x for x in _hist_mem.values() if x["interval"] in intervals), key=lambda x: x.get("t_arm") or x.get("t_fill") or 0, reverse=True)   # only the timeframes asked for
     shown = [x for x in rows if x.get("vol_ok")] if vonly else rows
     stamps = [x.get("t_arm") or x.get("t_fill") for x in rows if x.get("t_arm") or x.get("t_fill")]
     prices = {k: r["price"] for k, r in results if r}                    # the last price of each chart: the open rows' current R
