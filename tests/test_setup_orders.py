@@ -10,6 +10,7 @@ sys.path.insert(0, ROOT)
 
 from backend_lib import setup_orders as O, setup_tracker as S, sbgz_auto as A, sbgz_trade as T  # noqa: E402
 
+O._prices = lambda: {}                                                         # no network in tests (each test sets prices when it needs them)
 SPEC = dict(tick=0.01, qty_step=0.01, min_qty=0.01, max_qty=1000.0, min_notional=5.0, max_lev=10.0)
 
 
@@ -99,6 +100,33 @@ def test_rate_limits_are_waited_out_and_missing_orders_resumed():
         finally:
             A.ROOT, T.instrument, O.time.sleep, O.PACE = old; os.environ.pop("SBGZ_AUTO_BACKEND", None)
     print("  'too many visits' is waited out and retried; the setups still missing are placed on a resume, never twice")
+
+
+def test_voided_setups_are_not_placed_and_invalidation_cancels():
+    os.environ["SBGZ_AUTO_BACKEND"] = "file"; old = (A.ROOT, T.instrument, O._prices, O.PACE)
+    O.PACE = 0
+    with tempfile.TemporaryDirectory() as d:
+        A.ROOT = d; T.instrument = lambda sym, timeout=6: SPEC
+        try:
+            f = Fake()
+            sh = lambda c: dict(row(c, "SHORT"), inval=101.0)                                        # short: entry 100, stop 100.5, invalidation 101
+            O._prices = lambda: {"AAAUSDT": 101.2, "BBBUSDT": 99.8, "CCCUSDT": 100.3}
+            r = O.place_all(f, 9, [sh("AAA"), sh("BBB"), sh("CCC")], 2.0)
+            why = {x[0]: x[2] for x in r["skipped"]}
+            assert "invalidation" in why["AAA"] and "already through the entry" in why["BBB"] and r["placed_setups"] == 1, r          # only CCC is placed
+            assert all(b["symbol"] == "CCCUSDT" for b in creates(f))
+            f.posts.clear(); O._prices = lambda: {"CCCUSDT": 101.05}                                # price runs up past the invalidation before the entry
+            ev = O.manage(f, 9 + 60_000, force=True)
+            assert len(cancels(f)) == 2 and O.summary()["waiting"] == 0 and len(ev) == 1 and "invalidated" in ev[0], (f.posts, ev)
+            # a position you already held on the coin (opened before the order) is not taken for a fill
+            f2 = Fake(); O._prices = lambda: {}
+            O.place_all(f2, int(O.time.time() * 1000), [row("DDD")], 2.0); placed = min(o["placed"] for o in O._load()[0]["orders"].values())
+            f2.positions = [dict(symbol="DDDUSDT", side="Buy", size="1", avgPrice="99", createdTime=str(placed - 3_600_000))]
+            O.manage(f2, placed + 60_000, force=True); assert O.summary()["filled"] == 0, O.summary()
+            f2.positions[0]["createdTime"] = str(placed + 30_000); O.manage(f2, placed + 90_000, force=True); assert O.summary()["filled"] == 2, O.summary()
+        finally:
+            A.ROOT, T.instrument, O._prices, O.PACE = old; os.environ.pop("SBGZ_AUTO_BACKEND", None)
+    print("  setups already void or already through the entry are not placed; price past the invalidation cancels the waiting orders; an old position is not a fill")
 
 
 def test_manage():
