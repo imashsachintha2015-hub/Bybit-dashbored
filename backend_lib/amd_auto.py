@@ -404,7 +404,7 @@ def status(client=None, full_log=False):
     if st is None: return dict(ok=False, error="the store could not be read; try again in a minute")
     with _lock:
         tr = sorted(st["tracked"].values(), key=lambda t: -t.get("placed", 0))
-        rows = [{k: t.get(k) for k in ("link", "symbol", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "placed", "R", "virtual")} for t in tr]
+        rows = [{k: t.get(k) for k in ("link", "symbol", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "placed", "done", "R", "virtual")} for t in tr]
         return dict(ok=True, account=T.account(client) if client else None, settings=dict(st["settings"]), day=dict(st["day"]), status=dict(_status),
                     tracked=rows, log=list(st["log"][:LOG_MAX if full_log else 100]), log_total=len(st["log"]), running=bool(_thread and _thread.is_alive()))
 
