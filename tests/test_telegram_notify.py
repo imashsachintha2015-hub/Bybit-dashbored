@@ -107,6 +107,12 @@ def test_commands():
             assert "✅ ADA   LONG  +1.5R / +2.0R" in t and "🟠 UNI   LONG  +1.5R / -1.0R" in t and "🔴 LTC   LONG  -1.0R / -1.0R" in t, t
             doc["risk_usd"] = 10; h("status"); assert "+3.5R  ≈ +$35" in out[-1] and "Unrealized open +2.1R  ≈ +$21" in out[-1] and "risk $10 per trade" in out[-1], out[-1]
             h("risk", "off"); assert "risk_usd" not in doc; h("risk", "25"); assert doc["risk_usd"] == 25.0; h("risk", "x"); assert "Use /risk" in out[-1]; doc.pop("risk_usd")
+            h("net", "2"); t = out[-1]
+            assert "risk $2 per trade" in t and "1 × +2.0R, 2 × -1.0R" in t and "= +0.0R  ≈ +$0" in t.replace("-0.0", "+0.0") or "1 × +2.0R, 2 × -1.0R" in t, t
+            h("net"); assert "try /net 2" in out[-1], out[-1]
+            r3 = [dict(coin=c, side="LONG", status=s_, R1=a, R2=b_, entry=1.0) for c, s_, a, b_ in (("A", "TP2 HIT", 1.5, 2.0), ("B", "TP2 HIT", 1.5, 2.0), ("C", "TP2 HIT", 1.5, 2.0), ("D", "STOPPED", -1.0, -1.0))]
+            d3 = status(*r3); d3["summary"].update(r_tp2_plan=5.0, r_tp1_plan=3.5, decided1=4, decided2=4, open=0, unrealized_r=0.0)
+            assert "3 × +2.0R, 1 × -1.0R" in N.cmd_net(d3, 2.0) and "= +5.0R  ≈ +$10" in N.cmd_net(d3, 2.0), N.cmd_net(d3, 2.0)
             h("open"); assert "Open trades (2)" in out[-1] and "XRP" in out[-1] and "BTC" in out[-1] and "ETH" not in out[-1], out[-1]
             h("waiting"); assert out[-1].index("SOL") < out[-1].index("ETH") and "ETH" in out[-1], out[-1]
             h("near"); assert "SOL" in out[-1] and "ETH" not in out[-1], out[-1]

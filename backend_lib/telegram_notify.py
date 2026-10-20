@@ -127,7 +127,27 @@ def r1(x):
 
 
 def usd(r, risk):
-    return f"  ≈ {'+' if r >= 0 else '-'}${abs(r) * risk:,.0f}" if risk else ""
+    if not risk: return ""
+    t = f"{abs(r) * risk:,.2f}".rstrip("0").rstrip(".")
+    return f"  ≈ {'+' if r >= 0 else '-'}${t}"
+
+
+def breakdown(rows, key):
+    """The decided trades of one plan grouped by result: '3 × +2.0R, 1 × -1.0R'."""
+    c = {}
+    for x in rows:
+        if x.get(key) is not None: c[round(x[key], 2)] = c.get(round(x[key], 2), 0) + 1
+    return ", ".join(f"{n} × {v:+.1f}R" for v, n in sorted(c.items(), reverse=True)) or "none yet"
+
+
+def cmd_net(d, risk=None):
+    """Net result of both plans, trade by trade grouped: e.g. 3 × +2.0R, 1 × -1.0R = +5.0R ≈ +$10 at $2 risk per trade."""
+    s = d["summary"]; un = s["unrealized_r"]; rows = d["rows"]
+    blk = []
+    for name, key, tot, n in (("Exit all at TP2", "R2", s["r_tp2_plan"], s["decided2"]), ("Exit all at TP1", "R1", s["r_tp1_plan"], s["decided1"])):
+        blk.append(f"<b>{name}</b> ({n} decided)\n" + pre([breakdown(rows, key), f"= {tot:+.1f}R{usd(tot, risk)}", f"with open trades now {tot + un:+.1f}R{usd(tot + un, risk)}"]))
+    return (f"<b>💰 Net profit / loss</b>" + (f"   (risk ${risk:g} per trade)" if risk else "") + "\n" + "\n\n".join(blk) +
+            f"\n\n<i>Open trades now: {s['open']} ({un:+.1f}R{esc(usd(un, risk))})" + ("" if risk else " · try /net 2 for $2 per trade") + "</i>")
 
 
 ICON1 = {"ENTERED": "🟡", "TP1 HIT": "🟢", "TP2 HIT": "✅", "STOPPED": "🔴", "STOPPED AFTER TP1": "🟠", "EXPIRED": "⚪", "WAITING": "⏳"}
@@ -155,8 +175,8 @@ def summary(d, rows=True, risk=None):
             f"<b>Trades</b>  {s['trades']} entered of {s['n']} setups\n"
             f"✅ Wins (reached TP1): <b>{s['wins']}</b>\n🔴 Losses (stopped): <b>{s['losses']}</b>\n🟡 Open: <b>{s['open']}</b>   ⏳ Waiting: {s['waiting']}   ⚪ Expired: {s['expired']}\n"
             f"🎯 TP1 hit trades: <b>{s['tp1_hit']}</b>   TP2 hits: {s['tp2']}")
-    net = ("<b>💰 Net result</b>\n" + pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}",
-                                           f"Exit all at TP2  {s['r_tp2_plan']:+.1f}R{usd(s['r_tp2_plan'], risk)}",
+    net = ("<b>💰 Net result</b>\n" + pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}", f"  {breakdown(d['rows'], 'R1')}",
+                                           f"Exit all at TP2  {s['r_tp2_plan']:+.1f}R{usd(s['r_tp2_plan'], risk)}", f"  {breakdown(d['rows'], 'R2')}",
                                            f"Unrealized open {un:+.1f}R{usd(un, risk)}"]) +
            f"\n<i>{s['decided1']} trades decided for the TP1 plan, {s['decided2']} for the TP2 plan" + (f" · risk ${risk:g} per trade" if risk else " · /risk 10 shows $") + "</i>")
     out = [head, net]
@@ -266,7 +286,7 @@ def cmd_pnl(client_fn, now=None):
 
 
 COMMANDS = [("status", "Report: trades, wins, losses, net R, unrealized R, TP1 hits"), ("open", "Open trades with live R"), ("waiting", "Setups waiting for entry, nearest first"),
-            ("near", "Setups within 0.3% of their entry"), ("coin", "One coin: /coin BTC"), ("results", "Finished setups and R"), ("price", "Price + your levels: /price BTC"),
+            ("near", "Setups within 0.3% of their entry"), ("coin", "One coin: /coin BTC"), ("results", "Finished setups and R"), ("net", "Net R and $ per plan: /net 2 = $2 risk per trade"), ("price", "Price + your levels: /price BTC"),
             ("trades", "Demo auto-orders now (SBGZ, AMD)"), ("pnl", "Auto-orders result today and 7 days"), ("quiet", "Mute updates for N hours: /quiet 3"),
             ("digest", "Daily summary: /digest 20 or /digest off"), ("tz", "Your UTC offset: /tz +5.5"), ("risk", "Risk per trade in $ to show profit in $: /risk 10"), ("expiry", "Hours a setup may wait: /expiry 12"),
             ("clear", "Clear the tracked list"), ("stop", "Mute all updates"), ("help", "All commands")]
@@ -301,12 +321,12 @@ def handle(cmd, args, cid, doc, reply, client_fn=None, now=None):
         return
     if cmd in ("price", "help", "start", "trades", "pnl", "stop", "quiet", "digest", "tz", "clear", "expiry", "risk"):
         pass
-    elif cmd in ("status", "open", "waiting", "near", "coin", "results"):
+    elif cmd in ("status", "open", "waiting", "near", "coin", "results", "net"):
         d = tracked()
         if d is None: reply(cid, "No setups are being tracked. Paste a list here or on the dashboard."); return
         risk = doc.get("risk_usd")
         reply(cid, {"status": lambda: summary(d, risk=risk), "open": lambda: cmd_open(d, risk), "waiting": lambda: cmd_waiting(d), "near": lambda: cmd_waiting(d, 0.3),
-                    "coin": lambda: cmd_coin(d, args[0] if args else ""), "results": lambda: cmd_results(d, risk)}[cmd]()); return
+                    "coin": lambda: cmd_coin(d, args[0] if args else ""), "results": lambda: cmd_results(d, risk), "net": lambda: cmd_net(d, _num(args[0], 0.01, 1_000_000) if args and _num(args[0], 0.01, 1_000_000) else risk)}[cmd]()); return
     if cmd == "price": reply(cid, cmd_price(tracked(), args[0] if args else "")); return
     if cmd == "trades": reply(cid, cmd_trades(client_fn)); return
     if cmd == "pnl": reply(cid, cmd_pnl(client_fn, now)); return
