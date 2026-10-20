@@ -2607,6 +2607,25 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
           </div>
           <div class="sbgz-radar-foot">Every minute, for each volume-confirmed strong-break setup the server places the same order as "Place order" (post-only limit entry, limit take-profit, stop-market stop) within your limits, keeps each waiting order equal to its setup (the impulse extended: moved to the new levels; the setup ended: cancelled, the way the backtest treats it) and, if ticked, closes an open trade at the market (like the stop) or cancels a waiting order once BTC has moved 0.5R against it. The risk limit counts only OPEN trades: waiting orders do not use it, because most of them never fill (about 7 in 10 radar setups end unfilled); how many may wait has its own limit, and when fills use the risk limit up, the waiting orders that could not be taken are cancelled and placed again once there is room. It does not cancel an order just because the price is falling or a trend flipped: on 4,258 backtested trades that gained nothing, because the fall is what fills a pullback order. One order per coin; coins where you hold a position or your own order are skipped. Orders are calculated on the account size above (20 USDT), not on the account's balance: Bybit's smallest order is about 5 USDT, so at 20 USDT a trade needs about 0.5-1% risk and a few coins (BTC, ETH, SOL, SUI) are skipped as too small. Preview shows every decision without sending anything. Demo or testnet accounts only, no password. Every trade has its stop and target on Bybit, so it is protected even if this server stops. Not yet tested on the exchange: the first live orders are the first real test of the order format.</div>
         </div>
+        <!-- Setup tracker: paste a list of breakout setups, see where each one stands when you look (GET /api/setups; nothing runs in between) -->
+        <div class="card" id="setupCard" style="margin-bottom:12px">
+          <div class="cardh">
+            <div class="cardt-group">
+              <span class="cardt"><i class="fa-solid fa-list-check" style="color:#a78bfa"></i> Setup tracker · paste setups, see their status</span>
+            </div>
+          </div>
+          <div class="sbgz-radar-bar" style="flex-direction:column;align-items:stretch;gap:6px">
+            <textarea id="setupText" rows="4" placeholder="Paste: Coin,Side,Reference USD,Entry,Stop,TP1,TP2,RR TP1,RR TP2,Status" style="width:100%;background:var(--bg2,#111);color:inherit;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px;font:12px monospace"></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button class="sbgz-rbtn" onclick="setupSave()"><i class="fa-solid fa-floppy-disk"></i> Track these</button>
+              <button class="sbgz-rbtn" onclick="setupLoad()"><i class="fa-solid fa-rotate"></i> Refresh status</button>
+              <button class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="setupClear()">Clear list</button>
+              <span id="setupInfo" class="mut">Not loaded</span>
+            </div>
+          </div>
+          <div class="tw" id="setupTb"></div>
+          <div class="sbgz-radar-foot">Nothing runs in the background: the status is worked out from Bybit candles when you press Refresh or open this page. The entries are breakout entries (a long enters when price rises to the entry, a short when it falls to it). A candle that touches both the stop and a target counts as the stop. R is before fees. "Exit all at TP1" and "Exit all at TP2" are two plans scored side by side. A setup that never enters within 24 hours of pasting is EXPIRED.</div>
+        </div>
         <!-- SBGZ radar history: every setup the radar showed and what happened to it (GET /api/sbgz/history) -->
         <div class="card" id="sbgzHistCard" style="margin-bottom:12px">
           <div class="cardh">
@@ -4760,6 +4779,7 @@ window.sbgzRadarLoad = function(force){
       if(window.sbgzOrdersLoad) window.sbgzOrdersLoad();
       if(window.sbgzHistLoad) window.sbgzHistLoad();             // same scan, so it answers from the server's cache
       if(window.sbgzAutoLoad) window.sbgzAutoLoad();
+      if(window.setupLoad && !window._setupOnce){ window._setupOnce = true; window.setupLoad(); }      // once per page load; after that the Refresh button
     });
 };
 
@@ -5035,6 +5055,44 @@ window.sbgzOrderCancel = function(btn){
     .then(function(x){ if(!x.d.ok) alert('Cancel failed: ' + (x.d.error || x.d.retMsg || ('HTTP ' + x.status))); })
     .catch(function(e){ alert('Cancel failed: ' + e.message); })
     .then(function(){ window.sbgzOrdersLoad(); });
+};
+
+// ── Setup tracker: the pasted breakout setups, judged by the server when asked ───────────────────────────────────────────────────
+window.setupLoad = function(){
+  var info = document.getElementById('setupInfo'), tb = document.getElementById('setupTb');
+  if(!info) return;
+  info.textContent = 'Loading…';
+  fetch('/api/setups').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+    if(!d || !d.ok){ info.textContent = 'Unavailable: ' + ((d && d.error) || 'no answer from /api/setups (server not updated yet?)'); return; }
+    if(d.empty){ info.textContent = 'No list yet: paste one above.'; tb.innerHTML = ''; return; }
+    var s = d.summary, R = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; }, cl = function(x){ return x == null ? 'mut' : x >= 0 ? 'up' : 'dn'; };
+    info.innerHTML = 'Pasted ' + sbgzEsc(sbgzWhen(d.created / 1000)) + ' · <b>' + s.n + '</b> setups: ' + s.waiting + ' waiting, ' + s.open + ' open, ' + s.stopped + ' stopped, ' + s.tp2 + ' reached TP2, ' + s.expired + ' expired · checked ' + sbgzEsc(sbgzWhen(d.generated / 1000)) +
+      '<br>Exit all at TP1: <b class="' + cl(s.r_tp1_plan) + '">' + R(s.r_tp1_plan) + '</b> on ' + s.decided1 + ' decided · Exit all at TP2: <b class="' + cl(s.r_tp2_plan) + '">' + R(s.r_tp2_plan) + '</b> on ' + s.decided2 + ' decided';
+    var col = { 'WAITING': 'open', 'ENTERED': 'open', 'TP1 HIT': 'hwin', 'TP2 HIT': 'hwin', 'STOPPED': 'hloss', 'STOPPED AFTER TP1': 'warn', 'EXPIRED': 'mut', 'NO DATA': 'mut' };
+    var order = { 'ENTERED': 0, 'TP1 HIT': 0, 'WAITING': 1, 'TP2 HIT': 2, 'STOPPED AFTER TP1': 2, 'STOPPED': 2, 'EXPIRED': 3, 'NO DATA': 4 };
+    var rows = d.rows.slice().sort(function(a, b){ return (order[a.status] || 0) - (order[b.status] || 0); });
+    tb.innerHTML = '<table><thead><tr><th>Coin</th><th>Side</th><th>Status</th><th>Entry</th><th>Stop</th><th>TP1</th><th>TP2</th><th>Price now</th><th>Entered</th><th>Best</th><th>Now</th><th>All at TP1</th><th>All at TP2</th></tr></thead><tbody>' + rows.map(function(x){
+      var L = x.side === 'LONG', f = function(t){ return t ? sbgzEsc(sbgzWhen(t / 1000)) : '--'; };
+      return '<tr><td><b>' + sbgzEsc(x.coin) + '</b></td><td class="' + (L ? 'up' : 'dn') + '">' + x.side + '</td><td><span class="' + (col[x.status] || 'mut') + '">' + sbgzEsc(x.status) + '</span></td><td>' + sbgzFmt(x.entry) + '</td><td>' + sbgzFmt(x.stop) + '</td><td>' + sbgzFmt(x.tp1) + (x.tp1_t ? ' ✓' : '') + '</td><td>' + (x.tp2 ? sbgzFmt(x.tp2) + (x.tp2_t ? ' ✓' : '') : '--') + '</td><td>' + (x.price != null ? sbgzFmt(x.price) + ' <span class="mut">(' + (x.dist_pct >= 0 ? '+' : '') + x.dist_pct.toFixed(2) + '% from entry)</span>' : '--') + '</td><td>' + f(x.entered) + '</td><td>' + (x.best_r != null ? R(x.best_r) : '--') + '</td><td>' +
+        (x.now_r != null ? '<b class="' + cl(x.now_r) + '">' + R(x.now_r) + '</b>' : '--') + '</td><td class="' + cl(x.R1) + '">' + R(x.R1) + '</td><td class="' + cl(x.R2) + '">' + R(x.R2) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  }).catch(function(e){ info.textContent = 'Error: ' + e.message; });
+};
+
+window.setupSave = function(){
+  var t = document.getElementById('setupText').value;
+  if(!t.trim()){ alert('Paste the setups first.'); return; }
+  sbgzAutoPost('/api/setups', { text: t }).then(function(r){
+    if(!r || !r.ok){ alert('Could not save: ' + ((r && (r.error || r.retMsg)) || 'no answer')); return; }
+    document.getElementById('setupText').value = '';
+    if(r.skipped && r.skipped.length) alert('Tracking ' + r.saved + ' setups. Skipped:\n' + r.skipped.join('\n'));
+    window.setupLoad();
+  });
+};
+
+window.setupClear = function(){
+  if(!confirm('Clear the tracked list?')) return;
+  sbgzAutoPost('/api/setups/clear', {}).then(function(){ window.setupLoad(); });
 };
 
 // ── SBGZ auto-orders (Radar page): the server places, watches and cancels the SBGZ limit orders (backend_lib/sbgz_auto.py) ─────────

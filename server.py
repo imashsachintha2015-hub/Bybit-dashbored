@@ -1607,6 +1607,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {"ok": False, "error": f"sbgz history failed: {e}"})
             return
 
+        # 6a-0e. API: setup tracker (backend_lib/setup_tracker.py): the pasted list of breakout setups, each judged when this is asked (nothing runs in between)
+        if urllib.parse.urlparse(self.path).path == "/api/setups":
+            try:
+                from backend_lib import setup_tracker as _st
+                self._send_json(200, _st.status())
+            except Exception as e:
+                self._send_json(200, {"ok": False, "error": f"setup tracker failed: {e}"})
+            return
+
         # 6a-0d. API: AMD-FVG auto-orders (backend_lib/amd_auto.py): mode, settings, the orders / trades it manages, its log
         if urllib.parse.urlparse(self.path).path == "/api/amd/auto":
             try:
@@ -1865,6 +1874,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(500, {"retCode": -1, "retMsg": f"Server error: {e}"})
 
     def _route_post(self, body):
+        if self.path in ("/api/setups", "/api/setups/clear"):          # the setup tracker's list: tracking only, no orders
+            from backend_lib import setup_tracker
+            self._send_json(200, setup_tracker.clear() if self.path.endswith("/clear") else setup_tracker.save(body.get("text")))
+            return
         # -3. Every order route (the SBGZ ones and the older buttons) works on the demo / testnet account only, without a password.
         if (self.path in SBGZ_ORDER_ROUTES or self.path in LEGACY_ORDER_ROUTES) and not any(x in (BYBIT_BASE_URL or "").lower() for x in ("api-demo", "testnet")):
             msg = "The dashboard's order buttons work on a demo / testnet Bybit account only (this server's BYBIT_BASE_URL is a real-money endpoint)"
