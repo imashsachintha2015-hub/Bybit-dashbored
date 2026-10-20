@@ -80,7 +80,7 @@ def clear():
     return dict(ok=bool(ok))
 
 
-def judge(r, candles, created, now):
+def judge(r, candles, created, now, expire_ms=None):
     """Status of one setup from candles (dicts with start ms, high, low) that start at or after the paste time. Returns dict(status, ...)."""
     sd = 1 if r["side"] == "LONG" else -1; risk = abs(r["entry"] - r["stop"])
     tp2 = r.get("tp2"); out = dict(status="WAITING", entered=None, tp1_t=None, tp2_t=None, stop_t=None, best_r=None, R1=None, R2=None, now_r=None)
@@ -106,7 +106,7 @@ def judge(r, candles, created, now):
             if stopped: out.update(status="STOPPED AFTER TP1", stop_t=c["start"], R2=-1.0); break
             if t2: out.update(status="TP2 HIT", tp2_t=c["start"], R2=round(abs(tp2 - r["entry"]) / risk, 2)); break
     if entered: out["best_r"] = round(best, 2)
-    if out["status"] == "WAITING" and now - created > EXPIRE_MS: out["status"] = "EXPIRED"
+    if out["status"] == "WAITING" and now - created > (expire_ms or EXPIRE_MS): out["status"] = "EXPIRED"
     return out
 
 
@@ -133,7 +133,7 @@ def status(now=None):
     doc, ok = sbgz_auto._read_key(KEY)
     if not ok: return dict(ok=False, error="the setup store could not be read; try again in a minute")
     if not doc or not doc.get("rows"): return dict(ok=True, empty=True)
-    created = int(doc["created"]); rows = doc["rows"]
+    created = int(doc["created"]); rows = doc["rows"]; expire = int(doc.get("expire_ms") or EXPIRE_MS)
     from concurrent.futures import ThreadPoolExecutor
     coins = sorted({r["coin"] for r in rows})
     with ThreadPoolExecutor(8) as ex: got = dict(zip(coins, ex.map(lambda c: _candles(c, created, now), coins)))
@@ -142,7 +142,7 @@ def status(now=None):
         cs = [c for c in (got.get(r["coin"]) or []) if c["start"] >= created // 60_000 * 60_000]
         if not got.get(r["coin"]):
             out.append(dict(r, status="NO DATA", entered=None, tp1_t=None, tp2_t=None, stop_t=None, best_r=None, R1=None, R2=None, now_r=None)); continue
-        j = judge(r, cs, created, now)
+        j = judge(r, cs, created, now, expire)
         last = got[r["coin"]][-1]["close"]
         sd = 1 if r["side"] == "LONG" else -1
         j["price"] = last; j["dist_pct"] = round((last - r["entry"]) / r["entry"] * 100, 3)
@@ -153,5 +153,17 @@ def status(now=None):
     summ = dict(n=len(out), waiting=sum(1 for x in out if x["status"] == "WAITING"), entered=sum(1 for x in out if x["entered"]),
                 open=sum(1 for x in out if x["status"] in ("ENTERED", "TP1 HIT")), expired=sum(1 for x in out if x["status"] == "EXPIRED"),
                 stopped=sum(1 for x in out if x["status"].startswith("STOPPED")), tp1=sum(1 for x in out if x["tp1_t"]), tp2=sum(1 for x in out if x["tp2_t"]),
+                trades=sum(1 for x in out if x["entered"]), wins=sum(1 for x in out if x["tp1_t"]), losses=sum(1 for x in out if x["status"] == "STOPPED"),
+                tp1_hit=sum(1 for x in out if x["tp1_t"]), unrealized_r=round(sum(x["now_r"] for x in out if x.get("now_r") is not None), 2),
                 r_tp1_plan=round(sum(x["R1"] for x in done), 2), r_tp2_plan=round(sum(x["R2"] for x in done2), 2), decided1=len(done), decided2=len(done2))
-    return dict(ok=True, created=created, expire_h=EXPIRE_MS // 3_600_000, generated=now, summary=summ, rows=out)
+    return dict(ok=True, created=created, expire_h=round(expire / 3_600_000, 2), generated=now, summary=summ, rows=out)
+
+
+def set_expiry(hours):
+    """Change how long a setup may wait for its entry (hours, 1 to 720). Returns dict(ok)."""
+    doc, ok = sbgz_auto._read_key(KEY)
+    if not ok or not doc: return dict(ok=False, error="no list is tracked")
+    if not 0 < hours <= 720: return dict(ok=False, error="hours must be between 1 and 720")
+    doc["expire_ms"] = int(hours * 3_600_000)
+    with _lock: _cache.clear()
+    return dict(ok=bool(sbgz_auto._write_key(KEY, doc)))

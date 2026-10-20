@@ -743,7 +743,7 @@ def status(client=None, full_log=False):
     if st is None: return dict(ok=False, error="the auto-order store could not be read; try again in a minute")
     with _lock:
         tr = sorted(st["tracked"].values(), key=lambda t: -t.get("placed", 0))
-        rows = [dict({k: t.get(k) for k in ("link", "symbol", "interval", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "virtual", "placed", "R", "vol_ok")},
+        rows = [dict({k: t.get(k) for k in ("link", "symbol", "interval", "side", "status", "entry", "stop", "target", "qty", "risk_usd", "virtual", "placed", "done", "R", "vol_ok")},
                      **_marks.get(t.get("link"), {})) for t in tr]
         open_r = [r["r_now"] for r in rows if r.get("status") in ("open", "closing") and not r.get("virtual") and r.get("r_now") is not None]
         day = dict(st["day"]); cfg = dict(st["settings"])
