@@ -38,15 +38,15 @@ def test_bot():
             n = len(out); updates.append(dict(update_id=12, message=dict(chat=dict(id=222), text="/status"))); N.poll(); assert len(out) == n, "a stranger gets no status"
             assert N.check() == 0, "all WAITING: nothing to say"
             S.status = lambda now=None: status(dict(ROW, status="ENTERED", now_r=0.4), created=5)
-            assert N.check() == 1 and "ENTERED  BTC LONG" in out[-1][1] and out[-1][0] == "111", out[-1]
+            assert N.check() == 1 and "Entered (1)" in out[-1][1] and "BTC" in out[-1][1] and out[-1][0] == "111", out[-1]
             assert N.check() == 0, "the same status is not sent twice"
             S.status = lambda now=None: status(dict(ROW, status="TP1 HIT", R1=1.5), created=5)
-            assert N.check() == 1 and "TP1 HIT" in out[-1][1], out[-1]
+            assert N.check() == 1 and "TP1 reached" in out[-1][1], out[-1]
             S.status = lambda now=None: status(dict(ROW, status="TP2 HIT", R1=1.5, R2=2.0), created=5)
-            assert N.check() == 1 and "All done" in out[-1][1] and "TP2 HIT" in out[-1][1], out[-1]
+            assert N.check() == 1 and "Setup report" in out[-1][1] and "TP2 reached" in out[-1][1] and "<pre>" in out[-1][1], out[-1]
             S.status = lambda now=None: status(dict(ROW, status="ENTERED", now_r=0.1), created=6)
             assert N.check() == 1, "a new paste starts fresh"
-            updates.append(dict(update_id=13, message=dict(chat=dict(id=111), text="/status"))); N.poll(); assert "Total trades (entered)" in out[-1][1], out[-1]
+            updates.append(dict(update_id=13, message=dict(chat=dict(id=111), text="/status"))); N.poll(); assert "Setup report" in out[-1][1], out[-1]
             updates.append(dict(update_id=14, message=dict(chat=dict(id=111), text="/stop"))); N.poll()
             S.status = lambda now=None: status(dict(ROW, status="TP1 HIT", R1=1.5), created=6)
             n = len(out); assert N.check() == 0 and len(out) == n, "muted"
@@ -102,14 +102,18 @@ def test_commands():
             calls = []; S.clear = lambda: calls.append("clear") or dict(ok=True); S.set_expiry = lambda h: calls.append(("exp", h)) or dict(ok=True)
             doc = dict(id=1); h = lambda cmd, *a, now=1_000_000: N.handle(cmd, list(a), 1, doc, reply, None, now)
             h("status"); t = out[-1]
-            assert "Total trades (entered): 6 of 8" in t and "Wins (reached TP1): 4" in t and "Losses (stopped before TP1): 1" in t and "TP1 hit trades: 4" in t and "Unrealized R (open trades): +2.10R" in t, t
+            assert "6 entered of 8 setups" in t and "Wins (reached TP1): <b>4</b>" in t and "Losses (stopped): <b>1</b>" in t and "TP1 hit trades: <b>4</b>" in t, t
+            assert "Exit all at TP1  +3.5R" in t and "Unrealized open +2.1R" in t and "/risk 10" in t and "≈" not in t, t
+            assert "✅ ADA   LONG  +1.5R / +2.0R" in t and "🟠 UNI   LONG  +1.5R / -1.0R" in t and "🔴 LTC   LONG  -1.0R / -1.0R" in t, t
+            doc["risk_usd"] = 10; h("status"); assert "+3.5R  ≈ +$35" in out[-1] and "Unrealized open +2.1R  ≈ +$21" in out[-1] and "risk $10 per trade" in out[-1], out[-1]
+            h("risk", "off"); assert "risk_usd" not in doc; h("risk", "25"); assert doc["risk_usd"] == 25.0; h("risk", "x"); assert "Use /risk" in out[-1]; doc.pop("risk_usd")
             h("open"); assert "Open trades (2)" in out[-1] and "XRP" in out[-1] and "BTC" in out[-1] and "ETH" not in out[-1], out[-1]
             h("waiting"); assert out[-1].index("SOL") < out[-1].index("ETH") and "ETH" in out[-1], out[-1]
             h("near"); assert "SOL" in out[-1] and "ETH" not in out[-1], out[-1]
-            h("coin", "eth"); assert "SHORT: WAITING" in out[-1] and "TP2" in out[-1], out[-1]
+            h("coin", "eth"); assert "SHORT" in out[-1] and "WAITING" in out[-1] and "TP2" in out[-1] and "<pre>" in out[-1], out[-1]
             h("coin", "doge"); assert "not in the tracked list" in out[-1]
-            h("results"); assert "Finished: 3" in out[-1] and "wins (reached TP1) 2" in out[-1] and "expired 1" in out[-1], out[-1]
-            h("price", "btc"); assert out[-1].startswith("BTC 81,900") and "ENTERED" in out[-1], out[-1]
+            h("results"); assert "Finished <b>3</b>" in out[-1] and "wins <b>2</b>" in out[-1] and "expired 1" in out[-1], out[-1]
+            h("price", "btc"); assert "BTC 81,900" in out[-1] and "entered" in out[-1], out[-1]
             h("quiet", "3"); assert doc["quiet_until"] == 1_000_000 + 3 * 3_600_000
             h("quiet", "off"); assert "quiet_until" not in doc
             h("tz", "+5.5"); assert doc["tz"] == 5.5
@@ -143,7 +147,7 @@ def test_quiet_digest_trades_pnl():
             noon = 1_800_000_000_000 // 86_400_000 * 86_400_000 + 12 * 3_600_000          # 12:00 UTC = 17:30 local
             assert N.digest(send, now=noon) == 0, "before 20:00 local"
             late = noon + 5 * 3_600_000                                                    # 17:00 UTC = 22:30 local
-            assert N.digest(send, now=late) == 1 and out[-1].startswith("Daily summary") and "Total trades" in out[-1]
+            assert N.digest(send, now=late) == 1 and "Daily summary" in out[-1] and "Setup report" in out[-1]
             assert N.digest(send, now=late + 600_000) == 0, "once a day"
             day = 1_800_000_000_000
             auto = {"SBGZ": dict(settings=dict(mode="live"), tracked=[
@@ -154,8 +158,8 @@ def test_quiet_digest_trades_pnl():
                         dict(symbol="CCCUSDT", side="LONG", status="done", R=-1.0, done=day - 9 * 86_400_000, virtual=False)]),
                     "AMD": dict(settings=dict(mode="live"), tracked=[])}
             N._auto_rows = lambda fn: auto
-            t = N.cmd_trades(None); assert "SBGZ (live): 2 active" in t and "APT SHORT waiting" in t and "BTC LONG open · +0.60R" in t and "AMD (live): 0 active" in t, t
-            t = N.cmd_pnl(None, now=day); assert "today 1 closed · 1 wins · 0 losses · +1.50R" in t and "last 7 days 2 closed · 1 wins · 1 losses · +0.50R" in t, t
+            t = N.cmd_trades(None); assert "SBGZ</b> (live) · 2 active" in t and "APT   SHORT waiting 1.20% away" in t and "BTC   LONG  open +0.6R" in t and "AMD</b> (live) · 0 active" in t, t
+            t = N.cmd_pnl(None, now=day); assert "Today    1 closed  1W 0L  +1.50R" in t and "7 days   2 closed  1W 1L  +0.50R" in t, t
     finally:
         A.ROOT, S.status, N._auto_rows = old; os.environ.pop("SBGZ_AUTO_BACKEND", None); os.environ.pop("TELEGRAM_BOT_TOKEN", None)
     print("  /quiet holds the updates back, the daily digest goes once at the chosen local hour, /trades and /pnl read the auto-orders")
