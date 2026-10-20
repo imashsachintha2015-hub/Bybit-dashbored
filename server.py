@@ -2510,6 +2510,11 @@ def _start_auto_orders():
         amd_auto.start_thread(lambda: bybit_client)
     except Exception as e:
         print(f"[amd auto] thread not started: {e}")
+    try:
+        from backend_lib import telegram_notify   # the setup tracker's Telegram bot (needs TELEGRAM_BOT_TOKEN; otherwise it does not start)
+        if telegram_notify.start_thread(): print("[telegram] setup bot running")
+    except Exception as e:
+        print(f"[telegram] thread not started: {e}")
     return True
 
 
