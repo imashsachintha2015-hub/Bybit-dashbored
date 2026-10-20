@@ -108,6 +108,15 @@ def _save_pieces(cid, reply, doc=None, client_fn=None):
                 print(f"[telegram] placing orders failed: {type(e).__name__}: {e}")
                 res = dict(ok=False, error="placing the orders failed: " + type(e).__name__)
             reply(cid, _order_report(res))
+            for _ in range(2):                                          # Bybit refuses bursts: give it a moment, then place only what is missing
+                if not setup_orders.retryable(res): break
+                reply(cid, "⏳ Bybit asked me to slow down on some orders. Retrying those in a few seconds…")
+                time.sleep(15)
+                try:
+                    res = setup_orders.place_all(client_fn(), r["created"], r["rows"], (doc or {}).get("risk_usd") or setup_orders.DEFAULT_RISK, resume=True)
+                except Exception as e:
+                    print(f"[telegram] retrying the orders failed: {type(e).__name__}: {e}"); break
+                reply(cid, _order_report(res))
     else:
         reply(cid, "I could not read that list: " + esc(r.get("error")))
 
@@ -311,7 +320,7 @@ COMMANDS = [("status", "Report: trades, wins, losses, net R, unrealized R, TP1 h
             ("near", "Setups within 0.3% of their entry"), ("coin", "One coin: /coin BTC"), ("results", "Finished setups and R"), ("net", "Net R and $ per plan: /net 2 = $2 risk per trade"), ("price", "Price + your levels: /price BTC"),
             ("trades", "Demo auto-orders now (SBGZ, AMD)"), ("pnl", "Auto-orders result today and 7 days"), ("quiet", "Mute updates for N hours: /quiet 3"),
             ("digest", "Daily summary: /digest 20 or /digest off"), ("tz", "Your UTC offset: /tz +5.5"), ("risk", "Risk per trade in $ (orders + net $): /risk 2"),
-            ("orders", "Demo orders for pasted lists: /orders on | off | cancel"), ("expiry", "Hours a setup may wait: /expiry 12"),
+            ("orders", "Demo orders for pasted lists: /orders on | off | retry | cancel"), ("expiry", "Hours a setup may wait: /expiry 12"),
             ("clear", "Clear the tracked list"), ("stop", "Mute all updates"), ("help", "All commands")]
 
 
@@ -369,6 +378,10 @@ def handle(cmd, args, cid, doc, reply, client_fn=None, now=None):
             doc["orders_on"] = a == "on"
             reply(cid, "🧾 Orders are <b>on</b>: the next list you paste is placed as demo orders (risk $%g per trade)." % (doc.get("risk_usd") or setup_orders.DEFAULT_RISK) if a == "on"
                   else "🧾 Orders are <b>off</b>: pasted lists are only tracked. Orders already placed stay."); return
+        if a == "retry":
+            created, rows_ = setup_tracker.current()
+            if not rows_ or not client_fn: reply(cid, "No tracked list."); return
+            reply(cid, _order_report(setup_orders.place_all(client_fn(), created, rows_, doc.get("risk_usd") or setup_orders.DEFAULT_RISK, resume=True))); return
         if a == "cancel":
             n = setup_orders.cancel_all(client_fn()) if client_fn else 0
             reply(cid, f"{n} waiting order(s) cancelled. Open trades keep their stop and targets."); return

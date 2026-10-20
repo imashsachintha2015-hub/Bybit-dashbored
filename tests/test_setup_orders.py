@@ -15,7 +15,7 @@ SPEC = dict(tick=0.01, qty_step=0.01, min_qty=0.01, max_qty=1000.0, min_notional
 
 class Fake:
     def __init__(self, base="https://api-demo.bybit.com"):
-        self.base_url = base; self.posts = []; self.positions = []; self.orders = []; self.reject = set()
+        self.base_url = base; self.posts = []; self.positions = []; self.orders = []; self.reject = set(); self.rate = {}; self.links = set()
 
     def get_positions(self):
         return dict(retCode=0, result=dict(list=self.positions))
@@ -28,7 +28,9 @@ class Fake:
             return dict(retCode=0, result=dict(list=[o for o in self.orders if o.get("flt") == (params or {}).get("orderFilter")], nextPageCursor=""))
         if path == "/v5/order/create":
             if body["symbol"] in self.reject: return dict(retCode=110093, retMsg="trigger price is invalid")
-            self.posts.append(("create", body)); return dict(retCode=0)
+            if self.rate.get(body["symbol"], 0) > 0: self.rate[body["symbol"]] -= 1; return dict(retCode=10006, retMsg="Too many visits. Exceeded the API Rate Limit.")
+            if body["orderLinkId"] in self.links: return dict(retCode=110072, retMsg="OrderLinkedID is duplicate")
+            self.links.add(body["orderLinkId"]); self.posts.append(("create", body)); return dict(retCode=0)
         if path == "/v5/order/cancel":
             self.posts.append(("cancel", body)); return dict(retCode=0)
         return dict(retCode=0, result=dict(list=[]))
@@ -75,6 +77,28 @@ def test_placing():
         finally:
             A.ROOT, T.instrument = old; os.environ.pop("SBGZ_AUTO_BACKEND", None)
     print("  two half-size orders per setup (TP1 / TP2), conditional market entry, stop attached; busy / small / refused / real-money cases skipped")
+
+
+def test_rate_limits_are_waited_out_and_missing_orders_resumed():
+    os.environ["SBGZ_AUTO_BACKEND"] = "file"; old = (A.ROOT, T.instrument, O.time.sleep, O.PACE)
+    O.time.sleep = lambda x: None; O.PACE = 0
+    with tempfile.TemporaryDirectory() as d:
+        A.ROOT = d; T.instrument = lambda sym, timeout=6: SPEC
+        try:
+            f = Fake(); f.rate = {"BBBUSDT": 2, "CCCUSDT": 99}                      # BBB: two refusals, then fine (retried); CCC: refuses every time in this pass
+            rows = [row("AAA"), row("BBB"), row("CCC")]
+            r = O.place_all(f, 5, rows, 2.0)
+            assert r["ok"] and r["placed_setups"] == 2 and r["placed_orders"] == 4 and [x[0] for x in r["skipped"]] == ["CCC"], r
+            assert "code 10006" in r["skipped"][0][2] and O.retryable(r), r
+            f.rate = {}                                                              # Bybit is calm again: resume places only what is missing, never twice
+            n = len(creates(f)); r2 = O.place_all(f, 5, rows, 2.0, resume=True)
+            assert r2["placed_orders"] == 6 and r2["placed_setups"] == 3 and not r2["skipped"] and len(creates(f)) == n + 2 and not O.retryable(r2), (r2, n, len(creates(f)))
+            assert len({b["orderLinkId"] for b in creates(f)}) == 6
+            r3 = O.place_all(f, 5, rows, 2.0, resume=True); assert len(creates(f)) == n + 2 and r3["placed_orders"] == 6, "nothing left to place"
+            r4 = O.place_all(f, 6, rows, 2.0); assert len(cancels(f)) >= 6, "a different list starts fresh: the old waiting orders are cancelled"
+        finally:
+            A.ROOT, T.instrument, O.time.sleep, O.PACE = old; os.environ.pop("SBGZ_AUTO_BACKEND", None)
+    print("  'too many visits' is waited out and retried; the setups still missing are placed on a resume, never twice")
 
 
 def test_manage():
