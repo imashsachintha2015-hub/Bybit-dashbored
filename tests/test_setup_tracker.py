@@ -109,6 +109,30 @@ def test_a_failed_download_does_not_change_the_result():
     print("  a download that fails is retried; a finished result already archived stands; a setup with nothing is shown as NO DATA, not as waiting")
 
 
+NEW_CSV = """Coin,Side,Entry,Stop,TP1,TP2,RR_TP1,RR_TP2,Invalidation,Status
+BTC,SHORT,82247.92,82660.40,81629.20,81422.97,1.5,2,82990.38,UNCONFIRMED
+XMR,LONG,625.870,622.750,630.550,632.110,1.5,2,620.254,UNCONFIRMED
+HBAR,SHORT,0.0832421,0.0836596,0.0826159,0.0824072,1.5,2,0.0839936,UNCONFIRMED
+BAD,SHORT,10,9,8,7,1.5,2,11,UNCONFIRMED"""
+
+
+def test_new_format_and_invalidation():
+    rows, errs = S.parse(NEW_CSV)
+    assert [(r["coin"], r["side"]) for r in rows] == [("BTC", "SHORT"), ("XMR", "LONG"), ("HBAR", "SHORT")] and len(errs) == 1 and "BAD" in errs[0], (rows, errs)
+    b = rows[0]; assert b["entry"] == 82247.92 and b["stop"] == 82660.40 and b["tp1"] == 81629.20 and b["tp2"] == 81422.97 and b["inval"] == 82990.38 and b["ref"] is None, b
+    assert rows[1]["inval"] == 620.254
+    rows2, _ = S.parse("Coin,Side,Entry,Stop,TP1,TP2,Invalidation\nBTC,short,100,102,97,96,101"); assert rows2[0]["inval"] is None, "an invalidation level inside the stop is ignored"
+    rows3, _ = S.parse(CSV); assert rows3[0]["entry"] == 81629.34 and rows3[0]["inval"] is None, "the old format (Reference column) still reads"
+    short = dict(coin="X", side="SHORT", entry=100.0, stop=102.0, tp1=97.0, tp2=96.0, inval=103.0)
+    j = lambda r, rows_, now=T0 + 3_600_000: S.judge(r, cs(rows_), T0, now)
+    x = j(short, [(101, 100.5), (103.2, 101.5)]); assert x["status"] == "INVALIDATED" and x["entered"] is None and x["inval_t"], x
+    x = j(short, [(100.5, 99.5), (103.2, 99)]); assert x["status"] == "STOPPED", "entered first: the stop decides, not the invalidation"
+    x = j(dict(short, inval=None), [(103.2, 101.5)]); assert x["status"] == "WAITING"
+    lng = dict(coin="X", side="LONG", entry=100.0, stop=98.0, tp1=103.0, tp2=104.0, inval=96.0)
+    assert j(lng, [(99, 95.5)])["status"] == "INVALIDATED" and j(lng, [(99, 97)])["status"] == "WAITING"
+    print("  the new format (Entry, Stop, TP1, TP2, Invalidation ...) reads by its header; price past the invalidation level before the entry voids the setup")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):
