@@ -80,6 +80,35 @@ def test_status_end_to_end():
     print("  save -> status -> clear on the file store, candles only when asked")
 
 
+def test_a_failed_download_does_not_change_the_result():
+    os.environ["SBGZ_AUTO_BACKEND"] = "file"
+    import backend_lib.sbgz_auto as A
+    old_root, old_fc, old_sleep = A.ROOT, sbgz.fetch_candles, S.time.sleep
+    S.time.sleep = lambda x: None
+    with tempfile.TemporaryDirectory() as d:
+        A.ROOT = d
+        try:
+            r = S.save(CSV); doc, _ = A._read_key(S.KEY); created = doc["created"]; t0 = created // 60_000 * 60_000; now = created + 2 * 3_600_000
+            good = {"BTCUSDT": cs([(81700, 81400), (82300, 81500), (82500, 81600)], t0), "SOLUSDT": cs([(104, 103.9)], t0)}
+            calls = {"n": 0}
+            def flaky(sym, iv, n, timeout=8):                                      # BTC: the first two downloads fail, the third works
+                if sym == "BTCUSDT":
+                    calls["n"] += 1
+                    return [] if calls["n"] < 3 else good[sym]
+                return good.get(sym, [])
+            sbgz.fetch_candles = flaky; S._cache.clear()
+            d1 = S.status(now); rows = {(x["coin"], x["side"]): x for x in d1["rows"]}
+            assert calls["n"] == 3 and rows[("BTC", "LONG")]["status"] == "TP2 HIT" and d1["summary"]["no_data"] == 0, (calls, rows[("BTC", "LONG")]["status"], d1["summary"])
+            S._cache.clear(); sbgz.fetch_candles = lambda sym, iv, n, timeout=8: [] if sym == "BTCUSDT" else good.get(sym, [])          # BTC is down for a whole pass
+            d2 = S.status(now); rows2 = {(x["coin"], x["side"]): x for x in d2["rows"]}
+            assert rows2[("BTC", "LONG")]["status"] == "TP2 HIT" and rows2[("BTC", "LONG")]["R2"] == 2.0 and rows2[("BTC", "LONG")].get("stale"), rows2[("BTC", "LONG")]   # the archived result stands
+            assert rows2[("BTC", "SHORT")]["status"] == "NO DATA" and d2["summary"]["no_data"] == 1, (rows2[("BTC", "SHORT")], d2["summary"])                     # nothing archived: honestly no data
+            assert d2["summary"]["r_tp2_plan"] == d1["summary"]["r_tp2_plan"], "the net did not move"
+        finally:
+            A.ROOT = old_root; sbgz.fetch_candles = old_fc; S.time.sleep = old_sleep; os.environ.pop("SBGZ_AUTO_BACKEND", None)
+    print("  a download that fails is retried; a finished result already archived stands; a setup with nothing is shown as NO DATA, not as waiting")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

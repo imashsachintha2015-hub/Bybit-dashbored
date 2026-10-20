@@ -5101,7 +5101,7 @@ window.setupLoad = function(){
     if(!d || !d.ok){ info.textContent = 'Unavailable: ' + ((d && d.error) || 'no answer from /api/setups (server not updated yet?)'); return; }
     if(d.empty){ info.textContent = 'No list yet: paste one above.'; tb.innerHTML = ''; return; }
     var s = d.summary, R = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; }, cl = function(x){ return x == null ? 'mut' : x >= 0 ? 'up' : 'dn'; };
-    info.innerHTML = 'Pasted ' + sbgzEsc(sbgzWhen(d.created / 1000)) + ' · <b>' + s.n + '</b> setups: ' + s.waiting + ' waiting, ' + s.open + ' open, ' + s.stopped + ' stopped, ' + s.tp2 + ' reached TP2, ' + s.expired + ' expired · checked ' + sbgzEsc(sbgzWhen(d.generated / 1000)) +
+    info.innerHTML = (s.no_data ? '<b class="hloss">' + s.no_data + ' setup(s) have no price data right now: results below leave them out, refresh in a minute.</b><br>' : '') + 'Pasted ' + sbgzEsc(sbgzWhen(d.created / 1000)) + ' · <b>' + s.n + '</b> setups: ' + s.waiting + ' waiting, ' + s.open + ' open, ' + s.stopped + ' stopped, ' + s.tp2 + ' reached TP2, ' + s.expired + ' expired · checked ' + sbgzEsc(sbgzWhen(d.generated / 1000)) +
       '<br>Exit all at TP1: <b class="' + cl(s.r_tp1_plan) + '">' + R(s.r_tp1_plan) + '</b> on ' + s.decided1 + ' decided · Exit all at TP2: <b class="' + cl(s.r_tp2_plan) + '">' + R(s.r_tp2_plan) + '</b> on ' + s.decided2 + ' decided';
     info.innerHTML += '<br>After fees (taker ' + '0.055%' + ', maker 0.02%): TP1 plan <b class="' + cl(s.r_tp1_net) + '">' + R(s.r_tp1_net) + '</b> · TP2 plan <b class="' + cl(s.r_tp2_net) + '">' + R(s.r_tp2_net) + '</b>';
     var od = d.orders;
