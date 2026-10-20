@@ -182,8 +182,13 @@ def _candles(coin, created, now):
     hit = _cache.get(coin)
     if hit and hit[1] == iv and now - hit[0] < CACHE_MS: return hit[2]
     bars = min(3000, (now - created) // step + 5)
-    cs = sbgz.fetch_candles(coin + "USDT", iv, int(bars), timeout=8)
+    cs = []
+    for attempt in range(3):                               # a download can fail on its own (timeout, rate limit): try again before giving up
+        cs = sbgz.fetch_candles(coin + "USDT", iv, int(bars), timeout=8)
+        if cs: break
+        time.sleep(0.4 * (attempt + 1))
     if cs: _cache[coin] = (now, iv, cs)
+    elif hit: return hit[2]                                # still nothing: the last candles we had are better than none
     return cs
 
 
@@ -197,10 +202,13 @@ def status(now=None):
     from concurrent.futures import ThreadPoolExecutor
     coins = sorted({r["coin"] for r in rows})
     with ThreadPoolExecutor(8) as ex: got = dict(zip(coins, ex.map(lambda c: _candles(c, created, now), coins)))
-    out = []
+    out = []; hist = None
     for r in rows:
         cs = [c for c in (got.get(r["coin"]) or []) if c["start"] >= created // 60_000 * 60_000]
         if not got.get(r["coin"]):
+            if hist is None: hist = ((sbgz_auto._read_key(HIST_KEY)[0] or {}).get("rows") or {})
+            h = hist.get(f"{created}|{r['coin']}|{r['side']}")                                  # no candles right now: a result already archived still stands
+            if h: out.append(dict(r, **{k: h.get(k) for k in ("status", "entered", "tp1_t", "tp2_t", "stop_t", "R1", "R2")}, best_r=None, now_r=None, stale=True)); continue
             out.append(dict(r, status="NO DATA", entered=None, tp1_t=None, tp2_t=None, stop_t=None, best_r=None, R1=None, R2=None, now_r=None)); continue
         j = judge(r, cs, created, now, expire)
         last = got[r["coin"]][-1]["close"]
@@ -214,7 +222,7 @@ def status(now=None):
     done = [x for x in out if x["R1"] is not None]
     done2 = [x for x in out if x["R2"] is not None]
     _archive(created, out)
-    summ = dict(n=len(out), waiting=sum(1 for x in out if x["status"] == "WAITING"), entered=sum(1 for x in out if x["entered"]),
+    summ = dict(n=len(out), no_data=sum(1 for x in out if x["status"] == "NO DATA"), waiting=sum(1 for x in out if x["status"] == "WAITING"), entered=sum(1 for x in out if x["entered"]),
                 open=sum(1 for x in out if x["status"] in ("ENTERED", "TP1 HIT")), expired=sum(1 for x in out if x["status"] == "EXPIRED"),
                 stopped=sum(1 for x in out if x["status"].startswith("STOPPED")), tp1=sum(1 for x in out if x["tp1_t"]), tp2=sum(1 for x in out if x["tp2_t"]),
                 trades=sum(1 for x in out if x["entered"]), wins=sum(1 for x in out if x["tp1_t"]), losses=sum(1 for x in out if x["status"] == "STOPPED"),

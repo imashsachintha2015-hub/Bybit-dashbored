@@ -194,7 +194,8 @@ def summary(d, rows=True, risk=None):
     head = (f"<b>📊 Setup report</b>\n{SEP}\n"
             f"<b>Trades</b>  {s['trades']} entered of {s['n']} setups\n"
             f"✅ Wins (reached TP1): <b>{s['wins']}</b>\n🔴 Losses (stopped): <b>{s['losses']}</b>\n🟡 Open: <b>{s['open']}</b>   ⏳ Waiting: {s['waiting']}   ⚪ Expired: {s['expired']}\n"
-            f"🎯 TP1 hit trades: <b>{s['tp1_hit']}</b>   TP2 hits: {s['tp2']}")
+            f"🎯 TP1 hit trades: <b>{s['tp1_hit']}</b>   TP2 hits: {s['tp2']}" +
+            (f"\n⚠️ <b>{s['no_data']} setup(s) have no price data right now</b> (Bybit did not answer): the numbers below leave them out. Send /status again in a minute." if s.get("no_data") else ""))
     net = ("<b>💰 Net result</b>\n" + pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}", f"  {breakdown(d['rows'], 'R1')}",
                                            f"Exit all at TP2  {s['r_tp2_plan']:+.1f}R{usd(s['r_tp2_plan'], risk)}", f"  {breakdown(d['rows'], 'R2')}",
                                            f"After fees TP1 {s['r_tp1_net']:+.1f}R{usd(s['r_tp1_net'], risk)}", f"After fees TP2 {s['r_tp2_net']:+.1f}R{usd(s['r_tp2_net'], risk)}",
@@ -423,7 +424,7 @@ def check(send_fn=None, now=None):
     sent, ok = sbgz_auto._read_key(SENT_KEY)
     if not ok: return 0
     if not sent or sent.get("created") != d["created"]: sent = dict(created=d["created"], sent={})
-    changed = [x for x in d["rows"] if x["status"] != "WAITING" and sent["sent"].get(f"{x['coin']}|{x['side']}") != x["status"]]
+    changed = [x for x in d["rows"] if x["status"] not in ("WAITING", "NO DATA") and sent["sent"].get(f"{x['coin']}|{x['side']}") != x["status"]]
     if not changed: return 0
     by = {}
     for x in changed: by.setdefault(x["status"], []).append(x)
