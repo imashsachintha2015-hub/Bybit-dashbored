@@ -113,43 +113,76 @@ def cancel_setup(client, coin, side, why):
         return n
 
 
-def place_all(client, created, rows, risk_usd=DEFAULT_RISK):
-    """Place the orders of a freshly pasted list. Returns dict(ok, placed_orders, placed_setups, skipped=[(coin, side, why)], error)."""
+PACE = 0.15                            # seconds between order requests: Bybit refuses bursts ("Too many visits", retCode 10006)
+RATE_CODES = (10006, 10018)
+
+
+def _rate_limited(res):
+    return res.get("retCode") in RATE_CODES or "too many visits" in str(res.get("retMsg") or "").lower()
+
+
+def _call(client, path, body, tries=5):
+    """One POST that waits and tries again while Bybit says it is being asked too often."""
+    res = {}
+    for i in range(tries):
+        res = client.signed_request("POST", path, body=body)
+        if not _rate_limited(res): break
+        time.sleep(0.8 * (i + 1))
+    time.sleep(PACE)
+    return res
+
+
+def place_all(client, created, rows, risk_usd=DEFAULT_RISK, resume=False):
+    """Place the orders of a freshly pasted list (resume=True: the same list again, only the orders that are missing). Requests are paced and
+    retried when Bybit says "too many visits". Returns dict(ok, placed_orders, placed_setups, skipped=[(coin, side, why)], error)."""
     if T.account(client) == "REAL":
         return dict(ok=False, error="this server is on a REAL-money account: orders are only placed on a demo / testnet account")
     risk_usd = float(risk_usd or DEFAULT_RISK)
-    cancel_all(client, "a new list was pasted")
+    old, ok = _load()
+    resume = bool(resume and ok and old.get("created") == created)
+    if not resume: cancel_all(client, "a new list was pasted")
     positions, busy, err = _exchange(client)
     if err: return dict(ok=False, error=err)
-    st = dict(created=created, orders={}, skipped=[], placed_at=int(time.time() * 1000), risk=risk_usd)
-    skipped = []; placed_setups = 0
+    st = old if resume else dict(created=created, orders={}, skipped=[], placed_at=int(time.time() * 1000), risk=risk_usd)
+    skipped = []
     with _lock:
         for r in rows[:MAX_SETUPS]:
             coin, side, sym = r["coin"], r["side"], r["coin"] + "USDT"
-            if sym in positions: skipped.append((coin, side, "you already hold a position on this coin")); continue
+            mine = [o for o in st["orders"].values() if o["coin"] == coin and o["side"] == side]
+            if sym in positions and not mine: skipped.append((coin, side, "you already hold a position on this coin")); continue
             if sym in busy: skipped.append((coin, side, "you already have an order of your own on this coin")); continue
             spec = T.instrument(sym)
             if not spec or not spec.get("tick") or not spec.get("qty_step"): skipped.append((coin, side, "not tradable on Bybit demo")); continue
             plan, why = _plan_setup(client, r, risk_usd, spec)
             if not plan: skipped.append((coin, side, why)); continue
+            if all(_link(created, coin, side, leg) in st["orders"] for leg, _, _ in plan["legs"]): continue        # already placed
+            if sym in positions: continue                                                                           # its pair or this side is in already
             lv = client.set_leverage(sym, LEVERAGE)
+            if _rate_limited(lv): time.sleep(1.0); lv = client.set_leverage(sym, LEVERAGE)
             if lv.get("retCode") not in (0, 110043): print(f"[setup orders] leverage {sym}: {lv.get('retCode')} {lv.get('retMsg')} (placing anyway)")
-            any_ok = False; first_err = None
+            time.sleep(PACE)
+            first_err = None; got = 0
             for leg, qty, tp in plan["legs"]:
                 link = _link(created, coin, side, leg)
-                res = client.signed_request("POST", "/v5/order/create", body=_body(coin, side, plan["entry"], plan["stop"], qty, tp, link, spec))
-                if res.get("retCode") == 0:
-                    any_ok = True
+                if link in st["orders"]: got += 1; continue
+                res = _call(client, "/v5/order/create", _body(coin, side, plan["entry"], plan["stop"], qty, tp, link, spec))
+                if res.get("retCode") in (0, 110072):                                                              # 110072: this link is already on Bybit
+                    got += 1
                     st["orders"][link] = dict(coin=coin, side=side, leg=leg, qty=qty, entry=plan["entry"], stop=plan["stop"], tp=tp, status="waiting", placed=st["placed_at"])
                 else:
                     first_err = first_err or f"Bybit refused it: {res.get('retMsg')} (code {res.get('retCode')})"
-            if any_ok: placed_setups += 1
-            else: skipped.append((coin, side, first_err or "not placed"))
-            if any_ok and first_err: skipped.append((coin, side, "only one of its two orders was accepted: " + first_err))
+            if not got: skipped.append((coin, side, first_err or "not placed"))
+            elif first_err: skipped.append((coin, side, "only one of its two orders was accepted: " + first_err))
         st["skipped"] = [list(x) for x in skipped]
         sbgz_auto._write_key(KEY, st)
-    print(f"[setup orders] placed {len(st['orders'])} orders for {placed_setups} setups, skipped {len(skipped)}")
+    placed_setups = len({(o["coin"], o["side"]) for o in st["orders"].values()})
+    print(f"[setup orders] {len(st['orders'])} orders for {placed_setups} setups, skipped {len(skipped)}")
     return dict(ok=True, placed_orders=len(st["orders"]), placed_setups=placed_setups, skipped=skipped, risk=risk_usd)
+
+
+def retryable(res):
+    """True when a placement report has setups that only failed because Bybit was being asked too often."""
+    return bool(res.get("ok")) and any(_rate_limited(dict(retMsg=w)) or "code 10006" in w for _, _, w in res["skipped"])
 
 
 def manage(client, now=None, force=False):

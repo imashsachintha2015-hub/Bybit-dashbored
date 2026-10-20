@@ -248,6 +248,12 @@ def status(now=None):
     return dict(ok=True, created=created, expire_h=round(expire / 3_600_000, 2), generated=now, summary=summ, rows=out)
 
 
+def current():
+    """(created, rows) of the tracked list, or (None, [])."""
+    doc, ok = sbgz_auto._read_key(KEY)
+    return (int(doc["created"]), doc["rows"]) if ok and doc and doc.get("rows") else (None, [])
+
+
 def expiry_ms():
     doc, ok = sbgz_auto._read_key(KEY)
     return int((doc or {}).get("expire_ms") or EXPIRE_MS) if ok else EXPIRE_MS
