@@ -4,8 +4,10 @@ The bot token is read from the TELEGRAM_BOT_TOKEN environment variable (never st
 /start to the bot becomes the receiver (TELEGRAM_CHAT_ID overrides that). Every 5 minutes the pasted setups are judged and a message goes out
 when a setup changes status (entered, TP1, TP2, stopped, expired); nothing is sent when nothing changed. Commands: see COMMANDS below (/help in the chat). The receiver can also paste the setups CSV into the chat (long lists arrive as several messages: they
 are joined) or send it as a .csv / .txt file: it replaces the tracked list, like the dashboard's Track button. Only the pasted setups are looked at: no orders, no other markets."""
+import html
 import json
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -41,10 +43,24 @@ def _api(method, params=None, timeout=15):
         return None
 
 
+def _chunks(text, limit=3800):
+    """Split on blank lines (every block is balanced HTML) into pieces under Telegram's 4096-character limit."""
+    out, cur = [], ""
+    for blk in text.split("\n\n"):
+        if cur and len(cur) + len(blk) + 2 > limit: out.append(cur); cur = ""
+        cur = (cur + "\n\n" + blk) if cur else blk
+    if cur: out.append(cur)
+    return out
+
+
 def send(chat_id, text):
-    for i in range(0, len(text), 3800):                                              # Telegram's limit is 4096 characters
-        if not _api("sendMessage", dict(chat_id=chat_id, text=text[i:i + 3800], disable_web_page_preview="true")): return False
-    return True
+    """Send HTML text (<b>, <pre>, <i>). If Telegram rejects the markup the same text goes out as plain text."""
+    ok = True
+    for piece in _chunks(text):
+        r = _api("sendMessage", dict(chat_id=chat_id, text=piece[:4000], parse_mode="HTML", disable_web_page_preview="true"))
+        if not r: r = _api("sendMessage", dict(chat_id=chat_id, text=re.sub(r"<[^>]+>", "", html.unescape(piece))[:4000], disable_web_page_preview="true"))
+        ok = bool(r) and ok
+    return ok
 
 
 def _csv_like(text):
@@ -91,32 +107,64 @@ def _save_chat(doc):
     return sbgz_auto._write_key(CHAT_KEY, doc)
 
 
+def esc(x):
+    return html.escape(str(x), quote=False)
+
+
+def pre(lines):
+    return "<pre>" + "\n".join(esc(l) for l in lines) + "</pre>"
+
+
+SEP = "━━━━━━━━━━━━━━"
+
+
 def _fmt(x):
     return f"{x:,.6g}" if x < 1 else f"{x:,.2f}" if x < 1000 else f"{x:,.1f}"
 
 
+def r1(x):
+    return "--" if x is None else f"{x:+.1f}R"
+
+
+def usd(r, risk):
+    return f"  ≈ {'+' if r >= 0 else '-'}${abs(r) * risk:,.0f}" if risk else ""
+
+
+ICON1 = {"ENTERED": "🟡", "TP1 HIT": "🟢", "TP2 HIT": "✅", "STOPPED": "🔴", "STOPPED AFTER TP1": "🟠", "EXPIRED": "⚪", "WAITING": "⏳"}
+
+
+def row(x):
+    """One setup as a fixed-width line: icon, coin, side, then now-R (open) or the R of the two plans (finished: exit at TP1 / exit at TP2)."""
+    head = f"{ICON1.get(x['status'], '•')} {x['coin']:<6}{x['side']:<6}"
+    if x["status"] in ("ENTERED", "TP1 HIT"): return head + f"now {r1(x.get('now_r'))}" + (" TP1✓" if x["status"] == "TP1 HIT" else "")
+    if x["status"] in ("TP2 HIT", "STOPPED", "STOPPED AFTER TP1"): return head + f"{r1(x['R1'])} / {r1(x['R2'])}"
+    return head + x["status"].lower()
+
+
 def line(x):
-    st = ICON.get(x["status"], x["status"])
-    base = f"{st}  {x['coin']} {x['side']}  entry {_fmt(x['entry'])}"
-    if x["status"] == "ENTERED": return base + f"  now {x['now_r']:+.2f}R" if x.get("now_r") is not None else base
-    if x["status"] == "TP1 HIT": return base + f"  (+{x['R1']:.1f}R at TP1; TP2 {_fmt(x['tp2'])} next)" if x.get("tp2") else base + f"  (+{x['R1']:.1f}R)"
-    if x["status"] == "TP2 HIT": return base + f"  (+{x['R2']:.1f}R at TP2)"
-    if x["status"] == "STOPPED": return base + "  (-1R)"
-    if x["status"] == "STOPPED AFTER TP1": return base + f"  (+{x['R1']:.1f}R if you exited at TP1, -1R if you held for TP2)"
-    return base
+    return row(x)
 
 
-def summary(d, rows=True):
-    s = d["summary"]
-    head = (f"Total trades (entered): {s['trades']} of {s['n']} setups\n"
-            f"Wins (reached TP1): {s['wins']} · Losses (stopped before TP1): {s['losses']} · Open now: {s['open']}\n"
-            f"TP1 hit trades: {s['tp1_hit']} · TP2 hit: {s['tp2']}\n"
-            f"Unrealized R (open trades): {s['unrealized_r']:+.2f}R\n"
-            f"Realized R: all at TP1 {s['r_tp1_plan']:+.2f}R ({s['decided1']} decided) · all at TP2 {s['r_tp2_plan']:+.2f}R ({s['decided2']} decided)\n"
-            f"Waiting for entry: {s['waiting']} · Expired: {s['expired']}")
-    if not rows: return head
-    moved = [x for x in d["rows"] if x["status"] != "WAITING"]
-    return head + ("\n\n" + "\n".join(line(x) for x in moved) if moved else "\n\nNo setup has entered yet.")
+def _section(title, items):
+    return f"<b>{esc(title)} ({len(items)})</b>\n" + pre([row(x) for x in items]) if items else ""
+
+
+def summary(d, rows=True, risk=None):
+    s = d["summary"]; un = s["unrealized_r"]
+    head = (f"<b>📊 Setup report</b>\n{SEP}\n"
+            f"<b>Trades</b>  {s['trades']} entered of {s['n']} setups\n"
+            f"✅ Wins (reached TP1): <b>{s['wins']}</b>\n🔴 Losses (stopped): <b>{s['losses']}</b>\n🟡 Open: <b>{s['open']}</b>   ⏳ Waiting: {s['waiting']}   ⚪ Expired: {s['expired']}\n"
+            f"🎯 TP1 hit trades: <b>{s['tp1_hit']}</b>   TP2 hits: {s['tp2']}")
+    net = ("<b>💰 Net result</b>\n" + pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}",
+                                           f"Exit all at TP2  {s['r_tp2_plan']:+.1f}R{usd(s['r_tp2_plan'], risk)}",
+                                           f"Unrealized open {un:+.1f}R{usd(un, risk)}"]) +
+           f"\n<i>{s['decided1']} trades decided for the TP1 plan, {s['decided2']} for the TP2 plan" + (f" · risk ${risk:g} per trade" if risk else " · /risk 10 shows $") + "</i>")
+    out = [head, net]
+    if rows:
+        out += [_section("✅ Winners (reached TP1)  TP1 plan / TP2 plan", [x for x in d["rows"] if x["status"] in ("TP2 HIT", "STOPPED AFTER TP1")]),
+                _section("🔴 Stopped", [x for x in d["rows"] if x["status"] == "STOPPED"]),
+                _section("🟡 Open now", [x for x in d["rows"] if x["status"] in ("ENTERED", "TP1 HIT")])]
+    return "\n\n".join(b for b in out if b)
 
 
 def _price(coin):
@@ -128,54 +176,60 @@ def _away(x):
     return abs(x["dist_pct"]) if x.get("dist_pct") is not None else 9e9
 
 
-def cmd_open(d):
+def cmd_open(d, risk=None):
     rows = sorted((x for x in d["rows"] if x["status"] in ("ENTERED", "TP1 HIT")), key=lambda x: -(x.get("now_r") or 0))
-    if not rows: return "No open trades."
-    out = []
+    if not rows: return "<b>🟡 Open trades</b>\nNone right now."
+    lines = []
     for x in rows:
         p = x.get("price"); tgt = x["tp1"] if x["status"] == "ENTERED" else (x.get("tp2") or x["tp1"]); nm = "TP1" if x["status"] == "ENTERED" else "TP2"
-        extra = f" · stop {abs(p - x['stop']) / p * 100:.2f}% away · {nm} {abs(tgt - p) / p * 100:.2f}% away" if p else ""
-        out.append(f"{'🟢' if x['status'] == 'TP1 HIT' else '🟡'} {x['coin']} {x['side']} {x['status']} now {x['now_r']:+.2f}R · price {_fmt(p)}{extra}" if x.get("now_r") is not None and p else line(x))
-    return f"Open trades ({len(rows)}) · unrealized {d['summary']['unrealized_r']:+.2f}R\n" + "\n".join(out)
+        lines.append(row(x) + (f"  SL {abs(p - x['stop']) / p * 100:.1f}% {nm} {abs(tgt - p) / p * 100:.1f}%" if p else ""))
+    un = d["summary"]["unrealized_r"]
+    return f"<b>🟡 Open trades ({len(rows)})</b>   unrealized <b>{un:+.1f}R</b>{esc(usd(un, risk))}\n" + pre(lines) + "\n<i>SL / TP = distance from the price now</i>"
 
 
 def cmd_waiting(d, limit=None):
     rows = sorted((x for x in d["rows"] if x["status"] == "WAITING"), key=_away)
     if limit is not None: rows = [x for x in rows if _away(x) <= limit]
-    if not rows: return "No waiting setups" + (f" within {limit}% of their entry." if limit is not None else ".")
-    return (f"Waiting setups within {limit}% of the entry ({len(rows)})\n" if limit is not None else f"Waiting for entry ({len(rows)}), nearest first\n") + \
-        "\n".join(f"⏳ {x['coin']} {x['side']} entry {_fmt(x['entry'])} · price {_fmt(x['price'])} · {_away(x):.2f}% away" if x.get("price") else f"⏳ {x['coin']} {x['side']} entry {_fmt(x['entry'])}" for x in rows)
+    title = f"⏳ Waiting within {limit}% of the entry" if limit is not None else "⏳ Waiting for entry, nearest first"
+    if not rows: return f"<b>{title}</b>\nNone."
+    return f"<b>{title} ({len(rows)})</b>\n" + pre([f"{x['coin']:<6}{x['side']:<6}entry {_fmt(x['entry'])}" + (f"  {_away(x):.2f}% away" if x.get("price") else "") for x in rows])
 
 
 def cmd_coin(d, coin):
     coin = (coin or "").upper().replace("USDT", "")
     rows = [x for x in d["rows"] if x["coin"] == coin]
-    if not rows: return f"{coin or 'That coin'} is not in the tracked list." if coin else "Use /coin BTC"
-    out = [f"{coin}" + (f" · price {_fmt(rows[0]['price'])}" if rows[0].get("price") else "")]
+    if not coin: return "Use /coin BTC"
+    if not rows: return f"{esc(coin)} is not in the tracked list."
+    out = [f"<b>🪙 {esc(coin)}</b>" + (f"   price {_fmt(rows[0]['price'])}" if rows[0].get("price") else "")]
     for x in rows:
-        out.append(f"{x['side']}: {x['status']}\n  entry {_fmt(x['entry'])} · stop {_fmt(x['stop'])} · TP1 {_fmt(x['tp1'])}" + (f" · TP2 {_fmt(x['tp2'])}" if x.get("tp2") else "") +
-                   (f"\n  now {x['now_r']:+.2f}R" if x.get("now_r") is not None else "") + (f"\n  best so far {x['best_r']:+.2f}R" if x.get("best_r") is not None else ""))
-    return "\n".join(out)
+        lines = [f"Status  {x['status']}", f"Entry   {_fmt(x['entry'])}", f"Stop    {_fmt(x['stop'])}", f"TP1     {_fmt(x['tp1'])}" + (" ✓" if x.get("tp1_t") else "")]
+        if x.get("tp2"): lines.append(f"TP2     {_fmt(x['tp2'])}" + (" ✓" if x.get("tp2_t") else ""))
+        if x.get("now_r") is not None: lines.append(f"Now     {r1(x['now_r'])}")
+        if x.get("best_r") is not None: lines.append(f"Best    {r1(x['best_r'])}")
+        out.append(f"{ICON1.get(x['status'], '•')} <b>{x['side']}</b>\n" + pre(lines))
+    return "\n\n".join(out)
 
 
-def cmd_results(d):
-    done = [x for x in d["rows"] if x["status"] in ("TP2 HIT", "STOPPED", "STOPPED AFTER TP1")]
+def cmd_results(d, risk=None):
     s = d["summary"]
-    head = (f"Finished: {len(done)} · wins (reached TP1) {sum(1 for x in done if x['tp1_t'])} · stopped before TP1 {sum(1 for x in done if x['status'] == 'STOPPED')} · expired {s['expired']}\n"
-            f"All at TP1: {s['r_tp1_plan']:+.2f}R · all at TP2: {s['r_tp2_plan']:+.2f}R · still open {s['open']} ({s['unrealized_r']:+.2f}R)")
-    return head + ("\n\n" + "\n".join(line(x) for x in done) if done else "\n\nNothing has finished yet.")
+    done = [x for x in d["rows"] if x["status"] in ("TP2 HIT", "STOPPED", "STOPPED AFTER TP1")]
+    head = (f"<b>🏁 Results</b>\n{SEP}\nFinished <b>{len(done)}</b> · wins <b>{sum(1 for x in done if x['tp1_t'])}</b> · stopped <b>{sum(1 for x in done if x['status'] == 'STOPPED')}</b> · expired {s['expired']}\n" +
+            pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}", f"Exit all at TP2  {s['r_tp2_plan']:+.1f}R{usd(s['r_tp2_plan'], risk)}",
+                 f"Still open      {s['open']} ({s['unrealized_r']:+.1f}R)"]))
+    if not done: return head + "\n\nNothing has finished yet."
+    return head + "\n\n" + "\n\n".join(b for b in (_section("✅ Winners  TP1 plan / TP2 plan", [x for x in done if x["tp1_t"]]), _section("🔴 Stopped", [x for x in done if x["status"] == "STOPPED"])) if b)
 
 
 def cmd_price(d, coin):
     coin = (coin or "").upper().replace("USDT", "")
     if not coin: return "Use /price BTC"
     p = _price(coin)
-    if p is None: return f"No price for {coin}USDT."
-    out = [f"{coin} {_fmt(p)}"]
+    if p is None: return f"No price for {esc(coin)}USDT."
+    lines = [f"{coin} {_fmt(p)}"]
     for x in (d["rows"] if d else []):
         if x["coin"] == coin and x["status"] in ("WAITING", "ENTERED", "TP1 HIT"):
-            out.append(f"  {x['side']} {x['status']}: entry {_fmt(x['entry'])} ({abs(p - x['entry']) / p * 100:.2f}% away) · stop {_fmt(x['stop'])}")
-    return "\n".join(out)
+            lines.append(f"{x['side']:<6}{x['status'].lower():<9}entry {_fmt(x['entry'])} ({abs(p - x['entry']) / p * 100:.2f}%)")
+    return f"<b>💲 {esc(coin)}</b>\n" + pre(lines)
 
 
 def _auto_rows(client_fn):
@@ -193,32 +247,34 @@ def cmd_trades(client_fn, now=None):
     out = []; st = _auto_rows(client_fn)
     for name, d in st.items():
         rows = [t for t in d.get("tracked") or [] if not t.get("virtual") and t["status"] in ("resting", "open", "closing")]
-        out.append(f"{name} ({(d.get('settings') or {}).get('mode', '?')}): {len(rows)} active")
+        lines = []
         for t in rows:
             c = t["symbol"].replace("USDT", "")
-            if t["status"] == "resting": out.append(f"  ⏳ {c} {t['side']} waiting, entry {_fmt(t['entry'])}" + (f" · {t['dist_pct']:.2f}% away" if t.get("dist_pct") is not None else ""))
-            else: out.append(f"  🟡 {c} {t['side']} open" + (f" · {t['r_now']:+.2f}R" if t.get("r_now") is not None else "") + (f" ({t['pnl_usd']:+.2f} USDT)" if t.get("pnl_usd") is not None else ""))
-    return "\n".join(out) if out else "The auto-order status is not available right now."
+            if t["status"] == "resting": lines.append(f"⏳ {c:<6}{t['side']:<6}waiting " + (f"{t['dist_pct']:.2f}% away" if t.get("dist_pct") is not None else f"@ {_fmt(t['entry'])}"))
+            else: lines.append(f"🟡 {c:<6}{t['side']:<6}open " + (r1(t["r_now"]) if t.get("r_now") is not None else "") + (f" ({t['pnl_usd']:+.2f} USDT)" if t.get("pnl_usd") is not None else ""))
+        out.append(f"<b>{name}</b> ({esc((d.get('settings') or {}).get('mode', '?'))}) · {len(rows)} active" + ("\n" + pre(lines) if lines else ""))
+    return "<b>🤖 Demo auto-orders</b>\n" + "\n\n".join(out) if out else "The auto-order status is not available right now."
 
 
 def cmd_pnl(client_fn, now=None):
     now = now or int(time.time() * 1000); day0 = now // 86_400_000 * 86_400_000; out = []; st = _auto_rows(client_fn)
     for name, d in st.items():
         done = [t for t in d.get("tracked") or [] if not t.get("virtual") and t["status"] == "done" and t.get("R") is not None and t.get("done")]
-        def agg(sel): return f"{len(sel)} closed · {sum(1 for t in sel if t['R'] > 0)} wins · {sum(1 for t in sel if t['R'] <= 0)} losses · {sum(t['R'] for t in sel):+.2f}R"
-        out.append(f"{name}: today {agg([t for t in done if t['done'] >= day0])}\n  last 7 days {agg([t for t in done if t['done'] >= now - 7 * 86_400_000])}")
-    return "\n".join(out) if out else "The auto-order status is not available right now."
+        def agg(sel): return f"{len(sel)} closed  {sum(1 for t in sel if t['R'] > 0)}W {sum(1 for t in sel if t['R'] <= 0)}L  {sum(t['R'] for t in sel):+.2f}R"
+        out.append(f"<b>{name}</b>\n" + pre([f"Today    {agg([t for t in done if t['done'] >= day0])}", f"7 days   {agg([t for t in done if t['done'] >= now - 7 * 86_400_000])}"]))
+    return "<b>💵 Auto-orders result</b>\n" + "\n\n".join(out) if out else "The auto-order status is not available right now."
 
 
-COMMANDS = [("status", "Totals: trades, wins, losses, unrealized R, TP1 hits"), ("open", "Open trades with live R"), ("waiting", "Setups waiting for entry, nearest first"),
+COMMANDS = [("status", "Report: trades, wins, losses, net R, unrealized R, TP1 hits"), ("open", "Open trades with live R"), ("waiting", "Setups waiting for entry, nearest first"),
             ("near", "Setups within 0.3% of their entry"), ("coin", "One coin: /coin BTC"), ("results", "Finished setups and R"), ("price", "Price + your levels: /price BTC"),
             ("trades", "Demo auto-orders now (SBGZ, AMD)"), ("pnl", "Auto-orders result today and 7 days"), ("quiet", "Mute updates for N hours: /quiet 3"),
-            ("digest", "Daily summary: /digest 20 or /digest off"), ("tz", "Your UTC offset: /tz +5.5"), ("expiry", "Hours a setup may wait: /expiry 12"),
+            ("digest", "Daily summary: /digest 20 or /digest off"), ("tz", "Your UTC offset: /tz +5.5"), ("risk", "Risk per trade in $ to show profit in $: /risk 10"), ("expiry", "Hours a setup may wait: /expiry 12"),
             ("clear", "Clear the tracked list"), ("stop", "Mute all updates"), ("help", "All commands")]
 
 
 def help_text():
-    return "Commands\n" + "\n".join(f"/{c} - {t}" for c, t in COMMANDS) + "\n\nPaste the setups CSV (text or a .csv file) to start tracking a new list."
+    return ("<b>🤖 Commands</b>\n" + "\n".join(f"/{c} – {esc(t)}" for c, t in COMMANDS) +
+            "\n\n<i>Paste the setups CSV (text or a .csv file) to start tracking a new list.</i>")
 
 
 def _num(a, lo, hi):
@@ -243,13 +299,14 @@ def handle(cmd, args, cid, doc, reply, client_fn=None, now=None):
         elif p["act"] == "expiry":
             r = setup_tracker.set_expiry(p["val"]); reply(cid, f"A setup now waits up to {p['val']:g} hours for its entry." if r.get("ok") else "Could not change it: " + str(r.get("error")))
         return
-    if cmd in ("price", "help", "start", "trades", "pnl", "stop", "quiet", "digest", "tz", "clear", "expiry"):
+    if cmd in ("price", "help", "start", "trades", "pnl", "stop", "quiet", "digest", "tz", "clear", "expiry", "risk"):
         pass
     elif cmd in ("status", "open", "waiting", "near", "coin", "results"):
         d = tracked()
         if d is None: reply(cid, "No setups are being tracked. Paste a list here or on the dashboard."); return
-        reply(cid, {"status": lambda: summary(d), "open": lambda: cmd_open(d), "waiting": lambda: cmd_waiting(d), "near": lambda: cmd_waiting(d, 0.3),
-                    "coin": lambda: cmd_coin(d, args[0] if args else ""), "results": lambda: cmd_results(d)}[cmd]()); return
+        risk = doc.get("risk_usd")
+        reply(cid, {"status": lambda: summary(d, risk=risk), "open": lambda: cmd_open(d, risk), "waiting": lambda: cmd_waiting(d), "near": lambda: cmd_waiting(d, 0.3),
+                    "coin": lambda: cmd_coin(d, args[0] if args else ""), "results": lambda: cmd_results(d, risk)}[cmd]()); return
     if cmd == "price": reply(cid, cmd_price(tracked(), args[0] if args else "")); return
     if cmd == "trades": reply(cid, cmd_trades(client_fn)); return
     if cmd == "pnl": reply(cid, cmd_pnl(client_fn, now)); return
@@ -260,6 +317,11 @@ def handle(cmd, args, cid, doc, reply, client_fn=None, now=None):
         h = _num(args[0] if args else None, 0.1, 168)
         if h is None: reply(cid, "Use /quiet 3 (hours) or /quiet off"); return
         doc["quiet_until"] = now + int(h * 3_600_000); reply(cid, f"Quiet for {h:g} hour(s). Changes that happen meanwhile are sent when it ends."); return
+    if cmd == "risk":
+        if args and args[0].lower() == "off": doc.pop("risk_usd", None); reply(cid, "Dollar amounts are off."); return
+        v = _num(args[0] if args else None, 0.01, 1_000_000)
+        if v is None: reply(cid, "Use /risk 10 (dollars risked per trade, so 1R = $10) or /risk off"); return
+        doc["risk_usd"] = v; reply(cid, f"1R = ${v:g}. Net results now also show dollars (/status, /open, /results)."); return
     if cmd == "tz":
         v = _num(args[0] if args else None, -12, 14)
         if v is None: reply(cid, f"Your UTC offset is {doc.get('tz', 0):+g} h. Change it with /tz +5.5"); return
@@ -287,7 +349,7 @@ def digest(send_fn=None, now=None):
     if local.tm_hour < chat["digest"]["hour"] or chat["digest"].get("last") == today: return 0
     d = setup_tracker.status(now)
     if not d.get("ok") or d.get("empty"): return 0
-    if not (send_fn or send)(chat["id"], "Daily summary\n" + summary(d)): return 0
+    if not (send_fn or send)(chat["id"], "<b>🗓 Daily summary</b>\n" + summary(d, risk=chat.get("risk_usd"))): return 0
     chat["digest"]["last"] = today; _save_chat(chat)
     return 1
 
@@ -303,9 +365,14 @@ def check(send_fn=None, now=None):
     if not sent or sent.get("created") != d["created"]: sent = dict(created=d["created"], sent={})
     changed = [x for x in d["rows"] if x["status"] != "WAITING" and sent["sent"].get(f"{x['coin']}|{x['side']}") != x["status"]]
     if not changed: return 0
-    text = "Setup update\n" + "\n".join(line(x) for x in changed)
-    left = sum(1 for x in d["rows"] if x["status"] not in FINAL)
-    text += f"\n\n{left} setup(s) still waiting or open." + ("" if left else " All done.\n\n" + summary(d, rows=False))
+    by = {}
+    for x in changed: by.setdefault(x["status"], []).append(x)
+    names = [("ENTERED", "🟡 Entered"), ("TP1 HIT", "🟢 TP1 reached"), ("TP2 HIT", "✅ TP2 reached"), ("STOPPED", "🔴 Stopped"), ("STOPPED AFTER TP1", "🟠 Stopped after TP1"), ("EXPIRED", "⚪ Expired")]
+    left = sum(1 for x in d["rows"] if x["status"] not in FINAL); sm = d["summary"]
+    blocks = ["<b>🔔 Setup update</b>"] + [_section(t, by[k]) for k, t in names if k in by]
+    blocks.append(f"⏳ {left} still waiting or open · net so far: TP1 plan <b>{sm['r_tp1_plan']:+.1f}R</b> · TP2 plan <b>{sm['r_tp2_plan']:+.1f}R</b>")
+    if not left: blocks.append(summary(d, rows=False, risk=chat.get("risk_usd")))
+    text = "\n\n".join(b for b in blocks if b)
     if not (send_fn or send)(chat["id"], text): return 0
     for x in changed: sent["sent"][f"{x['coin']}|{x['side']}"] = x["status"]
     sbgz_auto._write_key(SENT_KEY, sent)
