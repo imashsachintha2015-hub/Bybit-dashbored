@@ -13,7 +13,7 @@ import time
 import urllib.parse
 import urllib.request
 
-from . import sbgz, setup_tracker, sbgz_auto
+from . import sbgz, setup_orders, setup_tracker, sbgz_auto
 
 CHAT_KEY = "telegram_chat"
 SENT_KEY = "setup_notified"
@@ -83,15 +83,33 @@ def _download(doc):
         return None
 
 
-def _save_pieces(cid, reply):
+def _order_report(res):
+    if not res.get("ok"): return "🧾 <b>Orders not placed</b>\n" + esc(res.get("error"))
+    out = [f"🧾 <b>Demo orders</b> (risk ${res['risk']:g} per trade, half exits at TP1, half at TP2)",
+           f"Placed <b>{res['placed_orders']}</b> orders for <b>{res['placed_setups']}</b> setups. A coin's long and short are either-or: when one triggers, the other is cancelled."]
+    if res["skipped"]:
+        out.append(f"<b>Skipped ({len(res['skipped'])})</b>\n" + pre([f"{c:<6}{sd:<6}{why[:60]}" for c, sd, why in res["skipped"][:25]]))
+    return "\n\n".join(out)
+
+
+def _save_pieces(cid, reply, doc=None, client_fn=None):
     text = "\n".join(_pieces); _pieces.clear()
     r = setup_tracker.save(text)
     if r.get("ok"):
-        msg = f"Tracking {r['saved']} setups (the old list is replaced). I will message you when one enters, hits a target, is stopped or expires. /status shows them all."
-        if r.get("skipped"): msg += "\nSkipped:\n" + "\n".join(r["skipped"][:10])
+        msg = f"✅ Tracking <b>{r['saved']}</b> setups (the old list is replaced). I will message you when one enters, hits a target, is stopped or expires. /status shows them all."
+        if r.get("skipped"): msg += "\n<b>Skipped:</b>\n" + pre(r["skipped"][:10])
+        reply(cid, msg)
+        if not (doc or {}).get("orders_on", True):
+            reply(cid, "🧾 Orders are off. /orders on places demo orders for the next list you paste.")
+        elif client_fn:
+            try:
+                res = setup_orders.place_all(client_fn(), r["created"], r["rows"], (doc or {}).get("risk_usd") or setup_orders.DEFAULT_RISK)
+            except Exception as e:
+                print(f"[telegram] placing orders failed: {type(e).__name__}: {e}")
+                res = dict(ok=False, error="placing the orders failed: " + type(e).__name__)
+            reply(cid, _order_report(res))
     else:
-        msg = "I could not read that list: " + str(r.get("error"))
-    reply(cid, msg)
+        reply(cid, "I could not read that list: " + esc(r.get("error")))
 
 
 def _chat():
@@ -145,9 +163,11 @@ def cmd_net(d, risk=None):
     s = d["summary"]; un = s["unrealized_r"]; rows = d["rows"]
     blk = []
     for name, key, tot, n in (("Exit all at TP2", "R2", s["r_tp2_plan"], s["decided2"]), ("Exit all at TP1", "R1", s["r_tp1_plan"], s["decided1"])):
-        blk.append(f"<b>{name}</b> ({n} decided)\n" + pre([breakdown(rows, key), f"= {tot:+.1f}R{usd(tot, risk)}", f"with open trades now {tot + un:+.1f}R{usd(tot + un, risk)}"]))
+        net = s["r_tp2_net"] if key == "R2" else s["r_tp1_net"]; fee = s["fees_tp2_r"] if key == "R2" else s["fees_tp1_r"]
+        blk.append(f"<b>{name}</b> ({n} decided)\n" + pre([breakdown(rows, key), f"= {tot:+.1f}R{usd(tot, risk)}", f"fees  -{fee:.1f}R{usd(-fee, risk)}", f"AFTER FEES {net:+.1f}R{usd(net, risk)}",
+                                                          f"with open trades now {net + un:+.1f}R{usd(net + un, risk)}"]))
     return (f"<b>💰 Net profit / loss</b>" + (f"   (risk ${risk:g} per trade)" if risk else "") + "\n" + "\n\n".join(blk) +
-            f"\n\n<i>Open trades now: {s['open']} ({un:+.1f}R{esc(usd(un, risk))})" + ("" if risk else " · try /net 2 for $2 per trade") + "</i>")
+            f"\n\n<i>Fees: taker {setup_tracker.TAKER * 100:.3f}% on the entry and a stop, maker {setup_tracker.MAKER * 100:.3f}% on a take-profit. Open trades now: {s['open']} ({un:+.1f}R{esc(usd(un, risk))})" + ("" if risk else " · try /net 2 for $2 per trade") + "</i>")
 
 
 ICON1 = {"ENTERED": "🟡", "TP1 HIT": "🟢", "TP2 HIT": "✅", "STOPPED": "🔴", "STOPPED AFTER TP1": "🟠", "EXPIRED": "⚪", "WAITING": "⏳"}
@@ -177,6 +197,7 @@ def summary(d, rows=True, risk=None):
             f"🎯 TP1 hit trades: <b>{s['tp1_hit']}</b>   TP2 hits: {s['tp2']}")
     net = ("<b>💰 Net result</b>\n" + pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}", f"  {breakdown(d['rows'], 'R1')}",
                                            f"Exit all at TP2  {s['r_tp2_plan']:+.1f}R{usd(s['r_tp2_plan'], risk)}", f"  {breakdown(d['rows'], 'R2')}",
+                                           f"After fees TP1 {s['r_tp1_net']:+.1f}R{usd(s['r_tp1_net'], risk)}", f"After fees TP2 {s['r_tp2_net']:+.1f}R{usd(s['r_tp2_net'], risk)}",
                                            f"Unrealized open {un:+.1f}R{usd(un, risk)}"]) +
            f"\n<i>{s['decided1']} trades decided for the TP1 plan, {s['decided2']} for the TP2 plan" + (f" · risk ${risk:g} per trade" if risk else " · /risk 10 shows $") + "</i>")
     out = [head, net]
@@ -288,7 +309,8 @@ def cmd_pnl(client_fn, now=None):
 COMMANDS = [("status", "Report: trades, wins, losses, net R, unrealized R, TP1 hits"), ("open", "Open trades with live R"), ("waiting", "Setups waiting for entry, nearest first"),
             ("near", "Setups within 0.3% of their entry"), ("coin", "One coin: /coin BTC"), ("results", "Finished setups and R"), ("net", "Net R and $ per plan: /net 2 = $2 risk per trade"), ("price", "Price + your levels: /price BTC"),
             ("trades", "Demo auto-orders now (SBGZ, AMD)"), ("pnl", "Auto-orders result today and 7 days"), ("quiet", "Mute updates for N hours: /quiet 3"),
-            ("digest", "Daily summary: /digest 20 or /digest off"), ("tz", "Your UTC offset: /tz +5.5"), ("risk", "Risk per trade in $ to show profit in $: /risk 10"), ("expiry", "Hours a setup may wait: /expiry 12"),
+            ("digest", "Daily summary: /digest 20 or /digest off"), ("tz", "Your UTC offset: /tz +5.5"), ("risk", "Risk per trade in $ (orders + net $): /risk 2"),
+            ("orders", "Demo orders for pasted lists: /orders on | off | cancel"), ("expiry", "Hours a setup may wait: /expiry 12"),
             ("clear", "Clear the tracked list"), ("stop", "Mute all updates"), ("help", "All commands")]
 
 
@@ -315,11 +337,14 @@ def handle(cmd, args, cid, doc, reply, client_fn=None, now=None):
         p = doc.pop("pending", None)
         if not p or p["until"] < now: reply(cid, "Nothing to confirm."); return
         if cmd == "no": reply(cid, "Cancelled."); return
-        if p["act"] == "clear": setup_tracker.clear(); sbgz_auto._write_key(SENT_KEY, None); reply(cid, "The tracked list is cleared.")
+        if p["act"] == "clear":
+            setup_tracker.clear(); sbgz_auto._write_key(SENT_KEY, None)
+            n = setup_orders.cancel_all(client_fn(), "the list was cleared") if client_fn else 0
+            reply(cid, "The tracked list is cleared." + (f" {n} waiting order(s) cancelled." if n else ""))
         elif p["act"] == "expiry":
             r = setup_tracker.set_expiry(p["val"]); reply(cid, f"A setup now waits up to {p['val']:g} hours for its entry." if r.get("ok") else "Could not change it: " + str(r.get("error")))
         return
-    if cmd in ("price", "help", "start", "trades", "pnl", "stop", "quiet", "digest", "tz", "clear", "expiry", "risk"):
+    if cmd in ("price", "help", "start", "trades", "pnl", "stop", "quiet", "digest", "tz", "clear", "expiry", "risk", "orders"):
         pass
     elif cmd in ("status", "open", "waiting", "near", "coin", "results", "net"):
         d = tracked()
@@ -337,6 +362,21 @@ def handle(cmd, args, cid, doc, reply, client_fn=None, now=None):
         h = _num(args[0] if args else None, 0.1, 168)
         if h is None: reply(cid, "Use /quiet 3 (hours) or /quiet off"); return
         doc["quiet_until"] = now + int(h * 3_600_000); reply(cid, f"Quiet for {h:g} hour(s). Changes that happen meanwhile are sent when it ends."); return
+    if cmd == "orders":
+        a = (args[0].lower() if args else "")
+        if a in ("on", "off"):
+            doc["orders_on"] = a == "on"
+            reply(cid, "🧾 Orders are <b>on</b>: the next list you paste is placed as demo orders (risk $%g per trade)." % (doc.get("risk_usd") or setup_orders.DEFAULT_RISK) if a == "on"
+                  else "🧾 Orders are <b>off</b>: pasted lists are only tracked. Orders already placed stay."); return
+        if a == "cancel":
+            n = setup_orders.cancel_all(client_fn()) if client_fn else 0
+            reply(cid, f"{n} waiting order(s) cancelled. Open trades keep their stop and targets."); return
+        s_ = setup_orders.summary()
+        if not s_.get("ok") or not s_.get("orders"):
+            reply(cid, f"🧾 Orders: <b>{'on' if doc.get('orders_on', True) else 'off'}</b>. None placed yet. Paste a list to place them."); return
+        lines = [f"Waiting   {s_['waiting']}", f"Filled    {s_['filled']}", f"Finished  {s_['done']}", f"Cancelled {s_['cancelled']}"]
+        reply(cid, f"🧾 <b>Demo orders</b> ({'on' if doc.get('orders_on', True) else 'off'}, ${s_['risk']:g} per trade)\n" + pre(lines) +
+              (f"\nSkipped at placement: {len(s_['skipped'])}" if s_["skipped"] else "")); return
     if cmd == "risk":
         if args and args[0].lower() == "off": doc.pop("risk_usd", None); reply(cid, "Dollar amounts are off."); return
         v = _num(args[0] if args else None, 0.01, 1_000_000)
@@ -435,9 +475,19 @@ def poll(send_fn=None, client_fn=None):
                 print(f"[telegram] /{cmd} failed: {type(e).__name__}: {e}"); reply(cid, f"/{cmd} failed, try again in a minute.")
         else:
             reply(cid, "I did not understand that. /help lists the commands.")
-    if _pieces and not got_csv and doc is not None: _save_pieces(doc["id"], reply)           # nothing more arrived since the last poll: the list is complete
+    if _pieces and not got_csv and doc is not None: _save_pieces(doc["id"], reply, doc, client_fn)           # nothing more arrived since the last poll: the list is complete
     if doc is not None and doc != chat: _save_chat(doc)
     return n
+
+
+def manage_orders(get_client):
+    """About once a minute: the order partner / expiry pass of backend_lib/setup_orders.py; what happened goes to the chat."""
+    try:
+        ev = setup_orders.manage(get_client())
+    except Exception as e:
+        print(f"[telegram] order management failed: {type(e).__name__}: {e}"); return
+    chat = _chat()
+    if ev and chat and not chat.get("muted") and (chat.get("quiet_until") or 0) <= time.time() * 1000: send(chat["id"], "<b>🧾 Order update</b>\n" + "\n".join(esc(e) for e in ev))
 
 
 def register_menu():
@@ -459,6 +509,7 @@ def start_thread(get_client=None, delay=60.0):
                 with _lock:
                     poll(client_fn=get_client)
                     if time.time() - last >= CHECK_EVERY: last = time.time(); check(); digest()
+                    if get_client: manage_orders(get_client)
             except Exception as e:
                 print(f"[telegram] loop: {type(e).__name__}: {e}")
             _stop.wait(POLL_EVERY)

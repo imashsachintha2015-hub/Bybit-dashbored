@@ -72,7 +72,7 @@ def save(text):
     doc = dict(created=_now_ms(), rows=rows, expire_ms=EXPIRE_MS)
     if not sbgz_auto._write_key(KEY, doc): return dict(ok=False, error="could not save the list; try again")
     with _lock: _cache.clear()
-    return dict(ok=True, saved=len(rows), skipped=errs)
+    return dict(ok=True, saved=len(rows), skipped=errs, created=doc["created"], rows=rows)
 
 
 def clear():
@@ -108,6 +108,66 @@ def judge(r, candles, created, now, expire_ms=None):
     if entered: out["best_r"] = round(best, 2)
     if out["status"] == "WAITING" and now - created > (expire_ms or EXPIRE_MS): out["status"] = "EXPIRED"
     return out
+
+
+TAKER = 0.00055                                            # Bybit linear perpetual, standard account: market orders (the breakout entry, a stop)
+MAKER = 0.0002                                             # limit orders (a take-profit)
+HIST_KEY = "setup_history"
+HIST_MAX = 4000
+_hist_lock = threading.Lock()
+_hist_seen = {}                                            # key -> the last archived row (skips writes when nothing changed)
+
+
+def fee_r(r, win):
+    """Round-trip fees of one setup in R: entry at the market when the breakout triggers (taker), exit at a limit take-profit (maker) when it
+    wins or at the stop (taker) when it loses, on a notional of about the entry price. 0.5% stops: about 0.15R for a win, 0.22R for a loss."""
+    risk = abs(r["entry"] - r["stop"])
+    return (TAKER + (MAKER if win else TAKER)) * r["entry"] / risk if risk > 0 else 0.0
+
+
+def _archive(created, rows):
+    """Keep every setup's results (with their times) after the list is replaced, so the profit calendar goes back further than the current list."""
+    keep = ("coin", "side", "entry", "stop", "tp1", "tp2", "entered", "tp1_t", "tp2_t", "stop_t", "R1", "R2", "fee1", "fee2", "status")
+    new = {}
+    for x in rows:
+        if x.get("R1") is None and x.get("R2") is None: continue
+        k = f"{created}|{x['coin']}|{x['side']}"
+        row = dict({f: x.get(f) for f in keep}, created=created)
+        if _hist_seen.get(k) != row: new[k] = row
+    if not new: return
+    with _hist_lock:
+        doc, ok = sbgz_auto._read_key(HIST_KEY)
+        if not ok: return
+        hist = dict((doc or {}).get("rows") or {}); hist.update(new)
+        if len(hist) > HIST_MAX:
+            for k in sorted(hist, key=lambda k: hist[k].get("created") or 0)[:len(hist) - HIST_MAX]: del hist[k]
+        if sbgz_auto._write_key(HIST_KEY, dict(rows=hist)): _hist_seen.update(new)
+
+
+def calendar(plan=2, risk=0.0, fees=True, tz=0.0, now=None):
+    """Profit by day over every archived setup result (GET /api/setups/calendar). plan 1: every setup exits all at TP1, plan 2: all at TP2.
+    A setup counts on the day its result was decided (the TP time, or the stop time). R after fees when fees; dollars = R x risk per trade."""
+    status(now)                                            # brings the archive up to date with the current list
+    doc, ok = sbgz_auto._read_key(HIST_KEY)
+    if not ok: return dict(ok=False, error="the setup history could not be read; try again in a minute")
+    r_key, f_key = ("R1", "fee1") if plan == 1 else ("R2", "fee2")
+    days = {}
+    for h in ((doc or {}).get("rows") or {}).values():
+        r = h.get(r_key)
+        if r is None: continue
+        t = (h.get("tp1_t") if plan == 1 else h.get("tp2_t")) if r > 0 else h.get("stop_t")
+        if not t: continue
+        net = r - (h.get(f_key) or 0.0) if fees else r
+        day = time.strftime("%Y-%m-%d", time.gmtime(t / 1000 + tz * 3600))
+        d = days.setdefault(day, dict(date=day, n=0, wins=0, losses=0, r=0.0, trades=[]))
+        d["n"] += 1; d["wins" if r > 0 else "losses"] += 1; d["r"] += net
+        d["trades"].append(dict(coin=h["coin"], side=h["side"], r=round(net, 2), t=t, result="TP" + str(plan) if r > 0 else "STOP"))
+    out = sorted(days.values(), key=lambda d: d["date"], reverse=True)
+    for d in out:
+        d["r"] = round(d["r"], 2); d["usd"] = round(d["r"] * risk, 2) if risk else None; d["trades"].sort(key=lambda x: -x["t"])
+    tot_r = round(sum(d["r"] for d in out), 2)
+    return dict(ok=True, plan=plan, fees=bool(fees), risk=risk, days=out, total=dict(n=sum(d["n"] for d in out), wins=sum(d["wins"] for d in out), losses=sum(d["losses"] for d in out),
+                r=tot_r, usd=round(tot_r * risk, 2) if risk else None, best=max((d["r"] for d in out), default=None), worst=min((d["r"] for d in out), default=None)))
 
 
 def _interval_for(age_ms):
@@ -148,15 +208,26 @@ def status(now=None):
         j["price"] = last; j["dist_pct"] = round((last - r["entry"]) / r["entry"] * 100, 3)
         if j["status"] in ("ENTERED", "TP1 HIT"): j["now_r"] = round(sd * (last - r["entry"]) / abs(r["entry"] - r["stop"]), 2)
         out.append(dict(r, **j))
+    for x in out:                                          # fees in R: the plan's win exits at a limit TP (maker), a loss at the stop (taker)
+        x["fee1"] = fee_r(x, x["R1"] > 0) if x.get("R1") is not None else None
+        x["fee2"] = fee_r(x, x["R2"] > 0) if x.get("R2") is not None else None
     done = [x for x in out if x["R1"] is not None]
     done2 = [x for x in out if x["R2"] is not None]
+    _archive(created, out)
     summ = dict(n=len(out), waiting=sum(1 for x in out if x["status"] == "WAITING"), entered=sum(1 for x in out if x["entered"]),
                 open=sum(1 for x in out if x["status"] in ("ENTERED", "TP1 HIT")), expired=sum(1 for x in out if x["status"] == "EXPIRED"),
                 stopped=sum(1 for x in out if x["status"].startswith("STOPPED")), tp1=sum(1 for x in out if x["tp1_t"]), tp2=sum(1 for x in out if x["tp2_t"]),
                 trades=sum(1 for x in out if x["entered"]), wins=sum(1 for x in out if x["tp1_t"]), losses=sum(1 for x in out if x["status"] == "STOPPED"),
                 tp1_hit=sum(1 for x in out if x["tp1_t"]), unrealized_r=round(sum(x["now_r"] for x in out if x.get("now_r") is not None), 2),
-                r_tp1_plan=round(sum(x["R1"] for x in done), 2), r_tp2_plan=round(sum(x["R2"] for x in done2), 2), decided1=len(done), decided2=len(done2))
+                r_tp1_plan=round(sum(x["R1"] for x in done), 2), r_tp2_plan=round(sum(x["R2"] for x in done2), 2), decided1=len(done), decided2=len(done2),
+                fees_tp1_r=round(sum(x["fee1"] for x in done), 2), fees_tp2_r=round(sum(x["fee2"] for x in done2), 2),
+                r_tp1_net=round(sum(x["R1"] - x["fee1"] for x in done), 2), r_tp2_net=round(sum(x["R2"] - x["fee2"] for x in done2), 2))
     return dict(ok=True, created=created, expire_h=round(expire / 3_600_000, 2), generated=now, summary=summ, rows=out)
+
+
+def expiry_ms():
+    doc, ok = sbgz_auto._read_key(KEY)
+    return int((doc or {}).get("expire_ms") or EXPIRE_MS) if ok else EXPIRE_MS
 
 
 def set_expiry(hours):

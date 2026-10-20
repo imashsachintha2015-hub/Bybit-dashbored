@@ -14,7 +14,7 @@ ROW = dict(coin="BTC", side="LONG", entry=81629.0, stop=81222.0, tp1=82239.0, tp
 
 def status(*rows, created=1):
     n = len(rows)
-    return dict(ok=True, created=created, rows=list(rows), summary=dict(n=n, waiting=0, open=0, stopped=0, tp2=0, expired=0, trades=0, wins=0, losses=0, tp1_hit=0, unrealized_r=0.0, r_tp1_plan=0.0, r_tp2_plan=0.0, decided1=0, decided2=0))
+    return dict(ok=True, created=created, rows=list(rows), summary=dict(n=n, waiting=0, open=0, stopped=0, tp2=0, expired=0, trades=0, wins=0, losses=0, tp1_hit=0, unrealized_r=0.0, r_tp1_plan=0.0, r_tp2_plan=0.0, decided1=0, decided2=0, r_tp1_net=0.0, r_tp2_net=0.0, fees_tp1_r=0.0, fees_tp2_r=0.0))
 
 
 def test_bot():
@@ -64,7 +64,7 @@ def test_bot():
             updates.append(dict(update_id=22, message=dict(chat=dict(id=111), text=csv2)))
             N.poll(); assert not saved, "wait: more pieces may follow"
             N.poll(); assert len(saved) == 1 and "BTC,long" in saved[0] and "ETH,short" in saved[0], saved
-            assert "Tracking 3 setups" in out[-1][1] and out[-1][0] == "111", out[-1]
+            assert "Tracking <b>3</b> setups" in out[-1][1] and out[-1][0] == "111", out[-1]
             N.poll(); assert len(saved) == 1, "saved once"
             updates.append(dict(update_id=23, message=dict(chat=dict(id=111), text="hello"))); N.poll(); assert "did not understand" in out[-1][1]
             S.save = real_save
@@ -87,7 +87,7 @@ def rows_fixture():
 
 def full_status():
     d = status(*rows_fixture(), created=9)
-    d["summary"].update(n=8, waiting=2, open=2, stopped=2, tp2=1, expired=1, trades=6, wins=4, losses=1, tp1_hit=4, unrealized_r=2.1, r_tp1_plan=3.5, r_tp2_plan=0.0, decided1=5, decided2=3)
+    d["summary"].update(n=8, waiting=2, open=2, stopped=2, tp2=1, expired=1, trades=6, wins=4, losses=1, tp1_hit=4, unrealized_r=2.1, r_tp1_plan=3.5, r_tp2_plan=0.0, decided1=5, decided2=3, r_tp1_net=2.0, fees_tp1_r=1.5, r_tp2_net=-1.0, fees_tp2_r=1.0)
     return d
 
 
@@ -103,7 +103,7 @@ def test_commands():
             doc = dict(id=1); h = lambda cmd, *a, now=1_000_000: N.handle(cmd, list(a), 1, doc, reply, None, now)
             h("status"); t = out[-1]
             assert "6 entered of 8 setups" in t and "Wins (reached TP1): <b>4</b>" in t and "Losses (stopped): <b>1</b>" in t and "TP1 hit trades: <b>4</b>" in t, t
-            assert "Exit all at TP1  +3.5R" in t and "Unrealized open +2.1R" in t and "/risk 10" in t and "≈" not in t, t
+            assert "After fees TP1 +2.0R" in t and "After fees TP2 -1.0R" in t and "Exit all at TP1  +3.5R" in t and "Unrealized open +2.1R" in t and "/risk 10" in t and "≈" not in t, t
             assert "✅ ADA   LONG  +1.5R / +2.0R" in t and "🟠 UNI   LONG  +1.5R / -1.0R" in t and "🔴 LTC   LONG  -1.0R / -1.0R" in t, t
             doc["risk_usd"] = 10; h("status"); assert "+3.5R  ≈ +$35" in out[-1] and "Unrealized open +2.1R  ≈ +$21" in out[-1] and "risk $10 per trade" in out[-1], out[-1]
             h("risk", "off"); assert "risk_usd" not in doc; h("risk", "25"); assert doc["risk_usd"] == 25.0; h("risk", "x"); assert "Use /risk" in out[-1]; doc.pop("risk_usd")
@@ -111,8 +111,8 @@ def test_commands():
             assert "risk $2 per trade" in t and "1 × +2.0R, 2 × -1.0R" in t and "= +0.0R  ≈ +$0" in t.replace("-0.0", "+0.0") or "1 × +2.0R, 2 × -1.0R" in t, t
             h("net"); assert "try /net 2" in out[-1], out[-1]
             r3 = [dict(coin=c, side="LONG", status=s_, R1=a, R2=b_, entry=1.0) for c, s_, a, b_ in (("A", "TP2 HIT", 1.5, 2.0), ("B", "TP2 HIT", 1.5, 2.0), ("C", "TP2 HIT", 1.5, 2.0), ("D", "STOPPED", -1.0, -1.0))]
-            d3 = status(*r3); d3["summary"].update(r_tp2_plan=5.0, r_tp1_plan=3.5, decided1=4, decided2=4, open=0, unrealized_r=0.0)
-            assert "3 × +2.0R, 1 × -1.0R" in N.cmd_net(d3, 2.0) and "= +5.0R  ≈ +$10" in N.cmd_net(d3, 2.0), N.cmd_net(d3, 2.0)
+            d3 = status(*r3); d3["summary"].update(r_tp2_plan=5.0, r_tp1_plan=3.5, decided1=4, decided2=4, open=0, unrealized_r=0.0, r_tp2_net=4.2, fees_tp2_r=0.8, r_tp1_net=2.9, fees_tp1_r=0.6)
+            assert "3 × +2.0R, 1 × -1.0R" in N.cmd_net(d3, 2.0) and "= +5.0R  ≈ +$10" in N.cmd_net(d3, 2.0) and "AFTER FEES +4.2R  ≈ +$8.4" in N.cmd_net(d3, 2.0) and "fees  -0.8R  ≈ -$1.6" in N.cmd_net(d3, 2.0), N.cmd_net(d3, 2.0)
             h("open"); assert "Open trades (2)" in out[-1] and "XRP" in out[-1] and "BTC" in out[-1] and "ETH" not in out[-1], out[-1]
             h("waiting"); assert out[-1].index("SOL") < out[-1].index("ETH") and "ETH" in out[-1], out[-1]
             h("near"); assert "SOL" in out[-1] and "ETH" not in out[-1], out[-1]
@@ -130,7 +130,21 @@ def test_commands():
             h("clear"); h("yes"); assert calls == ["clear"], calls
             h("expiry", "12"); h("yes"); assert calls[-1] == ("exp", 12.0), calls
             h("clear"); h("yes", now=1_000_000 + 200_000); assert len(calls) == 2 and "Nothing to confirm" in out[-1], "a stale confirmation does nothing"
-            h("help"); assert "/open" in out[-1] and "/digest" in out[-1]
+            h("help"); assert "/open" in out[-1] and "/digest" in out[-1] and "/orders" in out[-1]
+            h("orders", "off"); assert doc["orders_on"] is False and "off" in out[-1]; h("orders", "on"); assert doc["orders_on"] is True and "$2" in out[-1], out[-1]
+            h("orders"); assert "None placed yet" in out[-1], out[-1]
+            # a pasted list is placed as orders (stubbed), the report lists what was skipped; orders off = tracked only
+            real = (N.setup_orders.place_all, N.setup_tracker.save); got = []
+            N.setup_tracker.save = lambda text: dict(ok=True, saved=2, skipped=[], created=7, rows=[1, 2])
+            N.setup_orders.place_all = lambda client, created, rows, risk: got.append((created, rows, risk)) or dict(ok=True, placed_orders=3, placed_setups=2, risk=risk, skipped=[("BTC", "LONG", "you already hold a position on this coin")])
+            try:
+                doc2 = dict(id=1, risk_usd=3.0); N._pieces.append("x"); N._save_pieces(1, reply, doc2, lambda: object())
+                assert got == [(7, [1, 2], 3.0)] and "Placed <b>3</b> orders for <b>2</b> setups" in out[-1] and "BTC   LONG  you already hold" in out[-1], (got, out[-1])
+                got.clear(); doc2["orders_on"] = False; N._pieces.append("x"); N._save_pieces(1, reply, doc2, lambda: object()); assert not got and "Orders are off" in out[-1]
+                N.setup_orders.place_all = lambda *a: dict(ok=False, error="this server is on a REAL-money account"); doc2["orders_on"] = True; N._pieces.append("x"); N._save_pieces(1, reply, doc2, lambda: object())
+                assert "Orders not placed" in out[-1] and "REAL-money" in out[-1], out[-1]
+            finally:
+                N.setup_orders.place_all, N.setup_tracker.save = real
             h("nonsense"); assert "Unknown command" in out[-1]
     finally:
         A.ROOT, S.status, N._price, S.clear, S.set_expiry = old; os.environ.pop("SBGZ_AUTO_BACKEND", None)

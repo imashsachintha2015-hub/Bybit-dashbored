@@ -2619,6 +2619,7 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               <button class="sbgz-rbtn" onclick="setupSave()"><i class="fa-solid fa-floppy-disk"></i> Track these</button>
               <button class="sbgz-rbtn" onclick="setupLoad()"><i class="fa-solid fa-rotate"></i> Refresh status</button>
+              <button class="sbgz-rbtn" onclick="setupCalOpen()"><i class="fa-solid fa-calendar-days"></i> Setup profit calendar</button>
               <button class="sbgz-rbtn" style="border-color:rgba(244,63,94,.4);color:#fb7185;background:rgba(244,63,94,.08)" onclick="setupClear()">Clear list</button>
               <span id="setupInfo" class="mut">Not loaded</span>
             </div>
@@ -2880,6 +2881,40 @@ tbody td{padding:8px 12px;font-size:11.5px;color:var(--tx);white-space:nowrap}
   </div>
 </div>
 
+
+<!-- Setup profit calendar (the pasted breakout setups, by day; separate from the account's Daywise PnL calendar) -->
+<div class="mbk" id="setupCalModal" onclick="if(event.target===this)setupCalClose()">
+  <div class="mw daywise-modal">
+    <div class="mh2">
+      <div class="mtit" style="display:flex;align-items:center;gap:10px">
+        <div class="cal-title-icon"><i class="fa-solid fa-calendar-check"></i></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:800;font-size:14px;color:#ffffff">Setup profit calendar</span>
+          <span class="ebadge" style="background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);font-size:9.5px;padding:1px 6px;border-radius:4px">PASTED SETUPS</span>
+        </div>
+      </div>
+      <button class="mxbtn" onclick="setupCalClose()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="mbody" style="padding:14px 16px">
+      <div class="sbgz-radar-bar" style="gap:10px;flex-wrap:wrap">
+        <label>Exit plan <select id="setupCalPlan" onchange="setupCalLoad()"><option value="2">all at TP2</option><option value="1">all at TP1</option></select></label>
+        <label>Risk per trade $ <input id="setupCalRisk" type="number" min="0" step="0.5" value="2" style="width:64px" onchange="setupCalLoad()"></label>
+        <label><input type="checkbox" id="setupCalFees" checked onchange="setupCalLoad()"> after fees</label>
+      </div>
+      <div class="mstats cal-kpi-grid" id="setupCalKpi"></div>
+      <div class="cal-section-head" style="margin-top:6px">
+        <span id="setupCalMonthTitle"><i class="fa-solid fa-calendar" style="color:var(--bb-gold)"></i> Month</span>
+        <span><button class="sbgz-rbtn" onclick="setupCalMonth(-1)">&lsaquo;</button> <button class="sbgz-rbtn" onclick="setupCalMonth(1)">&rsaquo;</button></span>
+      </div>
+      <div id="setupCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px"></div>
+      <div class="cal-section-head">
+        <span><i class="fa-solid fa-timeline" style="color:var(--bb-gold)"></i> Days</span>
+        <span class="cal-count-badge" id="setupCalCount">0 Days</span>
+      </div>
+      <div class="cal-days-list" id="setupCalList"><div style="text-align:center;color:var(--td);font-size:12px;padding:24px 0">Loading…</div></div>
+    </div>
+  </div>
+</div>
 
 <!-- Daywise PnL Calendar Modal -->
 <div class="mbk" id="modal" onclick="if(event.target===this)closeModal()">
@@ -5068,6 +5103,9 @@ window.setupLoad = function(){
     var s = d.summary, R = function(x){ return x == null ? '--' : (x >= 0 ? '+' : '') + x.toFixed(2) + 'R'; }, cl = function(x){ return x == null ? 'mut' : x >= 0 ? 'up' : 'dn'; };
     info.innerHTML = 'Pasted ' + sbgzEsc(sbgzWhen(d.created / 1000)) + ' · <b>' + s.n + '</b> setups: ' + s.waiting + ' waiting, ' + s.open + ' open, ' + s.stopped + ' stopped, ' + s.tp2 + ' reached TP2, ' + s.expired + ' expired · checked ' + sbgzEsc(sbgzWhen(d.generated / 1000)) +
       '<br>Exit all at TP1: <b class="' + cl(s.r_tp1_plan) + '">' + R(s.r_tp1_plan) + '</b> on ' + s.decided1 + ' decided · Exit all at TP2: <b class="' + cl(s.r_tp2_plan) + '">' + R(s.r_tp2_plan) + '</b> on ' + s.decided2 + ' decided';
+    info.innerHTML += '<br>After fees (taker ' + '0.055%' + ', maker 0.02%): TP1 plan <b class="' + cl(s.r_tp1_net) + '">' + R(s.r_tp1_net) + '</b> · TP2 plan <b class="' + cl(s.r_tp2_net) + '">' + R(s.r_tp2_net) + '</b>';
+    var od = d.orders;
+    if(od && od.ok && od.orders) info.innerHTML += '<br>Demo orders: <b>' + od.orders + '</b> placed ($' + (od.risk || 0) + ' risk per trade) · waiting ' + od.waiting + ' · filled ' + od.filled + ' · finished ' + od.done + ' · cancelled ' + od.cancelled + (od.skipped && od.skipped.length ? ' · skipped ' + od.skipped.length : '');
     var col = { 'WAITING': 'open', 'ENTERED': 'open', 'TP1 HIT': 'hwin', 'TP2 HIT': 'hwin', 'STOPPED': 'hloss', 'STOPPED AFTER TP1': 'warn', 'EXPIRED': 'mut', 'NO DATA': 'mut' };
     var order = { 'ENTERED': 0, 'TP1 HIT': 0, 'WAITING': 1, 'TP2 HIT': 2, 'STOPPED AFTER TP1': 2, 'STOPPED': 2, 'EXPIRED': 3, 'NO DATA': 4 };
     var rows = d.rows.slice().sort(function(a, b){ return (order[a.status] || 0) - (order[b.status] || 0); });
@@ -5077,6 +5115,61 @@ window.setupLoad = function(){
         (x.now_r != null ? '<b class="' + cl(x.now_r) + '">' + R(x.now_r) + '</b>' : '--') + '</td><td class="' + cl(x.R1) + '">' + R(x.R1) + '</td><td class="' + cl(x.R2) + '">' + R(x.R2) + '</td></tr>';
     }).join('') + '</tbody></table>';
   }).catch(function(e){ info.textContent = 'Error: ' + e.message; });
+};
+
+// ── Setup profit calendar: the pasted setups' results by day (GET /api/setups/calendar), apart from the account's Daywise PnL calendar ──────
+window._setupCal = { data: null, month: null };
+window.setupCalOpen = function(){ document.getElementById('setupCalModal').classList.add('open'); window.setupCalLoad(); };
+window.setupCalClose = function(){ document.getElementById('setupCalModal').classList.remove('open'); };
+window.setupCalLoad = function(){
+  var g = function(id){ return document.getElementById(id); };
+  var q = 'plan=' + g('setupCalPlan').value + '&risk=' + (parseFloat(g('setupCalRisk').value) || 0) + '&fees=' + (g('setupCalFees').checked ? 1 : 0) + '&tz=' + (-new Date().getTimezoneOffset() / 60);
+  g('setupCalList').innerHTML = '<div style="text-align:center;color:var(--td);font-size:12px;padding:24px 0">Loading…</div>';
+  fetch('/api/setups/calendar?' + q).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+    if(!d || !d.ok){ g('setupCalList').innerHTML = '<div class="emp">Unavailable: ' + sbgzEsc((d && d.error) || 'no answer (server not updated yet?)') + '</div>'; return; }
+    window._setupCal.data = d;
+    if(!window._setupCal.month) window._setupCal.month = (d.days[0] ? d.days[0].date : new Date().toISOString().slice(0, 10)).slice(0, 7);
+    window.setupCalRender();
+  }).catch(function(e){ g('setupCalList').innerHTML = '<div class="emp">Error: ' + sbgzEsc(e.message) + '</div>'; });
+};
+window.setupCalMonth = function(delta){
+  var m = window._setupCal.month || new Date().toISOString().slice(0, 7), y = parseInt(m.slice(0, 4), 10), n = parseInt(m.slice(5, 7), 10) - 1 + delta;
+  y += Math.floor(n / 12); n = ((n % 12) + 12) % 12;
+  window._setupCal.month = y + '-' + String(n + 1).padStart(2, '0'); window.setupCalRender();
+};
+window.setupCalRender = function(){
+  var d = window._setupCal.data; if(!d) return;
+  var g = function(id){ return document.getElementById(id); }, usd = d.risk > 0, t = d.total;
+  var sgn = function(x){ return (x >= 0 ? '+' : '-'); }, fR = function(x){ return sgn(x) + Math.abs(x).toFixed(1) + 'R'; }, fU = function(x){ return sgn(x) + '$' + Math.abs(x).toFixed(2); };
+  g('setupCalKpi').innerHTML =
+    '<div class="msc"><div class="msl">Net result</div><div class="msv fm ' + (t.r >= 0 ? 'up' : 'dn') + '">' + fR(t.r) + (usd ? ' · ' + fU(t.usd) : '') + '</div></div>' +
+    '<div class="msc"><div class="msl">Trades</div><div class="msv fm">' + t.n + ' <span style="font-size:11px">(' + t.wins + 'W / ' + t.losses + 'L)</span></div></div>' +
+    '<div class="msc"><div class="msl">Best day</div><div class="msv fm up">' + (t.best != null ? fR(t.best) : '--') + '</div></div>' +
+    '<div class="msc"><div class="msl">Worst day</div><div class="msv fm dn">' + (t.worst != null ? fR(t.worst) : '--') + '</div></div>';
+  var m = window._setupCal.month, y = parseInt(m.slice(0, 4), 10), mo = parseInt(m.slice(5, 7), 10) - 1, byDate = {};
+  d.days.forEach(function(x){ byDate[x.date] = x; });
+  var first = new Date(Date.UTC(y, mo, 1)), lead = (first.getUTCDay() + 6) % 7, dim = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate(), cells = '', mSum = 0, mN = 0;
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function(n){ cells += '<div style="text-align:center;font-size:10px;color:var(--td)">' + n + '</div>'; });
+  for(var i = 0; i < lead; i++) cells += '<div></div>';
+  for(var day = 1; day <= dim; day++){
+    var key = m + '-' + String(day).padStart(2, '0'), x = byDate[key];
+    if(x){ mSum += x.r; mN += x.n; }
+    var bg = !x ? 'rgba(255,255,255,.03)' : x.r >= 0 ? 'rgba(16,185,129,' + Math.min(0.45, 0.12 + Math.abs(x.r) / 20) + ')' : 'rgba(244,63,94,' + Math.min(0.45, 0.12 + Math.abs(x.r) / 20) + ')';
+    cells += '<div style="background:' + bg + ';border-radius:6px;padding:4px 2px;min-height:46px;text-align:center;font-size:10px"><div style="color:var(--td)">' + day + '</div>' +
+      (x ? '<div class="' + (x.r >= 0 ? 'up' : 'dn') + '" style="font-weight:700">' + fR(x.r) + '</div>' + (usd ? '<div style="font-size:9px" class="' + (x.r >= 0 ? 'up' : 'dn') + '">' + fU(x.usd) + '</div>' : '') : '') + '</div>';
+  }
+  g('setupCalGrid').innerHTML = cells;
+  g('setupCalMonthTitle').innerHTML = '<i class="fa-solid fa-calendar" style="color:var(--bb-gold)"></i> ' + first.toLocaleString([], { month: 'long', year: 'numeric', timeZone: 'UTC' }) + ' · <b class="' + (mSum >= 0 ? 'up' : 'dn') + '">' + fR(mSum) + (usd ? ' · ' + fU(mSum * d.risk) : '') + '</b> <span class="mut">' + mN + ' trades</span>';
+  g('setupCalCount').textContent = d.days.length + (d.days.length === 1 ? ' Day' : ' Days');
+  g('setupCalList').innerHTML = d.days.length ? d.days.map(function(x, idx){
+    var trades = x.trades.map(function(tr){
+      return '<div class="cal-trade-item"><div class="cal-trade-info"><span class="cal-trade-sym">' + sbgzEsc(tr.coin) + '</span><span class="cal-trade-side ' + (tr.side === 'LONG' ? 'buy' : 'sell') + '">' + tr.side + '</span><span class="cal-trade-reason">' + tr.result + '</span></div>' +
+        '<div class="cal-trade-pnl ' + (tr.r >= 0 ? 'up' : 'dn') + '">' + fR(tr.r) + (usd ? ' · ' + fU(tr.r * d.risk) : '') + '</div></div>';
+    }).join('');
+    return '<div class="cal-day-card' + (idx === 0 ? ' expanded' : '') + '"><div class="cal-day-header" onclick="this.parentElement.classList.toggle(\'expanded\')"><div class="cal-day-left"><span class="cal-day-date">' + x.date + '</span>' +
+      '<span class="cal-day-badge">' + x.n + ' Trades</span><span class="cal-wr-badge ' + (x.wins >= x.losses ? 'wr-up' : 'wr-dn') + '">' + x.wins + 'W / ' + x.losses + 'L</span></div>' +
+      '<div class="cal-day-right"><span class="cal-day-pnl ' + (x.r >= 0 ? 'up' : 'dn') + '">' + fR(x.r) + (usd ? ' · ' + fU(x.usd) : '') + '</span><i class="fa-solid fa-chevron-down cal-exp-icon"></i></div></div><div class="cal-day-trades">' + trades + '</div></div>';
+  }).join('') : '<div style="text-align:center;color:var(--td);font-size:12px;padding:24px 0">No finished setups yet. Results appear here as the pasted setups hit a target or the stop.</div>';
 };
 
 window.setupSave = function(){

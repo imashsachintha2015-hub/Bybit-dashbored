@@ -1608,10 +1608,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # 6a-0e. API: setup tracker (backend_lib/setup_tracker.py): the pasted list of breakout setups, each judged when this is asked (nothing runs in between)
-        if urllib.parse.urlparse(self.path).path == "/api/setups":
+        if urllib.parse.urlparse(self.path).path in ("/api/setups", "/api/setups/calendar"):
             try:
                 from backend_lib import setup_tracker as _st
-                self._send_json(200, _st.status())
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                if urllib.parse.urlparse(self.path).path.endswith("/calendar"):
+                    num = lambda k, d: float((q.get(k) or [d])[0])
+                    self._send_json(200, _st.calendar(plan=1 if (q.get("plan") or ["2"])[0] == "1" else 2, risk=max(0.0, num("risk", 0)), fees=(q.get("fees") or ["1"])[0] != "0",
+                                                      tz=max(-12.0, min(14.0, num("tz", 0)))))
+                else:
+                    from backend_lib import setup_orders as _so
+                    d = _st.status()
+                    d["orders"] = _so.summary()
+                    self._send_json(200, d)
             except Exception as e:
                 self._send_json(200, {"ok": False, "error": f"setup tracker failed: {e}"})
             return
