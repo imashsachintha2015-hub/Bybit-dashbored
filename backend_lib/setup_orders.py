@@ -7,8 +7,10 @@ The long and the short of one coin are an either-or pair (one-way position mode)
 you already hold a position or have an order of your own is skipped, and so is a setup whose entry price the market has already passed.
 Untriggered orders are cancelled when the list expires, is replaced or is cleared. Open trades keep their stop and take-profit on Bybit.
 State is kept under the setup_orders key (what was placed, skipped and why); orderLinkIds start with tg-."""
+import json
 import threading
 import time
+import urllib.request
 
 from . import sbgz_auto, setup_tracker, sbgz_trade as T
 
@@ -63,6 +65,21 @@ def _body(coin, side, entry, stop, qty, tp, link, spec):
                 triggerPrice=T.fmt(entry, spec["tick"]), triggerDirection=1 if side == "LONG" else 2, triggerBy="LastPrice",
                 stopLoss=T.fmt(stop, spec["tick"]), takeProfit=T.fmt(tp, spec["tick"]), tpslMode="Partial", tpOrderType="Limit", tpLimitPrice=T.fmt(tp, spec["tick"]),
                 slOrderType="Market", tpTriggerBy="LastPrice", slTriggerBy="LastPrice", orderLinkId=link)
+
+
+def _prices():
+    """{symbol: last price} of every linear perpetual (one public request); {} when Bybit does not answer."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request("https://api.bybit.com/v5/market/tickers?category=linear", headers={"User-Agent": "MASIS/3.0"}), timeout=8) as r:
+            rows = (json.loads(r.read().decode()).get("result") or {}).get("list") or []
+        return {x["symbol"]: _f(x.get("lastPrice")) for x in rows if x.get("symbol") and _f(x.get("lastPrice")) > 0}
+    except Exception:
+        return {}
+
+
+def _past(side, price, level):
+    """True when the price is at or beyond a level on the stop's side (a LONG's stop / invalidation is below, a SHORT's above)."""
+    return bool(level and price) and ((price <= level) if side == "LONG" else (price >= level))
 
 
 def _exchange(client):
@@ -144,11 +161,15 @@ def place_all(client, created, rows, risk_usd=DEFAULT_RISK, resume=False):
     positions, busy, err = _exchange(client)
     if err: return dict(ok=False, error=err)
     st = old if resume else dict(created=created, orders={}, skipped=[], placed_at=int(time.time() * 1000), risk=risk_usd)
-    skipped = []
+    skipped = []; prices = _prices()
     with _lock:
         for r in rows[:MAX_SETUPS]:
             coin, side, sym = r["coin"], r["side"], r["coin"] + "USDT"
             mine = [o for o in st["orders"].values() if o["coin"] == coin and o["side"] == side]
+            px = prices.get(sym)
+            if not mine and _past(side, px, r.get("inval")): skipped.append((coin, side, f"price {px:g} is already past the invalidation level {r['inval']:g}: the setup is void")); continue
+            if not mine and px and ((px >= r["entry"]) if side == "LONG" else (px <= r["entry"])):
+                skipped.append((coin, side, f"price {px:g} is already through the entry {r['entry']:g}: a breakout order there would fill at once")); continue
             if sym in positions and not mine: skipped.append((coin, side, "you already hold a position on this coin")); continue
             if sym in busy: skipped.append((coin, side, "you already have an order of your own on this coin")); continue
             spec = T.instrument(sym)
@@ -168,7 +189,8 @@ def place_all(client, created, rows, risk_usd=DEFAULT_RISK, resume=False):
                 res = _call(client, "/v5/order/create", _body(coin, side, plan["entry"], plan["stop"], qty, tp, link, spec))
                 if res.get("retCode") in (0, 110072):                                                              # 110072: this link is already on Bybit
                     got += 1
-                    st["orders"][link] = dict(coin=coin, side=side, leg=leg, qty=qty, entry=plan["entry"], stop=plan["stop"], tp=tp, status="waiting", placed=st["placed_at"])
+                    st["orders"][link] = dict(coin=coin, side=side, leg=leg, qty=qty, entry=plan["entry"], stop=plan["stop"], tp=tp, inval=r.get("inval"), status="waiting",
+                                              placed=int(time.time() * 1000))
                 else:
                     first_err = first_err or f"Bybit refused it: {res.get('retMsg')} (code {res.get('retCode')})"
             if not got: skipped.append((coin, side, first_err or "not placed"))
@@ -186,11 +208,12 @@ def retryable(res):
 
 
 def manage(client, now=None, force=False):
-    """One pass (the caller runs it about once a minute): an order whose coin now holds a position of its side is 'filled' and its either-or
-    partner is cancelled; the untriggered orders are cancelled once the list has expired. Returns a list of event strings (for Telegram)."""
+    """One pass (the caller runs it every ~20 s; at most every 15 s): an order whose coin now holds a position of its side, opened after the order
+    was placed, is 'filled' and its either-or partner is cancelled; an untriggered order is cancelled once the price is past its setup's
+    invalidation level, or once the list has expired. Returns a list of event strings (for Telegram)."""
     global _last_manage
     now = now or int(time.time() * 1000)
-    if not force and now - _last_manage < 55_000: return []
+    if not force and now - _last_manage < 15_000: return []
     _last_manage = now
     events = []; expire_ms = setup_tracker.expiry_ms()
     with _lock:
@@ -198,10 +221,11 @@ def manage(client, now=None, force=False):
         if not ok or not any(o["status"] in ("waiting", "filled") for o in st["orders"].values()): return events
         positions, busy, err = _exchange(client)
         if err: return events
+        prices = _prices() if any(o["status"] == "waiting" and o.get("inval") for o in st["orders"].values()) else {}
         sbgz_auto_changed = False
         for link, o in st["orders"].items():
             sym = o["coin"] + "USDT"; pos = positions.get(sym)
-            side_ok = bool(pos) and pos.get("side") == ("Buy" if o["side"] == "LONG" else "Sell")
+            side_ok = bool(pos) and pos.get("side") == ("Buy" if o["side"] == "LONG" else "Sell") and (int(_f(pos.get("createdTime"))) or 10**15) >= o.get("placed", 0) - 5_000   # a position you already had is not a fill
             if o["status"] == "waiting" and side_ok:
                 o["status"] = "filled"; o["fill"] = now; sbgz_auto_changed = True
                 if not any(e.startswith(f"🟡 {o['coin']} {o['side']} ") for e in events):
@@ -211,11 +235,24 @@ def manage(client, now=None, force=False):
                         r = client.signed_request("POST", "/v5/order/cancel", body=dict(category="linear", symbol=sym, orderLinkId=l2, orderFilter="StopOrder"))
                         if r.get("retCode") in (0, 110001, 110010, 20001): o2["status"] = "cancelled"; o2["why"] = "the other side triggered"
             elif o["status"] == "filled" and not pos: o["status"] = "done"; o["done"] = now; sbgz_auto_changed = True
+            elif o["status"] == "waiting" and _past(o["side"], prices.get(sym), o.get("inval")):
+                r = client.signed_request("POST", "/v5/order/cancel", body=dict(category="linear", symbol=sym, orderLinkId=link, orderFilter="StopOrder"))
+                if r.get("retCode") in (0, 110001, 110010, 20001):
+                    o["status"] = "cancelled"; o["why"] = "invalidated"; sbgz_auto_changed = True
+                    if not any(e.startswith(f"🚫 {o['coin']} {o['side']} ") for e in events):
+                        events.append(f"🚫 {o['coin']} {o['side']} invalidated before the entry (price {prices[sym]:g} past {o['inval']:g}): its orders are cancelled")
             elif o["status"] == "waiting" and now - (st.get("created") or now) > expire_ms:
                 r = client.signed_request("POST", "/v5/order/cancel", body=dict(category="linear", symbol=sym, orderLinkId=link, orderFilter="StopOrder"))
                 if r.get("retCode") in (0, 110001, 110010, 20001): o["status"] = "cancelled"; o["why"] = "the list expired"; sbgz_auto_changed = True
         if sbgz_auto_changed: sbgz_auto._write_key(KEY, st)
     return events
+
+
+def busy_symbols():
+    """Coins where the pasted-setup orders wait or are open: the SBGZ / AMD auto-orders leave them alone (their order lists do not show
+    conditional orders, and one-way mode would merge two strategies' positions on one coin)."""
+    st, ok = _load()
+    return {o["coin"] + "USDT" for o in st["orders"].values() if o["status"] in ("waiting", "filled")} if ok else set()
 
 
 def summary():

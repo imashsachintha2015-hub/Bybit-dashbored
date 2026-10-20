@@ -301,7 +301,7 @@ def _active(st, live):
 def _place_new(client, st, cfg, now, ex, rows, counts, live, price_of):
     mode = "live" if live else "preview"; day = _day(st, now)
     keys = st["keys"] if live else st["pkeys"]
-    busy = set(ex["positions"]) | {o.get("symbol") for o in ex["orders"]} | {t["symbol"] for t in _active(st, live)}
+    busy = set(ex["positions"]) | {o.get("symbol") for o in ex["orders"]} | {t["symbol"] for t in _active(st, live)} | A._setup_order_coins()
     act = _active(st, live); n_wait = sum(1 for t in act if t["status"] == "resting"); n_open = len(act) - n_wait
     for row in sorted((r for r in rows.values() if r["status"] == "PENDING"), key=lambda r: r["signal_t"]):
         key, sym = row["key"], row["symbol"]

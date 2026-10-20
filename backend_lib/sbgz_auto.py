@@ -440,6 +440,15 @@ def _trim_waiting(client, st, cfg, now, ex, counts, live):
                                                   "(it is placed again when there is room)"): counts["cancelled"] += 1
 
 
+def _setup_order_coins():
+    """Coins the pasted-setup orders (backend_lib/setup_orders.py) are using; empty if that cannot be read."""
+    try:
+        from . import setup_orders
+        return setup_orders.busy_symbols()
+    except Exception:
+        return set()
+
+
 def _place_new(client, st, cfg, now, ex, setups, counts, live):
     """New orders for the setups that pass the filters, best first, inside the caps."""
     day = _day(st, now); mode = "live" if live else "preview"
@@ -448,7 +457,7 @@ def _place_new(client, st, cfg, now, ex, setups, counts, live):
         return
     n_wait, n_open, _ = _used(st, not live); open_risk = _open_risk(st, not live)      # waiting orders do not use the risk limit (see the module docstring)
     equity = ex["equity"]; keys = st["keys"] if live else st["pkeys"]
-    busy = set(ex["positions"]) | {o.get("symbol") for o in ex["orders"]}       # a coin with a position or any order is left alone
+    busy = set(ex["positions"]) | {o.get("symbol") for o in ex["orders"]} | _setup_order_coins()   # a coin with a position or any order is left alone
     held = {t["symbol"] for t in st["tracked"].values() if t["status"] in ("resting", "open", "closing") and bool(t.get("virtual")) == (not live)}
     cands = sorted((s for s in setups.values() if s["interval"] in cfg["intervals"] and (s["vol_ok"] or not cfg["vol_only"])),
                    key=lambda s: (not s["vol_ok"], s["interval"] != "60", -(s["since"] or 0)))
