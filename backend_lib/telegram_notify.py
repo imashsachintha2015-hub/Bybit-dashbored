@@ -3,7 +3,8 @@
 The bot token is read from the TELEGRAM_BOT_TOKEN environment variable (never stored in the code or the database). The first person to send
 /start to the bot becomes the receiver (TELEGRAM_CHAT_ID overrides that). Every 5 minutes the pasted setups are judged and a message goes out
 when a setup changes status (entered, TP1, TP2, stopped, expired); nothing is sent when nothing changed. Commands: /start, /status (every
-setup right now), /stop (stop the messages). Only the pasted setups are looked at: no orders, no other markets."""
+setup right now), /stop (stop the messages). The receiver can also paste the setups CSV into the chat (long lists arrive as several messages: they
+are joined) or send it as a .csv / .txt file: it replaces the tracked list, like the dashboard's Track button. Only the pasted setups are looked at: no orders, no other markets."""
 import json
 import os
 import threading
@@ -19,6 +20,7 @@ CHECK_EVERY = 300.0
 POLL_EVERY = 20.0
 FINAL = ("TP2 HIT", "STOPPED", "STOPPED AFTER TP1", "EXPIRED", "NO DATA")
 ICON = {"ENTERED": "🟡 ENTERED", "TP1 HIT": "🟢 TP1 HIT", "TP2 HIT": "✅ TP2 HIT", "STOPPED": "🔴 STOPPED", "STOPPED AFTER TP1": "🟠 STOPPED AFTER TP1", "EXPIRED": "⚪ EXPIRED"}
+_pieces = []                                                                         # CSV text received in the last poll(s), saved when no more arrives
 _thread = None
 _stop = threading.Event()
 _lock = threading.Lock()
@@ -44,6 +46,37 @@ def send(chat_id, text):
     for i in range(0, len(text), 3800):                                              # Telegram's limit is 4096 characters
         if not _api("sendMessage", dict(chat_id=chat_id, text=text[i:i + 3800], disable_web_page_preview="true")): return False
     return True
+
+
+def _csv_like(text):
+    lines = [l for l in (text or "").splitlines() if l.strip()]
+    return bool(lines) and not text.lstrip().startswith("/") and sum(1 for l in lines if l.count(",") >= 5 or l.count("\t") >= 5) >= max(1, len(lines) // 2)
+
+
+def _download(doc):
+    """Text of a Telegram document (.csv / .txt up to 200 KB), or None."""
+    name = (doc.get("file_name") or "").lower()
+    if not name.endswith((".csv", ".txt", ".tsv")) or int(doc.get("file_size") or 0) > 200_000: return None
+    r = _api("getFile", dict(file_id=doc.get("file_id")))
+    path = ((r or {}).get("result") or {}).get("file_path")
+    if not path: return None
+    try:
+        with urllib.request.urlopen(f"https://api.telegram.org/file/bot{_token()}/{path}", timeout=20) as f:
+            return f.read().decode("utf-8", "replace")
+    except Exception as e:
+        print(f"[telegram] file download failed: {type(e).__name__}")
+        return None
+
+
+def _save_pieces(cid, reply):
+    text = "\n".join(_pieces); _pieces.clear()
+    r = setup_tracker.save(text)
+    if r.get("ok"):
+        msg = f"Tracking {r['saved']} setups (the old list is replaced). I will message you when one enters, hits a target, is stopped or expires. /status shows them all."
+        if r.get("skipped"): msg += "\nSkipped:\n" + "\n".join(r["skipped"][:10])
+    else:
+        msg = "I could not read that list: " + str(r.get("error"))
+    reply(cid, msg)
 
 
 def _chat():
@@ -100,7 +133,7 @@ def poll(send_fn=None):
     r = _api("getUpdates", dict(offset=(_chat() or {}).get("offset", 0), timeout=0, allowed_updates=json.dumps(["message"])))
     if not r or not r.get("ok"): return 0
     reply = send_fn or send; n = 0
-    chat = _chat(); doc = dict(chat) if chat else None
+    chat = _chat(); doc = dict(chat) if chat else None; got_csv = False
     for u in r.get("result") or []:
         msg = u.get("message") or {}; cid = (msg.get("chat") or {}).get("id"); text = (msg.get("text") or "").strip().lower().split("@")[0]
         off = u["update_id"] + 1
@@ -115,6 +148,12 @@ def poll(send_fn=None):
                 reply(cid, "This bot already belongs to someone else.")
         elif doc is None or str(doc.get("id")) != str(cid):
             continue
+        elif msg.get("document") and not text:
+            body = _download(msg["document"])
+            if body and _csv_like(body): _pieces.append(body); got_csv = True
+            else: reply(cid, "Send the setups as text or as a .csv / .txt file with Coin,Side,Reference USD,Entry,Stop,TP1,TP2,...")
+        elif _csv_like(msg.get("text") or ""):
+            _pieces.append(msg["text"]); got_csv = True
         elif text == "/status":
             d = setup_tracker.status()
             reply(cid, summary(d) if d.get("ok") and not d.get("empty") else "No setups are being tracked. Paste a list on the dashboard.")
@@ -122,6 +161,7 @@ def poll(send_fn=None):
             doc["muted"] = True; reply(cid, "Messages stopped. Send /start to turn them on again.")
         else:
             reply(cid, "Commands: /status · /stop · /start")
+    if _pieces and not got_csv and doc is not None: _save_pieces(doc["id"], reply)           # nothing more arrived since the last poll: the list is complete
     if doc is not None and doc != chat and not (os.environ.get("TELEGRAM_CHAT_ID") or "").strip():
         sbgz_auto._write_key(CHAT_KEY, doc)
     return n

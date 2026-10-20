@@ -51,6 +51,23 @@ def test_bot():
             S.status = lambda now=None: status(dict(ROW, status="TP1 HIT", R1=1.5), created=6)
             n = len(out); assert N.check() == 0 and len(out) == n, "muted"
             assert "TESTTOKEN" not in repr(out)
+            # pasting the list into the chat: long lists arrive as several messages and are joined; a stranger's paste is ignored
+            saved = []
+            real_save = S.save
+            S.save = lambda text: saved.append(text) or dict(ok=True, saved=text.count("\n") + 1, skipped=[])
+            csv1 = "Coin,Side,Reference USD,Entry,Stop,TP1,TP2,RR TP1,RR TP2,Status\nBTC,long,1,2,0.5,3,4,1.5,2,Unconfirmed"
+            csv2 = "ETH,short,1,2,3,1,0.5,1.5,2,Unconfirmed"
+            n = len(out)
+            updates.append(dict(update_id=20, message=dict(chat=dict(id=222), text=csv1))); N.poll(); N.poll()
+            assert not saved and len(out) == n, "a stranger's paste is ignored"
+            updates.append(dict(update_id=21, message=dict(chat=dict(id=111), text=csv1)))
+            updates.append(dict(update_id=22, message=dict(chat=dict(id=111), text=csv2)))
+            N.poll(); assert not saved, "wait: more pieces may follow"
+            N.poll(); assert len(saved) == 1 and "BTC,long" in saved[0] and "ETH,short" in saved[0], saved
+            assert "Tracking 3 setups" in out[-1][1] and out[-1][0] == "111", out[-1]
+            N.poll(); assert len(saved) == 1, "saved once"
+            updates.append(dict(update_id=23, message=dict(chat=dict(id=111), text="hello"))); N.poll(); assert "Commands" in out[-1][1]
+            S.save = real_save
         finally:
             A.ROOT, N._api, S.status = old; os.environ.pop("SBGZ_AUTO_BACKEND", None); os.environ.pop("TELEGRAM_BOT_TOKEN", None)
     print("  /start registers the first sender only; messages only on a status change; /status, /stop; a new paste starts fresh")
