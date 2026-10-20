@@ -19,7 +19,7 @@ CHAT_KEY = "telegram_chat"
 SENT_KEY = "setup_notified"
 CHECK_EVERY = 300.0
 POLL_EVERY = 20.0
-FINAL = ("TP2 HIT", "STOPPED", "STOPPED AFTER TP1", "EXPIRED", "NO DATA")
+FINAL = ("TP2 HIT", "STOPPED", "STOPPED AFTER TP1", "EXPIRED", "INVALIDATED", "NO DATA")
 ICON = {"ENTERED": "🟡 ENTERED", "TP1 HIT": "🟢 TP1 HIT", "TP2 HIT": "✅ TP2 HIT", "STOPPED": "🔴 STOPPED", "STOPPED AFTER TP1": "🟠 STOPPED AFTER TP1", "EXPIRED": "⚪ EXPIRED"}
 _pieces = []                                                                         # CSV text received in the last poll(s), saved when no more arrives
 _thread = None
@@ -170,7 +170,7 @@ def cmd_net(d, risk=None):
             f"\n\n<i>Fees: taker {setup_tracker.TAKER * 100:.3f}% on the entry and a stop, maker {setup_tracker.MAKER * 100:.3f}% on a take-profit. Open trades now: {s['open']} ({un:+.1f}R{esc(usd(un, risk))})" + ("" if risk else " · try /net 2 for $2 per trade") + "</i>")
 
 
-ICON1 = {"ENTERED": "🟡", "TP1 HIT": "🟢", "TP2 HIT": "✅", "STOPPED": "🔴", "STOPPED AFTER TP1": "🟠", "EXPIRED": "⚪", "WAITING": "⏳"}
+ICON1 = {"ENTERED": "🟡", "TP1 HIT": "🟢", "TP2 HIT": "✅", "STOPPED": "🔴", "STOPPED AFTER TP1": "🟠", "EXPIRED": "⚪", "INVALIDATED": "🚫", "WAITING": "⏳"}
 
 
 def row(x):
@@ -193,7 +193,7 @@ def summary(d, rows=True, risk=None):
     s = d["summary"]; un = s["unrealized_r"]
     head = (f"<b>📊 Setup report</b>\n{SEP}\n"
             f"<b>Trades</b>  {s['trades']} entered of {s['n']} setups\n"
-            f"✅ Wins (reached TP1): <b>{s['wins']}</b>\n🔴 Losses (stopped): <b>{s['losses']}</b>\n🟡 Open: <b>{s['open']}</b>   ⏳ Waiting: {s['waiting']}   ⚪ Expired: {s['expired']}\n"
+            f"✅ Wins (reached TP1): <b>{s['wins']}</b>\n🔴 Losses (stopped): <b>{s['losses']}</b>\n🟡 Open: <b>{s['open']}</b>   ⏳ Waiting: {s['waiting']}   ⚪ Expired: {s['expired']}" + (f"   🚫 Invalidated: {s['invalidated']}" if s.get("invalidated") else "") + "\n"
             f"🎯 TP1 hit trades: <b>{s['tp1_hit']}</b>   TP2 hits: {s['tp2']}" +
             (f"\n⚠️ <b>{s['no_data']} setup(s) have no price data right now</b> (Bybit did not answer): the numbers below leave them out. Send /status again in a minute." if s.get("no_data") else ""))
     net = ("<b>💰 Net result</b>\n" + pre([f"Exit all at TP1  {s['r_tp1_plan']:+.1f}R{usd(s['r_tp1_plan'], risk)}", f"  {breakdown(d['rows'], 'R1')}",
@@ -415,7 +415,7 @@ def digest(send_fn=None, now=None):
     return 1
 
 
-def check(send_fn=None, now=None):
+def check(send_fn=None, now=None, client_fn=None):
     """Judge the pasted setups and send what changed. Returns the number of messages sent (0 when nothing changed, nobody is registered, or it is muted / quiet)."""
     chat = _chat(); now_ms = now or int(time.time() * 1000)
     if not chat or chat.get("muted") or (chat.get("quiet_until") or 0) > now_ms: return 0
@@ -426,9 +426,14 @@ def check(send_fn=None, now=None):
     if not sent or sent.get("created") != d["created"]: sent = dict(created=d["created"], sent={})
     changed = [x for x in d["rows"] if x["status"] not in ("WAITING", "NO DATA") and sent["sent"].get(f"{x['coin']}|{x['side']}") != x["status"]]
     if not changed: return 0
+    if client_fn:                                                       # an invalidated setup: its orders are no longer wanted
+        for x in changed:
+            if x["status"] == "INVALIDATED":
+                try: setup_orders.cancel_setup(client_fn(), x["coin"], x["side"], "invalidated")
+                except Exception as e: print(f"[telegram] cancelling the orders of an invalidated setup failed: {type(e).__name__}")
     by = {}
     for x in changed: by.setdefault(x["status"], []).append(x)
-    names = [("ENTERED", "🟡 Entered"), ("TP1 HIT", "🟢 TP1 reached"), ("TP2 HIT", "✅ TP2 reached"), ("STOPPED", "🔴 Stopped"), ("STOPPED AFTER TP1", "🟠 Stopped after TP1"), ("EXPIRED", "⚪ Expired")]
+    names = [("ENTERED", "🟡 Entered"), ("TP1 HIT", "🟢 TP1 reached"), ("TP2 HIT", "✅ TP2 reached"), ("STOPPED", "🔴 Stopped"), ("STOPPED AFTER TP1", "🟠 Stopped after TP1"), ("EXPIRED", "⚪ Expired"), ("INVALIDATED", "🚫 Invalidated (price went past the invalidation level before the entry)")]
     left = sum(1 for x in d["rows"] if x["status"] not in FINAL); sm = d["summary"]
     blocks = ["<b>🔔 Setup update</b>"] + [_section(t, by[k]) for k, t in names if k in by]
     blocks.append(f"⏳ {left} still waiting or open · net so far: TP1 plan <b>{sm['r_tp1_plan']:+.1f}R</b> · TP2 plan <b>{sm['r_tp2_plan']:+.1f}R</b>")
@@ -509,7 +514,7 @@ def start_thread(get_client=None, delay=60.0):
             try:
                 with _lock:
                     poll(client_fn=get_client)
-                    if time.time() - last >= CHECK_EVERY: last = time.time(); check(); digest()
+                    if time.time() - last >= CHECK_EVERY: last = time.time(); check(client_fn=get_client); digest()
                     if get_client: manage_orders(get_client)
             except Exception as e:
                 print(f"[telegram] loop: {type(e).__name__}: {e}")

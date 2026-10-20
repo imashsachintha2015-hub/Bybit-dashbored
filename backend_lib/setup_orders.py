@@ -99,6 +99,20 @@ def cancel_all(client, why="replaced"):
         return n
 
 
+def cancel_setup(client, coin, side, why):
+    """Cancel the untriggered orders of one setup (its price went past the invalidation level before the entry). Returns the number cancelled."""
+    with _lock:
+        st, ok = _load()
+        if not ok: return 0
+        n = 0
+        for link, o in st["orders"].items():
+            if o["coin"] != coin or o["side"] != side or o["status"] != "waiting": continue
+            r = client.signed_request("POST", "/v5/order/cancel", body=dict(category="linear", symbol=coin + "USDT", orderLinkId=link, orderFilter="StopOrder"))
+            if r.get("retCode") in (0, 110001, 110010, 20001): o["status"] = "cancelled"; o["why"] = why; n += 1
+        if n: sbgz_auto._write_key(KEY, st)
+        return n
+
+
 def place_all(client, created, rows, risk_usd=DEFAULT_RISK):
     """Place the orders of a freshly pasted list. Returns dict(ok, placed_orders, placed_setups, skipped=[(coin, side, why)], error)."""
     if T.account(client) == "REAL":

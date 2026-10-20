@@ -39,29 +39,42 @@ def _num(x):
         return None
 
 
+HEADERS = {"coin": "coin", "symbol": "coin", "pair": "coin", "side": "side", "direction": "side", "referenceusd": "ref", "reference": "ref", "ref": "ref", "entry": "entry",
+           "stop": "stop", "stoploss": "stop", "sl": "stop", "tp1": "tp1", "tp2": "tp2", "rrtp1": "rr1", "rrtp2": "rr2", "rr1": "rr1", "rr2": "rr2",
+           "invalidation": "inval", "invalid": "inval", "invalidationprice": "inval", "status": "status"}
+OLD_ORDER = ("coin", "side", "ref", "entry", "stop", "tp1", "tp2", "rr1", "rr2")        # a list without a header: Coin,Side,Reference,Entry,Stop,TP1,TP2,RR1,RR2
+
+
 def parse(text):
-    """Rows of the pasted text (CSV with a header, or tab separated). Returns (rows, errors). A row: coin, side, ref, entry, stop, tp1, tp2, rr1, rr2."""
+    """Rows of the pasted text (CSV or tab separated). The columns are found by the header names (Coin, Side, Entry, Stop, TP1, TP2, RR_TP1, RR_TP2,
+    Invalidation, Reference USD, Status ...: any order, any of them missing except coin / side / entry / stop / TP1); a list without a header is read as
+    Coin,Side,Reference,Entry,Stop,TP1,TP2,RR1,RR2. Returns (rows, errors). A row: coin, side, ref, entry, stop, tp1, tp2, rr1, rr2, inval."""
     text = (text or "").strip()
     if not text: return [], ["nothing was pasted"]
     dialect = "excel-tab" if "\t" in text.splitlines()[0] else "excel"
     rd = csv.reader(io.StringIO(text), dialect=dialect)
-    rows, errs = [], []
+    rows, errs = [], []; cols = dict(zip(OLD_ORDER, range(len(OLD_ORDER))))
     for i, line in enumerate(rd, 1):
         cells = [c.strip() for c in line]
         if not any(cells): continue
-        if cells[0].lower() in ("coin", "symbol", "pair"): continue
-        if len(cells) < 6: errs.append(f"line {i}: needs at least Coin,Side,Reference,Entry,Stop,TP1"); continue
-        coin = re.sub(r"[^A-Z0-9]", "", cells[0].upper())
+        if cells[0].lower() in ("coin", "symbol", "pair") or any(re.sub(r"[^a-z0-9]", "", c.lower()) == "entry" for c in cells) and _num(cells[0]) is None:
+            found = {HEADERS[k]: j for j, c in enumerate(cells) for k in [re.sub(r"[^a-z0-9]", "", c.lower())] if k in HEADERS}
+            if {"coin", "side", "entry", "stop", "tp1"} <= set(found): cols = found
+            else: errs.append(f"line {i}: the header needs Coin, Side, Entry, Stop and TP1 columns")
+            continue
+        get = lambda name: cells[cols[name]] if name in cols and cols[name] < len(cells) else ""
+        if len(cells) < 6: errs.append(f"line {i}: needs at least Coin,Side,Entry,Stop,TP1"); continue
+        coin = re.sub(r"[^A-Z0-9]", "", get("coin").upper())
         coin = coin[:-4] if coin.endswith("USDT") else coin
-        side = {"long": "LONG", "buy": "LONG", "short": "SHORT", "sell": "SHORT"}.get(cells[1].lower())
-        ref, entry, stop, tp1 = (_num(cells[k]) for k in (2, 3, 4, 5))
-        tp2 = _num(cells[6]) if len(cells) > 6 else None
-        if not coin or not side or not entry or not stop or not tp1: errs.append(f"line {i}: could not read {cells[0] or '?'} {cells[1] if len(cells) > 1 else ''}"); continue
+        side = {"long": "LONG", "buy": "LONG", "short": "SHORT", "sell": "SHORT"}.get(get("side").lower())
+        entry, stop, tp1, tp2 = (_num(get(k)) for k in ("entry", "stop", "tp1", "tp2"))
+        if not coin or not side or not entry or not stop or not tp1: errs.append(f"line {i}: could not read {get('coin') or '?'} {get('side')}"); continue
         sd = 1 if side == "LONG" else -1
         if not (sd * (stop - entry) < 0 and sd * (tp1 - entry) > 0 and (tp2 is None or sd * (tp2 - entry) > 0)):
             errs.append(f"line {i}: {coin} {side}: stop / targets are on the wrong side of the entry"); continue
-        rows.append(dict(coin=coin, side=side, ref=ref, entry=entry, stop=stop, tp1=tp1, tp2=tp2,
-                         rr1=_num(cells[7]) if len(cells) > 7 else None, rr2=_num(cells[8]) if len(cells) > 8 else None))
+        inval = _num(get("inval"))
+        if inval is not None and sd * (inval - stop) >= 0: inval = None                    # it must lie beyond the stop, on the stop's side
+        rows.append(dict(coin=coin, side=side, ref=_num(get("ref")), entry=entry, stop=stop, tp1=tp1, tp2=tp2, rr1=_num(get("rr1")), rr2=_num(get("rr2")), inval=inval))
     if len(rows) > MAX_ROWS: rows, errs = rows[:MAX_ROWS], errs + [f"only the first {MAX_ROWS} rows were kept"]
     return rows, errs
 
@@ -81,15 +94,17 @@ def clear():
 
 
 def judge(r, candles, created, now, expire_ms=None):
-    """Status of one setup from candles (dicts with start ms, high, low) that start at or after the paste time. Returns dict(status, ...)."""
+    """(INVALIDATED: price reached the row's invalidation level before the entry.) Status of one setup from candles (dicts with start ms, high, low) that start at or after the paste time. Returns dict(status, ...)."""
     sd = 1 if r["side"] == "LONG" else -1; risk = abs(r["entry"] - r["stop"])
-    tp2 = r.get("tp2"); out = dict(status="WAITING", entered=None, tp1_t=None, tp2_t=None, stop_t=None, best_r=None, R1=None, R2=None, now_r=None)
+    tp2 = r.get("tp2"); out = dict(status="WAITING", inval_t=None, entered=None, tp1_t=None, tp2_t=None, stop_t=None, best_r=None, R1=None, R2=None, now_r=None)
     entered = False; best = 0.0
     for c in candles:
         hi, lo = c["high"], c["low"]
         if not entered:
             if (hi >= r["entry"]) if sd > 0 else (lo <= r["entry"]):
                 entered = True; out["entered"] = c["start"]; out["status"] = "ENTERED"
+            elif r.get("inval") and ((lo <= r["inval"]) if sd > 0 else (hi >= r["inval"])):
+                out.update(status="INVALIDATED", inval_t=c["start"]); break                # price went beyond the invalidation level without entering: the setup is void
             else:
                 continue
         fav = (hi - r["entry"]) if sd > 0 else (r["entry"] - lo)
@@ -222,7 +237,7 @@ def status(now=None):
     done = [x for x in out if x["R1"] is not None]
     done2 = [x for x in out if x["R2"] is not None]
     _archive(created, out)
-    summ = dict(n=len(out), no_data=sum(1 for x in out if x["status"] == "NO DATA"), waiting=sum(1 for x in out if x["status"] == "WAITING"), entered=sum(1 for x in out if x["entered"]),
+    summ = dict(n=len(out), invalidated=sum(1 for x in out if x["status"] == "INVALIDATED"), no_data=sum(1 for x in out if x["status"] == "NO DATA"), waiting=sum(1 for x in out if x["status"] == "WAITING"), entered=sum(1 for x in out if x["entered"]),
                 open=sum(1 for x in out if x["status"] in ("ENTERED", "TP1 HIT")), expired=sum(1 for x in out if x["status"] == "EXPIRED"),
                 stopped=sum(1 for x in out if x["status"].startswith("STOPPED")), tp1=sum(1 for x in out if x["tp1_t"]), tp2=sum(1 for x in out if x["tp2_t"]),
                 trades=sum(1 for x in out if x["entered"]), wins=sum(1 for x in out if x["tp1_t"]), losses=sum(1 for x in out if x["status"] == "STOPPED"),
